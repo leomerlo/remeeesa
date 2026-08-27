@@ -30,6 +30,7 @@ export function SignupForm({
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const [signedInUserId, setSignedInUserId] = useState<string | null>(null)
 
   async function finishSignup(
     authenticate: () => Promise<{ readonly userId: string }>,
@@ -37,13 +38,16 @@ export function SignupForm({
     setError(null)
     setPending(true)
     try {
-      let userId: string
-      try {
-        const signedIn = await authenticate()
-        userId = signedIn.userId
-      } catch {
-        setError('Could not create account')
-        return
+      let userId = signedInUserId
+      if (userId === null) {
+        try {
+          const signedIn = await authenticate()
+          userId = signedIn.userId
+          setSignedInUserId(userId)
+        } catch {
+          setError('Could not create account')
+          return
+        }
       }
 
       try {

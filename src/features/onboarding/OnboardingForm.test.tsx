@@ -384,6 +384,45 @@ describe('OnboardingForm', () => {
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
+  it('retries household create without signing up the email again', async () => {
+    const base = createMemoryHouseholdsDb().asUser('user-1')
+    let createCalls = 0
+    const db: HouseholdsDb = {
+      ...base,
+      createHouseholdAndMembership: async (input) => {
+        createCalls += 1
+        if (createCalls === 1) {
+          throw new Error('unavailable')
+        }
+        return base.createHouseholdAndMembership(input)
+      },
+    }
+    const signupAuth: SignupAuth = {
+      signUpWithEmail: vi
+        .fn()
+        .mockResolvedValueOnce({ userId: 'user-1' })
+        .mockRejectedValue(new Error('email already in use')),
+      signUpWithGoogle: vi.fn(async () => ({ userId: 'user-1' })),
+    }
+    renderOnboarding({ householdsDb: db, signupAuth })
+    submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })
+    submitEmailSignup()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Could not save household',
+    )
+    expect(signupAuth.signUpWithEmail).toHaveBeenCalledOnce()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Household saved',
+    )
+    expect(signupAuth.signUpWithEmail).toHaveBeenCalledOnce()
+    expect(screen.getByText('No household draft')).toBeInTheDocument()
+    expect(createCalls).toBe(2)
+  })
+
   it('disables email and Google signup while a request is in flight', async () => {
     const { db } = householdsDbWithCreateSpy('user-1')
     let resolveEmail!: (value: { readonly userId: string }) => void
