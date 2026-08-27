@@ -2,17 +2,17 @@ import { QueryClient, useQuery } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
-import type { AppSupabaseClient } from '@/lib/supabase'
-import { useSupabase } from '@/lib/supabaseContext'
-import { createSupabaseStub } from '@/test/supabaseStub'
+import type { AppFirebaseClient } from '@/lib/firebase'
+import { useFirebase } from '@/lib/firebaseContext'
+import { createFirebaseStub } from '@/test/firebaseStub'
 import { AppProviders } from './AppProviders'
 
 function Probe({
   expected,
 }: {
-  readonly expected: AppSupabaseClient
+  readonly expected: AppFirebaseClient
 }): ReactElement {
-  const client = useSupabase()
+  const client = useFirebase()
   const { data } = useQuery({
     queryKey: ['probe'],
     queryFn: () =>
@@ -23,8 +23,8 @@ function Probe({
 }
 
 describe('AppProviders', () => {
-  it('lets one child read the Supabase client and run a query', async () => {
-    const client = createSupabaseStub()
+  it('lets one child read the Firebase client and run a query', async () => {
+    const client = createFirebaseStub()
 
     render(
       <AppProviders client={client} queryClient={new QueryClient()}>
