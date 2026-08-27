@@ -9,17 +9,14 @@ import { App } from './App'
 // upgrade, and prove nothing about how the screen looks. Pill shape and
 // monochrome are checked by eye against docs/design/design-reference.png.
 describe('App', () => {
-  it('renders its controls through the provider tree', () => {
+  it('renders the onboarding form through the provider tree', () => {
     renderWithProviders(<App />)
 
     expect(
       screen.getByRole('heading', { name: 'remeeesa' }),
     ).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'this month' }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'Add expense' }),
-    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Household name')).toBeInTheDocument()
+    expect(screen.getByLabelText('Monthly budget')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument()
   })
 })
