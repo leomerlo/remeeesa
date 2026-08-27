@@ -50,46 +50,48 @@ export function createFirestoreHouseholdsDb(
 ): HouseholdsDb {
   return {
     async createHouseholdAndMembership(input) {
-      const householdRef = doc(collection(firestore, 'households'))
-      const memberRef = doc(firestore, 'household_members', input.userId)
-      const now = Timestamp.now()
+      return withHouseholdAccess(async () => {
+        const householdRef = doc(collection(firestore, 'households'))
+        const memberRef = doc(firestore, 'household_members', input.userId)
+        const now = Timestamp.now()
 
-      await runTransaction(firestore, async (tx) => {
-        const existing = await tx.get(memberRef)
-        if (existing.exists()) {
-          throw new AlreadyInHouseholdError()
+        await runTransaction(firestore, async (tx) => {
+          const existing = await tx.get(memberRef)
+          if (existing.exists()) {
+            throw new AlreadyInHouseholdError()
+          }
+          tx.set(householdRef, {
+            ...householdToDocument({
+              name: input.name,
+              monthlyBudget: input.monthlyBudget,
+              createdAt: now.toDate(),
+            }),
+            created_at: now,
+          })
+          tx.set(memberRef, {
+            ...membershipToDocument({
+              householdId: householdRef.id,
+              joinedAt: now.toDate(),
+            }),
+            joined_at: now,
+          })
+        })
+
+        const household: Household = {
+          id: householdRef.id,
+          name: input.name,
+          monthlyBudget: input.monthlyBudget,
+          createdAt: now.toDate(),
         }
-        tx.set(householdRef, {
-          ...householdToDocument({
-            name: input.name,
-            monthlyBudget: input.monthlyBudget,
-            createdAt: now.toDate(),
-          }),
-          created_at: now,
-        })
-        tx.set(memberRef, {
-          ...membershipToDocument({
+        return {
+          household,
+          member: {
             householdId: householdRef.id,
+            userId: input.userId,
             joinedAt: now.toDate(),
-          }),
-          joined_at: now,
-        })
+          },
+        }
       })
-
-      const household: Household = {
-        id: householdRef.id,
-        name: input.name,
-        monthlyBudget: input.monthlyBudget,
-        createdAt: now.toDate(),
-      }
-      return {
-        household,
-        member: {
-          householdId: householdRef.id,
-          userId: input.userId,
-          joinedAt: now.toDate(),
-        },
-      }
     },
     async getHousehold(householdId) {
       return withHouseholdAccess(async () => {
