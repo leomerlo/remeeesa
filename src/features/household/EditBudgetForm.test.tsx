@@ -69,6 +69,7 @@ describe('EditBudgetForm', () => {
     await waitFor(() => {
       expect(screen.getByRole('status')).toHaveTextContent('250')
     })
+    expect(screen.getByLabelText('Monthly budget')).toHaveValue('250')
     await expect(getHousehold({ db, householdId })).resolves.toMatchObject({
       monthlyBudget: 250,
     })

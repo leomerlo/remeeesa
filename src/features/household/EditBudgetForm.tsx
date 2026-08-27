@@ -36,7 +36,8 @@ export function EditBudgetForm({
   const mutation = useMutation({
     mutationFn: (monthlyBudget: number) =>
       updateHouseholdBudget({ db, householdId, monthlyBudget }),
-    onSuccess: async () => {
+    onSuccess: async (household) => {
+      queryClient.setQueryData(queryKey, household)
       setDraft(null)
       await queryClient.invalidateQueries({ queryKey })
     },
