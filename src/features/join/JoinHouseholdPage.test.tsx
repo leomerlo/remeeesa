@@ -206,6 +206,39 @@ describe('JoinHouseholdPage', () => {
     )
   })
 
+  it('shows joined when the household owner opens their own invite', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const invite = await getOrCreateHouseholdInvite({
+      db: ownerDb,
+      householdId: household.id,
+    })
+    const membersBefore = await listHouseholdMembers({
+      db: ownerDb,
+      householdId: household.id,
+    })
+
+    renderJoinPage(invite.token, {
+      currentUserId: 'user-1',
+      householdsDb: ownerDb,
+    })
+
+    await expectJoinedStatus()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Leave your current household first'),
+    ).not.toBeInTheDocument()
+    await expect(
+      listHouseholdMembers({ db: ownerDb, householdId: household.id }),
+    ).resolves.toEqual(membersBefore)
+  })
+
   it('signs an anonymous visitor up then auto-joins with no confirm step', async () => {
     const store = createMemoryHouseholdsDb()
     const ownerDb = store.asUser('user-1')
@@ -514,6 +547,39 @@ describe('JoinHouseholdPage', () => {
     await expect(
       listHouseholdMembers({ db: ownerDb, householdId: household.id }),
     ).resolves.toEqual([expect.objectContaining({ userId: 'user-1' })])
+  })
+
+  it('shows a generic error for an invalid token when the visitor already has a household', async () => {
+    const store = createMemoryHouseholdsDb()
+    const memberDb = store.asUser('user-2')
+    const currentHousehold = await createHouseholdWithMembership({
+      db: memberDb,
+      userId: 'user-2',
+      name: 'Casa Azul',
+      monthlyBudget: 200,
+    })
+    const membersBefore = await listHouseholdMembers({
+      db: memberDb,
+      householdId: currentHousehold.id,
+    })
+    const bogusToken = 'missing-token'
+
+    renderJoinPage(bogusToken, {
+      currentUserId: 'user-2',
+      householdsDb: memberDb,
+    })
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Could not join household')
+    expect(alert).not.toHaveTextContent('Leave your current household first')
+    expect(alert).not.toHaveTextContent(bogusToken)
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    await expect(
+      listHouseholdMembers({
+        db: memberDb,
+        householdId: currentHousehold.id,
+      }),
+    ).resolves.toEqual(membersBefore)
   })
 
   it('shows a generic error after signup when the token is invalid', async () => {
