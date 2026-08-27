@@ -346,4 +346,70 @@ describe('getOrCreateHouseholdInvite', () => {
       }),
     ).rejects.toThrow(HouseholdAccessDeniedError)
   })
+
+  it('returns the same token for every member of the household', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    store.seedMembership({ userId: 'user-2', householdId: household.id })
+
+    const ownerInvite = await getOrCreateHouseholdInvite({
+      db: ownerDb,
+      householdId: household.id,
+    })
+    const memberInvite = await getOrCreateHouseholdInvite({
+      db: store.asUser('user-2'),
+      householdId: household.id,
+    })
+
+    expect(memberInvite).toEqual(ownerInvite)
+  })
+
+  it('gives each household its own invite token', async () => {
+    const store = createMemoryHouseholdsDb()
+    const firstHousehold = await createHouseholdWithMembership({
+      db: store.asUser('user-1'),
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const secondHousehold = await createHouseholdWithMembership({
+      db: store.asUser('user-2'),
+      userId: 'user-2',
+      name: 'Casa Azul',
+      monthlyBudget: 200,
+    })
+
+    const firstInvite = await getOrCreateHouseholdInvite({
+      db: store.asUser('user-1'),
+      householdId: firstHousehold.id,
+    })
+    const secondInvite = await getOrCreateHouseholdInvite({
+      db: store.asUser('user-2'),
+      householdId: secondHousehold.id,
+    })
+
+    expect(firstInvite.token).not.toBe(secondInvite.token)
+    expect(firstInvite.householdId).toBe(firstHousehold.id)
+    expect(secondInvite.householdId).toBe(secondHousehold.id)
+  })
+
+  it('does not generate an invite for an empty household id', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    await expect(
+      getOrCreateHouseholdInvite({ db, householdId: '' }),
+    ).rejects.toThrow(HouseholdAccessDeniedError)
+  })
 })

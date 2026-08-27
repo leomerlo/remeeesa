@@ -154,6 +154,10 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
 
 export function createMemoryHouseholdsDb(): {
   asUser(userId: string): HouseholdsDb
+  seedMembership(input: {
+    readonly userId: string
+    readonly householdId: string
+  }): void
 } {
   const state: MemoryState = {
     households: new Map(),
@@ -164,6 +168,18 @@ export function createMemoryHouseholdsDb(): {
   return {
     asUser(actingUserId) {
       return dbForUser(state, actingUserId)
+    },
+    seedMembership(input) {
+      if (!state.households.has(input.householdId)) {
+        throw new Error('Household not found')
+      }
+      if (state.members.has(input.userId)) {
+        throw new AlreadyInHouseholdError()
+      }
+      state.members.set(input.userId, {
+        householdId: input.householdId,
+        joinedAt: new Date(),
+      })
     },
   }
 }

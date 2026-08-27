@@ -114,4 +114,67 @@ describe('InviteLinkPanel', () => {
       expect(writeText).toHaveBeenCalledWith(expectedUrl)
     })
   })
+
+  it('builds the invite URL from the current origin when urlBase is omitted', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderWithProviders(<InviteLinkPanel db={db} householdId={household.id} />)
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Generate invite link' }),
+    )
+    const invite = await getOrCreateHouseholdInvite({
+      db,
+      householdId: household.id,
+    })
+    await waitFor(() => {
+      expect(
+        screen.getByDisplayValue(
+          `${window.location.origin}/join/${invite.token}`,
+        ),
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('shows an error when generate is denied', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderWithProviders(
+      <InviteLinkPanel
+        db={store.asUser('user-2')}
+        householdId={household.id}
+        urlBase="https://remeeesa.test"
+      />,
+    )
+
+    expect(
+      screen.queryByRole('button', { name: 'Copy' }),
+    ).not.toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Generate invite link' }),
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Only household members can access this household',
+      )
+    })
+    expect(
+      screen.queryByRole('button', { name: 'Copy' }),
+    ).not.toBeInTheDocument()
+  })
 })
