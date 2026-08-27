@@ -65,8 +65,11 @@ service cloud.firestore {
         userId == request.auth.uid
         || isMemberOf(resource.data.household_id)
       );
+      // Founder-only: household must be created in this same batch. Joining an
+      // existing household by id is #17 (invite-gated).
       allow create: if isSignedIn()
         && request.auth.uid == userId
+        && !exists(/databases/$(database)/documents/households/$(request.resource.data.household_id))
         && isValidMembership(request.resource.data);
       allow update: if false;
       allow delete: if isSignedIn() && request.auth.uid == userId;
