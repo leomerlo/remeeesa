@@ -359,6 +359,83 @@ describe('JoinHouseholdPage', () => {
     ).resolves.toEqual(currentMembersBefore)
   })
 
+  it('tells an email user in another household to leave first and does not join on retry', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const invitedHousehold = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const invite = await getOrCreateHouseholdInvite({
+      db: ownerDb,
+      householdId: invitedHousehold.id,
+    })
+    const memberDb = store.asUser('user-2')
+    const currentHousehold = await createHouseholdWithMembership({
+      db: memberDb,
+      userId: 'user-2',
+      name: 'Casa Azul',
+      monthlyBudget: 200,
+    })
+    const invitedMembersBefore = await listHouseholdMembers({
+      db: ownerDb,
+      householdId: invitedHousehold.id,
+    })
+    const currentMembersBefore = await listHouseholdMembers({
+      db: memberDb,
+      householdId: currentHousehold.id,
+    })
+    const signupAuth = signupAuthFor('user-2')
+
+    renderJoinPage(invite.token, {
+      currentUserId: null,
+      householdsDb: memberDb,
+      signupAuth,
+    })
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'ada@example.com' },
+    })
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'secret12' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Leave your current household first')
+    expect(alert).not.toHaveTextContent('Could not join household')
+    expect(alert).not.toHaveTextContent(invite.token)
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByText('Joined household')).not.toBeInTheDocument()
+    expect(signupAuth.signUpWithEmail).toHaveBeenCalledWith({
+      email: 'ada@example.com',
+      password: 'secret12',
+    })
+    expect(signupAuth.signUpWithGoogle).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Create account' })).toBeEnabled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Leave your current household first',
+    )
+    expect(signupAuth.signUpWithEmail).toHaveBeenCalledTimes(2)
+    await expect(
+      listHouseholdMembers({
+        db: ownerDb,
+        householdId: invitedHousehold.id,
+      }),
+    ).resolves.toEqual(invitedMembersBefore)
+    await expect(
+      listHouseholdMembers({
+        db: memberDb,
+        householdId: currentHousehold.id,
+      }),
+    ).resolves.toEqual(currentMembersBefore)
+  })
+
   it('tells a member of another household to leave first and does not join', async () => {
     const store = createMemoryHouseholdsDb()
     const ownerDb = store.asUser('user-1')
