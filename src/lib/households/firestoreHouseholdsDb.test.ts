@@ -36,4 +36,38 @@ describe('firestore.rules founder membership', () => {
       '!exists(/databases/$(database)/documents/households/$(request.resource.data.household_id))',
     )
   })
+
+  it('keeps founder membership fields to household_id and joined_at', () => {
+    expect(rules).toContain(
+      "data.keys().hasOnly(['household_id', 'joined_at'])",
+    )
+  })
+})
+
+describe('firestore.rules invite join', () => {
+  it('lets any signed-in user get an invite by token', () => {
+    expect(rules).toMatch(
+      /match \/household_invites\/\{token\}[\s\S]*allow get: if isSignedIn\(\);/,
+    )
+  })
+
+  it('requires invite_token on join membership writes', () => {
+    expect(rules).toContain('function isValidJoinMembership(data)')
+    expect(rules).toContain(
+      "data.keys().hasOnly(['household_id', 'joined_at', 'invite_token'])",
+    )
+    expect(rules).toContain(
+      'exists(/databases/$(database)/documents/household_invites/$(data.invite_token))',
+    )
+    expect(rules).toContain(
+      'get(/databases/$(database)/documents/household_invites/$(data.invite_token)).data.household_id == data.household_id',
+    )
+  })
+
+  it('does not allow joining an existing household without a token', () => {
+    expect(rules).toContain(
+      'exists(/databases/$(database)/documents/households/$(request.resource.data.household_id))',
+    )
+    expect(rules).toContain('&& isValidJoinMembership(request.resource.data)')
+  })
 })

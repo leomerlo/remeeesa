@@ -1,6 +1,7 @@
 import {
   AlreadyInHouseholdError,
   HouseholdAccessDeniedError,
+  InviteNotFoundError,
 } from '@/lib/households/households'
 import type {
   Household,
@@ -148,6 +149,29 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         createdAt: invite.createdAt,
       })
       return invite
+    },
+    async joinHousehold(input) {
+      if (input.userId !== userId) {
+        throw new HouseholdAccessDeniedError()
+      }
+      const invite = state.invites.get(input.token)
+      if (invite === undefined) {
+        throw new InviteNotFoundError()
+      }
+      const existing = state.members.get(input.userId)
+      if (existing !== undefined) {
+        throw new AlreadyInHouseholdError()
+      }
+      const joinedAt = new Date()
+      state.members.set(input.userId, {
+        householdId: invite.householdId,
+        joinedAt,
+      })
+      return {
+        householdId: invite.householdId,
+        userId: input.userId,
+        joinedAt,
+      }
     },
   }
 }

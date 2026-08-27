@@ -97,6 +97,23 @@ describe('parseHouseholdMemberDocument', () => {
       }).joinedAt,
     ).toBe(joinedAt)
   })
+
+  it('ignores invite_token on a join membership document', () => {
+    expect(
+      parseHouseholdMemberDocument({
+        userId: 'user-2',
+        data: {
+          household_id: 'h1',
+          joined_at: new Date('2026-01-15T12:00:00.000Z'),
+          invite_token: 'invite-token',
+        },
+      }),
+    ).toEqual({
+      householdId: 'h1',
+      userId: 'user-2',
+      joinedAt: new Date('2026-01-15T12:00:00.000Z'),
+    })
+  })
 })
 
 describe('parseHouseholdInviteDocument', () => {

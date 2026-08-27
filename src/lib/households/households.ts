@@ -22,6 +22,14 @@ export class HouseholdAccessDeniedError extends Error {
   }
 }
 
+export class InviteNotFoundError extends Error {
+  override readonly name = 'InviteNotFoundError'
+
+  constructor() {
+    super('Invite not found')
+  }
+}
+
 export async function createHouseholdWithMembership(input: {
   readonly db: HouseholdsDb
   readonly userId: string
@@ -69,4 +77,15 @@ export async function getOrCreateHouseholdInvite(input: {
   readonly householdId: string
 }): Promise<HouseholdInvite> {
   return input.db.getOrCreateInvite({ householdId: input.householdId })
+}
+
+export async function joinHousehold(input: {
+  readonly db: HouseholdsDb
+  readonly userId: string
+  readonly token: string
+}): Promise<HouseholdMember> {
+  return input.db.joinHousehold({
+    userId: input.userId,
+    token: input.token,
+  })
 }

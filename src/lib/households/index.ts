@@ -20,6 +20,8 @@ export {
   getHousehold,
   getOrCreateHouseholdInvite,
   HouseholdAccessDeniedError,
+  InviteNotFoundError,
+  joinHousehold,
   listHouseholdMembers,
   updateHouseholdBudget,
 } from './households'

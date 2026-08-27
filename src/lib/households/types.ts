@@ -37,4 +37,8 @@ export type HouseholdsDb = {
   getOrCreateInvite(input: {
     readonly householdId: string
   }): Promise<HouseholdInvite>
+  joinHousehold(input: {
+    readonly userId: string
+    readonly token: string
+  }): Promise<HouseholdMember>
 }

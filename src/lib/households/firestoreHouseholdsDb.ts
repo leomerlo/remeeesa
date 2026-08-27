@@ -22,8 +22,14 @@ import {
 import {
   AlreadyInHouseholdError,
   HouseholdAccessDeniedError,
+  InviteNotFoundError,
 } from './households'
-import type { Household, HouseholdInvite, HouseholdsDb } from './types'
+import type {
+  Household,
+  HouseholdInvite,
+  HouseholdMember,
+  HouseholdsDb,
+} from './types'
 
 function isFirestorePermissionDenied(error: unknown): boolean {
   if (typeof error !== 'object' || error === null || !('code' in error)) {
@@ -165,6 +171,42 @@ export function createFirestoreHouseholdsDb(
           created_at: now,
         })
         return invite
+      })
+    },
+    async joinHousehold(input) {
+      return withHouseholdAccess(async () => {
+        const inviteRef = doc(firestore, 'household_invites', input.token)
+        const memberRef = doc(firestore, 'household_members', input.userId)
+
+        return runTransaction(firestore, async (tx) => {
+          const inviteSnap = await tx.get(inviteRef)
+          if (!inviteSnap.exists()) {
+            throw new InviteNotFoundError()
+          }
+          const invite = parseHouseholdInviteDocument({
+            token: inviteSnap.id,
+            data: inviteSnap.data(),
+          })
+          const existing = await tx.get(memberRef)
+          if (existing.exists()) {
+            throw new AlreadyInHouseholdError()
+          }
+          const now = Timestamp.now()
+          const member: HouseholdMember = {
+            householdId: invite.householdId,
+            userId: input.userId,
+            joinedAt: now.toDate(),
+          }
+          tx.set(memberRef, {
+            ...membershipToDocument({
+              householdId: member.householdId,
+              joinedAt: member.joinedAt,
+            }),
+            joined_at: now,
+            invite_token: input.token,
+          })
+          return member
+        })
       })
     },
   }
