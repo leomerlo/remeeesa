@@ -175,6 +175,9 @@ export function createFirestoreHouseholdsDb(
     },
     async joinHousehold(input) {
       return withHouseholdAccess(async () => {
+        if (input.token === '') {
+          throw new InviteNotFoundError()
+        }
         const inviteRef = doc(firestore, 'household_invites', input.token)
         const memberRef = doc(firestore, 'household_members', input.userId)
 
@@ -189,6 +192,13 @@ export function createFirestoreHouseholdsDb(
           })
           const existing = await tx.get(memberRef)
           if (existing.exists()) {
+            const member = parseHouseholdMemberDocument({
+              userId: input.userId,
+              data: existing.data(),
+            })
+            if (member.householdId === invite.householdId) {
+              return member
+            }
             throw new AlreadyInHouseholdError()
           }
           const now = Timestamp.now()

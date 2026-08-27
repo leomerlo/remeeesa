@@ -531,7 +531,7 @@ describe('joinHousehold', () => {
     ])
   })
 
-  it('rejects a second join for a member already in the invited household', async () => {
+  it('returns the existing member when joining the same household again', async () => {
     const store = createMemoryHouseholdsDb()
     const ownerDb = store.asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -545,20 +545,19 @@ describe('joinHousehold', () => {
       householdId: household.id,
     })
     const joinerDb = store.asUser('user-2')
-    await joinHousehold({
+    const first = await joinHousehold({
       db: joinerDb,
       userId: 'user-2',
       token: invite.token,
     })
 
-    await expect(
-      joinHousehold({
-        db: joinerDb,
-        userId: 'user-2',
-        token: invite.token,
-      }),
-    ).rejects.toThrow(AlreadyInHouseholdError)
+    const second = await joinHousehold({
+      db: joinerDb,
+      userId: 'user-2',
+      token: invite.token,
+    })
 
+    expect(second).toEqual(first)
     const members = await listHouseholdMembers({
       db: joinerDb,
       householdId: household.id,

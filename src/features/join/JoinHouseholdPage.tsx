@@ -23,10 +23,11 @@ export function JoinHouseholdPage({
 }: JoinHouseholdPageProps): ReactElement {
   const { token } = useParams()
   const firebase = useFirebase()
+  const [sessionUserId, setSessionUserId] = useState<string | null | undefined>(
+    undefined,
+  )
   const currentUserId =
-    currentUserIdProp !== undefined
-      ? currentUserIdProp
-      : (firebase.auth.currentUser?.uid ?? null)
+    currentUserIdProp !== undefined ? currentUserIdProp : sessionUserId
   const auth = signupAuth ?? createFirebaseSignupAuth(firebase.auth)
   const db = useMemo(
     () => householdsDb ?? createFirestoreHouseholdsDb(firebase.db),
@@ -39,7 +40,16 @@ export function JoinHouseholdPage({
   const [pending, setPending] = useState(false)
 
   useEffect(() => {
-    if (currentUserId === null || token === undefined) {
+    if (currentUserIdProp !== undefined) {
+      return
+    }
+    return firebase.auth.onAuthStateChanged((user) => {
+      setSessionUserId(user?.uid ?? null)
+    })
+  }, [currentUserIdProp, firebase.auth])
+
+  useEffect(() => {
+    if (currentUserId == null || token === undefined) {
       return
     }
     let cancelled = false

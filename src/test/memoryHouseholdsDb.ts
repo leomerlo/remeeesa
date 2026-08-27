@@ -160,6 +160,13 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       }
       const existing = state.members.get(input.userId)
       if (existing !== undefined) {
+        if (existing.householdId === invite.householdId) {
+          return {
+            householdId: existing.householdId,
+            userId: input.userId,
+            joinedAt: existing.joinedAt,
+          }
+        }
         throw new AlreadyInHouseholdError()
       }
       const joinedAt = new Date()

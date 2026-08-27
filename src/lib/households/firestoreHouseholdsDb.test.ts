@@ -51,6 +51,12 @@ describe('firestore.rules invite join', () => {
     )
   })
 
+  it('keeps invite list members-only', () => {
+    expect(rules).toMatch(
+      /match \/household_invites\/\{token\}[\s\S]*allow list: if isSignedIn\(\) && isMemberOf\(resource\.data\.household_id\);/,
+    )
+  })
+
   it('requires invite_token on join membership writes', () => {
     expect(rules).toContain('function isValidJoinMembership(data)')
     expect(rules).toContain(
