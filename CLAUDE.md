@@ -1,6 +1,13 @@
 # Project
 
-<!-- Fill in per project: stack, repo layout (e.g. npm workspaces monorepo with server/ and client/), test framework. -->
+## Description
+
+A household budgeting app. Each expense shows how much budget is left after it, supporting multiple users per household sharing the same budget.
+
+## Technologies
+
+- Frontend: React
+- Backend: Supabase (functions + database)
 
 ## Principles
 
@@ -25,11 +32,8 @@ Run the typecheck and test commands before considering a change done. Wire them 
 
 ## Releases
 
-<!-- Fill in only if this project cuts releases via a diff between two branches (e.g. dev -> main). Delete this section otherwise. -->
-
-- Branches compared for a release: `<base>` and `<release>` (e.g. `main` and `dev`)
-- Release tag / version naming: `<pattern>` (e.g. `app@1.4.0`)
-- Release checklist location: `<path>` (e.g. `docs/releases/`)
+- Branches compared for a release: `dev` (collects work) and `main` (release)
+- Release checklist location: `docs/release/`
 
 ## Skills
 
