@@ -2,15 +2,15 @@ import { useQuery } from '@tanstack/react-query'
 import { screen } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
-import type { AppSupabaseClient } from '@/lib/supabase'
-import { useSupabase } from '@/lib/supabaseContext'
+import type { AppFirebaseClient } from '@/lib/firebase'
+import { useFirebase } from '@/lib/firebaseContext'
 import { renderWithProviders } from './renderWithProviders'
-import { createSupabaseStub } from './supabaseStub'
+import { createFirebaseStub } from './firebaseStub'
 
-// Reaching useSupabase without throwing is itself the proof that a client was
+// Reaching useFirebase without throwing is itself the proof that a client was
 // provided, so this probe only has to report that its query ran.
 function QueryProbe({ label }: { readonly label: string }): ReactElement {
-  useSupabase()
+  useFirebase()
   const { data } = useQuery({
     queryKey: ['probe', label],
     queryFn: () => Promise.resolve(label),
@@ -22,9 +22,9 @@ function QueryProbe({ label }: { readonly label: string }): ReactElement {
 function IdentityProbe({
   expected,
 }: {
-  readonly expected: AppSupabaseClient
+  readonly expected: AppFirebaseClient
 }): ReactElement {
-  const client = useSupabase()
+  const client = useFirebase()
 
   return <span>{client === expected ? 'injected client' : 'other client'}</span>
 }
@@ -37,7 +37,7 @@ describe('renderWithProviders', () => {
   })
 
   it('passes the given client through to the tree', () => {
-    const client = createSupabaseStub()
+    const client = createFirebaseStub()
 
     renderWithProviders(<IdentityProbe expected={client} />, { client })
 

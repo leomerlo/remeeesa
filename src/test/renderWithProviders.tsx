@@ -3,11 +3,11 @@ import { render } from '@testing-library/react'
 import type { RenderResult } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { AppProviders } from '@/app/AppProviders'
-import type { AppSupabaseClient } from '@/lib/supabase'
-import { createSupabaseStub } from './supabaseStub'
+import type { AppFirebaseClient } from '@/lib/firebase'
+import { createFirebaseStub } from './firebaseStub'
 
 type RenderWithProvidersOptions = {
-  readonly client?: AppSupabaseClient
+  readonly client?: AppFirebaseClient
 }
 
 // Every feature test starts here, so no test ever writes a provider tree.
@@ -17,7 +17,7 @@ export function renderWithProviders(
   ui: ReactNode,
   options: RenderWithProvidersOptions = {},
 ): RenderResult {
-  const { client = createSupabaseStub() } = options
+  const { client = createFirebaseStub() } = options
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })

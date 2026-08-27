@@ -7,7 +7,7 @@ A household budgeting app. Each expense shows how much budget is left after it, 
 ## Technologies
 
 - Frontend: React
-- Backend: Supabase (functions + database)
+- Backend: Firebase (Auth + Firestore)
 
 ## Principles
 
