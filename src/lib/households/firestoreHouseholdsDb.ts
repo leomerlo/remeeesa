@@ -16,8 +16,34 @@ import {
   parseHouseholdDocument,
   parseHouseholdMemberDocument,
 } from './converters'
-import { AlreadyInHouseholdError } from './households'
+import {
+  AlreadyInHouseholdError,
+  HouseholdAccessDeniedError,
+} from './households'
 import type { Household, HouseholdsDb } from './types'
+
+function isFirestorePermissionDenied(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null || !('code' in error)) {
+    return false
+  }
+  const { code } = error
+  return code === 'permission-denied' || code === 'firestore/permission-denied'
+}
+
+export function mapHouseholdFirestoreError(error: unknown): never {
+  if (isFirestorePermissionDenied(error)) {
+    throw new HouseholdAccessDeniedError()
+  }
+  throw error
+}
+
+async function withHouseholdAccess<T>(run: () => Promise<T>): Promise<T> {
+  try {
+    return await run()
+  } catch (error) {
+    mapHouseholdFirestoreError(error)
+  }
+}
 
 export function createFirestoreHouseholdsDb(
   firestore: Firestore,
@@ -66,37 +92,43 @@ export function createFirestoreHouseholdsDb(
       }
     },
     async getHousehold(householdId) {
-      const snap = await getDoc(doc(firestore, 'households', householdId))
-      if (!snap.exists()) {
-        throw new Error('Household not found')
-      }
-      return parseHouseholdDocument({ id: snap.id, data: snap.data() })
+      return withHouseholdAccess(async () => {
+        const snap = await getDoc(doc(firestore, 'households', householdId))
+        if (!snap.exists()) {
+          throw new Error('Household not found')
+        }
+        return parseHouseholdDocument({ id: snap.id, data: snap.data() })
+      })
     },
     async listMembers(householdId) {
-      const membersQuery = query(
-        collection(firestore, 'household_members'),
-        where('household_id', '==', householdId),
-      )
-      const snap = await getDocs(membersQuery)
-      return snap.docs.map((memberDoc) =>
-        parseHouseholdMemberDocument({
-          userId: memberDoc.id,
-          data: memberDoc.data(),
-        }),
-      )
+      return withHouseholdAccess(async () => {
+        const membersQuery = query(
+          collection(firestore, 'household_members'),
+          where('household_id', '==', householdId),
+        )
+        const snap = await getDocs(membersQuery)
+        return snap.docs.map((memberDoc) =>
+          parseHouseholdMemberDocument({
+            userId: memberDoc.id,
+            data: memberDoc.data(),
+          }),
+        )
+      })
     },
     async updateMonthlyBudget(input) {
-      const householdRef = doc(firestore, 'households', input.householdId)
-      const snap = await getDoc(householdRef)
-      if (!snap.exists()) {
-        throw new Error('Household not found')
-      }
-      const current = parseHouseholdDocument({
-        id: snap.id,
-        data: snap.data(),
+      return withHouseholdAccess(async () => {
+        const householdRef = doc(firestore, 'households', input.householdId)
+        const snap = await getDoc(householdRef)
+        if (!snap.exists()) {
+          throw new Error('Household not found')
+        }
+        const current = parseHouseholdDocument({
+          id: snap.id,
+          data: snap.data(),
+        })
+        await updateDoc(householdRef, { monthly_budget: input.monthlyBudget })
+        return { ...current, monthlyBudget: input.monthlyBudget }
       })
-      await updateDoc(householdRef, { monthly_budget: input.monthlyBudget })
-      return { ...current, monthlyBudget: input.monthlyBudget }
     },
   }
 }

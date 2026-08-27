@@ -21,6 +21,7 @@ service cloud.firestore {
       return data.keys().hasOnly(['name', 'monthly_budget', 'created_at'])
         && data.name is string
         && data.name.size() > 0
+        && data.name.matches('.*\\S.*')
         && data.monthly_budget is number
         && data.monthly_budget > 0
         && data.created_at is timestamp;
@@ -43,7 +44,13 @@ service cloud.firestore {
 
     match /households/{householdId} {
       allow read: if isMemberOf(householdId);
-      allow create: if isSignedIn() && isValidHousehold(request.resource.data);
+      // Create must land in the same batch as the caller's membership row so
+      // undeletable orphan households cannot be written without joining.
+      allow create: if isSignedIn()
+        && !exists(membershipPath())
+        && existsAfter(membershipPath())
+        && getAfter(membershipPath()).data.household_id == householdId
+        && isValidHousehold(request.resource.data);
       allow update: if isMemberOf(householdId)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['monthly_budget'])
         && request.resource.data.monthly_budget is number
@@ -52,12 +59,12 @@ service cloud.firestore {
     }
 
     match /household_members/{userId} {
-      allow read: if isSignedIn()
-        && exists(membershipPath())
-        && (
-          userId == request.auth.uid
-          || resource.data.household_id == get(membershipPath()).data.household_id
-        );
+      // Own uid is readable without exists() so createHouseholdAndMembership
+      // can tx.get a missing membership doc. Missing docs have no resource.
+      allow read: if isSignedIn() && (
+        userId == request.auth.uid
+        || isMemberOf(resource.data.household_id)
+      );
       allow create: if isSignedIn()
         && request.auth.uid == userId
         && isValidMembership(request.resource.data);
