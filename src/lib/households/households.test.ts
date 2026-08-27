@@ -285,7 +285,7 @@ describe('household member access', () => {
 describe('leaveHousehold', () => {
   it('lets the same user create a household after leaving', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
-    await createHouseholdWithMembership({
+    const previous = await createHouseholdWithMembership({
       db,
       userId: 'user-1',
       name: 'Casa Verde',
@@ -302,6 +302,7 @@ describe('leaveHousehold', () => {
     })
 
     expect(next.name).toBe('Casa Azul')
+    expect(next.id).not.toBe(previous.id)
   })
 
   it('keeps the household and remaining members after someone leaves', async () => {
@@ -331,6 +332,41 @@ describe('leaveHousehold', () => {
         joinedAt: expect.any(Date),
       },
     ])
+
+    await expect(
+      updateHouseholdBudget({
+        db: remainingDb,
+        householdId: household.id,
+        monthlyBudget: 300,
+      }),
+    ).resolves.toEqual({ ...household, monthlyBudget: 300 })
+
+    await expect(
+      getHousehold({ db: leaverDb, householdId: household.id }),
+    ).rejects.toThrow('Only household members can access this household')
+  })
+
+  it('does not delete the household when the last member leaves', async () => {
+    const store = createMemoryHouseholdsDb()
+    const leaverDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: leaverDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    await leaveHousehold({ db: leaverDb, userId: 'user-1' })
+
+    await expect(
+      getHousehold({ db: store.asUser('user-2'), householdId: household.id }),
+    ).rejects.toThrow('Only household members can access this household')
+
+    store.addMember({ userId: 'user-2', householdId: household.id })
+
+    await expect(
+      getHousehold({ db: store.asUser('user-2'), householdId: household.id }),
+    ).resolves.toEqual(household)
   })
 
   it('does nothing when the caller is not a member', async () => {
