@@ -7,8 +7,19 @@ import { Label } from '@/components/ui/label'
 import { createFirebaseSignupAuth } from '@/features/onboarding/signupAuth'
 import type { SignupAuth } from '@/features/onboarding/signupAuth'
 import { useFirebase } from '@/lib/firebaseContext'
-import { createFirestoreHouseholdsDb, joinHousehold } from '@/lib/households'
+import {
+  AlreadyInHouseholdError,
+  createFirestoreHouseholdsDb,
+  joinHousehold,
+} from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
+
+function messageForJoinError(error: unknown): string {
+  if (error instanceof AlreadyInHouseholdError) {
+    return 'Leave your current household first'
+  }
+  return 'Could not join household'
+}
 
 export type JoinHouseholdPageProps = {
   readonly currentUserId?: string | null
@@ -59,9 +70,9 @@ export function JoinHouseholdPage({
         if (!cancelled) {
           setJoined(true)
         }
-      } catch {
+      } catch (error) {
         if (!cancelled) {
-          setError('Could not join household')
+          setError(messageForJoinError(error))
         }
       }
     })()
@@ -92,8 +103,8 @@ export function JoinHouseholdPage({
       try {
         await joinHousehold({ db, userId, token })
         setJoined(true)
-      } catch {
-        setError('Could not join household')
+      } catch (error) {
+        setError(messageForJoinError(error))
       }
     } finally {
       setPending(false)

@@ -298,6 +298,121 @@ describe('JoinHouseholdPage', () => {
     )
   })
 
+  it('tells a Google user in another household to leave first and does not join', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const invitedHousehold = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const invite = await getOrCreateHouseholdInvite({
+      db: ownerDb,
+      householdId: invitedHousehold.id,
+    })
+    const memberDb = store.asUser('user-2')
+    const currentHousehold = await createHouseholdWithMembership({
+      db: memberDb,
+      userId: 'user-2',
+      name: 'Casa Azul',
+      monthlyBudget: 200,
+    })
+    const invitedMembersBefore = await listHouseholdMembers({
+      db: ownerDb,
+      householdId: invitedHousehold.id,
+    })
+    const currentMembersBefore = await listHouseholdMembers({
+      db: memberDb,
+      householdId: currentHousehold.id,
+    })
+    const signupAuth = signupAuthFor('user-2')
+
+    renderJoinPage(invite.token, {
+      currentUserId: null,
+      householdsDb: memberDb,
+      signupAuth,
+    })
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Continue with Google' }),
+    )
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Leave your current household first')
+    expect(alert).not.toHaveTextContent('Could not join household')
+    expect(alert).not.toHaveTextContent(invite.token)
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByText('Joined household')).not.toBeInTheDocument()
+    expect(signupAuth.signUpWithGoogle).toHaveBeenCalledOnce()
+    await expect(
+      listHouseholdMembers({
+        db: ownerDb,
+        householdId: invitedHousehold.id,
+      }),
+    ).resolves.toEqual(invitedMembersBefore)
+    await expect(
+      listHouseholdMembers({
+        db: memberDb,
+        householdId: currentHousehold.id,
+      }),
+    ).resolves.toEqual(currentMembersBefore)
+  })
+
+  it('tells a member of another household to leave first and does not join', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const invitedHousehold = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const invite = await getOrCreateHouseholdInvite({
+      db: ownerDb,
+      householdId: invitedHousehold.id,
+    })
+    const memberDb = store.asUser('user-2')
+    const currentHousehold = await createHouseholdWithMembership({
+      db: memberDb,
+      userId: 'user-2',
+      name: 'Casa Azul',
+      monthlyBudget: 200,
+    })
+    const invitedMembersBefore = await listHouseholdMembers({
+      db: ownerDb,
+      householdId: invitedHousehold.id,
+    })
+    const currentMembersBefore = await listHouseholdMembers({
+      db: memberDb,
+      householdId: currentHousehold.id,
+    })
+
+    renderJoinPage(invite.token, {
+      currentUserId: 'user-2',
+      householdsDb: memberDb,
+    })
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Leave your current household first')
+    expect(alert).not.toHaveTextContent('Could not join household')
+    expect(alert).not.toHaveTextContent(invite.token)
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByText('Joined household')).not.toBeInTheDocument()
+    await expect(
+      listHouseholdMembers({
+        db: ownerDb,
+        householdId: invitedHousehold.id,
+      }),
+    ).resolves.toEqual(invitedMembersBefore)
+    await expect(
+      listHouseholdMembers({
+        db: memberDb,
+        householdId: currentHousehold.id,
+      }),
+    ).resolves.toEqual(currentMembersBefore)
+  })
+
   it('shows a generic error for an invalid token and does not join', async () => {
     const store = createMemoryHouseholdsDb()
     const ownerDb = store.asUser('user-1')
