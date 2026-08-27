@@ -530,4 +530,182 @@ describe('joinHousehold', () => {
       },
     ])
   })
+
+  it('rejects a second join for a member already in the invited household', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const invite = await getOrCreateHouseholdInvite({
+      db: ownerDb,
+      householdId: household.id,
+    })
+    const joinerDb = store.asUser('user-2')
+    await joinHousehold({
+      db: joinerDb,
+      userId: 'user-2',
+      token: invite.token,
+    })
+
+    await expect(
+      joinHousehold({
+        db: joinerDb,
+        userId: 'user-2',
+        token: invite.token,
+      }),
+    ).rejects.toThrow(AlreadyInHouseholdError)
+
+    const members = await listHouseholdMembers({
+      db: joinerDb,
+      householdId: household.id,
+    })
+    expect(members.filter((member) => member.userId === 'user-2')).toHaveLength(
+      1,
+    )
+  })
+
+  it('rejects an empty invite token', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const joinerDb = store.asUser('user-2')
+
+    await expect(
+      joinHousehold({
+        db: joinerDb,
+        userId: 'user-2',
+        token: '',
+      }),
+    ).rejects.toThrow(InviteNotFoundError)
+
+    await expect(
+      listHouseholdMembers({ db: ownerDb, householdId: household.id }),
+    ).resolves.toEqual([
+      {
+        householdId: household.id,
+        userId: 'user-1',
+        joinedAt: expect.any(Date),
+      },
+    ])
+  })
+
+  it('lets a second visitor join with the same invite token', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const invite = await getOrCreateHouseholdInvite({
+      db: ownerDb,
+      householdId: household.id,
+    })
+
+    await joinHousehold({
+      db: store.asUser('user-2'),
+      userId: 'user-2',
+      token: invite.token,
+    })
+    await joinHousehold({
+      db: store.asUser('user-3'),
+      userId: 'user-3',
+      token: invite.token,
+    })
+
+    await expect(
+      listHouseholdMembers({ db: ownerDb, householdId: household.id }),
+    ).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ userId: 'user-1' }),
+        expect.objectContaining({ userId: 'user-2' }),
+        expect.objectContaining({ userId: 'user-3' }),
+      ]),
+    )
+  })
+
+  it('rejects joining as a different user than the caller', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const invite = await getOrCreateHouseholdInvite({
+      db: ownerDb,
+      householdId: household.id,
+    })
+    const joinerDb = store.asUser('user-2')
+
+    await expect(
+      joinHousehold({
+        db: joinerDb,
+        userId: 'user-3',
+        token: invite.token,
+      }),
+    ).rejects.toThrow(HouseholdAccessDeniedError)
+
+    await expect(
+      listHouseholdMembers({ db: ownerDb, householdId: household.id }),
+    ).resolves.toEqual([
+      {
+        householdId: household.id,
+        userId: 'user-1',
+        joinedAt: expect.any(Date),
+      },
+    ])
+  })
+
+  it('lets a user create a household after someone else joined via invite', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const invite = await getOrCreateHouseholdInvite({
+      db: ownerDb,
+      householdId: household.id,
+    })
+    await joinHousehold({
+      db: store.asUser('user-2'),
+      userId: 'user-2',
+      token: invite.token,
+    })
+
+    const founded = await createHouseholdWithMembership({
+      db: store.asUser('user-3'),
+      userId: 'user-3',
+      name: 'Casa Azul',
+      monthlyBudget: 200,
+    })
+
+    expect(founded.id).not.toBe(household.id)
+    await expect(
+      listHouseholdMembers({
+        db: store.asUser('user-3'),
+        householdId: founded.id,
+      }),
+    ).resolves.toEqual([
+      {
+        householdId: founded.id,
+        userId: 'user-3',
+        joinedAt: expect.any(Date),
+      },
+    ])
+  })
 })

@@ -229,4 +229,90 @@ describe('JoinHouseholdPage', () => {
       listHouseholdMembers({ db: ownerDb, householdId: household.id }),
     ).resolves.toEqual([expect.objectContaining({ userId: 'user-1' })])
   })
+
+  it('does not join when email signup fails', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const invite = await getOrCreateHouseholdInvite({
+      db: ownerDb,
+      householdId: household.id,
+    })
+    const joinerDb = store.asUser('user-2')
+    const signupAuth: SignupAuth = {
+      signUpWithEmail: vi.fn(async () => {
+        throw new Error('email already in use')
+      }),
+      signUpWithGoogle: vi.fn(async () => ({ userId: 'user-2' })),
+    }
+
+    renderJoinPage(invite.token, {
+      currentUserId: null,
+      householdsDb: joinerDb,
+      signupAuth,
+    })
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'ada@example.com' },
+    })
+    fireEvent.change(screen.getByLabelText('Password'), {
+      target: { value: 'secret12' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Could not create account',
+    )
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(signupAuth.signUpWithGoogle).not.toHaveBeenCalled()
+    await expect(
+      listHouseholdMembers({ db: ownerDb, householdId: household.id }),
+    ).resolves.toEqual([expect.objectContaining({ userId: 'user-1' })])
+  })
+
+  it('does not join when Google signup fails', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const invite = await getOrCreateHouseholdInvite({
+      db: ownerDb,
+      householdId: household.id,
+    })
+    const joinerDb = store.asUser('user-2')
+    const signupAuth: SignupAuth = {
+      signUpWithEmail: vi.fn(async () => ({ userId: 'user-2' })),
+      signUpWithGoogle: vi.fn(async () => {
+        throw new Error('popup closed')
+      }),
+    }
+
+    renderJoinPage(invite.token, {
+      currentUserId: null,
+      householdsDb: joinerDb,
+      signupAuth,
+    })
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Continue with Google' }),
+    )
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Could not create account',
+    )
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(signupAuth.signUpWithEmail).not.toHaveBeenCalled()
+    await expect(
+      listHouseholdMembers({ db: ownerDb, householdId: household.id }),
+    ).resolves.toEqual([expect.objectContaining({ userId: 'user-1' })])
+  })
 })
