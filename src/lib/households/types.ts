@@ -34,4 +34,5 @@ export type HouseholdsDb = {
     readonly householdId: string
     readonly monthlyBudget: number
   }): Promise<Household>
+  leaveHousehold(input: { readonly userId: string }): Promise<void>
 }

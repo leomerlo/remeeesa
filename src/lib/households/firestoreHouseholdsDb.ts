@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -131,6 +132,9 @@ export function createFirestoreHouseholdsDb(
         await updateDoc(householdRef, { monthly_budget: input.monthlyBudget })
         return { ...current, monthlyBudget: input.monthlyBudget }
       })
+    },
+    async leaveHousehold(input) {
+      await deleteDoc(doc(firestore, 'household_members', input.userId))
     },
   }
 }

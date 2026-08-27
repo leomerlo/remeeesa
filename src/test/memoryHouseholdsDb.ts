@@ -118,11 +118,21 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       })
       return updated
     },
+    async leaveHousehold(input) {
+      if (input.userId !== userId) {
+        throw new HouseholdAccessDeniedError()
+      }
+      state.members.delete(input.userId)
+    },
   }
 }
 
 export function createMemoryHouseholdsDb(): {
   asUser(userId: string): HouseholdsDb
+  addMember(input: {
+    readonly userId: string
+    readonly householdId: string
+  }): void
 } {
   const state: MemoryState = {
     households: new Map(),
@@ -132,6 +142,12 @@ export function createMemoryHouseholdsDb(): {
   return {
     asUser(actingUserId) {
       return dbForUser(state, actingUserId)
+    },
+    addMember(input) {
+      state.members.set(input.userId, {
+        householdId: input.householdId,
+        joinedAt: new Date(),
+      })
     },
   }
 }

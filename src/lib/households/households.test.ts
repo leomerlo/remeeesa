@@ -5,6 +5,7 @@ import {
   createHouseholdWithMembership,
   getHousehold,
   HouseholdAccessDeniedError,
+  leaveHousehold,
   listHouseholdMembers,
   updateHouseholdBudget,
 } from './households'
@@ -278,5 +279,65 @@ describe('household member access', () => {
         joinedAt: expect.any(Date),
       },
     ])
+  })
+})
+
+describe('leaveHousehold', () => {
+  it('lets the same user create a household after leaving', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    await leaveHousehold({ db, userId: 'user-1' })
+
+    const next = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Azul',
+      monthlyBudget: 200,
+    })
+
+    expect(next.name).toBe('Casa Azul')
+  })
+
+  it('keeps the household and remaining members after someone leaves', async () => {
+    const store = createMemoryHouseholdsDb()
+    const leaverDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: leaverDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    store.addMember({ userId: 'user-2', householdId: household.id })
+    const remainingDb = store.asUser('user-2')
+
+    await leaveHousehold({ db: leaverDb, userId: 'user-1' })
+
+    await expect(
+      getHousehold({ db: remainingDb, householdId: household.id }),
+    ).resolves.toEqual(household)
+
+    await expect(
+      listHouseholdMembers({ db: remainingDb, householdId: household.id }),
+    ).resolves.toEqual([
+      {
+        householdId: household.id,
+        userId: 'user-2',
+        joinedAt: expect.any(Date),
+      },
+    ])
+  })
+
+  it('does nothing when the caller is not a member', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+
+    await expect(
+      leaveHousehold({ db, userId: 'user-1' }),
+    ).resolves.toBeUndefined()
   })
 })

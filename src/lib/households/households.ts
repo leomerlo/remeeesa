@@ -58,3 +58,10 @@ export async function listHouseholdMembers(input: {
 }): Promise<readonly HouseholdMember[]> {
   return input.db.listMembers(input.householdId)
 }
+
+export async function leaveHousehold(input: {
+  readonly db: HouseholdsDb
+  readonly userId: string
+}): Promise<void> {
+  await input.db.leaveHousehold({ userId: input.userId })
+}

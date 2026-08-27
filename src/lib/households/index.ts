@@ -19,6 +19,7 @@ export {
   createHouseholdWithMembership,
   getHousehold,
   HouseholdAccessDeniedError,
+  leaveHousehold,
   listHouseholdMembers,
   updateHouseholdBudget,
 } from './households'
