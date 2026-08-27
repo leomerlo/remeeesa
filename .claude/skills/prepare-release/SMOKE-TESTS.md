@@ -1,7 +1,7 @@
 # Smoke tests
 
-<!-- Fill in per project: the golden paths every release must verify, regardless of what changed. Write in plain, action-first language: what to do, what you should see. These get copied verbatim into every release checklist. The session-start-project-intro hook offers to fill this in when the prepare-release skill is present; otherwise fill it in manually. -->
-
-- [ ] ...
+- [ ] Add an expense — enter amount and details, save, and confirm it appears in the list with the household's remaining budget updated accordingly.
+- [ ] Edit an expense — change its amount or details, save, and confirm the list and remaining budget reflect the update.
+- [ ] Delete an expense — remove it and confirm it disappears from the list and the remaining budget is restored accordingly.
 
 <!-- Keep this in sync with the project's own domain docs (e.g. CONTEXT.md, a features doc) if it has one — if a golden path changes there, update this file in the same change. -->
