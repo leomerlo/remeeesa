@@ -5,6 +5,7 @@ import type { HouseholdDraft } from './householdDraft'
 type HouseholdDraftContextValue = {
   readonly draft: HouseholdDraft | null
   readonly saveDraft: (draft: HouseholdDraft) => void
+  readonly clearDraft: () => void
 }
 
 const HouseholdDraftContext = createContext<HouseholdDraftContextValue | null>(
@@ -28,6 +29,9 @@ export function HouseholdDraftProvider({
         draft,
         saveDraft: (next) => {
           setDraft(next)
+        },
+        clearDraft: () => {
+          setDraft(null)
         },
       }}
     >

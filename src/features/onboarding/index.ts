@@ -4,3 +4,5 @@ export {
   useHouseholdDraft,
 } from './HouseholdDraftContext'
 export { OnboardingForm } from './OnboardingForm'
+export { finalizeHouseholdSignup } from './finalizeHouseholdSignup'
+export type { SignupAuth } from './signupAuth'

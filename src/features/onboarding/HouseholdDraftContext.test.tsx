@@ -1,4 +1,4 @@
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import type { ReactElement, ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import {
@@ -27,5 +27,26 @@ describe('useHouseholdDraft', () => {
     } finally {
       consoleError.mockRestore()
     }
+  })
+
+  it('clears a saved draft', () => {
+    const wrapper = ({ children }: { children: ReactNode }): ReactElement => (
+      <HouseholdDraftProvider>{children}</HouseholdDraftProvider>
+    )
+
+    const { result } = renderHook(() => useHouseholdDraft(), { wrapper })
+
+    act(() => {
+      result.current.saveDraft({ name: 'The Smiths', monthlyBudget: 1500 })
+    })
+    expect(result.current.draft).toEqual({
+      name: 'The Smiths',
+      monthlyBudget: 1500,
+    })
+
+    act(() => {
+      result.current.clearDraft()
+    })
+    expect(result.current.draft).toBeNull()
   })
 })

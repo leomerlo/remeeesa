@@ -3,14 +3,26 @@ import type { FormEvent, ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import type { HouseholdsDb } from '@/lib/households'
 import { parseHouseholdDraft } from './householdDraft'
 import { useHouseholdDraft } from './HouseholdDraftContext'
+import { SignupForm } from './SignupForm'
+import type { SignupAuth } from './signupAuth'
 
-export function OnboardingForm(): ReactElement {
-  const { saveDraft } = useHouseholdDraft()
+export type OnboardingFormProps = {
+  readonly householdsDb?: HouseholdsDb
+  readonly signupAuth?: SignupAuth
+}
+
+export function OnboardingForm({
+  householdsDb,
+  signupAuth,
+}: OnboardingFormProps): ReactElement {
+  const { draft, saveDraft } = useHouseholdDraft()
   const [name, setName] = useState('')
   const [monthlyBudget, setMonthlyBudget] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [finished, setFinished] = useState(false)
 
   function onSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault()
@@ -22,6 +34,26 @@ export function OnboardingForm(): ReactElement {
 
     setError(null)
     saveDraft(parsed.draft)
+  }
+
+  if (finished) {
+    return (
+      <p role="status" className="text-sm font-medium">
+        Household saved
+      </p>
+    )
+  }
+
+  if (draft !== null) {
+    return (
+      <SignupForm
+        householdsDb={householdsDb}
+        signupAuth={signupAuth}
+        onFinished={() => {
+          setFinished(true)
+        }}
+      />
+    )
   }
 
   return (
