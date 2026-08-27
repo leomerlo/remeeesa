@@ -4,6 +4,7 @@ import {
   AlreadyInHouseholdError,
   createHouseholdWithMembership,
   getHousehold,
+  getOrCreateHouseholdInvite,
   HouseholdAccessDeniedError,
   listHouseholdMembers,
   updateHouseholdBudget,
@@ -278,5 +279,71 @@ describe('household member access', () => {
         joinedAt: expect.any(Date),
       },
     ])
+  })
+})
+
+describe('getOrCreateHouseholdInvite', () => {
+  it('creates an invite token for a household member', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    const invite = await getOrCreateHouseholdInvite({
+      db,
+      householdId: household.id,
+    })
+
+    expect(invite).toEqual({
+      householdId: household.id,
+      token: expect.any(String),
+      createdAt: expect.any(Date),
+    })
+    expect(invite.token.length).toBeGreaterThan(0)
+    expect(invite).not.toHaveProperty('expiresAt')
+    expect(invite).not.toHaveProperty('usedAt')
+  })
+
+  it('returns the same token when an invite already exists', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    const first = await getOrCreateHouseholdInvite({
+      db,
+      householdId: household.id,
+    })
+    const second = await getOrCreateHouseholdInvite({
+      db,
+      householdId: household.id,
+    })
+
+    expect(second).toEqual(first)
+  })
+
+  it('does not let a non-member generate an invite', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const strangerDb = store.asUser('user-2')
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    await expect(
+      getOrCreateHouseholdInvite({
+        db: strangerDb,
+        householdId: household.id,
+      }),
+    ).rejects.toThrow(HouseholdAccessDeniedError)
   })
 })

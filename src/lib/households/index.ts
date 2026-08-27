@@ -18,6 +18,7 @@ export {
   AlreadyInHouseholdError,
   createHouseholdWithMembership,
   getHousehold,
+  getOrCreateHouseholdInvite,
   HouseholdAccessDeniedError,
   listHouseholdMembers,
   updateHouseholdBudget,

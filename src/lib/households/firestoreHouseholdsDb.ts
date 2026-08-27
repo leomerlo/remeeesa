@@ -5,6 +5,7 @@ import {
   getDocs,
   query,
   runTransaction,
+  setDoc,
   Timestamp,
   updateDoc,
   where,
@@ -12,15 +13,17 @@ import {
 import type { Firestore } from 'firebase/firestore'
 import {
   householdToDocument,
+  inviteToDocument,
   membershipToDocument,
   parseHouseholdDocument,
+  parseHouseholdInviteDocument,
   parseHouseholdMemberDocument,
 } from './converters'
 import {
   AlreadyInHouseholdError,
   HouseholdAccessDeniedError,
 } from './households'
-import type { Household, HouseholdsDb } from './types'
+import type { Household, HouseholdInvite, HouseholdsDb } from './types'
 
 function isFirestorePermissionDenied(error: unknown): boolean {
   if (typeof error !== 'object' || error === null || !('code' in error)) {
@@ -130,6 +133,38 @@ export function createFirestoreHouseholdsDb(
         })
         await updateDoc(householdRef, { monthly_budget: input.monthlyBudget })
         return { ...current, monthlyBudget: input.monthlyBudget }
+      })
+    },
+    async getOrCreateInvite(input) {
+      return withHouseholdAccess(async () => {
+        const invitesQuery = query(
+          collection(firestore, 'household_invites'),
+          where('household_id', '==', input.householdId),
+        )
+        const existing = await getDocs(invitesQuery)
+        const existingDoc = existing.docs[0]
+        if (existingDoc !== undefined) {
+          return parseHouseholdInviteDocument({
+            token: existingDoc.id,
+            data: existingDoc.data(),
+          })
+        }
+
+        const token = crypto.randomUUID()
+        const now = Timestamp.now()
+        const invite: HouseholdInvite = {
+          householdId: input.householdId,
+          token,
+          createdAt: now.toDate(),
+        }
+        await setDoc(doc(firestore, 'household_invites', token), {
+          ...inviteToDocument({
+            householdId: invite.householdId,
+            createdAt: invite.createdAt,
+          }),
+          created_at: now,
+        })
+        return invite
       })
     },
   }

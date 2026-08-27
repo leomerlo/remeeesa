@@ -1,4 +1,9 @@
-import type { Household, HouseholdMember, HouseholdsDb } from './types'
+import type {
+  Household,
+  HouseholdInvite,
+  HouseholdMember,
+  HouseholdsDb,
+} from './types'
 import { parseHouseholdName, parseMonthlyBudget } from './validate'
 
 export class AlreadyInHouseholdError extends Error {
@@ -57,4 +62,11 @@ export async function listHouseholdMembers(input: {
   readonly householdId: string
 }): Promise<readonly HouseholdMember[]> {
   return input.db.listMembers(input.householdId)
+}
+
+export async function getOrCreateHouseholdInvite(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+}): Promise<HouseholdInvite> {
+  return input.db.getOrCreateInvite({ householdId: input.householdId })
 }

@@ -4,6 +4,7 @@ import {
 } from '@/lib/households/households'
 import type {
   Household,
+  HouseholdInvite,
   HouseholdMember,
   HouseholdsDb,
 } from '@/lib/households/types'
@@ -19,9 +20,15 @@ type MembershipRecord = {
   joinedAt: Date
 }
 
+type InviteRecord = {
+  householdId: string
+  createdAt: Date
+}
+
 type MemoryState = {
   households: Map<string, HouseholdRecord>
   members: Map<string, MembershipRecord>
+  invites: Map<string, InviteRecord>
 }
 
 function toHousehold(id: string, record: HouseholdRecord): Household {
@@ -118,6 +125,30 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       })
       return updated
     },
+    async getOrCreateInvite(input) {
+      assertMemberOf(state, userId, input.householdId)
+      for (const [token, record] of state.invites) {
+        if (record.householdId === input.householdId) {
+          return {
+            householdId: record.householdId,
+            token,
+            createdAt: record.createdAt,
+          }
+        }
+      }
+      const createdAt = new Date()
+      const token = crypto.randomUUID()
+      const invite: HouseholdInvite = {
+        householdId: input.householdId,
+        token,
+        createdAt,
+      }
+      state.invites.set(token, {
+        householdId: invite.householdId,
+        createdAt: invite.createdAt,
+      })
+      return invite
+    },
   }
 }
 
@@ -127,6 +158,7 @@ export function createMemoryHouseholdsDb(): {
   const state: MemoryState = {
     households: new Map(),
     members: new Map(),
+    invites: new Map(),
   }
 
   return {
