@@ -3,8 +3,8 @@ import { createRoot } from 'react-dom/client'
 import { AppProviders } from './app/AppProviders'
 import { createQueryClient } from './lib/queryClient'
 import { createSupabaseClient, readSupabaseEnv } from './lib/supabase'
+import { App } from './App'
 import './index.css'
-import App from './App.tsx'
 
 const rootElement = document.getElementById('root')
 
