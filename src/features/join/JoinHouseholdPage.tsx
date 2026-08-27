@@ -49,7 +49,7 @@ export function JoinHouseholdPage({
   }, [currentUserIdProp, firebase.auth])
 
   useEffect(() => {
-    if (currentUserId == null || token === undefined) {
+    if (typeof currentUserId !== 'string' || token === undefined) {
       return
     }
     let cancelled = false

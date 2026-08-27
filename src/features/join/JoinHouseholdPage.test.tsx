@@ -1,7 +1,6 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import type { AppFirebaseClient } from '@/lib/firebase'
 import {
   createHouseholdWithMembership,
   getOrCreateHouseholdInvite,
@@ -102,7 +101,7 @@ describe('JoinHouseholdPage', () => {
             emitAuth = undefined
           }
         },
-      } as AppFirebaseClient['auth'],
+      },
     })
 
     renderWithProviders(
