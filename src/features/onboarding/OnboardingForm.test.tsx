@@ -1,10 +1,8 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import {
-  AlreadyInHouseholdError,
-  createHouseholdWithMembership,
-} from '@/lib/households'
+import { createHouseholdWithMembership } from '@/lib/households'
+import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import {
@@ -42,6 +40,29 @@ function signupAuthFor(userId: string): SignupAuth {
   }
 }
 
+function householdsDbWithCreateSpy(userId: string): {
+  readonly db: HouseholdsDb
+  readonly createHouseholdAndMembership: HouseholdsDb['createHouseholdAndMembership']
+  readonly writes: Array<
+    Awaited<ReturnType<HouseholdsDb['createHouseholdAndMembership']>>
+  >
+} {
+  const base = createMemoryHouseholdsDb().asUser(userId)
+  const writes: Array<
+    Awaited<ReturnType<HouseholdsDb['createHouseholdAndMembership']>>
+  > = []
+  const createHouseholdAndMembership = vi.fn(async (input) => {
+    const result = await base.createHouseholdAndMembership(input)
+    writes.push(result)
+    return result
+  })
+  return {
+    db: { ...base, createHouseholdAndMembership },
+    createHouseholdAndMembership,
+    writes,
+  }
+}
+
 function submitOnboarding(fields: {
   readonly name?: string
   readonly monthlyBudget?: string
@@ -57,6 +78,43 @@ function submitOnboarding(fields: {
     })
   }
   fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+}
+
+function submitEmailSignup(): void {
+  fireEvent.change(screen.getByLabelText('Email'), {
+    target: { value: 'ada@example.com' },
+  })
+  fireEvent.change(screen.getByLabelText('Password'), {
+    target: { value: 'secret12' },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+}
+
+function expectDraftFieldsWritten(input: {
+  readonly createHouseholdAndMembership: HouseholdsDb['createHouseholdAndMembership']
+  readonly writes: Array<
+    Awaited<ReturnType<HouseholdsDb['createHouseholdAndMembership']>>
+  >
+  readonly userId: string
+  readonly name: string
+  readonly monthlyBudget: number
+}): void {
+  expect(input.createHouseholdAndMembership).toHaveBeenCalledTimes(1)
+  expect(input.createHouseholdAndMembership).toHaveBeenCalledWith({
+    userId: input.userId,
+    name: input.name,
+    monthlyBudget: input.monthlyBudget,
+  })
+  expect(input.writes).toHaveLength(1)
+  const written = input.writes[0]
+  if (written === undefined) {
+    throw new Error('expected a household write')
+  }
+  expect(written.member).toEqual({
+    householdId: written.household.id,
+    userId: input.userId,
+    joinedAt: expect.any(Date),
+  })
 }
 
 describe('OnboardingForm', () => {
@@ -164,38 +222,37 @@ describe('OnboardingForm', () => {
   })
 
   it('creates the household from the draft after email signup and clears the draft', async () => {
-    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const { db, createHouseholdAndMembership, writes } =
+      householdsDbWithCreateSpy('user-1')
     const signupAuth = signupAuthFor('user-1')
     renderOnboarding({ householdsDb: db, signupAuth })
     submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })
-
-    fireEvent.change(screen.getByLabelText('Email'), {
-      target: { value: 'ada@example.com' },
-    })
-    fireEvent.change(screen.getByLabelText('Password'), {
-      target: { value: 'secret12' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    submitEmailSignup()
 
     await waitFor(() => {
-      expect(screen.getByText('No household draft')).toBeInTheDocument()
+      expect(screen.getByRole('status')).toHaveTextContent('Household saved')
     })
+    expect(screen.getByText('No household draft')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Create account' }),
+    ).not.toBeInTheDocument()
     expect(signupAuth.signUpWithEmail).toHaveBeenCalledWith({
       email: 'ada@example.com',
       password: 'secret12',
     })
-    await expect(
-      createHouseholdWithMembership({
-        db,
-        userId: 'user-1',
-        name: 'Should not create',
-        monthlyBudget: 1,
-      }),
-    ).rejects.toThrow(AlreadyInHouseholdError)
+    expect(signupAuth.signUpWithGoogle).not.toHaveBeenCalled()
+    expectDraftFieldsWritten({
+      createHouseholdAndMembership,
+      writes,
+      userId: 'user-1',
+      name: 'The Smiths',
+      monthlyBudget: 1500,
+    })
   })
 
   it('creates the household from the draft after Google signup and clears the draft', async () => {
-    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const { db, createHouseholdAndMembership, writes } =
+      householdsDbWithCreateSpy('user-1')
     const signupAuth = signupAuthFor('user-1')
     renderOnboarding({ householdsDb: db, signupAuth })
     submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })
@@ -205,18 +262,45 @@ describe('OnboardingForm', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText('No household draft')).toBeInTheDocument()
+      expect(screen.getByRole('status')).toHaveTextContent('Household saved')
     })
+    expect(screen.getByText('No household draft')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Continue with Google' }),
+    ).not.toBeInTheDocument()
     expect(signupAuth.signUpWithGoogle).toHaveBeenCalledOnce()
     expect(signupAuth.signUpWithEmail).not.toHaveBeenCalled()
+    expectDraftFieldsWritten({
+      createHouseholdAndMembership,
+      writes,
+      userId: 'user-1',
+      name: 'The Smiths',
+      monthlyBudget: 1500,
+    })
+  })
+
+  it('does not create a household when signup is shown but never submitted', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const signupAuth = signupAuthFor('user-1')
+    renderOnboarding({ householdsDb: db, signupAuth })
+    submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })
+
+    expect(
+      screen.getByRole('button', { name: 'Create account' }),
+    ).toBeInTheDocument()
+    expect(signupAuth.signUpWithEmail).not.toHaveBeenCalled()
+    expect(signupAuth.signUpWithGoogle).not.toHaveBeenCalled()
+    expect(
+      screen.getByText('Household draft: The Smiths, 1500'),
+    ).toBeInTheDocument()
     await expect(
       createHouseholdWithMembership({
         db,
         userId: 'user-1',
-        name: 'Should not create',
-        monthlyBudget: 1,
+        name: 'Later house',
+        monthlyBudget: 100,
       }),
-    ).rejects.toThrow(AlreadyInHouseholdError)
+    ).resolves.toMatchObject({ name: 'Later house' })
   })
 
   it('does not create a household when signup auth fails and keeps the draft', async () => {
@@ -229,14 +313,7 @@ describe('OnboardingForm', () => {
     }
     renderOnboarding({ householdsDb: db, signupAuth })
     submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })
-
-    fireEvent.change(screen.getByLabelText('Email'), {
-      target: { value: 'ada@example.com' },
-    })
-    fireEvent.change(screen.getByLabelText('Password'), {
-      target: { value: 'secret12' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    submitEmailSignup()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Could not create account',
@@ -244,6 +321,38 @@ describe('OnboardingForm', () => {
     expect(
       screen.getByText('Household draft: The Smiths, 1500'),
     ).toBeInTheDocument()
+    await expect(
+      createHouseholdWithMembership({
+        db,
+        userId: 'user-1',
+        name: 'Later house',
+        monthlyBudget: 100,
+      }),
+    ).resolves.toMatchObject({ name: 'Later house' })
+  })
+
+  it('does not create a household when Google signup fails and keeps the draft', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const signupAuth: SignupAuth = {
+      signUpWithEmail: vi.fn(async () => ({ userId: 'user-1' })),
+      signUpWithGoogle: vi.fn(async () => {
+        throw new Error('popup closed')
+      }),
+    }
+    renderOnboarding({ householdsDb: db, signupAuth })
+    submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Continue with Google' }),
+    )
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Could not create account',
+    )
+    expect(
+      screen.getByText('Household draft: The Smiths, 1500'),
+    ).toBeInTheDocument()
+    expect(signupAuth.signUpWithEmail).not.toHaveBeenCalled()
     await expect(
       createHouseholdWithMembership({
         db,
@@ -264,14 +373,7 @@ describe('OnboardingForm', () => {
     }
     renderOnboarding({ householdsDb: db, signupAuth })
     submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })
-
-    fireEvent.change(screen.getByLabelText('Email'), {
-      target: { value: 'ada@example.com' },
-    })
-    fireEvent.change(screen.getByLabelText('Password'), {
-      target: { value: 'secret12' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    submitEmailSignup()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Could not save household',
@@ -280,6 +382,40 @@ describe('OnboardingForm', () => {
       screen.getByText('Household draft: The Smiths, 1500'),
     ).toBeInTheDocument()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
+  })
+
+  it('disables email and Google signup while a request is in flight', async () => {
+    const { db } = householdsDbWithCreateSpy('user-1')
+    let resolveEmail!: (value: { readonly userId: string }) => void
+    const signupAuth: SignupAuth = {
+      signUpWithEmail: vi.fn(
+        () =>
+          new Promise<{ readonly userId: string }>((resolve) => {
+            resolveEmail = resolve
+          }),
+      ),
+      signUpWithGoogle: vi.fn(async () => ({ userId: 'user-1' })),
+    }
+    renderOnboarding({ householdsDb: db, signupAuth })
+    submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })
+    submitEmailSignup()
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Create account' }),
+      ).toBeDisabled()
+    })
+    expect(
+      screen.getByRole('button', { name: 'Continue with Google' }),
+    ).toBeDisabled()
+    expect(signupAuth.signUpWithEmail).toHaveBeenCalledOnce()
+    expect(signupAuth.signUpWithGoogle).not.toHaveBeenCalled()
+
+    resolveEmail({ userId: 'user-1' })
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('Household saved')
+    })
   })
 
   it('discards the draft when onboarding unmounts', () => {

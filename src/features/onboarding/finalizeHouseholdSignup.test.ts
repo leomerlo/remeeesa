@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import {
   createHouseholdWithMembership,
@@ -39,6 +39,37 @@ describe('finalizeHouseholdSignup', () => {
 
   it('does not write a household when there is no draft', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
+    const createSpy = vi.spyOn(db, 'createHouseholdAndMembership')
+
+    await expect(
+      finalizeHouseholdSignup({
+        db,
+        userId: 'user-1',
+        draft: null,
+      }),
+    ).resolves.toBeNull()
+
+    expect(createSpy).not.toHaveBeenCalled()
+    await expect(
+      createHouseholdWithMembership({
+        db,
+        userId: 'user-1',
+        name: 'Later house',
+        monthlyBudget: 100,
+      }),
+    ).resolves.toMatchObject({ name: 'Later house' })
+  })
+
+  it('does not write again when called later with a cleared draft', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await finalizeHouseholdSignup({
+      db,
+      userId: 'user-1',
+      draft: { name: 'The Smiths', monthlyBudget: 1500 },
+    })
+    if (household === null) {
+      throw new Error('expected a household')
+    }
 
     await expect(
       finalizeHouseholdSignup({
@@ -49,12 +80,7 @@ describe('finalizeHouseholdSignup', () => {
     ).resolves.toBeNull()
 
     await expect(
-      createHouseholdWithMembership({
-        db,
-        userId: 'user-1',
-        name: 'Later house',
-        monthlyBudget: 100,
-      }),
-    ).resolves.toMatchObject({ name: 'Later house' })
+      listHouseholdMembers({ db, householdId: household.id }),
+    ).resolves.toHaveLength(1)
   })
 })
