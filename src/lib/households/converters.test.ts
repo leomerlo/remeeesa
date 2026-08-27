@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   householdToDocument,
   inviteToDocument,
+  joinMembershipToDocument,
   membershipToDocument,
   parseHouseholdDocument,
   parseHouseholdInviteDocument,
@@ -168,6 +169,21 @@ describe('toDocument converters', () => {
     expect(membershipToDocument({ householdId: 'h1', joinedAt })).toEqual({
       household_id: 'h1',
       joined_at: joinedAt,
+    })
+  })
+
+  it('maps a join membership including invite_token', () => {
+    const joinedAt = new Date('2026-01-15T12:00:00.000Z')
+    expect(
+      joinMembershipToDocument({
+        householdId: 'h1',
+        joinedAt,
+        inviteToken: 'invite-token',
+      }),
+    ).toEqual({
+      household_id: 'h1',
+      joined_at: joinedAt,
+      invite_token: 'invite-token',
     })
   })
 

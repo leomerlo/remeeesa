@@ -14,6 +14,7 @@ import type { Firestore } from 'firebase/firestore'
 import {
   householdToDocument,
   inviteToDocument,
+  joinMembershipToDocument,
   membershipToDocument,
   parseHouseholdDocument,
   parseHouseholdInviteDocument,
@@ -208,12 +209,12 @@ export function createFirestoreHouseholdsDb(
             joinedAt: now.toDate(),
           }
           tx.set(memberRef, {
-            ...membershipToDocument({
+            ...joinMembershipToDocument({
               householdId: member.householdId,
               joinedAt: member.joinedAt,
+              inviteToken: input.token,
             }),
             joined_at: now,
-            invite_token: input.token,
           })
           return member
         })

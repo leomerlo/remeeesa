@@ -31,6 +31,35 @@ function renderJoinPage(token: string, props: JoinHouseholdPageProps) {
   )
 }
 
+function createDelayedAuth() {
+  let emitAuth: ((user: { readonly uid: string } | null) => void) | undefined
+  const client = createFirebaseStub({
+    auth: {
+      currentUser: null,
+      onAuthStateChanged(
+        next: (user: { readonly uid: string } | null) => void,
+      ) {
+        emitAuth = next
+        return () => {
+          emitAuth = undefined
+        }
+      },
+    },
+  })
+  return {
+    client,
+    emitAuth(user: { readonly uid: string } | null) {
+      emitAuth?.(user)
+    },
+  }
+}
+
+async function expectJoinedStatus() {
+  await waitFor(() => {
+    expect(screen.getByRole('status')).toHaveTextContent('Joined household')
+  })
+}
+
 describe('JoinHouseholdPage', () => {
   it('auto-joins an authenticated visitor who has no household', async () => {
     const store = createMemoryHouseholdsDb()
@@ -62,9 +91,7 @@ describe('JoinHouseholdPage', () => {
       screen.queryByRole('button', { name: 'Join household' }),
     ).not.toBeInTheDocument()
 
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      'Joined household',
-    )
+    await expectJoinedStatus()
 
     await waitFor(async () => {
       await expect(
@@ -89,20 +116,7 @@ describe('JoinHouseholdPage', () => {
       householdId: household.id,
     })
     const joinerDb = store.asUser('user-2')
-    let emitAuth: ((user: { readonly uid: string } | null) => void) | undefined
-    const client = createFirebaseStub({
-      auth: {
-        currentUser: null,
-        onAuthStateChanged(
-          next: (user: { readonly uid: string } | null) => void,
-        ) {
-          emitAuth = next
-          return () => {
-            emitAuth = undefined
-          }
-        },
-      },
-    })
+    const delayedAuth = createDelayedAuth()
 
     renderWithProviders(
       <MemoryRouter initialEntries={[`/join/${invite.token}`]}>
@@ -113,24 +127,47 @@ describe('JoinHouseholdPage', () => {
           />
         </Routes>
       </MemoryRouter>,
-      { client },
+      { client: delayedAuth.client },
     )
 
-    expect(screen.getByText('Joining…')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent('Joining…')
     expect(
       screen.queryByRole('button', { name: 'Create account' }),
     ).not.toBeInTheDocument()
 
-    emitAuth?.({ uid: 'user-2' })
+    delayedAuth.emitAuth({ uid: 'user-2' })
 
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      'Joined household',
-    )
+    await expectJoinedStatus()
     await expect(
       listHouseholdMembers({ db: joinerDb, householdId: household.id }),
     ).resolves.toEqual(
       expect.arrayContaining([expect.objectContaining({ userId: 'user-2' })]),
     )
+  })
+
+  it('shows signup after auth resolves with no session', async () => {
+    const delayedAuth = createDelayedAuth()
+
+    renderWithProviders(
+      <MemoryRouter initialEntries={['/join/invite-token']}>
+        <Routes>
+          <Route path="/join/:token" element={<JoinHouseholdPage />} />
+        </Routes>
+      </MemoryRouter>,
+      { client: delayedAuth.client },
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent('Joining…')
+    expect(
+      screen.queryByRole('button', { name: 'Create account' }),
+    ).not.toBeInTheDocument()
+
+    delayedAuth.emitAuth(null)
+
+    expect(
+      await screen.findByRole('button', { name: 'Create account' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 
   it('shows joined when the visitor is already in the invited household', async () => {
@@ -158,9 +195,7 @@ describe('JoinHouseholdPage', () => {
       householdsDb: joinerDb,
     })
 
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      'Joined household',
-    )
+    await expectJoinedStatus()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     const members = await listHouseholdMembers({
       db: joinerDb,
@@ -216,9 +251,7 @@ describe('JoinHouseholdPage', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
 
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      'Joined household',
-    )
+    await expectJoinedStatus()
     expect(signupAuth.signUpWithEmail).toHaveBeenCalledWith({
       email: 'ada@example.com',
       password: 'secret12',
@@ -256,9 +289,7 @@ describe('JoinHouseholdPage', () => {
       screen.getByRole('button', { name: 'Continue with Google' }),
     )
 
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      'Joined household',
-    )
+    await expectJoinedStatus()
     expect(signupAuth.signUpWithGoogle).toHaveBeenCalledOnce()
     await expect(
       listHouseholdMembers({ db: joinerDb, householdId: household.id }),

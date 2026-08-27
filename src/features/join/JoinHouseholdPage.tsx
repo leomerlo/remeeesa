@@ -121,7 +121,11 @@ export function JoinHouseholdPage({
         </p>
       )
     }
-    return <p className="text-sm font-medium">Joining…</p>
+    return (
+      <p role="status" className="text-sm font-medium">
+        Joining…
+      </p>
+    )
   }
 
   return (

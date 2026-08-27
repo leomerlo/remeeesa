@@ -126,6 +126,24 @@ export function membershipToDocument(input: {
   }
 }
 
+export function joinMembershipToDocument(input: {
+  readonly householdId: string
+  readonly joinedAt: Date
+  readonly inviteToken: string
+}): {
+  readonly household_id: string
+  readonly joined_at: Date
+  readonly invite_token: string
+} {
+  return {
+    ...membershipToDocument({
+      householdId: input.householdId,
+      joinedAt: input.joinedAt,
+    }),
+    invite_token: input.inviteToken,
+  }
+}
+
 export function inviteToDocument(input: {
   readonly householdId: string
   readonly createdAt: Date

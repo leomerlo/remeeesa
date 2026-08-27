@@ -8,6 +8,7 @@ export type {
 export {
   householdToDocument,
   inviteToDocument,
+  joinMembershipToDocument,
   membershipToDocument,
   parseHouseholdDocument,
   parseHouseholdInviteDocument,

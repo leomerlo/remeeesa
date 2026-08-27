@@ -31,7 +31,7 @@ describe('mapHouseholdFirestoreError', () => {
 })
 
 describe('firestore.rules founder membership', () => {
-  it('denies membership create against an already-existing household', () => {
+  it('requires the founder membership path to create a new household', () => {
     expect(rules).toContain(
       '!exists(/databases/$(database)/documents/households/$(request.resource.data.household_id))',
     )
