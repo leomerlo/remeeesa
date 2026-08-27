@@ -40,6 +40,32 @@ describe('parseHouseholdDocument', () => {
       }).createdAt,
     ).toBe(createdAt)
   })
+
+  it('rejects an empty name', () => {
+    expect(() =>
+      parseHouseholdDocument({
+        id: 'h1',
+        data: {
+          name: '   ',
+          monthly_budget: 100,
+          created_at: new Date('2026-01-15T12:00:00.000Z'),
+        },
+      }),
+    ).toThrow('Household name must be non-empty')
+  })
+
+  it('rejects a non-positive monthly_budget', () => {
+    expect(() =>
+      parseHouseholdDocument({
+        id: 'h1',
+        data: {
+          name: 'Casa Verde',
+          monthly_budget: 0,
+          created_at: new Date('2026-01-15T12:00:00.000Z'),
+        },
+      }),
+    ).toThrow('Monthly budget must be a positive number')
+  })
 })
 
 describe('parseHouseholdMemberDocument', () => {
@@ -58,6 +84,19 @@ describe('parseHouseholdMemberDocument', () => {
       joinedAt: new Date('2026-01-15T12:00:00.000Z'),
     })
   })
+
+  it('reads a Firestore Timestamp via toDate', () => {
+    const joinedAt = new Date('2026-01-15T12:00:00.000Z')
+    expect(
+      parseHouseholdMemberDocument({
+        userId: 'user-1',
+        data: {
+          household_id: 'h1',
+          joined_at: { toDate: () => joinedAt },
+        },
+      }).joinedAt,
+    ).toBe(joinedAt)
+  })
 })
 
 describe('parseHouseholdInviteDocument', () => {
@@ -75,6 +114,19 @@ describe('parseHouseholdInviteDocument', () => {
       token: 'invite-token',
       createdAt: new Date('2026-01-15T12:00:00.000Z'),
     })
+  })
+
+  it('reads a Firestore Timestamp via toDate', () => {
+    const createdAt = new Date('2026-01-15T12:00:00.000Z')
+    expect(
+      parseHouseholdInviteDocument({
+        token: 'invite-token',
+        data: {
+          household_id: 'h1',
+          created_at: { toDate: () => createdAt },
+        },
+      }).createdAt,
+    ).toBe(createdAt)
   })
 })
 

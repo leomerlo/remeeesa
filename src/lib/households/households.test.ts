@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import {
+  AlreadyInHouseholdError,
   createHouseholdWithMembership,
   getHousehold,
+  HouseholdAccessDeniedError,
   listHouseholdMembers,
   updateHouseholdBudget,
 } from './households'
@@ -41,6 +43,19 @@ describe('createHouseholdWithMembership', () => {
   })
 
   it('rejects an empty household name', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+
+    await expect(
+      createHouseholdWithMembership({
+        db,
+        userId: 'user-1',
+        name: '',
+        monthlyBudget: 100,
+      }),
+    ).rejects.toThrow('Household name must be non-empty')
+  })
+
+  it('rejects a whitespace-only household name', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
 
     await expect(
@@ -96,7 +111,20 @@ describe('createHouseholdWithMembership', () => {
         name: 'Other House',
         monthlyBudget: 200,
       }),
-    ).rejects.toThrow('User already belongs to a household')
+    ).rejects.toThrow(AlreadyInHouseholdError)
+  })
+
+  it('rejects creating a membership for a different user', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+
+    await expect(
+      createHouseholdWithMembership({
+        db,
+        userId: 'user-2',
+        name: 'Casa Verde',
+        monthlyBudget: 100,
+      }),
+    ).rejects.toThrow(HouseholdAccessDeniedError)
   })
 
   it('allows a different user to create their own household', async () => {
@@ -139,6 +167,9 @@ describe('updateHouseholdBudget', () => {
       ...household,
       monthlyBudget: 250.75,
     })
+    await expect(
+      getHousehold({ db, householdId: household.id }),
+    ).resolves.toEqual(updated)
   })
 
   it('rejects a non-positive monthly budget', async () => {
@@ -175,11 +206,11 @@ describe('household member access', () => {
 
     await expect(
       getHousehold({ db: strangerDb, householdId: household.id }),
-    ).rejects.toThrow('Only household members can access this household')
+    ).rejects.toThrow(HouseholdAccessDeniedError)
 
     await expect(
       listHouseholdMembers({ db: strangerDb, householdId: household.id }),
-    ).rejects.toThrow('Only household members can access this household')
+    ).rejects.toThrow(HouseholdAccessDeniedError)
 
     await expect(
       updateHouseholdBudget({
@@ -187,7 +218,42 @@ describe('household member access', () => {
         householdId: household.id,
         monthlyBudget: 50,
       }),
-    ).rejects.toThrow('Only household members can access this household')
+    ).rejects.toThrow(HouseholdAccessDeniedError)
+  })
+
+  it('does not let a member of another household access this one', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const otherDb = store.asUser('user-2')
+
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    await createHouseholdWithMembership({
+      db: otherDb,
+      userId: 'user-2',
+      name: 'Casa Azul',
+      monthlyBudget: 200,
+    })
+
+    await expect(
+      getHousehold({ db: otherDb, householdId: household.id }),
+    ).rejects.toThrow(HouseholdAccessDeniedError)
+
+    await expect(
+      listHouseholdMembers({ db: otherDb, householdId: household.id }),
+    ).rejects.toThrow(HouseholdAccessDeniedError)
+
+    await expect(
+      updateHouseholdBudget({
+        db: otherDb,
+        householdId: household.id,
+        monthlyBudget: 50,
+      }),
+    ).rejects.toThrow(HouseholdAccessDeniedError)
   })
 
   it('lets a member read the household and its members list', async () => {
