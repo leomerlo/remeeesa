@@ -1,0 +1,37 @@
+export type HouseholdDraft = {
+  readonly name: string
+  readonly monthlyBudget: number
+}
+
+export type Household = {
+  readonly id: string
+  readonly name: string
+  readonly monthlyBudget: number
+  readonly createdAt: Date
+}
+
+export type HouseholdMember = {
+  readonly householdId: string
+  readonly userId: string
+  readonly joinedAt: Date
+}
+
+export type HouseholdInvite = {
+  readonly householdId: string
+  readonly token: string
+  readonly createdAt: Date
+}
+
+export type HouseholdsDb = {
+  createHouseholdAndMembership(input: {
+    readonly userId: string
+    readonly name: string
+    readonly monthlyBudget: number
+  }): Promise<{ household: Household; member: HouseholdMember }>
+  getHousehold(householdId: string): Promise<Household>
+  listMembers(householdId: string): Promise<readonly HouseholdMember[]>
+  updateMonthlyBudget(input: {
+    readonly householdId: string
+    readonly monthlyBudget: number
+  }): Promise<Household>
+}

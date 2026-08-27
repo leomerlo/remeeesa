@@ -1,0 +1,76 @@
+rules_version = '2';
+
+// Live rule execution is not in CI (no Firestore emulator). Review by inspection.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function membershipPath() {
+      return /databases/$(database)/documents/household_members/$(request.auth.uid);
+    }
+
+    function isMemberOf(householdId) {
+      return isSignedIn()
+        && exists(membershipPath())
+        && get(membershipPath()).data.household_id == householdId;
+    }
+
+    function isValidHousehold(data) {
+      return data.keys().hasOnly(['name', 'monthly_budget', 'created_at'])
+        && data.name is string
+        && data.name.size() > 0
+        && data.monthly_budget is number
+        && data.monthly_budget > 0
+        && data.created_at is timestamp;
+    }
+
+    function isValidMembership(data) {
+      return data.keys().hasOnly(['household_id', 'joined_at'])
+        && data.household_id is string
+        && data.household_id.size() > 0
+        && data.joined_at is timestamp
+        && existsAfter(/databases/$(database)/documents/households/$(data.household_id));
+    }
+
+    function isValidInvite(data) {
+      return data.keys().hasOnly(['household_id', 'created_at'])
+        && data.household_id is string
+        && data.household_id.size() > 0
+        && data.created_at is timestamp;
+    }
+
+    match /households/{householdId} {
+      allow read: if isMemberOf(householdId);
+      allow create: if isSignedIn() && isValidHousehold(request.resource.data);
+      allow update: if isMemberOf(householdId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['monthly_budget'])
+        && request.resource.data.monthly_budget is number
+        && request.resource.data.monthly_budget > 0;
+      allow delete: if false;
+    }
+
+    match /household_members/{userId} {
+      allow read: if isSignedIn()
+        && exists(membershipPath())
+        && (
+          userId == request.auth.uid
+          || resource.data.household_id == get(membershipPath()).data.household_id
+        );
+      allow create: if isSignedIn()
+        && request.auth.uid == userId
+        && isValidMembership(request.resource.data);
+      allow update: if false;
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /household_invites/{token} {
+      allow read: if isSignedIn() && isMemberOf(resource.data.household_id);
+      allow create: if isSignedIn()
+        && isValidInvite(request.resource.data)
+        && isMemberOf(request.resource.data.household_id);
+      allow update, delete: if false;
+    }
+  }
+}
