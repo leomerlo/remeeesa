@@ -104,6 +104,37 @@ describe('OnboardingForm', () => {
     ).toBeInTheDocument()
   })
 
+  it('trims surrounding whitespace from the stored household name', () => {
+    renderOnboarding()
+    submitOnboarding({ name: '  The Smiths  ', monthlyBudget: '1500' })
+
+    expect(
+      screen.getByText('Household draft: The Smiths, 1500'),
+    ).toBeInTheDocument()
+  })
+
+  it('rejects an empty monthly budget and does not store a draft', () => {
+    renderOnboarding()
+    submitOnboarding({ name: 'The Smiths' })
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/budget/i)
+    expect(screen.getByText('No household draft')).toBeInTheDocument()
+  })
+
+  it('clears the error after a subsequent valid submit', () => {
+    renderOnboarding()
+    submitOnboarding({ name: 'The Smiths', monthlyBudget: '0' })
+
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+
+    submitOnboarding({ monthlyBudget: '1500' })
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(
+      screen.getByText('Household draft: The Smiths, 1500'),
+    ).toBeInTheDocument()
+  })
+
   it('discards the draft when onboarding unmounts', () => {
     const { unmount } = renderOnboarding()
     submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })
