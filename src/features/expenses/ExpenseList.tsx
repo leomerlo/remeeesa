@@ -8,21 +8,16 @@ export type ExpenseListProps = {
   readonly householdId: string
 }
 
-function currentCalendarMonthRange(now = new Date()): {
+function calendarMonthRange(input: {
+  readonly year: number
+  readonly month: number
+}): {
   readonly monthStart: Date
   readonly monthEnd: Date
 } {
   return {
-    monthStart: new Date(now.getFullYear(), now.getMonth(), 1),
-    monthEnd: new Date(
-      now.getFullYear(),
-      now.getMonth() + 1,
-      0,
-      23,
-      59,
-      59,
-      999,
-    ),
+    monthStart: new Date(input.year, input.month, 1),
+    monthEnd: new Date(input.year, input.month + 1, 0, 23, 59, 59, 999),
   }
 }
 
@@ -48,7 +43,7 @@ export function ExpenseList({
   const expensesQuery = useQuery({
     queryKey: ['expense-list', householdId, year, month],
     queryFn: async () => {
-      const { monthStart, monthEnd } = currentCalendarMonthRange(now)
+      const { monthStart, monthEnd } = calendarMonthRange({ year, month })
       const [expenses, categories] = await Promise.all([
         listExpensesInMonth({ db, householdId, monthStart, monthEnd }),
         listCategories({ db, householdId }),
@@ -79,7 +74,11 @@ export function ExpenseList({
 
   const { expenses, categories } = expensesQuery.data
   if (expenses.length === 0) {
-    return <p className="text-sm font-medium">No expenses this month</p>
+    return (
+      <p role="status" className="text-sm font-medium">
+        No expenses this month
+      </p>
+    )
   }
 
   const categoryNameById = new Map(
