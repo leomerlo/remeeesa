@@ -8,6 +8,7 @@ import { createFirebaseStub } from './firebaseStub'
 
 type RenderWithProvidersOptions = {
   readonly client?: AppFirebaseClient
+  readonly queryClient?: QueryClient
 }
 
 // Every feature test starts here, so no test ever writes a provider tree.
@@ -17,10 +18,13 @@ export function renderWithProviders(
   ui: ReactNode,
   options: RenderWithProvidersOptions = {},
 ): RenderResult {
-  const { client = createFirebaseStub() } = options
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  })
+  const { client = createFirebaseStub(), queryClient: queryClientOption } =
+    options
+  const queryClient =
+    queryClientOption ??
+    new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
 
   return render(
     <AppProviders client={client} queryClient={queryClient}>

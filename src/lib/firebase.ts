@@ -1,5 +1,5 @@
-import { initializeApp } from 'firebase/app'
-import { getAuth } from 'firebase/auth'
+import { getApp, getApps, initializeApp } from 'firebase/app'
+import { browserLocalPersistence, getAuth, setPersistence } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 import type { FirebaseApp } from 'firebase/app'
 import type { Auth } from 'firebase/auth'
@@ -17,6 +17,8 @@ export type FirebaseEnv = {
   readonly projectId: string
   readonly appId: string
 }
+
+export const FIREBASE_APP_NAME = 'remeeesa'
 
 const API_KEY = 'VITE_FIREBASE_API_KEY'
 const AUTH_DOMAIN = 'VITE_FIREBASE_AUTH_DOMAIN'
@@ -61,20 +63,29 @@ export function readFirebaseEnv(source: Record<string, unknown>): FirebaseEnv {
   return { apiKey, authDomain, projectId, appId }
 }
 
-export function createFirebaseClient(env: FirebaseEnv): AppFirebaseClient {
-  const app = initializeApp(
-    {
-      apiKey: env.apiKey,
-      authDomain: env.authDomain,
-      projectId: env.projectId,
-      appId: env.appId,
-    },
-    crypto.randomUUID(),
-  )
+export function createFirebaseClient(
+  env: FirebaseEnv,
+  options?: { readonly appName?: string },
+): AppFirebaseClient {
+  const appName = options?.appName ?? FIREBASE_APP_NAME
+  const config = {
+    apiKey: env.apiKey,
+    authDomain: env.authDomain,
+    projectId: env.projectId,
+    appId: env.appId,
+  }
+  const app = getApps().some((existing) => existing.name === appName)
+    ? getApp(appName)
+    : initializeApp(config, appName)
+
+  const auth = getAuth(app)
+  // Auth tokens live in localStorage keyed by app name. A stable name lets
+  // onAuthStateChanged restore the signed-in user after a full page reload.
+  void setPersistence(auth, browserLocalPersistence)
 
   return {
     app,
-    auth: getAuth(app),
+    auth,
     db: getFirestore(app),
   }
 }

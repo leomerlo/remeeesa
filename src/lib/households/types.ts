@@ -1,3 +1,5 @@
+import type { Category, Expense } from '@/lib/expenses/types'
+
 export type HouseholdDraft = {
   readonly name: string
   readonly monthlyBudget: number
@@ -43,4 +45,24 @@ export type HouseholdsDb = {
     readonly token: string
   }): Promise<HouseholdMember>
   leaveHousehold(input: { readonly userId: string }): Promise<void>
+  listCategories(householdId: string): Promise<readonly Category[]>
+  findOrCreateCategory(input: {
+    readonly householdId: string
+    readonly name: string
+  }): Promise<Category>
+  createExpense(input: {
+    readonly householdId: string
+    readonly categoryId: string
+    readonly memberId: string
+    readonly authorDisplayName: string
+    readonly name: string
+    readonly price: number
+    readonly comments: string
+    readonly expenseDate: Date
+  }): Promise<Expense>
+  listExpensesInMonth(input: {
+    readonly householdId: string
+    readonly monthStart: Date
+    readonly monthEnd: Date
+  }): Promise<readonly Expense[]>
 }

@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview",
-    "prepare": "husky"
+    "prepare": "husky",
+    "deploy:firestore": "firebase deploy --only firestore:rules,firestore:indexes"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
@@ -44,6 +45,7 @@
     "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "firebase-tools": "^15.28.2",
     "husky": "^9.1.7",
     "jsdom": "^29.1.1",
     "lint-staged": "^17.4.1",
