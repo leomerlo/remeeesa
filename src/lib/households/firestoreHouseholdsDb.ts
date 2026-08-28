@@ -23,6 +23,7 @@ import {
 } from '@/lib/expenses/converters'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
 import { parseCategoryName } from '@/lib/expenses/validate'
+import { ExpenseNotFoundError } from '@/lib/expenses/expenses'
 import {
   householdToDocument,
   inviteToDocument,
@@ -379,6 +380,19 @@ export function createFirestoreHouseholdsDb(
             data: expenseDoc.data(),
           }),
         )
+      })
+    },
+    async deleteExpense(input) {
+      return withHouseholdAccess(async () => {
+        const expenseRef = doc(firestore, 'expenses', input.expenseId)
+        const existing = await getDoc(expenseRef)
+        if (
+          !existing.exists() ||
+          existing.data().household_id !== input.householdId
+        ) {
+          throw new ExpenseNotFoundError()
+        }
+        await deleteDoc(expenseRef)
       })
     },
   }
