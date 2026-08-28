@@ -35,7 +35,7 @@ describe('RemainingBudgetDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Remaining budget' }),
+      await screen.findByRole('status', { name: 'Remaining budget 100' }),
     ).toHaveTextContent('100')
   })
 
@@ -58,7 +58,7 @@ describe('RemainingBudgetDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Remaining budget' }),
+      await screen.findByRole('status', { name: 'Remaining budget 70' }),
     ).toHaveTextContent('70')
   })
 
@@ -93,7 +93,7 @@ describe('RemainingBudgetDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Remaining budget' }),
+      await screen.findByRole('status', { name: 'Remaining budget 75' }),
     ).toHaveTextContent('75')
   })
 
@@ -109,7 +109,7 @@ describe('RemainingBudgetDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Remaining budget' }),
+      await screen.findByRole('status', { name: 'Remaining budget 100' }),
     ).toHaveTextContent('100')
 
     await createExpense({
@@ -129,7 +129,7 @@ describe('RemainingBudgetDisplay', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('status', { name: 'Remaining budget' }),
+        screen.getByRole('status', { name: 'Remaining budget -50' }),
       ).toHaveTextContent('-50')
     })
   })

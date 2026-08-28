@@ -56,7 +56,7 @@ export function RemainingBudgetDisplay({
   return (
     <p
       role="status"
-      aria-label="Remaining budget"
+      aria-label={`Remaining budget ${remaining}`}
       className="font-display text-5xl tracking-tight"
     >
       {remaining}

@@ -30,7 +30,7 @@ describe('HomePage', () => {
       screen.queryByRole('button', { name: 'Generate invite link' }),
     ).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('status', { name: 'Remaining budget' }),
+      screen.queryByRole('status', { name: /remaining budget/i }),
     ).not.toBeInTheDocument()
   })
 
@@ -44,7 +44,7 @@ describe('HomePage', () => {
       screen.queryByRole('button', { name: 'Generate invite link' }),
     ).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('status', { name: 'Remaining budget' }),
+      screen.queryByRole('status', { name: /remaining budget/i }),
     ).not.toBeInTheDocument()
   })
 
@@ -61,7 +61,7 @@ describe('HomePage', () => {
 
     expect(await screen.findByText('Casa Verde')).toBeInTheDocument()
     expect(
-      await screen.findByRole('status', { name: 'Remaining budget' }),
+      await screen.findByRole('status', { name: /remaining budget/i }),
     ).toHaveTextContent('100')
     fireEvent.click(
       screen.getByRole('button', { name: 'Generate invite link' }),
@@ -99,7 +99,7 @@ describe('HomePage', () => {
 
     expect(await screen.findByText('Casa Verde')).toBeInTheDocument()
     expect(
-      await screen.findByRole('status', { name: 'Remaining budget' }),
+      await screen.findByRole('status', { name: /remaining budget/i }),
     ).toHaveTextContent('100')
     expect(
       screen.getByRole('button', { name: 'Generate invite link' }),
