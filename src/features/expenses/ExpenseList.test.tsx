@@ -83,7 +83,7 @@ describe('ExpenseList', () => {
       householdId: household.id,
       categoryId: transporte.id,
       memberId: 'user-1',
-      authorDisplayName: 'Ada',
+      authorDisplayName: 'Bob',
       name: 'Taxi',
       price: 8.25,
       comments: '',
@@ -98,7 +98,7 @@ describe('ExpenseList', () => {
     expect(rows[0]).toHaveTextContent('8.25')
     expect(rows[0]).toHaveTextContent('Transporte')
     expect(rows[0]).toHaveTextContent(formatExpenseDate(laterDate))
-    expect(rows[0]).toHaveTextContent('Ada')
+    expect(rows[0]).toHaveTextContent('Bob')
     expect(rows[1]).toHaveTextContent('Pizza')
     expect(rows[1]).toHaveTextContent('12.50')
     expect(rows[1]).toHaveTextContent('Comida')
@@ -149,5 +149,61 @@ describe('ExpenseList', () => {
 
     expect(await screen.findByText('Pizza')).toBeInTheDocument()
     expect(screen.queryByText('Old rent')).not.toBeInTheDocument()
+  })
+
+  it('shows the empty state when the only expenses are from last month', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories.find((category) => category.name === 'Comida')
+    expect(comida).toBeDefined()
+    if (comida === undefined) {
+      throw new Error('expected Comida category')
+    }
+
+    await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Old rent',
+      price: 40,
+      comments: '',
+      expenseDate: lastMonthDate(),
+    })
+
+    renderWithProviders(<ExpenseList db={db} householdId={household.id} />)
+
+    expect(
+      await screen.findByText('No expenses this month'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Old rent')).not.toBeInTheDocument()
+    expect(screen.queryByRole('list')).not.toBeInTheDocument()
+  })
+
+  it('shows an error when the current user is not a household member', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderWithProviders(
+      <ExpenseList db={store.asUser('user-2')} householdId={household.id} />,
+    )
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Only household members can access this household',
+    )
+    expect(screen.queryByRole('list')).not.toBeInTheDocument()
   })
 })
