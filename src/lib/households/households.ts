@@ -96,3 +96,10 @@ export async function joinHousehold(input: {
     token: input.token,
   })
 }
+
+export async function leaveHousehold(input: {
+  readonly db: HouseholdsDb
+  readonly userId: string
+}): Promise<void> {
+  await input.db.leaveHousehold({ userId: input.userId })
+}

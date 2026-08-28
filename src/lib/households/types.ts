@@ -42,4 +42,5 @@ export type HouseholdsDb = {
     readonly userId: string
     readonly token: string
   }): Promise<HouseholdMember>
+  leaveHousehold(input: { readonly userId: string }): Promise<void>
 }

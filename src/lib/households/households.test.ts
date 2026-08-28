@@ -9,6 +9,7 @@ import {
   HouseholdAccessDeniedError,
   InviteNotFoundError,
   joinHousehold,
+  leaveHousehold,
   listHouseholdMembers,
   updateHouseholdBudget,
 } from './households'
@@ -746,5 +747,101 @@ describe('joinHousehold', () => {
         joinedAt: expect.any(Date),
       },
     ])
+  })
+})
+
+describe('leaveHousehold', () => {
+  it('lets the same user create a household after leaving', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const previous = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    await leaveHousehold({ db, userId: 'user-1' })
+
+    const next = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Azul',
+      monthlyBudget: 200,
+    })
+
+    expect(next.name).toBe('Casa Azul')
+    expect(next.id).not.toBe(previous.id)
+  })
+
+  it('keeps the household and remaining members after someone leaves', async () => {
+    const store = createMemoryHouseholdsDb()
+    const leaverDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: leaverDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    store.addMember({ userId: 'user-2', householdId: household.id })
+    const remainingDb = store.asUser('user-2')
+
+    await leaveHousehold({ db: leaverDb, userId: 'user-1' })
+
+    await expect(
+      getHousehold({ db: remainingDb, householdId: household.id }),
+    ).resolves.toEqual(household)
+
+    await expect(
+      listHouseholdMembers({ db: remainingDb, householdId: household.id }),
+    ).resolves.toEqual([
+      {
+        householdId: household.id,
+        userId: 'user-2',
+        joinedAt: expect.any(Date),
+      },
+    ])
+
+    await expect(
+      updateHouseholdBudget({
+        db: remainingDb,
+        householdId: household.id,
+        monthlyBudget: 300,
+      }),
+    ).resolves.toEqual({ ...household, monthlyBudget: 300 })
+
+    await expect(
+      getHousehold({ db: leaverDb, householdId: household.id }),
+    ).rejects.toThrow('Only household members can access this household')
+  })
+
+  it('does not delete the household when the last member leaves', async () => {
+    const store = createMemoryHouseholdsDb()
+    const leaverDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: leaverDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    await leaveHousehold({ db: leaverDb, userId: 'user-1' })
+
+    await expect(
+      getHousehold({ db: store.asUser('user-2'), householdId: household.id }),
+    ).rejects.toThrow('Only household members can access this household')
+
+    store.addMember({ userId: 'user-2', householdId: household.id })
+
+    await expect(
+      getHousehold({ db: store.asUser('user-2'), householdId: household.id }),
+    ).resolves.toEqual(household)
+  })
+
+  it('does nothing when the caller is not a member', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+
+    await expect(
+      leaveHousehold({ db, userId: 'user-1' }),
+    ).resolves.toBeUndefined()
   })
 })

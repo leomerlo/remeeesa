@@ -24,6 +24,7 @@ export {
   HouseholdAccessDeniedError,
   InviteNotFoundError,
   joinHousehold,
+  leaveHousehold,
   listHouseholdMembers,
   updateHouseholdBudget,
 } from './households'
