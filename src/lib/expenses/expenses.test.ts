@@ -1289,10 +1289,15 @@ describe('updateExpense', () => {
 
   it('returns ExpenseNotFoundError when another member deleted the expense before edit', async () => {
     const store = createMemoryHouseholdsDb()
-    const { household, expense, editorDb } = await seedAugustExpense({ store })
+    const { household, expense, editorDb } = await seedAugustExpense({
+      store,
+      authorUserId: 'user-1',
+      editorUserId: 'user-1',
+    })
+    store.seedMembership({ userId: 'user-2', householdId: household.id })
 
     await deleteExpense({
-      db: editorDb,
+      db: store.asUser('user-2'),
       householdId: household.id,
       expenseId: expense.id,
     })
