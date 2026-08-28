@@ -14,7 +14,11 @@ import {
   parseExpensePrice,
 } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
-import { categoriesQueryKey, expensesInMonthQueryKey } from './queryKeys'
+import {
+  categoriesQueryKey,
+  expenseListQueryKey,
+  expensesInMonthQueryKey,
+} from './queryKeys'
 
 export type AddExpenseFormProps = {
   readonly db: HouseholdsDb
@@ -82,6 +86,11 @@ export function AddExpenseForm({
   const queryClient = useQueryClient()
   const categoriesKey = categoriesQueryKey({ householdId })
   const expensesKey = expensesInMonthQueryKey({ householdId })
+  const expenseListKey = expenseListQueryKey({
+    householdId,
+    year: new Date().getFullYear(),
+    month: new Date().getMonth(),
+  })
   const categoriesQuery = useQuery({
     queryKey: categoriesKey,
     queryFn: () => listCategories({ db, householdId }),
@@ -122,6 +131,7 @@ export function AddExpenseForm({
       setError(null)
       await queryClient.invalidateQueries({ queryKey: categoriesKey })
       await queryClient.invalidateQueries({ queryKey: expensesKey })
+      await queryClient.invalidateQueries({ queryKey: expenseListKey })
     },
   })
 

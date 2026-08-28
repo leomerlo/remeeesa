@@ -86,9 +86,11 @@ describe('HomePage', () => {
 
     expect(await screen.findByText('Casa Verde')).toBeInTheDocument()
     expect(
-      await screen.findByRole('status', { name: /remaining budget/i }),
-    ).toHaveTextContent('100')
-    expect(await screen.findByText('No expenses this month')).toBeInTheDocument()
+      await screen.findByRole('status', { name: /remaining budget \$100/i }),
+    ).toHaveTextContent('$100')
+    expect(
+      await screen.findByText('No expenses this month'),
+    ).toBeInTheDocument()
     fireEvent.click(
       screen.getByRole('button', { name: 'Generate invite link' }),
     )
@@ -132,8 +134,8 @@ describe('HomePage', () => {
 
     expect(await screen.findByText('Casa Verde')).toBeInTheDocument()
     expect(
-      await screen.findByRole('status', { name: /remaining budget/i }),
-    ).toHaveTextContent('100')
+      await screen.findByRole('status', { name: /remaining budget \$100/i }),
+    ).toHaveTextContent('$100')
     expect(
       screen.getByRole('button', { name: 'Generate invite link' }),
     ).toBeInTheDocument()

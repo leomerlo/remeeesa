@@ -35,8 +35,9 @@ describe('RemainingBudgetDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Remaining budget 100' }),
-    ).toHaveTextContent('100')
+      await screen.findByRole('status', { name: 'Remaining budget $100' }),
+    ).toHaveTextContent('$100')
+    expect(screen.getByText('Remaining budget')).toBeInTheDocument()
   })
 
   it('shows remaining after current-month expenses', async () => {
@@ -58,8 +59,8 @@ describe('RemainingBudgetDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Remaining budget 70' }),
-    ).toHaveTextContent('70')
+      await screen.findByRole('status', { name: 'Remaining budget $70' }),
+    ).toHaveTextContent('$70')
   })
 
   it('ignores expenses from other months', async () => {
@@ -93,8 +94,8 @@ describe('RemainingBudgetDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Remaining budget 75' }),
-    ).toHaveTextContent('75')
+      await screen.findByRole('status', { name: 'Remaining budget $75' }),
+    ).toHaveTextContent('$75')
   })
 
   it('updates to a negative remaining after an over-budget expense is created', async () => {
@@ -109,8 +110,9 @@ describe('RemainingBudgetDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Remaining budget 100' }),
-    ).toHaveTextContent('100')
+      await screen.findByRole('status', { name: 'Remaining budget $100' }),
+    ).toHaveTextContent('$100')
+    expect(screen.getByText('Remaining budget')).toBeInTheDocument()
 
     await createExpense({
       db,
@@ -129,8 +131,8 @@ describe('RemainingBudgetDisplay', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('status', { name: 'Remaining budget -50' }),
-      ).toHaveTextContent('-50')
+        screen.getByRole('status', { name: 'Remaining budget -$50' }),
+      ).toHaveTextContent('-$50')
     })
   })
 })

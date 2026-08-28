@@ -1,3 +1,11 @@
+export function formatBudgetAmount(amount: number): string {
+  const absolute = Math.abs(amount)
+  const digits = Number.isInteger(absolute)
+    ? String(absolute)
+    : absolute.toFixed(2)
+  return amount < 0 ? `-$${digits}` : `$${digits}`
+}
+
 export function computeRemainingBudget(
   monthlyBudget: number,
   expenses: readonly { price: number }[],

@@ -4,6 +4,7 @@ import {
   expenseToDocument,
   parseCategoryDocument,
   parseExpenseDocument,
+  toFirestoreExpenseDate,
 } from './converters'
 
 describe('parseCategoryDocument', () => {
@@ -147,5 +148,12 @@ describe('toDocument converters', () => {
       expense_date: expenseDate,
       created_at: createdAt,
     })
+  })
+})
+
+describe('toFirestoreExpenseDate', () => {
+  it('stores the calendar day at local noon for rule-safe timestamps', () => {
+    const timestamp = toFirestoreExpenseDate(new Date(2026, 7, 28))
+    expect(timestamp.toDate()).toEqual(new Date(2026, 7, 28, 12, 0, 0, 0))
   })
 })

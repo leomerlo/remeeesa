@@ -1,6 +1,10 @@
 import { deleteApp } from 'firebase/app'
 import { describe, expect, it } from 'vitest'
-import { createFirebaseClient, readFirebaseEnv } from './firebase'
+import {
+  createFirebaseClient,
+  FIREBASE_APP_NAME,
+  readFirebaseEnv,
+} from './firebase'
 
 const complete = {
   VITE_FIREBASE_API_KEY: 'test-api-key',
@@ -66,16 +70,36 @@ describe('readFirebaseEnv', () => {
 
 describe('createFirebaseClient', () => {
   it('builds a client from placeholder credentials without any network call', async () => {
-    const client = createFirebaseClient({
-      apiKey: 'test-api-key',
-      authDomain: 'remeeesa.firebaseapp.com',
-      projectId: 'remeeesa',
-      appId: '1:123:web:abc',
-    })
+    const client = createFirebaseClient(
+      {
+        apiKey: 'test-api-key',
+        authDomain: 'remeeesa.firebaseapp.com',
+        projectId: 'remeeesa',
+        appId: '1:123:web:abc',
+      },
+      { appName: `test-${crypto.randomUUID()}` },
+    )
 
     expect(client.auth.app).toBe(client.app)
     expect(client.db.app).toBe(client.app)
 
     await deleteApp(client.app)
+  })
+
+  it('uses a stable default app name so auth can restore after reload', async () => {
+    const env = {
+      apiKey: 'test-api-key',
+      authDomain: 'remeeesa.firebaseapp.com',
+      projectId: 'remeeesa',
+      appId: '1:123:web:abc',
+    }
+
+    const first = createFirebaseClient(env)
+    const second = createFirebaseClient(env)
+
+    expect(first.app.name).toBe(FIREBASE_APP_NAME)
+    expect(second.app).toBe(first.app)
+
+    await deleteApp(first.app)
   })
 })

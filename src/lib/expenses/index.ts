@@ -5,7 +5,11 @@ export {
   listCategories,
   listExpensesInMonth,
 } from './expenses'
-export { computeRemainingBudget, currentMonthRange } from './remainingBudget'
+export {
+  computeRemainingBudget,
+  currentMonthRange,
+  formatBudgetAmount,
+} from './remainingBudget'
 export {
   categoryDocumentId,
   DEFAULT_CATEGORY_NAMES,

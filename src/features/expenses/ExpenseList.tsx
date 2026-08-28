@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
 import { listCategories, listExpensesInMonth } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
+import { expenseListQueryKey } from './queryKeys'
 
 export type ExpenseListProps = {
   readonly db: HouseholdsDb
@@ -41,7 +42,7 @@ export function ExpenseList({
   const year = now.getFullYear()
   const month = now.getMonth()
   const expensesQuery = useQuery({
-    queryKey: ['expense-list', householdId, year, month],
+    queryKey: expenseListQueryKey({ householdId, year, month }),
     queryFn: async () => {
       const { monthStart, monthEnd } = calendarMonthRange({ year, month })
       const [expenses, categories] = await Promise.all([

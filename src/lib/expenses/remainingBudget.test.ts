@@ -1,5 +1,23 @@
 import { describe, expect, it } from 'vitest'
-import { computeRemainingBudget, currentMonthRange } from './remainingBudget'
+import {
+  computeRemainingBudget,
+  currentMonthRange,
+  formatBudgetAmount,
+} from './remainingBudget'
+
+describe('formatBudgetAmount', () => {
+  it('prefixes whole amounts with a dollar sign', () => {
+    expect(formatBudgetAmount(100)).toBe('$100')
+  })
+
+  it('formats negative remaining as -$amount', () => {
+    expect(formatBudgetAmount(-50)).toBe('-$50')
+  })
+
+  it('keeps two decimals when needed', () => {
+    expect(formatBudgetAmount(99.5)).toBe('$99.50')
+  })
+})
 
 describe('computeRemainingBudget', () => {
   it('returns the monthly budget when there are no expenses', () => {

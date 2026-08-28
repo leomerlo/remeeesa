@@ -1,3 +1,4 @@
+import { Timestamp } from 'firebase/firestore'
 import type { Category, Expense } from './types'
 import {
   parseCategoryName,
@@ -128,6 +129,21 @@ export function parseExpenseDocument(input: {
     expenseDate: parseTimestamp(expense_date, 'expense_date'),
     createdAt: parseTimestamp(created_at, 'created_at'),
   }
+}
+
+export function toFirestoreExpenseDate(date: Date): Timestamp {
+  // Midday local keeps the calendar day stable under Firestore's
+  // expense_date <= request.time rule across time zones.
+  const normalized = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    12,
+    0,
+    0,
+    0,
+  )
+  return Timestamp.fromDate(normalized)
 }
 
 export function expenseToDocument(input: {

@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
-import { AddExpenseForm, ExpenseList, RemainingBudgetDisplay } from '@/features/expenses'
+import {
+  AddExpenseForm,
+  ExpenseList,
+  RemainingBudgetDisplay,
+} from '@/features/expenses'
 import { InviteLinkPanel } from '@/features/invite'
 import { OnboardingForm } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
@@ -68,9 +72,21 @@ export function HomePage({
     if (currentUserIdProp !== undefined) {
       return
     }
-    return firebase.auth.onAuthStateChanged((user) => {
-      setSessionUserId(user?.uid ?? null)
+    let cancelled = false
+    const unsubscribe = firebase.auth.onAuthStateChanged((user) => {
+      if (!cancelled) {
+        setSessionUserId(user?.uid ?? null)
+      }
     })
+    void firebase.auth.authStateReady().then(() => {
+      if (!cancelled) {
+        setSessionUserId(firebase.auth.currentUser?.uid ?? null)
+      }
+    })
+    return () => {
+      cancelled = true
+      unsubscribe()
+    }
   }, [currentUserIdProp, firebase.auth])
 
   useEffect(() => {

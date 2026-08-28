@@ -13,11 +13,13 @@ import {
   where,
 } from 'firebase/firestore'
 import type { Firestore } from 'firebase/firestore'
+import { getAuth } from 'firebase/auth'
 import {
   categoryToDocument,
   expenseToDocument,
   parseCategoryDocument,
   parseExpenseDocument,
+  toFirestoreExpenseDate,
 } from '@/lib/expenses/converters'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
 import { parseCategoryName } from '@/lib/expenses/validate'
@@ -63,6 +65,14 @@ async function withHouseholdAccess<T>(run: () => Promise<T>): Promise<T> {
   } catch (error) {
     mapHouseholdFirestoreError(error)
   }
+}
+
+function authenticatedUserId(firestore: Firestore): string {
+  const userId = getAuth(firestore.app).currentUser?.uid
+  if (userId === undefined) {
+    throw new HouseholdAccessDeniedError()
+  }
+  return userId
 }
 
 export function createFirestoreHouseholdsDb(
@@ -281,34 +291,31 @@ export function createFirestoreHouseholdsDb(
           name,
         })
         const categoryRef = doc(firestore, 'categories', categoryId)
+        const now = Timestamp.now()
+        const createdAt = now.toDate()
 
+        // Create-first avoids a get on a missing doc. Rules allow members to
+        // create but may deny get when resource == null; an existing id hits
+        // update (denied), then we read the row that another writer created.
         try {
-          return await runTransaction(firestore, async (tx) => {
-            const snap = await tx.get(categoryRef)
-            if (snap.exists()) {
-              return parseCategoryDocument({
-                id: snap.id,
-                data: snap.data(),
-              })
-            }
-            const now = Timestamp.now()
-            const createdAt = now.toDate()
-            tx.set(categoryRef, {
-              ...categoryToDocument({
-                householdId: input.householdId,
-                name,
-                createdAt,
-              }),
-              created_at: now,
-            })
-            return {
-              id: categoryId,
+          await setDoc(categoryRef, {
+            ...categoryToDocument({
               householdId: input.householdId,
               name,
               createdAt,
-            }
+            }),
+            created_at: now,
           })
+          return {
+            id: categoryId,
+            householdId: input.householdId,
+            name,
+            createdAt,
+          }
         } catch (error) {
+          if (!isFirestorePermissionDenied(error)) {
+            throw error
+          }
           const existing = await getDoc(categoryRef)
           if (existing.exists()) {
             return parseCategoryDocument({
@@ -322,6 +329,7 @@ export function createFirestoreHouseholdsDb(
     },
     async createExpense(input) {
       return withHouseholdAccess(async () => {
+        const memberId = authenticatedUserId(firestore)
         const expenseRef = doc(collection(firestore, 'expenses'))
         const now = Timestamp.now()
         const createdAt = now.toDate()
@@ -329,7 +337,7 @@ export function createFirestoreHouseholdsDb(
           ...expenseToDocument({
             householdId: input.householdId,
             categoryId: input.categoryId,
-            memberId: input.memberId,
+            memberId,
             authorDisplayName: input.authorDisplayName,
             name: input.name,
             price: input.price,
@@ -337,14 +345,14 @@ export function createFirestoreHouseholdsDb(
             expenseDate: input.expenseDate,
             createdAt,
           }),
-          expense_date: Timestamp.fromDate(input.expenseDate),
+          expense_date: toFirestoreExpenseDate(input.expenseDate),
           created_at: now,
         })
         return {
           id: expenseRef.id,
           householdId: input.householdId,
           categoryId: input.categoryId,
-          memberId: input.memberId,
+          memberId,
           authorDisplayName: input.authorDisplayName,
           name: input.name,
           price: input.price,
