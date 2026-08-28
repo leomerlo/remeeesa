@@ -1,0 +1,12 @@
+ts	phase	decision	why	evidence	result
+2026-08-28T13:12:01Z	frame	work #21 as five tickets in dependency order	parent issue is a story; tickets 22-26 are the slices; #22 blocks the rest	gh issue 21, docs/add-expense-design.md	plan ready
+2026-08-28T13:12:01Z	frame	no Cloud Functions; seed and uniqueness stay on the client with rules	repo has no functions/ and household create already uses a Firestore transaction; adding Functions would be a new stack	firebase.json, src/lib/households/firestoreHouseholdsDb.ts	open
+2026-08-28T13:12:01Z	frame	wave 1 is #22; wave 2 is #23 #25 #26; wave 3 is #24	#23 needs uniqueness from #22; #25 and #26 only need the expense read API; #24 needs find-or-create	docs/add-expense-design.md tickets 1-5	open
+2026-08-28T13:12:56Z	wave-1	launched cloud worker for #22 on feat/22-categories-expenses-schema from origin/dev	schema and seeding block every later ticket; worker follows work-issue TDD plus review rounds	agent bc-930f9d4f-9b08-4c35-9e8d-8beb9bba1fd9	running
+2026-08-28T13:28:27Z	wave-1	#22 PASS: PR #46, 175 tests green	schema worker finished; wave 2 can start from feat/22-categories-expenses-schema	https://github.com/leomerlo/remeeesa/pull/46	done
+2026-08-28T13:28:59Z	wave-2	launched parallel workers for #23 #25 #26 from feat/22-categories-expenses-schema	wave 2 tickets only depend on schema; they can land in parallel before #24	agents pending	running
+2026-08-28T13:37:00Z	wave-2	#25 PASS: draft PR #48, 186 tests green	remaining budget display worker finished; stacks on #46	https://github.com/leomerlo/remeeesa/pull/48	done
+2026-08-28T13:38:13Z	wave-2	#26 PASS: PR #47, 180 tests green	expense list worker finished; stacks on #46	https://github.com/leomerlo/remeeesa/pull/47	done
+2026-08-28T13:39:32Z	wave-2	#23 PASS: PR #49, 183 tests green	find-or-create worker finished; wave 2 complete; unblocks #24	https://github.com/leomerlo/remeeesa/pull/49	done
+2026-08-28T13:39:50Z	wave-3	launched #24 add-expense form worker from feat/23-category-find-or-create	last ticket for parent #21; depends on find-or-create	agent pending	running
+2026-08-28T13:51:49Z	wave-3	#24 PASS: PR #50, 199 tests green	add-expense form worker finished; all five subtickets have PRs	https://github.com/leomerlo/remeeesa/pull/50	done
