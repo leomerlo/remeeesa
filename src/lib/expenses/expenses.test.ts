@@ -6,7 +6,12 @@ import {
   joinHousehold,
 } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
-import { createExpense, listCategories, listExpensesInMonth } from './expenses'
+import {
+  createExpense,
+  findOrCreateCategory,
+  listCategories,
+  listExpensesInMonth,
+} from './expenses'
 
 describe('listCategories after household create', () => {
   it('seeds the six default category names for that household only', async () => {
@@ -57,6 +62,190 @@ describe('listCategories after household create', () => {
       secondCategories.every((category) => category.householdId === second.id),
     ).toBe(true)
     expect(new Set(firstCategories.map((category) => category.id)).size).toBe(6)
+  })
+})
+
+describe('findOrCreateCategory', () => {
+  it('resolves a trimmed case-insensitive name to the seeded category', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories.find((category) => category.name === 'Comida')
+    expect(comida).toBeDefined()
+    if (comida === undefined) {
+      throw new Error('expected Comida category')
+    }
+
+    const resolved = await findOrCreateCategory({
+      db,
+      householdId: household.id,
+      name: '  comida  ',
+    })
+
+    expect(resolved.id).toBe(comida.id)
+    expect(resolved.name).toBe('Comida')
+    expect(resolved.householdId).toBe(household.id)
+    const after = await listCategories({ db, householdId: household.id })
+    expect(after).toHaveLength(6)
+  })
+
+  it('creates a new category that another member can list afterward', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    store.seedMembership({ userId: 'user-2', householdId: household.id })
+    const memberDb = store.asUser('user-2')
+
+    const created = await findOrCreateCategory({
+      db: ownerDb,
+      householdId: household.id,
+      name: 'Regalos',
+    })
+
+    expect(created.name).toBe('Regalos')
+    expect(created.householdId).toBe(household.id)
+    const listed = await listCategories({
+      db: memberDb,
+      householdId: household.id,
+    })
+    const fromList = listed.find((category) => category.name === 'Regalos')
+    expect(fromList).toEqual(created)
+  })
+
+  it('returns one category when two members create the same new name in parallel', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    store.seedMembership({ userId: 'user-2', householdId: household.id })
+    const memberDb = store.asUser('user-2')
+
+    const [first, second] = await Promise.all([
+      findOrCreateCategory({
+        db: ownerDb,
+        householdId: household.id,
+        name: 'Regalos',
+      }),
+      findOrCreateCategory({
+        db: memberDb,
+        householdId: household.id,
+        name: '  regalos  ',
+      }),
+    ])
+
+    expect(first.id).toBe(second.id)
+    expect(first.name).toBe(second.name)
+    const listed = await listCategories({
+      db: ownerDb,
+      householdId: household.id,
+    })
+    expect(
+      listed.filter((category) => category.name.toLowerCase() === 'regalos'),
+    ).toHaveLength(1)
+  })
+
+  it('denies a non-member', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const strangerDb = store.asUser('user-2')
+
+    await expect(
+      findOrCreateCategory({
+        db: strangerDb,
+        householdId: household.id,
+        name: 'Regalos',
+      }),
+    ).rejects.toThrow(HouseholdAccessDeniedError)
+  })
+
+  it('denies a member of another household', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    await createHouseholdWithMembership({
+      db: store.asUser('user-2'),
+      userId: 'user-2',
+      name: 'Casa Azul',
+      monthlyBudget: 200,
+    })
+
+    await expect(
+      findOrCreateCategory({
+        db: store.asUser('user-2'),
+        householdId: household.id,
+        name: 'Regalos',
+      }),
+    ).rejects.toThrow(HouseholdAccessDeniedError)
+  })
+
+  it('rejects a blank category name before writing', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    await expect(
+      findOrCreateCategory({
+        db,
+        householdId: household.id,
+        name: '   ',
+      }),
+    ).rejects.toThrow('Category name must be non-empty')
+
+    const after = await listCategories({ db, householdId: household.id })
+    expect(after).toHaveLength(6)
+  })
+
+  it('keeps the original display name when the same new name is typed again', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    const created = await findOrCreateCategory({
+      db,
+      householdId: household.id,
+      name: 'Regalos',
+    })
+    const again = await findOrCreateCategory({
+      db,
+      householdId: household.id,
+      name: 'REGALOS',
+    })
+
+    expect(again).toEqual(created)
+    expect(again.name).toBe('Regalos')
   })
 })
 

@@ -79,9 +79,16 @@ describe('firestore.rules invite join', () => {
 })
 
 describe('firestore.rules categories', () => {
-  it('lets only household members read categories', () => {
+  it('lets signed-in users get a missing category so find-or-create can run', () => {
     expect(rules).toMatch(
-      /match \/categories\/\{categoryId\}[\s\S]*allow read: if isMemberOf\(resource\.data\.household_id\);/,
+      /match \/categories\/\{categoryId\}[\s\S]*allow get: if isSignedIn\(\) && \(/,
+    )
+    expect(rules).toContain('resource == null')
+  })
+
+  it('lets only household members list existing categories', () => {
+    expect(rules).toMatch(
+      /match \/categories\/\{categoryId\}[\s\S]*allow list: if isMemberOf\(resource\.data\.household_id\);/,
     )
   })
 
