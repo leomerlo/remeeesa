@@ -29,6 +29,9 @@ describe('HomePage', () => {
     expect(
       screen.queryByRole('button', { name: 'Generate invite link' }),
     ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('status', { name: 'Remaining budget' }),
+    ).not.toBeInTheDocument()
   })
 
   it('shows onboarding when the signed-in user has no household', async () => {
@@ -39,6 +42,9 @@ describe('HomePage', () => {
     expect(await screen.findByLabelText('Household name')).toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Generate invite link' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('status', { name: 'Remaining budget' }),
     ).not.toBeInTheDocument()
   })
 
@@ -92,6 +98,9 @@ describe('HomePage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
 
     expect(await screen.findByText('Casa Verde')).toBeInTheDocument()
+    expect(
+      await screen.findByRole('status', { name: 'Remaining budget' }),
+    ).toHaveTextContent('100')
     expect(
       screen.getByRole('button', { name: 'Generate invite link' }),
     ).toBeInTheDocument()

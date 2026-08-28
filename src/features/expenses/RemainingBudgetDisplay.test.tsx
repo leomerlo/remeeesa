@@ -62,6 +62,41 @@ describe('RemainingBudgetDisplay', () => {
     ).toHaveTextContent('70')
   })
 
+  it('ignores expenses from other months', async () => {
+    const { db, household, comida } = await seedHousehold(100)
+    const now = new Date()
+    await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Old pizza',
+      price: 40,
+      comments: '',
+      expenseDate: new Date(now.getFullYear(), now.getMonth() - 1, 15),
+    })
+    await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'First-day coffee',
+      price: 25,
+      comments: '',
+      expenseDate: new Date(now.getFullYear(), now.getMonth(), 1),
+    })
+
+    renderWithProviders(
+      <RemainingBudgetDisplay db={db} householdId={household.id} />,
+    )
+
+    expect(
+      await screen.findByRole('status', { name: 'Remaining budget' }),
+    ).toHaveTextContent('75')
+  })
+
   it('updates to a negative remaining after an over-budget expense is created', async () => {
     const { db, household, comida } = await seedHousehold(100)
     const queryClient = new QueryClient({

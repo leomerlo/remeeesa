@@ -13,6 +13,12 @@ describe('computeRemainingBudget', () => {
   it('returns a negative amount when expenses exceed the budget', () => {
     expect(computeRemainingBudget(100, [{ price: 150 }])).toBe(-50)
   })
+
+  it('subtracts 2-decimal prices without extra rounding', () => {
+    expect(
+      computeRemainingBudget(100.5, [{ price: 10.25 }, { price: 0.25 }]),
+    ).toBe(90)
+  })
 })
 
 describe('currentMonthRange', () => {
@@ -23,5 +29,19 @@ describe('currentMonthRange', () => {
 
     expect(monthStart).toEqual(new Date(2026, 7, 1))
     expect(monthEnd).toEqual(new Date(2026, 7, 31, 23, 59, 59, 999))
+  })
+
+  it('covers February in a non-leap year', () => {
+    const { monthStart, monthEnd } = currentMonthRange(new Date(2026, 1, 10))
+
+    expect(monthStart).toEqual(new Date(2026, 1, 1))
+    expect(monthEnd).toEqual(new Date(2026, 1, 28, 23, 59, 59, 999))
+  })
+
+  it('covers December through the last millisecond of the year', () => {
+    const { monthStart, monthEnd } = currentMonthRange(new Date(2026, 11, 31))
+
+    expect(monthStart).toEqual(new Date(2026, 11, 1))
+    expect(monthEnd).toEqual(new Date(2026, 11, 31, 23, 59, 59, 999))
   })
 })
