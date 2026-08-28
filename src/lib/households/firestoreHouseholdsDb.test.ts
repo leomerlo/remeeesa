@@ -135,8 +135,18 @@ describe('firestore.rules expenses', () => {
     expect(rules).toMatch(
       /match \/expenses\/\{expenseId\}[\s\S]*allow create: if isMemberOf\(request\.resource\.data\.household_id\)/,
     )
+    expect(rules).toContain('function isValidExpenseUpdate()')
+    expect(rules).toContain(
+      'request.resource.data.author_display_name == resource.data.author_display_name',
+    )
+    expect(rules).toContain(
+      'request.resource.data.member_id == resource.data.member_id',
+    )
     expect(rules).toMatch(
-      /match \/expenses\/\{expenseId\}[\s\S]*allow update, delete: if false;/,
+      /match \/expenses\/\{expenseId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)/,
+    )
+    expect(rules).toMatch(
+      /match \/expenses\/\{expenseId\}[\s\S]*allow delete: if false;/,
     )
   })
 })

@@ -1,9 +1,11 @@
 export type { Category, Expense } from './types'
 export {
   createExpense,
+  ExpenseNotFoundError,
   findOrCreateCategory,
   listCategories,
   listExpensesInMonth,
+  updateExpense,
 } from './expenses'
 export {
   computeRemainingBudget,

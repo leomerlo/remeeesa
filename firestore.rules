@@ -108,6 +108,25 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/categories/$(data.category_id)).data.household_id == data.household_id;
     }
 
+    function isValidExpenseUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name', 'price', 'category_id', 'comments', 'expense_date'])
+        && request.resource.data.household_id == resource.data.household_id
+        && request.resource.data.member_id == resource.data.member_id
+        && request.resource.data.author_display_name == resource.data.author_display_name
+        && request.resource.data.created_at == resource.data.created_at
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.matches('.*\\S.*')
+        && request.resource.data.price is number
+        && request.resource.data.price > 0
+        && request.resource.data.comments is string
+        && request.resource.data.expense_date is timestamp
+        && request.resource.data.expense_date <= request.time
+        && exists(/databases/$(database)/documents/categories/$(request.resource.data.category_id))
+        && get(/databases/$(database)/documents/categories/$(request.resource.data.category_id)).data.household_id == resource.data.household_id;
+    }
+
     match /households/{householdId} {
       allow read: if isMemberOf(householdId);
       // Create must land in the same batch as the caller's membership row so
@@ -179,7 +198,9 @@ service cloud.firestore {
       allow create: if isMemberOf(request.resource.data.household_id)
         && request.resource.data.member_id == request.auth.uid
         && isValidExpense(request.resource.data);
-      allow update, delete: if false;
+      allow update: if isMemberOf(resource.data.household_id)
+        && isValidExpenseUpdate();
+      allow delete: if false;
     }
   }
 }

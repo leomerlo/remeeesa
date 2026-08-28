@@ -8,6 +8,14 @@ import {
   parseExpensePrice,
 } from './validate'
 
+export class ExpenseNotFoundError extends Error {
+  override readonly name = 'ExpenseNotFoundError'
+
+  constructor() {
+    super('Expense not found')
+  }
+}
+
 export async function listCategories(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
@@ -59,5 +67,26 @@ export async function listExpensesInMonth(input: {
     householdId: input.householdId,
     monthStart: input.monthStart,
     monthEnd: input.monthEnd,
+  })
+}
+
+export async function updateExpense(input: {
+  readonly db: HouseholdsDb
+  readonly expenseId: string
+  readonly householdId: string
+  readonly name: string
+  readonly price: number
+  readonly categoryId: string
+  readonly comments: string
+  readonly expenseDate: Date
+}): Promise<Expense> {
+  return input.db.updateExpense({
+    expenseId: input.expenseId,
+    householdId: input.householdId,
+    name: parseExpenseName(input.name),
+    price: parseExpensePrice(input.price),
+    categoryId: input.categoryId,
+    comments: input.comments,
+    expenseDate: parseExpenseDate(input.expenseDate),
   })
 }

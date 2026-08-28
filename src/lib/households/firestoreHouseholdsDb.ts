@@ -21,6 +21,7 @@ import {
   parseExpenseDocument,
   toFirestoreExpenseDate,
 } from '@/lib/expenses/converters'
+import { ExpenseNotFoundError } from '@/lib/expenses/expenses'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
 import { parseCategoryName } from '@/lib/expenses/validate'
 import {
@@ -359,6 +360,37 @@ export function createFirestoreHouseholdsDb(
           comments: input.comments,
           expenseDate: input.expenseDate,
           createdAt,
+        }
+      })
+    },
+    async updateExpense(input) {
+      return withHouseholdAccess(async () => {
+        const expenseRef = doc(firestore, 'expenses', input.expenseId)
+        const existingSnap = await getDoc(expenseRef)
+        if (!existingSnap.exists()) {
+          throw new ExpenseNotFoundError()
+        }
+        const existing = parseExpenseDocument({
+          id: existingSnap.id,
+          data: existingSnap.data(),
+        })
+        if (existing.householdId !== input.householdId) {
+          throw new ExpenseNotFoundError()
+        }
+        await updateDoc(expenseRef, {
+          name: input.name,
+          price: input.price,
+          category_id: input.categoryId,
+          comments: input.comments,
+          expense_date: toFirestoreExpenseDate(input.expenseDate),
+        })
+        return {
+          ...existing,
+          name: input.name,
+          price: input.price,
+          categoryId: input.categoryId,
+          comments: input.comments,
+          expenseDate: input.expenseDate,
         }
       })
     },

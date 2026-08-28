@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { createExpense, listCategories } from '@/lib/expenses'
-import { createHouseholdWithMembership } from '@/lib/households'
+import { createHouseholdWithMembership, leaveHousehold } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { ExpenseList } from './ExpenseList'
@@ -185,6 +185,49 @@ describe('ExpenseList', () => {
     ).toBeInTheDocument()
     expect(screen.queryByText('Old rent')).not.toBeInTheDocument()
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
+  })
+
+  it('shows the stored author display name after the author leaves the household', async () => {
+    const store = createMemoryHouseholdsDb()
+    const authorDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: authorDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    store.addMember({ userId: 'user-2', householdId: household.id })
+    const remainingDb = store.asUser('user-2')
+    const categories = await listCategories({
+      db: remainingDb,
+      householdId: household.id,
+    })
+    const comida = categories.find((category) => category.name === 'Comida')
+    expect(comida).toBeDefined()
+    if (comida === undefined) {
+      throw new Error('expected Comida category')
+    }
+
+    await createExpense({
+      db: authorDb,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Pizza',
+      price: 12.5,
+      comments: '',
+      expenseDate: currentMonthDate(15),
+    })
+
+    await leaveHousehold({ db: authorDb, userId: 'user-1' })
+
+    renderWithProviders(
+      <ExpenseList db={remainingDb} householdId={household.id} />,
+    )
+
+    expect(await screen.findByText('Pizza')).toBeInTheDocument()
+    expect(screen.getByText('Ada')).toBeInTheDocument()
   })
 
   it('shows an error when the current user is not a household member', async () => {
