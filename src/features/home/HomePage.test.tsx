@@ -54,6 +54,9 @@ describe('HomePage', () => {
     renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
 
     expect(await screen.findByText('Casa Verde')).toBeInTheDocument()
+    expect(
+      await screen.findByText('No expenses this month'),
+    ).toBeInTheDocument()
     fireEvent.click(
       screen.getByRole('button', { name: 'Generate invite link' }),
     )
