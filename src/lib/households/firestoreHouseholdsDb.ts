@@ -274,19 +274,6 @@ export function createFirestoreHouseholdsDb(
     },
     async createExpense(input) {
       return withHouseholdAccess(async () => {
-        const categorySnap = await getDoc(
-          doc(firestore, 'categories', input.categoryId),
-        )
-        if (!categorySnap.exists()) {
-          throw new Error('Category not found')
-        }
-        const category = parseCategoryDocument({
-          id: categorySnap.id,
-          data: categorySnap.data(),
-        })
-        if (category.householdId !== input.householdId) {
-          throw new Error('Category not found')
-        }
         const expenseRef = doc(collection(firestore, 'expenses'))
         const now = Timestamp.now()
         const createdAt = now.toDate()
