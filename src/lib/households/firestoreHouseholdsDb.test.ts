@@ -136,7 +136,10 @@ describe('firestore.rules expenses', () => {
       /match \/expenses\/\{expenseId\}[\s\S]*allow create: if isMemberOf\(request\.resource\.data\.household_id\)/,
     )
     expect(rules).toMatch(
-      /match \/expenses\/\{expenseId\}[\s\S]*allow update, delete: if false;/,
+      /match \/expenses\/\{expenseId\}[\s\S]*allow update: if false;/,
+    )
+    expect(rules).toMatch(
+      /match \/expenses\/\{expenseId\}[\s\S]*allow delete: if isMemberOf\(resource\.data\.household_id\);/,
     )
   })
 })

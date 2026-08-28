@@ -116,3 +116,14 @@ export async function updateExpense(input: {
     expenseDate,
   })
 }
+
+export async function deleteExpense(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly expenseId: string
+}): Promise<void> {
+  return input.db.deleteExpense({
+    householdId: input.householdId,
+    expenseId: input.expenseId,
+  })
+}

@@ -78,4 +78,8 @@ export type HouseholdsDb = {
     readonly comments: string
     readonly expenseDate: Date
   }): Promise<Expense>
+  deleteExpense(input: {
+    readonly householdId: string
+    readonly expenseId: string
+  }): Promise<void>
 }

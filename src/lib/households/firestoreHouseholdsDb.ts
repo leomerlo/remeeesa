@@ -429,5 +429,18 @@ export function createFirestoreHouseholdsDb(
         }
       })
     },
+    async deleteExpense(input) {
+      return withHouseholdAccess(async () => {
+        const expenseRef = doc(firestore, 'expenses', input.expenseId)
+        const existing = await getDoc(expenseRef)
+        if (
+          !existing.exists() ||
+          existing.data().household_id !== input.householdId
+        ) {
+          throw new ExpenseNotFoundError()
+        }
+        await deleteDoc(expenseRef)
+      })
+    },
   }
 }

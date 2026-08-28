@@ -327,6 +327,14 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       state.expenses.set(input.expenseId, updated)
       return updated
     },
+    async deleteExpense(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const expense = state.expenses.get(input.expenseId)
+      if (expense === undefined || expense.householdId !== input.householdId) {
+        throw new ExpenseNotFoundError()
+      }
+      state.expenses.delete(input.expenseId)
+    },
   }
 }
 
