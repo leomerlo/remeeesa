@@ -22,6 +22,24 @@ function renderHome(ui: ReactElement) {
   )
 }
 
+function currentMonthRange(now = new Date()): {
+  readonly monthStart: Date
+  readonly monthEnd: Date
+} {
+  return {
+    monthStart: new Date(now.getFullYear(), now.getMonth(), 1),
+    monthEnd: new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    ),
+  }
+}
+
 describe('HomePage', () => {
   it('shows onboarding when there is no session', () => {
     renderHome(<HomePage currentUserId={null} />)
@@ -114,6 +132,50 @@ describe('HomePage', () => {
     })
   })
 
+  it('attributes a submitted expense using the authorDisplayName prop', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderHome(
+      <HomePage
+        currentUserId="user-1"
+        householdsDb={db}
+        authorDisplayName="Ada"
+      />,
+    )
+
+    fireEvent.change(await screen.findByLabelText('Name'), {
+      target: { value: 'Pizza' },
+    })
+    fireEvent.change(screen.getByLabelText('Price'), {
+      target: { value: '10' },
+    })
+    fireEvent.change(screen.getByLabelText('Category'), {
+      target: { value: 'Comida' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+
+    await waitFor(async () => {
+      const listed = await listExpensesInMonth({
+        db,
+        householdId: household.id,
+        ...currentMonthRange(),
+      })
+      expect(listed).toEqual([
+        expect.objectContaining({
+          memberId: 'user-1',
+          authorDisplayName: 'Ada',
+          name: 'Pizza',
+        }),
+      ])
+    })
+  })
+
   it('attributes a submitted expense to the signed-in member with a Member display name', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -137,20 +199,10 @@ describe('HomePage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
 
     await waitFor(async () => {
-      const now = new Date()
       const listed = await listExpensesInMonth({
         db,
         householdId: household.id,
-        monthStart: new Date(now.getFullYear(), now.getMonth(), 1),
-        monthEnd: new Date(
-          now.getFullYear(),
-          now.getMonth() + 1,
-          0,
-          23,
-          59,
-          59,
-          999,
-        ),
+        ...currentMonthRange(),
       })
       expect(listed).toEqual([
         expect.objectContaining({

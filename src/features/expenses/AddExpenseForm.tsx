@@ -262,7 +262,9 @@ export function AddExpenseForm({
         </p>
       ) : null}
 
-      <Button type="submit">Add expense</Button>
+      <Button type="submit" disabled={mutation.isPending}>
+        Add expense
+      </Button>
     </form>
   )
 }

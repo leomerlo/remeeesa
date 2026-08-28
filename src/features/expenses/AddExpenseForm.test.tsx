@@ -195,6 +195,33 @@ describe('AddExpenseForm', () => {
     ).toEqual([])
   })
 
+  it('rejects a negative or non-numeric price', async () => {
+    const { db, householdId } = await renderForm()
+
+    fillExpense({
+      name: 'Pizza',
+      price: '-1',
+      category: 'Comida',
+    })
+    submitExpense()
+    expect(screen.getByRole('alert')).toHaveTextContent(/price/i)
+
+    fillExpense({
+      name: 'Pizza',
+      price: 'abc',
+      category: 'Comida',
+    })
+    submitExpense()
+    expect(screen.getByRole('alert')).toHaveTextContent(/price/i)
+    expect(
+      await listExpensesInMonth({
+        db,
+        householdId,
+        ...currentMonthRange(),
+      }),
+    ).toEqual([])
+  })
+
   it('rejects a future date', async () => {
     const { db, householdId } = await renderForm()
     const tomorrow = new Date()
@@ -280,6 +307,50 @@ describe('AddExpenseForm', () => {
           expenseDate: firstOfMonth,
         }),
       ])
+    })
+  })
+
+  it('lists a previous-month expense only when that month is queried', async () => {
+    const { db, householdId } = await renderForm()
+    const now = new Date()
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 15)
+
+    fillExpense({
+      name: 'Last month rent',
+      price: '40',
+      category: 'Servicios',
+      date: localDateInputValue(lastMonth),
+    })
+    submitExpense()
+
+    await waitFor(async () => {
+      const previousMonth = await listExpensesInMonth({
+        db,
+        householdId,
+        monthStart: new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 1),
+        monthEnd: new Date(
+          lastMonth.getFullYear(),
+          lastMonth.getMonth() + 1,
+          0,
+          23,
+          59,
+          59,
+          999,
+        ),
+      })
+      expect(previousMonth).toEqual([
+        expect.objectContaining({
+          name: 'Last month rent',
+          price: 40,
+          expenseDate: lastMonth,
+        }),
+      ])
+      const currentMonth = await listExpensesInMonth({
+        db,
+        householdId,
+        ...currentMonthRange(now),
+      })
+      expect(currentMonth).toEqual([])
     })
   })
 
