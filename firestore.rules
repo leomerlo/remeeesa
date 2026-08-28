@@ -74,6 +74,16 @@ service cloud.firestore {
         );
     }
 
+    // Category ids are `{householdId}_{encodedName}`. Missing-doc gets are
+    // allowed only for the caller's household so find-or-create cannot probe
+    // whether another household already has a name.
+    function isOwnHouseholdCategoryId(categoryId) {
+      return exists(membershipPath())
+        && categoryId.size() > get(membershipPath()).data.household_id.size()
+        && categoryId[0:get(membershipPath()).data.household_id.size()] == get(membershipPath()).data.household_id
+        && categoryId[get(membershipPath()).data.household_id.size():get(membershipPath()).data.household_id.size() + 1] == '_';
+    }
+
     function isValidExpense(data) {
       return data.keys().hasOnly(['household_id', 'category_id', 'member_id', 'name', 'price', 'comments', 'expense_date', 'created_at', 'author_display_name'])
         && data.household_id is string
@@ -155,7 +165,7 @@ service cloud.firestore {
       // Missing docs have no resource; find-or-create must get a missing id
       // before create. Existing docs stay members-only.
       allow get: if isSignedIn() && (
-        resource == null
+        (resource == null && isOwnHouseholdCategoryId(categoryId))
         || isMemberOf(resource.data.household_id)
       );
       allow list: if isMemberOf(resource.data.household_id);

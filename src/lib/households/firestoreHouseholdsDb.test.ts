@@ -79,11 +79,14 @@ describe('firestore.rules invite join', () => {
 })
 
 describe('firestore.rules categories', () => {
-  it('lets signed-in users get a missing category so find-or-create can run', () => {
+  it('lets members get a missing category id for their household so find-or-create can run', () => {
+    expect(rules).toContain('function isOwnHouseholdCategoryId(categoryId)')
     expect(rules).toMatch(
       /match \/categories\/\{categoryId\}[\s\S]*allow get: if isSignedIn\(\) && \(/,
     )
-    expect(rules).toContain('resource == null')
+    expect(rules).toContain(
+      'resource == null && isOwnHouseholdCategoryId(categoryId)',
+    )
   })
 
   it('lets only household members list existing categories', () => {
