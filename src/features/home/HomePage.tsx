@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
+import { AddExpenseForm } from '@/features/expenses'
 import { InviteLinkPanel } from '@/features/invite'
 import { OnboardingForm } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
@@ -13,12 +14,37 @@ import type { Household, HouseholdMember, HouseholdsDb } from '@/lib/households'
 
 export type HomePageProps = {
   readonly currentUserId?: string | null
+  readonly authorDisplayName?: string
   readonly signupAuth?: SignupAuth
   readonly householdsDb?: HouseholdsDb
 }
 
+function authorDisplayNameFromAuth(
+  user:
+    | {
+        readonly displayName?: string | null
+        readonly email?: string | null
+      }
+    | null
+    | undefined,
+): string {
+  const displayName = user?.displayName?.trim()
+  if (displayName !== undefined && displayName !== '') {
+    return displayName
+  }
+  const email = user?.email?.trim()
+  if (email !== undefined && email !== '') {
+    const localPart = email.split('@')[0]?.trim()
+    if (localPart !== undefined && localPart !== '') {
+      return localPart
+    }
+  }
+  return 'Member'
+}
+
 export function HomePage({
   currentUserId: currentUserIdProp,
+  authorDisplayName: authorDisplayNameProp,
   signupAuth,
   householdsDb,
 }: HomePageProps): ReactElement {
@@ -112,9 +138,19 @@ export function HomePage({
     )
   }
 
+  const authorDisplayName =
+    authorDisplayNameProp ??
+    authorDisplayNameFromAuth(firebase.auth?.currentUser)
+
   return (
     <div className="flex w-full flex-col items-center gap-8">
       <p className="text-sm font-medium">{household?.name ?? 'Household'}</p>
+      <AddExpenseForm
+        db={db}
+        householdId={membership.householdId}
+        memberId={currentUserId}
+        authorDisplayName={authorDisplayName}
+      />
       <InviteLinkPanel db={db} householdId={membership.householdId} />
     </div>
   )

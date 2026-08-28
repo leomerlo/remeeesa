@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { HouseholdDraftProvider } from '@/features/onboarding'
+import { listExpensesInMonth } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
@@ -29,6 +30,9 @@ describe('HomePage', () => {
     expect(
       screen.queryByRole('button', { name: 'Generate invite link' }),
     ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Add expense' }),
+    ).not.toBeInTheDocument()
   })
 
   it('shows onboarding when the signed-in user has no household', async () => {
@@ -39,6 +43,9 @@ describe('HomePage', () => {
     expect(await screen.findByLabelText('Household name')).toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Generate invite link' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Add expense' }),
     ).not.toBeInTheDocument()
   })
 
@@ -59,6 +66,13 @@ describe('HomePage', () => {
     )
     expect(await screen.findByLabelText('Invite link')).toBeInTheDocument()
     expect(screen.queryByLabelText('Household name')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Add expense' }),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Price')).toBeInTheDocument()
+    expect(screen.getByLabelText('Category')).toBeInTheDocument()
+    expect(screen.getByLabelText('Date')).toBeInTheDocument()
+    expect(screen.queryByLabelText(/author/i)).not.toBeInTheDocument()
   })
 
   it('shows the invite panel after signup creates the household', async () => {
@@ -92,8 +106,60 @@ describe('HomePage', () => {
     expect(
       screen.getByRole('button', { name: 'Generate invite link' }),
     ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Add expense' }),
+    ).toBeInTheDocument()
     await waitFor(() => {
       expect(signupAuth.signUpWithEmail).toHaveBeenCalled()
+    })
+  })
+
+  it('attributes a submitted expense to the signed-in member with a Member display name', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
+
+    fireEvent.change(await screen.findByLabelText('Name'), {
+      target: { value: 'Pizza' },
+    })
+    fireEvent.change(screen.getByLabelText('Price'), {
+      target: { value: '10' },
+    })
+    fireEvent.change(screen.getByLabelText('Category'), {
+      target: { value: 'Comida' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+
+    await waitFor(async () => {
+      const now = new Date()
+      const listed = await listExpensesInMonth({
+        db,
+        householdId: household.id,
+        monthStart: new Date(now.getFullYear(), now.getMonth(), 1),
+        monthEnd: new Date(
+          now.getFullYear(),
+          now.getMonth() + 1,
+          0,
+          23,
+          59,
+          59,
+          999,
+        ),
+      })
+      expect(listed).toEqual([
+        expect.objectContaining({
+          memberId: 'user-1',
+          authorDisplayName: 'Member',
+          name: 'Pizza',
+          price: 10,
+        }),
+      ])
     })
   })
 })
