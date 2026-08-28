@@ -63,6 +63,7 @@ describe('HomePage', () => {
     expect(
       await screen.findByRole('status', { name: /remaining budget/i }),
     ).toHaveTextContent('100')
+    expect(await screen.findByText('No expenses this month')).toBeInTheDocument()
     fireEvent.click(
       screen.getByRole('button', { name: 'Generate invite link' }),
     )

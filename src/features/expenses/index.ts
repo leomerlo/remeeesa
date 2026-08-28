@@ -1,3 +1,5 @@
+export { ExpenseList } from './ExpenseList'
+export type { ExpenseListProps } from './ExpenseList'
 export {
   expensesInMonthQueryKey,
   RemainingBudgetDisplay,

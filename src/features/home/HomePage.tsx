@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
-import { RemainingBudgetDisplay } from '@/features/expenses'
+import { ExpenseList, RemainingBudgetDisplay } from '@/features/expenses'
 import { InviteLinkPanel } from '@/features/invite'
 import { OnboardingForm } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
@@ -118,6 +118,7 @@ export function HomePage({
       <p className="text-sm font-medium">{household?.name ?? 'Household'}</p>
       <RemainingBudgetDisplay db={db} householdId={membership.householdId} />
       <InviteLinkPanel db={db} householdId={membership.householdId} />
+      <ExpenseList db={db} householdId={membership.householdId} />
     </div>
   )
 }
