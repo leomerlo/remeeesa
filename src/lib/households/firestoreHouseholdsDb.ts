@@ -127,6 +127,18 @@ export function createFirestoreHouseholdsDb(
         )
       })
     },
+    async getMembership(userId) {
+      return withHouseholdAccess(async () => {
+        const snap = await getDoc(doc(firestore, 'household_members', userId))
+        if (!snap.exists()) {
+          return null
+        }
+        return parseHouseholdMemberDocument({
+          userId: snap.id,
+          data: snap.data(),
+        })
+      })
+    },
     async updateMonthlyBudget(input) {
       return withHouseholdAccess(async () => {
         const householdRef = doc(firestore, 'households', input.householdId)

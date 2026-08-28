@@ -107,6 +107,20 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       }
       return members
     },
+    async getMembership(memberUserId) {
+      if (memberUserId !== userId) {
+        throw new HouseholdAccessDeniedError()
+      }
+      const membership = state.members.get(memberUserId)
+      if (membership === undefined) {
+        return null
+      }
+      return {
+        householdId: membership.householdId,
+        userId: memberUserId,
+        joinedAt: membership.joinedAt,
+      }
+    },
     async updateMonthlyBudget(input) {
       assertMemberOf(state, userId, input.householdId)
       const record = state.households.get(input.householdId)

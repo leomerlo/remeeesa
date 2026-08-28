@@ -72,6 +72,13 @@ export async function listHouseholdMembers(input: {
   return input.db.listMembers(input.householdId)
 }
 
+export async function getMembership(input: {
+  readonly db: HouseholdsDb
+  readonly userId: string
+}): Promise<HouseholdMember | null> {
+  return input.db.getMembership(input.userId)
+}
+
 export async function getOrCreateHouseholdInvite(input: {
   readonly db: HouseholdsDb
   readonly householdId: string

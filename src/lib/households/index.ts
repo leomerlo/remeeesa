@@ -19,6 +19,7 @@ export {
   AlreadyInHouseholdError,
   createHouseholdWithMembership,
   getHousehold,
+  getMembership,
   getOrCreateHouseholdInvite,
   HouseholdAccessDeniedError,
   InviteNotFoundError,

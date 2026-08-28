@@ -11,7 +11,7 @@ import { App, AppRoutes } from './App'
 // monochrome are checked by eye against docs/design/design-reference.png.
 describe('App', () => {
   it('renders the onboarding form through the provider tree', () => {
-    renderWithProviders(<App />)
+    renderWithProviders(<App currentUserId={null} />)
 
     expect(
       screen.getByRole('heading', { name: 'remeeesa' }),

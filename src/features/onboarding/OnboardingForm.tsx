@@ -12,11 +12,13 @@ import type { SignupAuth } from './signupAuth'
 export type OnboardingFormProps = {
   readonly householdsDb?: HouseholdsDb
   readonly signupAuth?: SignupAuth
+  readonly onFinished?: () => void
 }
 
 export function OnboardingForm({
   householdsDb,
   signupAuth,
+  onFinished,
 }: OnboardingFormProps): ReactElement {
   const { draft, saveDraft } = useHouseholdDraft()
   const [name, setName] = useState('')
@@ -51,6 +53,7 @@ export function OnboardingForm({
         signupAuth={signupAuth}
         onFinished={() => {
           setFinished(true)
+          onFinished?.()
         }}
       />
     )

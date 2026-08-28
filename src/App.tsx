@@ -1,7 +1,8 @@
 import type { ReactElement } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { HomePage } from '@/features/home'
 import { JoinHouseholdPage } from '@/features/join'
-import { HouseholdDraftProvider, OnboardingForm } from '@/features/onboarding'
+import { HouseholdDraftProvider } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
 import type { HouseholdsDb } from '@/lib/households'
 
@@ -24,7 +25,8 @@ export function AppRoutes({
           <Route
             path="/"
             element={
-              <OnboardingForm
+              <HomePage
+                currentUserId={currentUserId}
                 householdsDb={householdsDb}
                 signupAuth={signupAuth}
               />

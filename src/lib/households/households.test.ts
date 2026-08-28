@@ -4,6 +4,7 @@ import {
   AlreadyInHouseholdError,
   createHouseholdWithMembership,
   getHousehold,
+  getMembership,
   getOrCreateHouseholdInvite,
   HouseholdAccessDeniedError,
   InviteNotFoundError,
@@ -281,6 +282,45 @@ describe('household member access', () => {
         joinedAt: expect.any(Date),
       },
     ])
+  })
+})
+
+describe('getMembership', () => {
+  it('returns the caller membership when it exists', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    await expect(getMembership({ db, userId: 'user-1' })).resolves.toEqual({
+      householdId: household.id,
+      userId: 'user-1',
+      joinedAt: expect.any(Date),
+    })
+  })
+
+  it('returns null when the caller has no membership', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+
+    await expect(getMembership({ db, userId: 'user-1' })).resolves.toBeNull()
+  })
+
+  it('rejects reading another user membership', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    await expect(
+      getMembership({ db: store.asUser('user-2'), userId: 'user-1' }),
+    ).rejects.toThrow(HouseholdAccessDeniedError)
   })
 })
 

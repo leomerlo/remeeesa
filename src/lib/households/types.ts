@@ -30,6 +30,7 @@ export type HouseholdsDb = {
   }): Promise<{ household: Household; member: HouseholdMember }>
   getHousehold(householdId: string): Promise<Household>
   listMembers(householdId: string): Promise<readonly HouseholdMember[]>
+  getMembership(userId: string): Promise<HouseholdMember | null>
   updateMonthlyBudget(input: {
     readonly householdId: string
     readonly monthlyBudget: number
