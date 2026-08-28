@@ -23,6 +23,7 @@ import {
 } from '@/lib/expenses/converters'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
 import { parseCategoryName } from '@/lib/expenses/validate'
+import { ExpenseNotFoundError } from '@/lib/expenses/expenses'
 import {
   householdToDocument,
   inviteToDocument,
@@ -379,6 +380,53 @@ export function createFirestoreHouseholdsDb(
             data: expenseDoc.data(),
           }),
         )
+      })
+    },
+    async getExpense(input) {
+      return withHouseholdAccess(async () => {
+        const expenseRef = doc(firestore, 'expenses', input.expenseId)
+        const existing = await getDoc(expenseRef)
+        if (
+          !existing.exists() ||
+          existing.data().household_id !== input.householdId
+        ) {
+          return null
+        }
+        return parseExpenseDocument({
+          id: existing.id,
+          data: existing.data(),
+        })
+      })
+    },
+    async updateExpense(input) {
+      return withHouseholdAccess(async () => {
+        const expenseRef = doc(firestore, 'expenses', input.expenseId)
+        const existing = await getDoc(expenseRef)
+        if (
+          !existing.exists() ||
+          existing.data().household_id !== input.householdId
+        ) {
+          throw new ExpenseNotFoundError()
+        }
+        const current = parseExpenseDocument({
+          id: existing.id,
+          data: existing.data(),
+        })
+        await updateDoc(expenseRef, {
+          category_id: input.categoryId,
+          name: input.name,
+          price: input.price,
+          comments: input.comments,
+          expense_date: toFirestoreExpenseDate(input.expenseDate),
+        })
+        return {
+          ...current,
+          categoryId: input.categoryId,
+          name: input.name,
+          price: input.price,
+          comments: input.comments,
+          expenseDate: input.expenseDate,
+        }
       })
     },
   }

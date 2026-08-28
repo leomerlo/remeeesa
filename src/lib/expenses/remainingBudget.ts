@@ -28,3 +28,12 @@ export function currentMonthRange(now: Date = new Date()): {
     monthEnd: new Date(year, month + 1, 0, 23, 59, 59, 999),
   }
 }
+
+export function isDateInCurrentMonth(
+  date: Date,
+  now: Date = new Date(),
+): boolean {
+  const { monthStart, monthEnd } = currentMonthRange(now)
+  const time = date.getTime()
+  return time >= monthStart.getTime() && time <= monthEnd.getTime()
+}

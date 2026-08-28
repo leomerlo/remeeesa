@@ -1,4 +1,5 @@
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
+import { ExpenseNotFoundError } from '@/lib/expenses/expenses'
 import type { Category, Expense } from '@/lib/expenses/types'
 import {
   AlreadyInHouseholdError,
@@ -290,6 +291,41 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         return right.createdAt.getTime() - left.createdAt.getTime()
       })
       return expenses
+    },
+    async getExpense(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const expense = state.expenses.get(input.expenseId)
+      if (expense === undefined || expense.householdId !== input.householdId) {
+        return null
+      }
+      return expense
+    },
+    async updateExpense(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const existing = state.expenses.get(input.expenseId)
+      if (
+        existing === undefined ||
+        existing.householdId !== input.householdId
+      ) {
+        throw new ExpenseNotFoundError()
+      }
+      const category = state.categories.get(input.categoryId)
+      if (
+        category === undefined ||
+        category.householdId !== input.householdId
+      ) {
+        throw new Error('Category not found')
+      }
+      const updated: Expense = {
+        ...existing,
+        categoryId: input.categoryId,
+        name: input.name,
+        price: input.price,
+        comments: input.comments,
+        expenseDate: input.expenseDate,
+      }
+      state.expenses.set(input.expenseId, updated)
+      return updated
     },
   }
 }
