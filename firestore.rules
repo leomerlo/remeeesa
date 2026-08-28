@@ -108,6 +108,11 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/categories/$(data.category_id)).data.household_id == data.household_id;
     }
 
+    function expenseDateInCurrentMonth(expenseDate) {
+      return expenseDate >= timestamp.date(request.time.year, request.time.month, 1)
+        && expenseDate <= request.time;
+    }
+
     match /households/{householdId} {
       allow read: if isMemberOf(householdId);
       // Create must land in the same batch as the caller's membership row so
@@ -179,7 +184,14 @@ service cloud.firestore {
       allow create: if isMemberOf(request.resource.data.household_id)
         && request.resource.data.member_id == request.auth.uid
         && isValidExpense(request.resource.data);
-      allow update: if false;
+      allow update: if isMemberOf(resource.data.household_id)
+        && expenseDateInCurrentMonth(resource.data.expense_date)
+        && expenseDateInCurrentMonth(request.resource.data.expense_date)
+        && request.resource.data.household_id == resource.data.household_id
+        && request.resource.data.member_id == resource.data.member_id
+        && request.resource.data.author_display_name == resource.data.author_display_name
+        && request.resource.data.created_at == resource.data.created_at
+        && isValidExpense(request.resource.data);
       allow delete: if isMemberOf(resource.data.household_id);
     }
   }

@@ -5,6 +5,7 @@ import {
   ExpenseList,
   RemainingBudgetDisplay,
 } from '@/features/expenses'
+import type { EditExpenseTarget } from '@/features/expenses/AddExpenseForm'
 import { InviteLinkPanel } from '@/features/invite'
 import { OnboardingForm } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
@@ -67,6 +68,7 @@ export function HomePage({
   >(undefined)
   const [household, setHousehold] = useState<Household | null>(null)
   const [homeEpoch, setHomeEpoch] = useState(0)
+  const [editExpense, setEditExpense] = useState<EditExpenseTarget | null>(null)
 
   useEffect(() => {
     if (currentUserIdProp !== undefined) {
@@ -167,9 +169,26 @@ export function HomePage({
         householdId={membership.householdId}
         memberId={currentUserId}
         authorDisplayName={authorDisplayName}
+        editExpense={editExpense}
+        onEditFinished={() => {
+          setEditExpense(null)
+        }}
       />
       <InviteLinkPanel db={db} householdId={membership.householdId} />
-      <ExpenseList db={db} householdId={membership.householdId} />
+      <ExpenseList
+        db={db}
+        householdId={membership.householdId}
+        onEditExpense={(expense, categoryName) => {
+          setEditExpense({
+            expenseId: expense.id,
+            name: expense.name,
+            price: expense.price,
+            categoryName,
+            comments: expense.comments,
+            expenseDate: expense.expenseDate,
+          })
+        }}
+      />
     </div>
   )
 }
