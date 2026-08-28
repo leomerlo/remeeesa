@@ -1,3 +1,5 @@
+import { defaultCategoryRecords } from '@/lib/expenses/seed'
+import type { Category, Expense } from '@/lib/expenses/types'
 import {
   AlreadyInHouseholdError,
   HouseholdAccessDeniedError,
@@ -30,6 +32,8 @@ type MemoryState = {
   households: Map<string, HouseholdRecord>
   members: Map<string, MembershipRecord>
   invites: Map<string, InviteRecord>
+  categories: Map<string, Category>
+  expenses: Map<string, Expense>
 }
 
 function toHousehold(id: string, record: HouseholdRecord): Household {
@@ -83,6 +87,12 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         householdId,
         joinedAt: member.joinedAt,
       })
+      for (const category of defaultCategoryRecords({
+        householdId,
+        createdAt,
+      })) {
+        state.categories.set(category.id, category)
+      }
       return { household, member }
     },
     async getHousehold(householdId) {
@@ -200,6 +210,68 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       }
       state.members.delete(input.userId)
     },
+    async listCategories(householdId) {
+      assertMemberOf(state, userId, householdId)
+      const categories: Category[] = []
+      for (const category of state.categories.values()) {
+        if (category.householdId === householdId) {
+          categories.push(category)
+        }
+      }
+      return categories
+    },
+    async createExpense(input) {
+      assertMemberOf(state, userId, input.householdId)
+      if (input.memberId !== userId) {
+        throw new HouseholdAccessDeniedError()
+      }
+      const category = state.categories.get(input.categoryId)
+      if (
+        category === undefined ||
+        category.householdId !== input.householdId
+      ) {
+        throw new Error('Category not found')
+      }
+      const expense: Expense = {
+        id: crypto.randomUUID(),
+        householdId: input.householdId,
+        categoryId: input.categoryId,
+        memberId: input.memberId,
+        authorDisplayName: input.authorDisplayName,
+        name: input.name,
+        price: input.price,
+        comments: input.comments,
+        expenseDate: input.expenseDate,
+        createdAt: new Date(),
+      }
+      state.expenses.set(expense.id, expense)
+      return expense
+    },
+    async listExpensesInMonth(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const monthStart = input.monthStart.getTime()
+      const monthEnd = input.monthEnd.getTime()
+      const expenses: Expense[] = []
+      for (const expense of state.expenses.values()) {
+        const expenseTime = expense.expenseDate.getTime()
+        if (
+          expense.householdId === input.householdId &&
+          expenseTime >= monthStart &&
+          expenseTime <= monthEnd
+        ) {
+          expenses.push(expense)
+        }
+      }
+      expenses.sort((left, right) => {
+        const dateDiff =
+          right.expenseDate.getTime() - left.expenseDate.getTime()
+        if (dateDiff !== 0) {
+          return dateDiff
+        }
+        return right.createdAt.getTime() - left.createdAt.getTime()
+      })
+      return expenses
+    },
   }
 }
 
@@ -218,6 +290,8 @@ export function createMemoryHouseholdsDb(): {
     households: new Map(),
     members: new Map(),
     invites: new Map(),
+    categories: new Map(),
+    expenses: new Map(),
   }
 
   return {

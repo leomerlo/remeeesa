@@ -4,6 +4,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  orderBy,
   query,
   runTransaction,
   setDoc,
@@ -12,6 +13,13 @@ import {
   where,
 } from 'firebase/firestore'
 import type { Firestore } from 'firebase/firestore'
+import {
+  categoryToDocument,
+  expenseToDocument,
+  parseCategoryDocument,
+  parseExpenseDocument,
+} from '@/lib/expenses/converters'
+import { defaultCategoryRecords } from '@/lib/expenses/seed'
 import {
   householdToDocument,
   inviteToDocument,
@@ -86,6 +94,19 @@ export function createFirestoreHouseholdsDb(
             }),
             joined_at: now,
           })
+          for (const category of defaultCategoryRecords({
+            householdId: householdRef.id,
+            createdAt: now.toDate(),
+          })) {
+            tx.set(doc(firestore, 'categories', category.id), {
+              ...categoryToDocument({
+                householdId: category.householdId,
+                name: category.name,
+                createdAt: category.createdAt,
+              }),
+              created_at: now,
+            })
+          }
         })
 
         const household: Household = {
@@ -235,6 +256,87 @@ export function createFirestoreHouseholdsDb(
     },
     async leaveHousehold(input) {
       await deleteDoc(doc(firestore, 'household_members', input.userId))
+    },
+    async listCategories(householdId) {
+      return withHouseholdAccess(async () => {
+        const categoriesQuery = query(
+          collection(firestore, 'categories'),
+          where('household_id', '==', householdId),
+        )
+        const snap = await getDocs(categoriesQuery)
+        return snap.docs.map((categoryDoc) =>
+          parseCategoryDocument({
+            id: categoryDoc.id,
+            data: categoryDoc.data(),
+          }),
+        )
+      })
+    },
+    async createExpense(input) {
+      return withHouseholdAccess(async () => {
+        const categorySnap = await getDoc(
+          doc(firestore, 'categories', input.categoryId),
+        )
+        if (!categorySnap.exists()) {
+          throw new Error('Category not found')
+        }
+        const category = parseCategoryDocument({
+          id: categorySnap.id,
+          data: categorySnap.data(),
+        })
+        if (category.householdId !== input.householdId) {
+          throw new Error('Category not found')
+        }
+        const expenseRef = doc(collection(firestore, 'expenses'))
+        const now = Timestamp.now()
+        const createdAt = now.toDate()
+        await setDoc(expenseRef, {
+          ...expenseToDocument({
+            householdId: input.householdId,
+            categoryId: input.categoryId,
+            memberId: input.memberId,
+            authorDisplayName: input.authorDisplayName,
+            name: input.name,
+            price: input.price,
+            comments: input.comments,
+            expenseDate: input.expenseDate,
+            createdAt,
+          }),
+          expense_date: Timestamp.fromDate(input.expenseDate),
+          created_at: now,
+        })
+        return {
+          id: expenseRef.id,
+          householdId: input.householdId,
+          categoryId: input.categoryId,
+          memberId: input.memberId,
+          authorDisplayName: input.authorDisplayName,
+          name: input.name,
+          price: input.price,
+          comments: input.comments,
+          expenseDate: input.expenseDate,
+          createdAt,
+        }
+      })
+    },
+    async listExpensesInMonth(input) {
+      return withHouseholdAccess(async () => {
+        const expensesQuery = query(
+          collection(firestore, 'expenses'),
+          where('household_id', '==', input.householdId),
+          where('expense_date', '>=', Timestamp.fromDate(input.monthStart)),
+          where('expense_date', '<=', Timestamp.fromDate(input.monthEnd)),
+          orderBy('expense_date', 'desc'),
+          orderBy('created_at', 'desc'),
+        )
+        const snap = await getDocs(expensesQuery)
+        return snap.docs.map((expenseDoc) =>
+          parseExpenseDocument({
+            id: expenseDoc.id,
+            data: expenseDoc.data(),
+          }),
+        )
+      })
     },
   }
 }

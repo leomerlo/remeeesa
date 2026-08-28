@@ -53,6 +53,51 @@ service cloud.firestore {
         && data.created_at is timestamp;
     }
 
+    function isValidCategory(data) {
+      return data.keys().hasOnly(['household_id', 'name', 'created_at'])
+        && data.household_id is string
+        && data.household_id.size() > 0
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.matches('.*\\S.*')
+        && data.created_at is timestamp;
+    }
+
+    function canWriteCategoryFor(householdId) {
+      return isMemberOf(householdId)
+        || (
+          isSignedIn()
+          && !exists(/databases/$(database)/documents/households/$(householdId))
+          && existsAfter(/databases/$(database)/documents/households/$(householdId))
+          && existsAfter(membershipPath())
+          && getAfter(membershipPath()).data.household_id == householdId
+        );
+    }
+
+    function isValidExpense(data) {
+      return data.keys().hasOnly(['household_id', 'category_id', 'member_id', 'name', 'price', 'comments', 'expense_date', 'created_at', 'author_display_name'])
+        && data.household_id is string
+        && data.household_id.size() > 0
+        && data.category_id is string
+        && data.category_id.size() > 0
+        && data.member_id is string
+        && data.member_id.size() > 0
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.matches('.*\\S.*')
+        && data.price is number
+        && data.price > 0
+        && data.comments is string
+        && data.expense_date is timestamp
+        && data.expense_date <= request.time
+        && data.created_at is timestamp
+        && data.author_display_name is string
+        && data.author_display_name.size() > 0
+        && data.author_display_name.matches('.*\\S.*')
+        && exists(/databases/$(database)/documents/categories/$(data.category_id))
+        && get(/databases/$(database)/documents/categories/$(data.category_id)).data.household_id == data.household_id;
+    }
+
     match /households/{householdId} {
       allow read: if isMemberOf(householdId);
       // Create must land in the same batch as the caller's membership row so
@@ -103,6 +148,21 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && isValidInvite(request.resource.data)
         && isMemberOf(request.resource.data.household_id);
+      allow update, delete: if false;
+    }
+
+    match /categories/{categoryId} {
+      allow read: if isMemberOf(resource.data.household_id);
+      allow create: if isValidCategory(request.resource.data)
+        && canWriteCategoryFor(request.resource.data.household_id);
+      allow update, delete: if false;
+    }
+
+    match /expenses/{expenseId} {
+      allow read: if isMemberOf(resource.data.household_id);
+      allow create: if isMemberOf(request.resource.data.household_id)
+        && request.resource.data.member_id == request.auth.uid
+        && isValidExpense(request.resource.data);
       allow update, delete: if false;
     }
   }
