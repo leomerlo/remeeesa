@@ -1,4 +1,4 @@
-import { defaultCategoryRecords } from '@/lib/expenses/seed'
+import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
 import type { Category, Expense } from '@/lib/expenses/types'
 import {
   AlreadyInHouseholdError,
@@ -219,6 +219,25 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         }
       }
       return categories
+    },
+    async findOrCreateCategory(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const id = categoryDocumentId({
+        householdId: input.householdId,
+        name: input.name,
+      })
+      const existing = state.categories.get(id)
+      if (existing !== undefined) {
+        return existing
+      }
+      const category: Category = {
+        id,
+        householdId: input.householdId,
+        name: input.name,
+        createdAt: new Date(),
+      }
+      state.categories.set(id, category)
+      return category
     },
     async createExpense(input) {
       assertMemberOf(state, userId, input.householdId)

@@ -1,5 +1,10 @@
 export type { Category, Expense } from './types'
-export { createExpense, listCategories, listExpensesInMonth } from './expenses'
+export {
+  createExpense,
+  findOrCreateCategory,
+  listCategories,
+  listExpensesInMonth,
+} from './expenses'
 export {
   categoryDocumentId,
   DEFAULT_CATEGORY_NAMES,

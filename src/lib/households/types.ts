@@ -46,6 +46,10 @@ export type HouseholdsDb = {
   }): Promise<HouseholdMember>
   leaveHousehold(input: { readonly userId: string }): Promise<void>
   listCategories(householdId: string): Promise<readonly Category[]>
+  findOrCreateCategory(input: {
+    readonly householdId: string
+    readonly name: string
+  }): Promise<Category>
   createExpense(input: {
     readonly householdId: string
     readonly categoryId: string

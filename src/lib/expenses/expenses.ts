@@ -2,6 +2,7 @@ import type { HouseholdsDb } from '@/lib/households/types'
 import type { Category, Expense } from './types'
 import {
   parseAuthorDisplayName,
+  parseCategoryName,
   parseExpenseDate,
   parseExpenseName,
   parseExpensePrice,
@@ -12,6 +13,17 @@ export async function listCategories(input: {
   readonly householdId: string
 }): Promise<readonly Category[]> {
   return input.db.listCategories(input.householdId)
+}
+
+export async function findOrCreateCategory(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly name: string
+}): Promise<Category> {
+  return input.db.findOrCreateCategory({
+    householdId: input.householdId,
+    name: parseCategoryName(input.name),
+  })
 }
 
 export async function createExpense(input: {

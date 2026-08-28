@@ -19,7 +19,8 @@ import {
   parseCategoryDocument,
   parseExpenseDocument,
 } from '@/lib/expenses/converters'
-import { defaultCategoryRecords } from '@/lib/expenses/seed'
+import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
+import { parseCategoryName } from '@/lib/expenses/validate'
 import {
   householdToDocument,
   inviteToDocument,
@@ -270,6 +271,53 @@ export function createFirestoreHouseholdsDb(
             data: categoryDoc.data(),
           }),
         )
+      })
+    },
+    async findOrCreateCategory(input) {
+      return withHouseholdAccess(async () => {
+        const name = parseCategoryName(input.name)
+        const categoryId = categoryDocumentId({
+          householdId: input.householdId,
+          name,
+        })
+        const categoryRef = doc(firestore, 'categories', categoryId)
+
+        try {
+          return await runTransaction(firestore, async (tx) => {
+            const snap = await tx.get(categoryRef)
+            if (snap.exists()) {
+              return parseCategoryDocument({
+                id: snap.id,
+                data: snap.data(),
+              })
+            }
+            const now = Timestamp.now()
+            const createdAt = now.toDate()
+            tx.set(categoryRef, {
+              ...categoryToDocument({
+                householdId: input.householdId,
+                name,
+                createdAt,
+              }),
+              created_at: now,
+            })
+            return {
+              id: categoryId,
+              householdId: input.householdId,
+              name,
+              createdAt,
+            }
+          })
+        } catch (error) {
+          const existing = await getDoc(categoryRef)
+          if (existing.exists()) {
+            return parseCategoryDocument({
+              id: existing.id,
+              data: existing.data(),
+            })
+          }
+          throw error
+        }
       })
     },
     async createExpense(input) {
