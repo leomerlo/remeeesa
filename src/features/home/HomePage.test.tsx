@@ -5,6 +5,7 @@ import { HouseholdDraftProvider } from '@/features/onboarding'
 import { listExpensesInMonth } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
+import { createFirebaseStub } from '@/test/firebaseStub'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import type { SignupAuth } from '@/features/onboarding/signupAuth'
 import { HomePage } from './HomePage'
@@ -13,13 +14,38 @@ function signupAuthFor(userId: string): SignupAuth {
   return {
     signUpWithEmail: vi.fn(async () => ({ userId })),
     signUpWithGoogle: vi.fn(async () => ({ userId })),
+    signInWithEmail: vi.fn(async () => ({ userId })),
+    signInWithGoogle: vi.fn(async () => ({ userId })),
   }
 }
 
-function renderHome(ui: ReactElement) {
+function renderHome(
+  ui: ReactElement,
+  options?: Parameters<typeof renderWithProviders>[1],
+) {
   return renderWithProviders(
     <HouseholdDraftProvider>{ui}</HouseholdDraftProvider>,
+    options,
   )
+}
+
+function createLiveAuthStub(userId: string) {
+  let emitAuth: ((user: { readonly uid: string } | null) => void) | undefined
+
+  return {
+    currentUser: { uid: userId },
+    authStateReady: async () => {},
+    onAuthStateChanged: (
+      listener: (user: { readonly uid: string } | null) => void,
+    ) => {
+      emitAuth = listener
+      listener({ uid: userId })
+      return () => {}
+    },
+    signOut: async () => {
+      emitAuth?.(null)
+    },
+  }
 }
 
 function currentMonthRange(now = new Date()): {
@@ -71,6 +97,9 @@ describe('HomePage', () => {
     expect(
       screen.queryByRole('button', { name: 'Add expense' }),
     ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Log out' }),
+    ).not.toBeInTheDocument()
   })
 
   it('shows the household and invite panel when the user already belongs', async () => {
@@ -103,9 +132,36 @@ describe('HomePage', () => {
     expect(screen.getByLabelText('Category')).toBeInTheDocument()
     expect(screen.getByLabelText('Date')).toBeInTheDocument()
     expect(screen.queryByLabelText(/author/i)).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Log out' }),
+    ).not.toBeInTheDocument()
   })
 
-  it('shows the invite panel after signup creates the household', async () => {
+  it('shows logout and returns to login for returning users after signing out', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const client = createFirebaseStub({
+      auth: createLiveAuthStub('user-1'),
+    })
+
+    renderHome(<HomePage householdsDb={db} />, { client })
+
+    expect(await screen.findByText('Casa Verde')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Log out' }))
+
+    expect(
+      await screen.findByRole('button', { name: 'Sign in' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByLabelText('Household name')).not.toBeInTheDocument()
+    expect(screen.queryByText('Casa Verde')).not.toBeInTheDocument()
+  })
+
+  it('shows invite panel after signup creates the household', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const signupAuth = signupAuthFor('user-1')
 

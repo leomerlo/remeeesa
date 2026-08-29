@@ -18,6 +18,8 @@ function signupAuthFor(userId: string): SignupAuth {
   return {
     signUpWithEmail: vi.fn(async () => ({ userId })),
     signUpWithGoogle: vi.fn(async () => ({ userId })),
+    signInWithEmail: vi.fn(async () => ({ userId })),
+    signInWithGoogle: vi.fn(async () => ({ userId })),
   }
 }
 
@@ -636,6 +638,8 @@ describe('JoinHouseholdPage', () => {
         throw new Error('email already in use')
       }),
       signUpWithGoogle: vi.fn(async () => ({ userId: 'user-2' })),
+      signInWithEmail: vi.fn(async () => ({ userId: 'user-2' })),
+      signInWithGoogle: vi.fn(async () => ({ userId: 'user-2' })),
     }
 
     renderJoinPage(invite.token, {
@@ -681,6 +685,8 @@ describe('JoinHouseholdPage', () => {
       signUpWithGoogle: vi.fn(async () => {
         throw new Error('popup closed')
       }),
+      signInWithEmail: vi.fn(async () => ({ userId: 'user-2' })),
+      signInWithGoogle: vi.fn(async () => ({ userId: 'user-2' })),
     }
 
     renderJoinPage(invite.token, {

@@ -2,6 +2,8 @@ import type { AppFirebaseClient } from '@/lib/firebase'
 
 type FirebaseAuthStub = {
   readonly currentUser?: { readonly uid: string } | null
+  authStateReady?(): Promise<void>
+  signOut?(): Promise<void>
   onAuthStateChanged?(
     next: (user: { readonly uid: string } | null) => void,
   ): () => void

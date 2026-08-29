@@ -42,6 +42,8 @@ function signupAuthFor(userId: string): SignupAuth {
   return {
     signUpWithEmail: vi.fn(async () => ({ userId })),
     signUpWithGoogle: vi.fn(async () => ({ userId })),
+    signInWithEmail: vi.fn(async () => ({ userId })),
+    signInWithGoogle: vi.fn(async () => ({ userId })),
   }
 }
 

@@ -11,6 +11,7 @@ import {
 } from './HouseholdDraftContext'
 import { OnboardingForm } from './OnboardingForm'
 import type { OnboardingFormProps } from './OnboardingForm'
+import { markReturningUser } from './returningUserStorage'
 import type { SignupAuth } from './signupAuth'
 
 function DraftStatus(): ReactElement {
@@ -37,6 +38,8 @@ function signupAuthFor(userId: string): SignupAuth {
   return {
     signUpWithEmail: vi.fn(async () => ({ userId })),
     signUpWithGoogle: vi.fn(async () => ({ userId })),
+    signInWithEmail: vi.fn(async () => ({ userId })),
+    signInWithGoogle: vi.fn(async () => ({ userId })),
   }
 }
 
@@ -80,6 +83,16 @@ function submitOnboarding(fields: {
   fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
 }
 
+function submitEmailLogin(): void {
+  fireEvent.change(screen.getByLabelText('Email'), {
+    target: { value: 'ada@example.com' },
+  })
+  fireEvent.change(screen.getByLabelText('Password'), {
+    target: { value: 'secret12' },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+}
+
 function submitEmailSignup(): void {
   fireEvent.change(screen.getByLabelText('Email'), {
     target: { value: 'ada@example.com' },
@@ -118,6 +131,14 @@ function expectDraftFieldsWritten(input: {
 }
 
 describe('OnboardingForm', () => {
+  it('shows sign in instead of the household wizard for returning users', () => {
+    markReturningUser()
+    renderOnboarding()
+
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Household name')).not.toBeInTheDocument()
+  })
+
   it('stores a household draft when name and budget are valid', () => {
     renderOnboarding()
     submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })
@@ -232,6 +253,7 @@ describe('OnboardingForm', () => {
     await waitFor(() => {
       expect(screen.getByRole('status')).toHaveTextContent('Household saved')
     })
+    expect(localStorage.getItem('remeeesa.returning_user')).toBe('1')
     expect(screen.getByText('No household draft')).toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Create account' }),
@@ -310,6 +332,8 @@ describe('OnboardingForm', () => {
         throw new Error('email already in use')
       }),
       signUpWithGoogle: vi.fn(async () => ({ userId: 'user-1' })),
+      signInWithEmail: vi.fn(async () => ({ userId: 'user-1' })),
+      signInWithGoogle: vi.fn(async () => ({ userId: 'user-1' })),
     }
     renderOnboarding({ householdsDb: db, signupAuth })
     submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })
@@ -338,6 +362,8 @@ describe('OnboardingForm', () => {
       signUpWithGoogle: vi.fn(async () => {
         throw new Error('popup closed')
       }),
+      signInWithEmail: vi.fn(async () => ({ userId: 'user-1' })),
+      signInWithGoogle: vi.fn(async () => ({ userId: 'user-1' })),
     }
     renderOnboarding({ householdsDb: db, signupAuth })
     submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })
@@ -403,6 +429,8 @@ describe('OnboardingForm', () => {
         .mockResolvedValueOnce({ userId: 'user-1' })
         .mockRejectedValue(new Error('email already in use')),
       signUpWithGoogle: vi.fn(async () => ({ userId: 'user-1' })),
+      signInWithEmail: vi.fn(async () => ({ userId: 'user-1' })),
+      signInWithGoogle: vi.fn(async () => ({ userId: 'user-1' })),
     }
     renderOnboarding({ householdsDb: db, signupAuth })
     submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })
@@ -434,6 +462,8 @@ describe('OnboardingForm', () => {
           }),
       ),
       signUpWithGoogle: vi.fn(async () => ({ userId: 'user-1' })),
+      signInWithEmail: vi.fn(async () => ({ userId: 'user-1' })),
+      signInWithGoogle: vi.fn(async () => ({ userId: 'user-1' })),
     }
     renderOnboarding({ householdsDb: db, signupAuth })
     submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })
@@ -454,6 +484,64 @@ describe('OnboardingForm', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('status')).toHaveTextContent('Household saved')
+    })
+  })
+
+  it('shows sign in after clicking I already have an account on the household step', () => {
+    renderOnboarding()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'I already have an account' }),
+    )
+
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Household name')).not.toBeInTheDocument()
+  })
+
+  it('signs in without creating a household when there is no draft', async () => {
+    const { db, createHouseholdAndMembership } =
+      householdsDbWithCreateSpy('user-1')
+    const signupAuth = signupAuthFor('user-1')
+    const onFinished = vi.fn()
+    renderOnboarding({ householdsDb: db, signupAuth, onFinished })
+    fireEvent.click(
+      screen.getByRole('button', { name: 'I already have an account' }),
+    )
+    submitEmailLogin()
+
+    await waitFor(() => {
+      expect(signupAuth.signInWithEmail).toHaveBeenCalledWith({
+        email: 'ada@example.com',
+        password: 'secret12',
+      })
+    })
+    expect(signupAuth.signUpWithEmail).not.toHaveBeenCalled()
+    expect(createHouseholdAndMembership).not.toHaveBeenCalled()
+    expect(onFinished).toHaveBeenCalledOnce()
+    expect(screen.getByLabelText('Household name')).toBeInTheDocument()
+  })
+
+  it('creates the household from the draft after signing in on the signup step', async () => {
+    const { db, createHouseholdAndMembership, writes } =
+      householdsDbWithCreateSpy('user-1')
+    const signupAuth = signupAuthFor('user-1')
+    renderOnboarding({ householdsDb: db, signupAuth })
+    submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })
+    fireEvent.click(
+      screen.getByRole('button', { name: 'I already have an account' }),
+    )
+    submitEmailLogin()
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('Household saved')
+    })
+    expect(signupAuth.signInWithEmail).toHaveBeenCalledOnce()
+    expect(signupAuth.signUpWithEmail).not.toHaveBeenCalled()
+    expectDraftFieldsWritten({
+      createHouseholdAndMembership,
+      writes,
+      userId: 'user-1',
+      name: 'The Smiths',
+      monthlyBudget: 1500,
     })
   })
 

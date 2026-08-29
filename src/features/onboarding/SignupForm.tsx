@@ -8,19 +8,30 @@ import type { HouseholdsDb } from '@/lib/households'
 import { useFirebase } from '@/lib/firebaseContext'
 import { finalizeHouseholdSignup } from './finalizeHouseholdSignup'
 import { useHouseholdDraft } from './HouseholdDraftContext'
+import { markReturningUser } from './returningUserStorage'
 import { createFirebaseSignupAuth } from './signupAuth'
 import type { SignupAuth } from './signupAuth'
+
+export type SignupFormMode = 'signup' | 'login'
+
+export type SignupFormFinishedResult = {
+  readonly householdCreated: boolean
+}
 
 export type SignupFormProps = {
   readonly householdsDb?: HouseholdsDb
   readonly signupAuth?: SignupAuth
-  readonly onFinished?: () => void
+  readonly mode?: SignupFormMode
+  readonly onFinished?: (result: SignupFormFinishedResult) => void
+  readonly onAlreadyHaveAccount?: () => void
 }
 
 export function SignupForm({
   householdsDb,
   signupAuth,
+  mode = 'signup',
   onFinished,
+  onAlreadyHaveAccount,
 }: SignupFormProps): ReactElement {
   const firebase = useFirebase()
   const { draft, clearDraft } = useHouseholdDraft()
@@ -31,8 +42,14 @@ export function SignupForm({
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const [signedInUserId, setSignedInUserId] = useState<string | null>(null)
+  const isLogin = mode === 'login'
+  const authErrorMessage = isLogin
+    ? 'Could not sign in'
+    : 'Could not create account'
+  const submitLabel = isLogin ? 'Sign in' : 'Create account'
+  const passwordAutoComplete = isLogin ? 'current-password' : 'new-password'
 
-  async function finishSignup(
+  async function finishAuth(
     authenticate: () => Promise<{ readonly userId: string }>,
   ): Promise<void> {
     setError(null)
@@ -44,10 +61,20 @@ export function SignupForm({
           const signedIn = await authenticate()
           userId = signedIn.userId
           setSignedInUserId(userId)
+          markReturningUser()
         } catch {
-          setError('Could not create account')
+          setError(authErrorMessage)
           return
         }
+      }
+
+      if (draft === null) {
+        if (isLogin) {
+          onFinished?.({ householdCreated: false })
+          return
+        }
+        setError('Could not save household')
+        return
       }
 
       try {
@@ -61,7 +88,7 @@ export function SignupForm({
           return
         }
         clearDraft()
-        onFinished?.()
+        onFinished?.({ householdCreated: true })
       } catch {
         setError('Could not save household')
       }
@@ -72,7 +99,11 @@ export function SignupForm({
 
   function onSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault()
-    void finishSignup(() => auth.signUpWithEmail({ email, password }))
+    void finishAuth(() =>
+      isLogin
+        ? auth.signInWithEmail({ email, password })
+        : auth.signUpWithEmail({ email, password }),
+    )
   }
 
   return (
@@ -108,7 +139,7 @@ export function SignupForm({
             id="signup-password"
             name="password"
             type="password"
-            autoComplete="new-password"
+            autoComplete={passwordAutoComplete}
             value={password}
             onChange={(event) => {
               setPassword(event.target.value)
@@ -123,7 +154,7 @@ export function SignupForm({
         ) : null}
 
         <Button type="submit" disabled={pending}>
-          Create account
+          {submitLabel}
         </Button>
       </form>
 
@@ -132,11 +163,24 @@ export function SignupForm({
         variant="outline"
         disabled={pending}
         onClick={() => {
-          void finishSignup(() => auth.signUpWithGoogle())
+          void finishAuth(() =>
+            isLogin ? auth.signInWithGoogle() : auth.signUpWithGoogle(),
+          )
         }}
       >
         Continue with Google
       </Button>
+
+      {!isLogin && onAlreadyHaveAccount !== undefined ? (
+        <Button
+          type="button"
+          variant="ghost"
+          disabled={pending}
+          onClick={onAlreadyHaveAccount}
+        >
+          I already have an account
+        </Button>
+      ) : null}
     </div>
   )
 }

@@ -7,8 +7,10 @@ import {
 } from '@/features/expenses'
 import type { EditExpenseTarget } from '@/features/expenses/AddExpenseForm'
 import { InviteLinkPanel } from '@/features/invite'
+import { LogoutButton } from '@/features/auth'
 import { OnboardingForm } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
+import { markReturningUser } from '@/features/onboarding/returningUserStorage'
 import { useFirebase } from '@/lib/firebaseContext'
 import {
   createFirestoreHouseholdsDb,
@@ -59,6 +61,9 @@ export function HomePage({
   )
   const currentUserId =
     currentUserIdProp !== undefined ? currentUserIdProp : sessionUserId
+  const usesLiveSession = currentUserIdProp === undefined
+  const isSignedIn = typeof currentUserId === 'string'
+  const showLogout = usesLiveSession && isSignedIn
   const db = useMemo(
     () => householdsDb ?? createFirestoreHouseholdsDb(firebase.db),
     [householdsDb, firebase.db],
@@ -96,6 +101,12 @@ export function HomePage({
       unsubscribe()
     }
   }, [currentUserIdProp, firebase.auth])
+
+  useEffect(() => {
+    if (usesLiveSession && isSignedIn) {
+      markReturningUser()
+    }
+  }, [usesLiveSession, isSignedIn])
 
   useEffect(() => {
     if (typeof currentUserId !== 'string') {
@@ -144,13 +155,16 @@ export function HomePage({
 
   if (currentUserId === null || membership === null) {
     return (
-      <OnboardingForm
-        householdsDb={householdsDb}
-        signupAuth={signupAuth}
-        onFinished={() => {
-          setHomeEpoch((epoch) => epoch + 1)
-        }}
-      />
+      <div className="flex w-full flex-col items-center gap-8">
+        {showLogout ? <LogoutButton /> : null}
+        <OnboardingForm
+          householdsDb={householdsDb}
+          signupAuth={signupAuth}
+          onFinished={() => {
+            setHomeEpoch((epoch) => epoch + 1)
+          }}
+        />
+      </div>
     )
   }
 
@@ -195,6 +209,7 @@ export function HomePage({
           })
         }}
       />
+      {showLogout ? <LogoutButton /> : null}
     </div>
   )
 }

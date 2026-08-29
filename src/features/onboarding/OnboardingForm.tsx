@@ -6,8 +6,11 @@ import { Label } from '@/components/ui/label'
 import type { HouseholdsDb } from '@/lib/households'
 import { parseHouseholdDraft } from './householdDraft'
 import { useHouseholdDraft } from './HouseholdDraftContext'
+import { hasReturningUser } from './returningUserStorage'
 import { SignupForm } from './SignupForm'
 import type { SignupAuth } from './signupAuth'
+
+type OnboardingStep = 'household' | 'signup' | 'login'
 
 export type OnboardingFormProps = {
   readonly householdsDb?: HouseholdsDb
@@ -25,6 +28,9 @@ export function OnboardingForm({
   const [monthlyBudget, setMonthlyBudget] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [finished, setFinished] = useState(false)
+  const [step, setStep] = useState<OnboardingStep>(() =>
+    hasReturningUser() ? 'login' : 'household',
+  )
 
   function onSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault()
@@ -36,6 +42,7 @@ export function OnboardingForm({
 
     setError(null)
     saveDraft(parsed.draft)
+    setStep('signup')
   }
 
   if (finished) {
@@ -46,7 +53,25 @@ export function OnboardingForm({
     )
   }
 
-  if (draft !== null) {
+  if (step === 'login') {
+    return (
+      <SignupForm
+        householdsDb={householdsDb}
+        signupAuth={signupAuth}
+        mode="login"
+        onFinished={({ householdCreated }) => {
+          if (householdCreated) {
+            setFinished(true)
+          } else {
+            setStep('household')
+          }
+          onFinished?.()
+        }}
+      />
+    )
+  }
+
+  if (step === 'signup' || draft !== null) {
     return (
       <SignupForm
         householdsDb={householdsDb}
@@ -54,6 +79,9 @@ export function OnboardingForm({
         onFinished={() => {
           setFinished(true)
           onFinished?.()
+        }}
+        onAlreadyHaveAccount={() => {
+          setStep('login')
         }}
       />
     )
@@ -113,6 +141,16 @@ export function OnboardingForm({
       ) : null}
 
       <Button type="submit">Continue</Button>
+
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={() => {
+          setStep('login')
+        }}
+      >
+        I already have an account
+      </Button>
     </form>
   )
 }
