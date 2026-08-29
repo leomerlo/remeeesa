@@ -60,6 +60,15 @@ export type HouseholdsDb = {
     readonly comments: string
     readonly expenseDate: Date
   }): Promise<Expense>
+  updateExpense(input: {
+    readonly expenseId: string
+    readonly householdId: string
+    readonly name: string
+    readonly price: number
+    readonly categoryId: string
+    readonly comments: string
+    readonly expenseDate: Date
+  }): Promise<Expense>
   listExpensesInMonth(input: {
     readonly householdId: string
     readonly monthStart: Date
