@@ -99,7 +99,7 @@ service cloud.firestore {
         && data.price > 0
         && data.comments is string
         && data.expense_date is timestamp
-        && data.expense_date <= request.time
+        && expenseDateNotInFuture(data.expense_date)
         && data.created_at is timestamp
         && data.author_display_name is string
         && data.author_display_name.size() > 0
@@ -108,9 +108,39 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/categories/$(data.category_id)).data.household_id == data.household_id;
     }
 
+    function authorDisplayNameUnchanged() {
+      return !resource.data.keys().hasAll(['author_display_name'])
+        || request.resource.data.author_display_name == resource.data.author_display_name;
+    }
+
+    function isValidExpenseUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name', 'price', 'category_id', 'comments', 'expense_date'])
+        && !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['household_id', 'member_id', 'author_display_name', 'created_at'])
+        && request.resource.data.household_id == resource.data.household_id
+        && request.resource.data.member_id == resource.data.member_id
+        && authorDisplayNameUnchanged()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.price is number
+        && request.resource.data.price > 0
+        && (request.resource.data.comments is string
+          || request.resource.data.comments == null)
+        && request.resource.data.expense_date is timestamp
+        && exists(/databases/$(database)/documents/categories/$(request.resource.data.category_id))
+        && get(/databases/$(database)/documents/categories/$(request.resource.data.category_id)).data.household_id == resource.data.household_id;
+    }
+
+    function expenseDateNotInFuture(expenseDate) {
+      return expenseDate
+        < timestamp.date(request.time.year, request.time.month, request.time.day)
+          + duration.value(1, 'd');
+    }
+
     function expenseDateInCurrentMonth(expenseDate) {
       return expenseDate >= timestamp.date(request.time.year, request.time.month, 1)
-        && expenseDate <= request.time;
+        && expenseDate < timestamp.date(request.time.year, request.time.month + 1, 1);
     }
 
     match /households/{householdId} {
@@ -185,13 +215,7 @@ service cloud.firestore {
         && request.resource.data.member_id == request.auth.uid
         && isValidExpense(request.resource.data);
       allow update: if isMemberOf(resource.data.household_id)
-        && expenseDateInCurrentMonth(resource.data.expense_date)
-        && expenseDateInCurrentMonth(request.resource.data.expense_date)
-        && request.resource.data.household_id == resource.data.household_id
-        && request.resource.data.member_id == resource.data.member_id
-        && request.resource.data.author_display_name == resource.data.author_display_name
-        && request.resource.data.created_at == resource.data.created_at
-        && isValidExpense(request.resource.data);
+        && isValidExpenseUpdate();
       allow delete: if isMemberOf(resource.data.household_id);
     }
   }

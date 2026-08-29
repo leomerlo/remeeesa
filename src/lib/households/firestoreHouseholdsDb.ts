@@ -24,6 +24,7 @@ import {
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
 import { parseCategoryName } from '@/lib/expenses/validate'
 import { ExpenseNotFoundError } from '@/lib/expenses/expenses'
+import { logFirebaseError } from '@/lib/firebaseDevLog'
 import {
   householdToDocument,
   inviteToDocument,
@@ -60,10 +61,15 @@ export function mapHouseholdFirestoreError(error: unknown): never {
   throw error
 }
 
-async function withHouseholdAccess<T>(run: () => Promise<T>): Promise<T> {
+async function withHouseholdAccess<T>(
+  operation: string,
+  run: () => Promise<T>,
+  details?: Record<string, unknown>,
+): Promise<T> {
   try {
     return await run()
   } catch (error) {
+    logFirebaseError(error, operation, details)
     mapHouseholdFirestoreError(error)
   }
 }
@@ -76,12 +82,17 @@ function authenticatedUserId(firestore: Firestore): string {
   return userId
 }
 
+async function awaitAuthenticatedUserId(firestore: Firestore): Promise<string> {
+  await getAuth(firestore.app).authStateReady()
+  return authenticatedUserId(firestore)
+}
+
 export function createFirestoreHouseholdsDb(
   firestore: Firestore,
 ): HouseholdsDb {
   return {
     async createHouseholdAndMembership(input) {
-      return withHouseholdAccess(async () => {
+      return withHouseholdAccess('createHouseholdAndMembership', async () => {
         const householdRef = doc(collection(firestore, 'households'))
         const memberRef = doc(firestore, 'household_members', input.userId)
         const now = Timestamp.now()
@@ -138,7 +149,7 @@ export function createFirestoreHouseholdsDb(
       })
     },
     async getHousehold(householdId) {
-      return withHouseholdAccess(async () => {
+      return withHouseholdAccess('getHousehold', async () => {
         const snap = await getDoc(doc(firestore, 'households', householdId))
         if (!snap.exists()) {
           throw new Error('Household not found')
@@ -147,7 +158,7 @@ export function createFirestoreHouseholdsDb(
       })
     },
     async listMembers(householdId) {
-      return withHouseholdAccess(async () => {
+      return withHouseholdAccess('listMembers', async () => {
         const membersQuery = query(
           collection(firestore, 'household_members'),
           where('household_id', '==', householdId),
@@ -162,7 +173,7 @@ export function createFirestoreHouseholdsDb(
       })
     },
     async getMembership(userId) {
-      return withHouseholdAccess(async () => {
+      return withHouseholdAccess('getMembership', async () => {
         const snap = await getDoc(doc(firestore, 'household_members', userId))
         if (!snap.exists()) {
           return null
@@ -174,7 +185,7 @@ export function createFirestoreHouseholdsDb(
       })
     },
     async updateMonthlyBudget(input) {
-      return withHouseholdAccess(async () => {
+      return withHouseholdAccess('updateMonthlyBudget', async () => {
         const householdRef = doc(firestore, 'households', input.householdId)
         const snap = await getDoc(householdRef)
         if (!snap.exists()) {
@@ -189,7 +200,7 @@ export function createFirestoreHouseholdsDb(
       })
     },
     async getOrCreateInvite(input) {
-      return withHouseholdAccess(async () => {
+      return withHouseholdAccess('getOrCreateInvite', async () => {
         const invitesQuery = query(
           collection(firestore, 'household_invites'),
           where('household_id', '==', input.householdId),
@@ -221,7 +232,7 @@ export function createFirestoreHouseholdsDb(
       })
     },
     async joinHousehold(input) {
-      return withHouseholdAccess(async () => {
+      return withHouseholdAccess('joinHousehold', async () => {
         if (input.token === '') {
           throw new InviteNotFoundError()
         }
@@ -270,7 +281,7 @@ export function createFirestoreHouseholdsDb(
       await deleteDoc(doc(firestore, 'household_members', input.userId))
     },
     async listCategories(householdId) {
-      return withHouseholdAccess(async () => {
+      return withHouseholdAccess('listCategories', async () => {
         const categoriesQuery = query(
           collection(firestore, 'categories'),
           where('household_id', '==', householdId),
@@ -285,38 +296,16 @@ export function createFirestoreHouseholdsDb(
       })
     },
     async findOrCreateCategory(input) {
-      return withHouseholdAccess(async () => {
-        const name = parseCategoryName(input.name)
-        const categoryId = categoryDocumentId({
-          householdId: input.householdId,
-          name,
-        })
-        const categoryRef = doc(firestore, 'categories', categoryId)
-        const now = Timestamp.now()
-        const createdAt = now.toDate()
-
-        // Create-first avoids a get on a missing doc. Rules allow members to
-        // create but may deny get when resource == null; an existing id hits
-        // update (denied), then we read the row that another writer created.
-        try {
-          await setDoc(categoryRef, {
-            ...categoryToDocument({
-              householdId: input.householdId,
-              name,
-              createdAt,
-            }),
-            created_at: now,
-          })
-          return {
-            id: categoryId,
+      return withHouseholdAccess(
+        'findOrCreateCategory',
+        async () => {
+          await getAuth(firestore.app).authStateReady()
+          const name = parseCategoryName(input.name)
+          const categoryId = categoryDocumentId({
             householdId: input.householdId,
             name,
-            createdAt,
-          }
-        } catch (error) {
-          if (!isFirestorePermissionDenied(error)) {
-            throw error
-          }
+          })
+          const categoryRef = doc(firestore, 'categories', categoryId)
           const existing = await getDoc(categoryRef)
           if (existing.exists()) {
             return parseCategoryDocument({
@@ -324,12 +313,44 @@ export function createFirestoreHouseholdsDb(
               data: existing.data(),
             })
           }
-          throw error
-        }
-      })
+
+          const now = Timestamp.now()
+          const createdAt = now.toDate()
+          try {
+            await setDoc(categoryRef, {
+              ...categoryToDocument({
+                householdId: input.householdId,
+                name,
+                createdAt,
+              }),
+              created_at: now,
+            })
+          } catch (error) {
+            if (!isFirestorePermissionDenied(error)) {
+              throw error
+            }
+            const raced = await getDoc(categoryRef)
+            if (!raced.exists()) {
+              throw error
+            }
+            return parseCategoryDocument({
+              id: raced.id,
+              data: raced.data(),
+            })
+          }
+
+          return {
+            id: categoryId,
+            householdId: input.householdId,
+            name,
+            createdAt,
+          }
+        },
+        { householdId: input.householdId, categoryName: input.name },
+      )
     },
     async createExpense(input) {
-      return withHouseholdAccess(async () => {
+      return withHouseholdAccess('createExpense', async () => {
         const memberId = authenticatedUserId(firestore)
         const expenseRef = doc(collection(firestore, 'expenses'))
         const now = Timestamp.now()
@@ -364,7 +385,7 @@ export function createFirestoreHouseholdsDb(
       })
     },
     async listExpensesInMonth(input) {
-      return withHouseholdAccess(async () => {
+      return withHouseholdAccess('listExpensesInMonth', async () => {
         const expensesQuery = query(
           collection(firestore, 'expenses'),
           where('household_id', '==', input.householdId),
@@ -383,7 +404,7 @@ export function createFirestoreHouseholdsDb(
       })
     },
     async getExpense(input) {
-      return withHouseholdAccess(async () => {
+      return withHouseholdAccess('getExpense', async () => {
         const expenseRef = doc(firestore, 'expenses', input.expenseId)
         const existing = await getDoc(expenseRef)
         if (
@@ -399,38 +420,48 @@ export function createFirestoreHouseholdsDb(
       })
     },
     async updateExpense(input) {
-      return withHouseholdAccess(async () => {
-        const expenseRef = doc(firestore, 'expenses', input.expenseId)
-        const existing = await getDoc(expenseRef)
-        if (
-          !existing.exists() ||
-          existing.data().household_id !== input.householdId
-        ) {
-          throw new ExpenseNotFoundError()
-        }
-        const current = parseExpenseDocument({
-          id: existing.id,
-          data: existing.data(),
-        })
-        await updateDoc(expenseRef, {
-          category_id: input.categoryId,
-          name: input.name,
-          price: input.price,
-          comments: input.comments,
-          expense_date: toFirestoreExpenseDate(input.expenseDate),
-        })
-        return {
-          ...current,
+      return withHouseholdAccess(
+        'updateExpense',
+        async () => {
+          await awaitAuthenticatedUserId(firestore)
+          const expenseRef = doc(firestore, 'expenses', input.expenseId)
+          const existing = await getDoc(expenseRef)
+          if (
+            !existing.exists() ||
+            existing.data().household_id !== input.householdId
+          ) {
+            throw new ExpenseNotFoundError()
+          }
+          const current = parseExpenseDocument({
+            id: existing.id,
+            data: existing.data(),
+          })
+          await updateDoc(expenseRef, {
+            category_id: input.categoryId,
+            name: input.name,
+            price: input.price,
+            comments: input.comments,
+            expense_date: toFirestoreExpenseDate(input.expenseDate),
+          })
+          return {
+            ...current,
+            categoryId: input.categoryId,
+            name: input.name,
+            price: input.price,
+            comments: input.comments,
+            expenseDate: input.expenseDate,
+          }
+        },
+        {
+          authUserId: getAuth(firestore.app).currentUser?.uid,
+          expenseId: input.expenseId,
+          householdId: input.householdId,
           categoryId: input.categoryId,
-          name: input.name,
-          price: input.price,
-          comments: input.comments,
-          expenseDate: input.expenseDate,
-        }
-      })
+        },
+      )
     },
     async deleteExpense(input) {
-      return withHouseholdAccess(async () => {
+      return withHouseholdAccess('deleteExpense', async () => {
         const expenseRef = doc(firestore, 'expenses', input.expenseId)
         const existing = await getDoc(expenseRef)
         if (

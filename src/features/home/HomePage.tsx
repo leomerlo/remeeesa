@@ -75,16 +75,22 @@ export function HomePage({
       return
     }
     let cancelled = false
+    let authReady = false
+
+    void firebase.auth.authStateReady().then(() => {
+      if (cancelled) {
+        return
+      }
+      authReady = true
+      setSessionUserId(firebase.auth.currentUser?.uid ?? null)
+    })
+
     const unsubscribe = firebase.auth.onAuthStateChanged((user) => {
-      if (!cancelled) {
+      if (!cancelled && authReady) {
         setSessionUserId(user?.uid ?? null)
       }
     })
-    void firebase.auth.authStateReady().then(() => {
-      if (!cancelled) {
-        setSessionUserId(firebase.auth.currentUser?.uid ?? null)
-      }
-    })
+
     return () => {
       cancelled = true
       unsubscribe()
