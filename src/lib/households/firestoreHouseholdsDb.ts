@@ -21,9 +21,9 @@ import {
   parseExpenseDocument,
   toFirestoreExpenseDate,
 } from '@/lib/expenses/converters'
+import { ExpenseNotFoundError } from '@/lib/expenses/expenses'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
 import { parseCategoryName } from '@/lib/expenses/validate'
-import { ExpenseNotFoundError } from '@/lib/expenses/expenses'
 import {
   householdToDocument,
   inviteToDocument,
