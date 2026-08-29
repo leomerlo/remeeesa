@@ -5,6 +5,7 @@ import {
   ExpenseList,
   RemainingBudgetDisplay,
 } from '@/features/expenses'
+import type { EditExpenseTarget } from '@/features/expenses/AddExpenseForm'
 import { InviteLinkPanel } from '@/features/invite'
 import { OnboardingForm } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
@@ -67,22 +68,29 @@ export function HomePage({
   >(undefined)
   const [household, setHousehold] = useState<Household | null>(null)
   const [homeEpoch, setHomeEpoch] = useState(0)
+  const [editExpense, setEditExpense] = useState<EditExpenseTarget | null>(null)
 
   useEffect(() => {
     if (currentUserIdProp !== undefined) {
       return
     }
     let cancelled = false
+    let authReady = false
+
+    void firebase.auth.authStateReady().then(() => {
+      if (cancelled) {
+        return
+      }
+      authReady = true
+      setSessionUserId(firebase.auth.currentUser?.uid ?? null)
+    })
+
     const unsubscribe = firebase.auth.onAuthStateChanged((user) => {
-      if (!cancelled) {
+      if (!cancelled && authReady) {
         setSessionUserId(user?.uid ?? null)
       }
     })
-    void firebase.auth.authStateReady().then(() => {
-      if (!cancelled) {
-        setSessionUserId(firebase.auth.currentUser?.uid ?? null)
-      }
-    })
+
     return () => {
       cancelled = true
       unsubscribe()
@@ -167,9 +175,26 @@ export function HomePage({
         householdId={membership.householdId}
         memberId={currentUserId}
         authorDisplayName={authorDisplayName}
+        editExpense={editExpense}
+        onEditFinished={() => {
+          setEditExpense(null)
+        }}
       />
       <InviteLinkPanel db={db} householdId={membership.householdId} />
-      <ExpenseList db={db} householdId={membership.householdId} />
+      <ExpenseList
+        db={db}
+        householdId={membership.householdId}
+        onEditExpense={(expense, categoryName) => {
+          setEditExpense({
+            expenseId: expense.id,
+            name: expense.name,
+            price: expense.price,
+            categoryName,
+            comments: expense.comments,
+            expenseDate: expense.expenseDate,
+          })
+        }}
+      />
     </div>
   )
 }

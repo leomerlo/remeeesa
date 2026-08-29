@@ -128,7 +128,8 @@ describe('firestore.rules expenses', () => {
     expect(rules).toContain('data.price is number')
     expect(rules).toContain('data.price > 0')
     expect(rules).toContain('data.expense_date is timestamp')
-    expect(rules).toContain('data.expense_date <= request.time')
+    expect(rules).toContain('expenseDateNotInFuture(data.expense_date)')
+    expect(rules).not.toContain('data.expense_date <= request.time')
     expect(rules).toContain(
       'request.resource.data.member_id == request.auth.uid',
     )
@@ -144,6 +145,14 @@ describe('firestore.rules expenses', () => {
     )
     expect(rules).toMatch(
       /match \/expenses\/\{expenseId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)/,
+    )
+    expect(rules).toContain('function isValidExpenseUpdate()')
+    expect(rules).toContain('function expenseDateNotInFuture(expenseDate)')
+    expect(rules).toMatch(
+      /!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'member_id', 'author_display_name', 'created_at'\]\)/,
+    )
+    expect(rules).toMatch(
+      /allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& isValidExpenseUpdate\(\);/,
     )
     expect(rules).toMatch(
       /match \/expenses\/\{expenseId\}[\s\S]*allow delete: if isMemberOf\(resource\.data\.household_id\);/,

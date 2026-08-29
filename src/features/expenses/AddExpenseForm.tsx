@@ -6,13 +6,16 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   createExpense,
+  ExpenseNotFoundError,
   findOrCreateCategory,
   listCategories,
   parseCategoryName,
   parseExpenseDate,
   parseExpenseName,
   parseExpensePrice,
+  updateExpense,
 } from '@/lib/expenses'
+import type { Category } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
 import {
   categoriesQueryKey,
@@ -20,11 +23,30 @@ import {
   expensesInMonthQueryKey,
 } from './queryKeys'
 
+export type EditExpenseTarget = {
+  readonly expenseId: string
+  readonly name: string
+  readonly price: number
+  readonly categoryName: string
+  readonly comments: string
+  readonly expenseDate: Date
+}
+
 export type AddExpenseFormProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly memberId: string
   readonly authorDisplayName: string
+  readonly editExpense?: EditExpenseTarget | null
+  readonly onEditFinished?: () => void
+}
+
+type ExpenseFormFields = {
+  readonly name: string
+  readonly price: string
+  readonly category: string
+  readonly comments: string
+  readonly date: string
 }
 
 function localDateInputValue(date: Date): string {
@@ -32,6 +54,26 @@ function localDateInputValue(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+function emptyFormFields(): ExpenseFormFields {
+  return {
+    name: '',
+    price: '',
+    category: '',
+    comments: '',
+    date: localDateInputValue(new Date()),
+  }
+}
+
+function formFieldsFromEdit(editExpense: EditExpenseTarget): ExpenseFormFields {
+  return {
+    name: editExpense.name,
+    price: String(editExpense.price),
+    category: editExpense.categoryName,
+    comments: editExpense.comments,
+    date: localDateInputValue(editExpense.expenseDate),
+  }
 }
 
 function parseDateInput(value: string): Date {
@@ -61,13 +103,7 @@ type ParsedExpenseFields = {
   readonly expenseDate: Date
 }
 
-function parseExpenseFields(input: {
-  readonly name: string
-  readonly price: string
-  readonly category: string
-  readonly comments: string
-  readonly date: string
-}): ParsedExpenseFields {
+function parseExpenseFields(input: ExpenseFormFields): ParsedExpenseFields {
   return {
     name: parseExpenseName(input.name),
     price: parseExpensePrice(Number(input.price.trim())),
@@ -77,12 +113,38 @@ function parseExpenseFields(input: {
   }
 }
 
-export function AddExpenseForm({
+function mutationErrorMessage(error: unknown, mode: 'add' | 'edit'): string {
+  if (error instanceof ExpenseNotFoundError) {
+    return 'This expense no longer exists'
+  }
+  if (error instanceof Error) {
+    return error.message
+  }
+  return mode === 'edit' ? 'Could not save expense' : 'Could not add expense'
+}
+
+type ExpenseFormBodyProps = {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly memberId: string
+  readonly authorDisplayName: string
+  readonly editExpense: EditExpenseTarget | null
+  readonly initialFields: ExpenseFormFields
+  readonly categories: readonly Category[]
+  readonly onEditFinished?: () => void
+}
+
+function ExpenseFormBody({
   db,
   householdId,
   memberId,
   authorDisplayName,
-}: AddExpenseFormProps): ReactElement {
+  editExpense,
+  initialFields,
+  categories,
+  onEditFinished,
+}: ExpenseFormBodyProps): ReactElement {
+  const isEditing = editExpense !== null
   const queryClient = useQueryClient()
   const categoriesKey = categoriesQueryKey({ householdId })
   const expensesKey = expensesInMonthQueryKey({ householdId })
@@ -91,17 +153,19 @@ export function AddExpenseForm({
     year: new Date().getFullYear(),
     month: new Date().getMonth(),
   })
-  const categoriesQuery = useQuery({
-    queryKey: categoriesKey,
-    queryFn: () => listCategories({ db, householdId }),
-  })
-  const [name, setName] = useState('')
-  const [price, setPrice] = useState('')
-  const [category, setCategory] = useState('')
-  const [comments, setComments] = useState('')
-  const [date, setDate] = useState(() => localDateInputValue(new Date()))
+  const [name, setName] = useState(initialFields.name)
+  const [price, setPrice] = useState(initialFields.price)
+  const [category, setCategory] = useState(initialFields.category)
+  const [comments, setComments] = useState(initialFields.comments)
+  const [date, setDate] = useState(initialFields.date)
   const [error, setError] = useState<string | null>(null)
   const today = localDateInputValue(new Date())
+
+  async function invalidateExpenseViews(): Promise<void> {
+    await queryClient.invalidateQueries({ queryKey: categoriesKey })
+    await queryClient.invalidateQueries({ queryKey: expensesKey })
+    await queryClient.invalidateQueries({ queryKey: expenseListKey })
+  }
 
   const mutation = useMutation({
     mutationFn: async (fields: ParsedExpenseFields) => {
@@ -110,6 +174,18 @@ export function AddExpenseForm({
         householdId,
         name: fields.categoryName,
       })
+      if (editExpense !== null) {
+        return updateExpense({
+          db,
+          householdId,
+          expenseId: editExpense.expenseId,
+          categoryId: resolved.id,
+          name: fields.name,
+          price: fields.price,
+          comments: fields.comments,
+          expenseDate: fields.expenseDate,
+        })
+      }
       return createExpense({
         db,
         householdId,
@@ -123,15 +199,23 @@ export function AddExpenseForm({
       })
     },
     onSuccess: async () => {
-      setName('')
-      setPrice('')
-      setCategory('')
-      setComments('')
-      setDate(localDateInputValue(new Date()))
+      if (isEditing) {
+        onEditFinished?.()
+      } else {
+        setName('')
+        setPrice('')
+        setCategory('')
+        setComments('')
+        setDate(localDateInputValue(new Date()))
+      }
       setError(null)
-      await queryClient.invalidateQueries({ queryKey: categoriesKey })
-      await queryClient.invalidateQueries({ queryKey: expensesKey })
-      await queryClient.invalidateQueries({ queryKey: expenseListKey })
+      await invalidateExpenseViews()
+    },
+    onError: async (caught) => {
+      if (caught instanceof ExpenseNotFoundError) {
+        setError('This expense no longer exists')
+        await invalidateExpenseViews()
+      }
     },
   })
 
@@ -156,11 +240,9 @@ export function AddExpenseForm({
 
   const alertMessage =
     error ??
-    (mutation.error instanceof Error
-      ? mutation.error.message
-      : mutation.isError
-        ? 'Could not add expense'
-        : null)
+    (mutation.isError && !(mutation.error instanceof ExpenseNotFoundError)
+      ? mutationErrorMessage(mutation.error, isEditing ? 'edit' : 'add')
+      : null)
 
   return (
     <form
@@ -223,7 +305,7 @@ export function AddExpenseForm({
           autoComplete="off"
         />
         <datalist id="expense-categories">
-          {(categoriesQuery.data ?? []).map((item) => (
+          {categories.map((item) => (
             <option key={item.id} value={item.name} />
           ))}
         </datalist>
@@ -272,9 +354,56 @@ export function AddExpenseForm({
         </p>
       ) : null}
 
-      <Button type="submit" disabled={mutation.isPending}>
-        Add expense
-      </Button>
+      <div className="flex w-full flex-col items-center gap-2">
+        <Button type="submit" disabled={mutation.isPending}>
+          {isEditing ? 'Save changes' : 'Add expense'}
+        </Button>
+        {isEditing ? (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={mutation.isPending}
+            onClick={() => {
+              setError(null)
+              onEditFinished?.()
+            }}
+          >
+            Cancel edit
+          </Button>
+        ) : null}
+      </div>
     </form>
+  )
+}
+
+export function AddExpenseForm({
+  db,
+  householdId,
+  memberId,
+  authorDisplayName,
+  editExpense = null,
+  onEditFinished,
+}: AddExpenseFormProps): ReactElement {
+  const categoriesKey = categoriesQueryKey({ householdId })
+  const categoriesQuery = useQuery({
+    queryKey: categoriesKey,
+    queryFn: () => listCategories({ db, householdId }),
+  })
+  const initialFields =
+    editExpense === null ? emptyFormFields() : formFieldsFromEdit(editExpense)
+  const formKey = editExpense?.expenseId ?? 'add'
+
+  return (
+    <ExpenseFormBody
+      key={formKey}
+      db={db}
+      householdId={householdId}
+      memberId={memberId}
+      authorDisplayName={authorDisplayName}
+      editExpense={editExpense}
+      initialFields={initialFields}
+      categories={categoriesQuery.data ?? []}
+      onEditFinished={onEditFinished}
+    />
   )
 }

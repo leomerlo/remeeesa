@@ -1,5 +1,5 @@
 export { AddExpenseForm } from './AddExpenseForm'
-export type { AddExpenseFormProps } from './AddExpenseForm'
+export type { AddExpenseFormProps, EditExpenseTarget } from './AddExpenseForm'
 export { ExpenseList } from './ExpenseList'
 export type { ExpenseListProps } from './ExpenseList'
 export { RemainingBudgetDisplay } from './RemainingBudgetDisplay'

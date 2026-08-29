@@ -15,6 +15,7 @@ import { expenseListQueryKey, expensesInMonthQueryKey } from './queryKeys'
 export type ExpenseListProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
+  readonly onEditExpense?: (expense: Expense, categoryName: string) => void
 }
 
 const EXPENSE_GONE_MESSAGE = 'This expense no longer exists'
@@ -92,6 +93,7 @@ function DeleteExpenseDialog(input: {
 export function ExpenseList({
   db,
   householdId,
+  onEditExpense,
 }: ExpenseListProps): ReactElement {
   const queryClient = useQueryClient()
   const now = new Date()
@@ -222,17 +224,34 @@ export function ExpenseList({
                 }}
               />
             ) : (
-              <Button
-                type="button"
-                variant="outline"
-                aria-label={`Delete ${expense.name}`}
-                onClick={() => {
-                  setDeleteError(null)
-                  setConfirmDeleteExpense(expense)
-                }}
-              >
-                Delete
-              </Button>
+              <div className="flex gap-2">
+                {onEditExpense !== undefined ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    aria-label={`Edit ${expense.name}`}
+                    onClick={() => {
+                      onEditExpense(
+                        expense,
+                        categoryNameById.get(expense.categoryId) ?? '',
+                      )
+                    }}
+                  >
+                    Edit
+                  </Button>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-label={`Delete ${expense.name}`}
+                  onClick={() => {
+                    setDeleteError(null)
+                    setConfirmDeleteExpense(expense)
+                  }}
+                >
+                  Delete
+                </Button>
+              </div>
             )}
           </li>
         ))}
