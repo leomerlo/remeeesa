@@ -1,6 +1,8 @@
 export type { Category, Expense } from './types'
 export {
   createExpense,
+  deleteExpense,
+  ExpenseNotFoundError,
   findOrCreateCategory,
   listCategories,
   listExpensesInMonth,
