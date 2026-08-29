@@ -6,11 +6,13 @@ export {
   findOrCreateCategory,
   listCategories,
   listExpensesInMonth,
+  updateExpense,
 } from './expenses'
 export {
   computeRemainingBudget,
   currentMonthRange,
   formatBudgetAmount,
+  isDateInCurrentMonth,
 } from './remainingBudget'
 export {
   categoryDocumentId,
@@ -24,9 +26,11 @@ export {
   parseExpenseDocument,
 } from './converters'
 export {
+  assertExpenseInCurrentMonth,
   parseAuthorDisplayName,
   parseCategoryName,
   parseExpenseDate,
+  parseExpenseDateInCurrentMonth,
   parseExpenseName,
   parseExpensePrice,
 } from './validate'

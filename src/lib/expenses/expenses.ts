@@ -1,9 +1,11 @@
 import type { HouseholdsDb } from '@/lib/households/types'
 import type { Category, Expense } from './types'
 import {
+  assertExpenseInCurrentMonth,
   parseAuthorDisplayName,
   parseCategoryName,
   parseExpenseDate,
+  parseExpenseDateInCurrentMonth,
   parseExpenseName,
   parseExpensePrice,
 } from './validate'
@@ -68,6 +70,50 @@ export async function listExpensesInMonth(input: {
     householdId: input.householdId,
     monthStart: input.monthStart,
     monthEnd: input.monthEnd,
+  })
+}
+
+export async function updateExpense(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly expenseId: string
+  readonly name?: string
+  readonly price?: number
+  readonly categoryId?: string
+  readonly comments?: string
+  readonly expenseDate?: Date
+  readonly now?: Date
+}): Promise<Expense> {
+  const now = input.now ?? new Date()
+  const existing = await input.db.getExpense({
+    householdId: input.householdId,
+    expenseId: input.expenseId,
+  })
+  if (existing === null) {
+    throw new ExpenseNotFoundError()
+  }
+  assertExpenseInCurrentMonth(existing.expenseDate, now)
+
+  const name =
+    input.name !== undefined ? parseExpenseName(input.name) : existing.name
+  const price =
+    input.price !== undefined ? parseExpensePrice(input.price) : existing.price
+  const comments =
+    input.comments !== undefined ? input.comments : existing.comments
+  const categoryId = input.categoryId ?? existing.categoryId
+  const expenseDate =
+    input.expenseDate !== undefined
+      ? parseExpenseDateInCurrentMonth(input.expenseDate, now)
+      : existing.expenseDate
+
+  return input.db.updateExpense({
+    householdId: input.householdId,
+    expenseId: input.expenseId,
+    categoryId,
+    name,
+    price,
+    comments,
+    expenseDate,
   })
 }
 
