@@ -200,7 +200,7 @@ service cloud.firestore {
         && isValidExpense(request.resource.data);
       allow update: if isMemberOf(resource.data.household_id)
         && isValidExpenseUpdate();
-      allow delete: if false;
+      allow delete: if isMemberOf(resource.data.household_id);
     }
   }
 }

@@ -74,4 +74,21 @@ export type HouseholdsDb = {
     readonly monthStart: Date
     readonly monthEnd: Date
   }): Promise<readonly Expense[]>
+  getExpense(input: {
+    readonly householdId: string
+    readonly expenseId: string
+  }): Promise<Expense | null>
+  updateExpense(input: {
+    readonly householdId: string
+    readonly expenseId: string
+    readonly categoryId: string
+    readonly name: string
+    readonly price: number
+    readonly comments: string
+    readonly expenseDate: Date
+  }): Promise<Expense>
+  deleteExpense(input: {
+    readonly householdId: string
+    readonly expenseId: string
+  }): Promise<void>
 }

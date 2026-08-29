@@ -1,3 +1,5 @@
+import { isDateInCurrentMonth } from './remainingBudget'
+
 export function parseCategoryName(name: string): string {
   const trimmed = name.trim()
   if (trimmed === '') {
@@ -47,4 +49,24 @@ export function parseExpenseDate(expenseDate: Date, now = new Date()): Date {
     throw new Error('Expense date cannot be in the future')
   }
   return expenseDate
+}
+
+export function parseExpenseDateInCurrentMonth(
+  expenseDate: Date,
+  now = new Date(),
+): Date {
+  const parsed = parseExpenseDate(expenseDate, now)
+  if (!isDateInCurrentMonth(parsed, now)) {
+    throw new Error('Expense date must be in the current calendar month')
+  }
+  return parsed
+}
+
+export function assertExpenseInCurrentMonth(
+  expenseDate: Date,
+  now = new Date(),
+): void {
+  if (!isDateInCurrentMonth(expenseDate, now)) {
+    throw new Error('Expense is not in the current calendar month')
+  }
 }

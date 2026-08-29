@@ -1,15 +1,18 @@
 import type { HouseholdsDb } from '@/lib/households/types'
 import type { Category, Expense } from './types'
 import {
+  assertExpenseInCurrentMonth,
   parseAuthorDisplayName,
   parseCategoryName,
   parseExpenseDate,
+  parseExpenseDateInCurrentMonth,
   parseExpenseName,
   parseExpensePrice,
 } from './validate'
 
 export class ExpenseNotFoundError extends Error {
   override readonly name = 'ExpenseNotFoundError'
+  readonly code = 'EXPENSE_NOT_FOUND'
 
   constructor() {
     super('Expense not found')
@@ -72,21 +75,55 @@ export async function listExpensesInMonth(input: {
 
 export async function updateExpense(input: {
   readonly db: HouseholdsDb
-  readonly expenseId: string
   readonly householdId: string
-  readonly name: string
-  readonly price: number
-  readonly categoryId: string
-  readonly comments: string
-  readonly expenseDate: Date
+  readonly expenseId: string
+  readonly name?: string
+  readonly price?: number
+  readonly categoryId?: string
+  readonly comments?: string
+  readonly expenseDate?: Date
+  readonly now?: Date
 }): Promise<Expense> {
-  return input.db.updateExpense({
-    expenseId: input.expenseId,
+  const now = input.now ?? new Date()
+  const existing = await input.db.getExpense({
     householdId: input.householdId,
-    name: parseExpenseName(input.name),
-    price: parseExpensePrice(input.price),
-    categoryId: input.categoryId,
-    comments: input.comments,
-    expenseDate: parseExpenseDate(input.expenseDate),
+    expenseId: input.expenseId,
+  })
+  if (existing === null) {
+    throw new ExpenseNotFoundError()
+  }
+  assertExpenseInCurrentMonth(existing.expenseDate, now)
+
+  const name =
+    input.name !== undefined ? parseExpenseName(input.name) : existing.name
+  const price =
+    input.price !== undefined ? parseExpensePrice(input.price) : existing.price
+  const comments =
+    input.comments !== undefined ? input.comments : existing.comments
+  const categoryId = input.categoryId ?? existing.categoryId
+  const expenseDate =
+    input.expenseDate !== undefined
+      ? parseExpenseDateInCurrentMonth(input.expenseDate, now)
+      : existing.expenseDate
+
+  return input.db.updateExpense({
+    householdId: input.householdId,
+    expenseId: input.expenseId,
+    categoryId,
+    name,
+    price,
+    comments,
+    expenseDate,
+  })
+}
+
+export async function deleteExpense(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly expenseId: string
+}): Promise<void> {
+  return input.db.deleteExpense({
+    householdId: input.householdId,
+    expenseId: input.expenseId,
   })
 }

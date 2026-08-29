@@ -363,37 +363,6 @@ export function createFirestoreHouseholdsDb(
         }
       })
     },
-    async updateExpense(input) {
-      return withHouseholdAccess(async () => {
-        const expenseRef = doc(firestore, 'expenses', input.expenseId)
-        const existingSnap = await getDoc(expenseRef)
-        if (!existingSnap.exists()) {
-          throw new ExpenseNotFoundError()
-        }
-        const existing = parseExpenseDocument({
-          id: existingSnap.id,
-          data: existingSnap.data(),
-        })
-        if (existing.householdId !== input.householdId) {
-          throw new ExpenseNotFoundError()
-        }
-        await updateDoc(expenseRef, {
-          name: input.name,
-          price: input.price,
-          category_id: input.categoryId,
-          comments: input.comments,
-          expense_date: toFirestoreExpenseDate(input.expenseDate),
-        })
-        return {
-          ...existing,
-          name: input.name,
-          price: input.price,
-          categoryId: input.categoryId,
-          comments: input.comments,
-          expenseDate: input.expenseDate,
-        }
-      })
-    },
     async listExpensesInMonth(input) {
       return withHouseholdAccess(async () => {
         const expensesQuery = query(
@@ -411,6 +380,66 @@ export function createFirestoreHouseholdsDb(
             data: expenseDoc.data(),
           }),
         )
+      })
+    },
+    async getExpense(input) {
+      return withHouseholdAccess(async () => {
+        const expenseRef = doc(firestore, 'expenses', input.expenseId)
+        const existing = await getDoc(expenseRef)
+        if (
+          !existing.exists() ||
+          existing.data().household_id !== input.householdId
+        ) {
+          return null
+        }
+        return parseExpenseDocument({
+          id: existing.id,
+          data: existing.data(),
+        })
+      })
+    },
+    async updateExpense(input) {
+      return withHouseholdAccess(async () => {
+        const expenseRef = doc(firestore, 'expenses', input.expenseId)
+        const existing = await getDoc(expenseRef)
+        if (
+          !existing.exists() ||
+          existing.data().household_id !== input.householdId
+        ) {
+          throw new ExpenseNotFoundError()
+        }
+        const current = parseExpenseDocument({
+          id: existing.id,
+          data: existing.data(),
+        })
+        await updateDoc(expenseRef, {
+          category_id: input.categoryId,
+          name: input.name,
+          price: input.price,
+          comments: input.comments,
+          expense_date: toFirestoreExpenseDate(input.expenseDate),
+        })
+        return {
+          ...current,
+          categoryId: input.categoryId,
+          name: input.name,
+          price: input.price,
+          comments: input.comments,
+          expenseDate: input.expenseDate,
+        }
+      })
+    },
+    async deleteExpense(input) {
+      return withHouseholdAccess(async () => {
+        const expenseRef = doc(firestore, 'expenses', input.expenseId)
+        const existing = await getDoc(expenseRef)
+        if (
+          !existing.exists() ||
+          existing.data().household_id !== input.householdId
+        ) {
+          throw new ExpenseNotFoundError()
+        }
+        await deleteDoc(expenseRef)
       })
     },
   }

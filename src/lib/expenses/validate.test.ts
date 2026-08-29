@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  assertExpenseInCurrentMonth,
   parseAuthorDisplayName,
   parseCategoryName,
   parseExpenseDate,
+  parseExpenseDateInCurrentMonth,
   parseExpenseName,
   parseExpensePrice,
 } from './validate'
@@ -82,5 +84,33 @@ describe('parseExpenseDate', () => {
     expect(() => parseExpenseDate(new Date('not-a-date'))).toThrow(
       'Expense date must be a valid date',
     )
+  })
+})
+
+describe('parseExpenseDateInCurrentMonth', () => {
+  it('rejects a calendar date outside the current month', () => {
+    const now = new Date(2026, 7, 28, 12, 0, 0)
+    expect(() =>
+      parseExpenseDateInCurrentMonth(new Date(2026, 6, 31), now),
+    ).toThrow('Expense date must be in the current calendar month')
+  })
+
+  it('allows any date within the current month that is not in the future', () => {
+    const now = new Date(2026, 7, 28, 12, 0, 0)
+    expect(parseExpenseDateInCurrentMonth(new Date(2026, 7, 1), now)).toEqual(
+      new Date(2026, 7, 1),
+    )
+    expect(parseExpenseDateInCurrentMonth(new Date(2026, 7, 28), now)).toEqual(
+      new Date(2026, 7, 28),
+    )
+  })
+})
+
+describe('assertExpenseInCurrentMonth', () => {
+  it('rejects an expense dated outside the current month', () => {
+    const now = new Date(2026, 7, 28, 12, 0, 0)
+    expect(() =>
+      assertExpenseInCurrentMonth(new Date(2026, 6, 15), now),
+    ).toThrow('Expense is not in the current calendar month')
   })
 })

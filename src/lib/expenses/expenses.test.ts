@@ -9,6 +9,7 @@ import {
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import {
   createExpense,
+  deleteExpense,
   ExpenseNotFoundError,
   findOrCreateCategory,
   listCategories,
@@ -770,6 +771,226 @@ describe('updateExpense author display name', () => {
   })
 })
 
+describe('deleteExpense', () => {
+  it('permanently removes an existing expense from storage', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories.find((category) => category.name === 'Comida')
+    expect(comida).toBeDefined()
+    if (comida === undefined) {
+      throw new Error('expected Comida category')
+    }
+    const expenseDate = new Date(2026, 7, 15)
+    const expense = await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Pizza',
+      price: 10,
+      comments: '',
+      expenseDate,
+    })
+
+    await deleteExpense({
+      db,
+      householdId: household.id,
+      expenseId: expense.id,
+    })
+
+    const listed = await listExpensesInMonth({
+      db,
+      householdId: household.id,
+      monthStart: new Date(2026, 7, 1),
+      monthEnd: new Date(2026, 7, 31, 23, 59, 59, 999),
+    })
+    expect(listed).toEqual([])
+  })
+
+  it('returns ExpenseNotFoundError when the expense was already deleted', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories[0]
+    expect(comida).toBeDefined()
+    if (comida === undefined) {
+      throw new Error('expected a seeded category')
+    }
+    const expense = await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Pizza',
+      price: 10,
+      comments: '',
+      expenseDate: new Date(2026, 7, 15),
+    })
+
+    const [first, second] = await Promise.allSettled([
+      deleteExpense({
+        db,
+        householdId: household.id,
+        expenseId: expense.id,
+      }),
+      deleteExpense({
+        db,
+        householdId: household.id,
+        expenseId: expense.id,
+      }),
+    ])
+
+    const outcomes = [first, second]
+    expect(
+      outcomes.filter((outcome) => outcome.status === 'fulfilled'),
+    ).toHaveLength(1)
+    const rejected = outcomes.filter(
+      (outcome): outcome is PromiseRejectedResult =>
+        outcome.status === 'rejected',
+    )
+    expect(rejected).toHaveLength(1)
+    expect(rejected[0]?.reason).toBeInstanceOf(ExpenseNotFoundError)
+  })
+
+  it('lets any household member delete an expense regardless of author', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    store.seedMembership({ userId: 'user-2', householdId: household.id })
+    const memberDb = store.asUser('user-2')
+    const categories = await listCategories({
+      db: ownerDb,
+      householdId: household.id,
+    })
+    const comida = categories[0]
+    expect(comida).toBeDefined()
+    if (comida === undefined) {
+      throw new Error('expected a seeded category')
+    }
+    const expense = await createExpense({
+      db: ownerDb,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Pizza',
+      price: 10,
+      comments: '',
+      expenseDate: new Date(2026, 7, 15),
+    })
+
+    await deleteExpense({
+      db: memberDb,
+      householdId: household.id,
+      expenseId: expense.id,
+    })
+
+    const listed = await listExpensesInMonth({
+      db: ownerDb,
+      householdId: household.id,
+      monthStart: new Date(2026, 7, 1),
+      monthEnd: new Date(2026, 7, 31, 23, 59, 59, 999),
+    })
+    expect(listed).toEqual([])
+  })
+
+  it('returns ExpenseNotFoundError for an unknown expense id', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    await expect(
+      deleteExpense({
+        db,
+        householdId: household.id,
+        expenseId: 'missing-expense',
+      }),
+    ).rejects.toThrow(ExpenseNotFoundError)
+  })
+
+  it('denies delete for a non-member and hides another household expense id', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const other = await createHouseholdWithMembership({
+      db: store.asUser('user-2'),
+      userId: 'user-2',
+      name: 'Casa Azul',
+      monthlyBudget: 200,
+    })
+    const categories = await listCategories({
+      db: ownerDb,
+      householdId: household.id,
+    })
+    const otherCategories = await listCategories({
+      db: store.asUser('user-2'),
+      householdId: other.id,
+    })
+    const comida = categories[0]
+    const otherComida = otherCategories[0]
+    expect(comida).toBeDefined()
+    expect(otherComida).toBeDefined()
+    if (comida === undefined || otherComida === undefined) {
+      throw new Error('expected seeded categories')
+    }
+    const otherExpense = await createExpense({
+      db: store.asUser('user-2'),
+      householdId: other.id,
+      categoryId: otherComida.id,
+      memberId: 'user-2',
+      authorDisplayName: 'Bob',
+      name: 'Other pizza',
+      price: 10,
+      comments: '',
+      expenseDate: new Date(2026, 7, 15),
+    })
+    const strangerDb = store.asUser('user-3')
+
+    await expect(
+      deleteExpense({
+        db: strangerDb,
+        householdId: household.id,
+        expenseId: otherExpense.id,
+      }),
+    ).rejects.toThrow(HouseholdAccessDeniedError)
+
+    await expect(
+      deleteExpense({
+        db: ownerDb,
+        householdId: household.id,
+        expenseId: otherExpense.id,
+      }),
+    ).rejects.toThrow(ExpenseNotFoundError)
+  })
+})
+
 describe('expense access', () => {
   it('denies list and create for a non-member', async () => {
     const store = createMemoryHouseholdsDb()
@@ -865,5 +1086,400 @@ describe('expense access', () => {
       'Salud',
       'Otros',
     ])
+  })
+})
+
+const augustNow = new Date(2026, 7, 28, 12, 0, 0)
+
+async function seedAugustExpense(input: {
+  readonly store: ReturnType<typeof createMemoryHouseholdsDb>
+  readonly authorUserId?: string
+  readonly editorUserId?: string
+}): Promise<{
+  readonly household: Awaited<ReturnType<typeof createHouseholdWithMembership>>
+  readonly expense: Awaited<ReturnType<typeof createExpense>>
+  readonly comida: { readonly id: string; readonly name: string }
+  readonly transporte: { readonly id: string; readonly name: string }
+  readonly editorDb: ReturnType<
+    ReturnType<typeof createMemoryHouseholdsDb>['asUser']
+  >
+}> {
+  const authorUserId = input.authorUserId ?? 'user-1'
+  const editorUserId = input.editorUserId ?? authorUserId
+  const ownerDb = input.store.asUser(authorUserId)
+  const household = await createHouseholdWithMembership({
+    db: ownerDb,
+    userId: authorUserId,
+    name: 'Casa Verde',
+    monthlyBudget: 100,
+  })
+  if (editorUserId !== authorUserId) {
+    input.store.seedMembership({
+      userId: editorUserId,
+      householdId: household.id,
+    })
+  }
+  const categories = await listCategories({
+    db: ownerDb,
+    householdId: household.id,
+  })
+  const comida = categories.find((category) => category.name === 'Comida')
+  const transporte = categories.find(
+    (category) => category.name === 'Transporte',
+  )
+  expect(comida).toBeDefined()
+  expect(transporte).toBeDefined()
+  if (comida === undefined || transporte === undefined) {
+    throw new Error('expected seeded categories')
+  }
+  const expense = await createExpense({
+    db: ownerDb,
+    householdId: household.id,
+    categoryId: comida.id,
+    memberId: authorUserId,
+    authorDisplayName: 'Ada',
+    name: 'Pizza',
+    price: 10,
+    comments: 'Friday dinner',
+    expenseDate: new Date(2026, 7, 15),
+  })
+  return {
+    household,
+    expense,
+    comida,
+    transporte,
+    editorDb: input.store.asUser(editorUserId),
+  }
+}
+
+describe('updateExpense', () => {
+  it('updates all fields together with the same validation as create', async () => {
+    const store = createMemoryHouseholdsDb()
+    const { household, expense, transporte, editorDb } =
+      await seedAugustExpense({
+        store,
+      })
+    const newDate = new Date(2026, 7, 20)
+
+    const updated = await updateExpense({
+      db: editorDb,
+      householdId: household.id,
+      expenseId: expense.id,
+      name: '  Bus ticket  ',
+      price: 12.345,
+      categoryId: transporte.id,
+      comments: 'Commute',
+      expenseDate: newDate,
+      now: augustNow,
+    })
+
+    expect(updated).toEqual({
+      ...expense,
+      name: 'Bus ticket',
+      price: 12.35,
+      categoryId: transporte.id,
+      comments: 'Commute',
+      expenseDate: newDate,
+    })
+  })
+
+  it('updates each field independently and leaves the rest unchanged', async () => {
+    const store = createMemoryHouseholdsDb()
+    const { household, expense, transporte, editorDb } =
+      await seedAugustExpense({
+        store,
+      })
+
+    const renamed = await updateExpense({
+      db: editorDb,
+      householdId: household.id,
+      expenseId: expense.id,
+      name: 'Lunch',
+      now: augustNow,
+    })
+    expect(renamed.name).toBe('Lunch')
+    expect(renamed.price).toBe(expense.price)
+    expect(renamed.categoryId).toBe(expense.categoryId)
+    expect(renamed.comments).toBe(expense.comments)
+    expect(renamed.expenseDate).toEqual(expense.expenseDate)
+
+    const repriced = await updateExpense({
+      db: editorDb,
+      householdId: household.id,
+      expenseId: expense.id,
+      price: 15.5,
+      now: augustNow,
+    })
+    expect(repriced.price).toBe(15.5)
+    expect(repriced.name).toBe('Lunch')
+
+    const recategorized = await updateExpense({
+      db: editorDb,
+      householdId: household.id,
+      expenseId: expense.id,
+      categoryId: transporte.id,
+      now: augustNow,
+    })
+    expect(recategorized.categoryId).toBe(transporte.id)
+
+    const recommented = await updateExpense({
+      db: editorDb,
+      householdId: household.id,
+      expenseId: expense.id,
+      comments: 'Updated note',
+      now: augustNow,
+    })
+    expect(recommented.comments).toBe('Updated note')
+
+    const redated = await updateExpense({
+      db: editorDb,
+      householdId: household.id,
+      expenseId: expense.id,
+      expenseDate: new Date(2026, 7, 10),
+      now: augustNow,
+    })
+    expect(redated.expenseDate).toEqual(new Date(2026, 7, 10))
+    expect(redated.memberId).toBe(expense.memberId)
+    expect(redated.authorDisplayName).toBe(expense.authorDisplayName)
+  })
+
+  it('rejects empty name, non-positive price, and a future expense date', async () => {
+    const store = createMemoryHouseholdsDb()
+    const { household, expense, editorDb } = await seedAugustExpense({ store })
+    const tomorrow = new Date(2026, 7, 29)
+
+    await expect(
+      updateExpense({
+        db: editorDb,
+        householdId: household.id,
+        expenseId: expense.id,
+        name: '   ',
+        now: augustNow,
+      }),
+    ).rejects.toThrow('Expense name must be non-empty')
+
+    await expect(
+      updateExpense({
+        db: editorDb,
+        householdId: household.id,
+        expenseId: expense.id,
+        price: 0,
+        now: augustNow,
+      }),
+    ).rejects.toThrow('Expense price must be a positive number')
+
+    await expect(
+      updateExpense({
+        db: editorDb,
+        householdId: household.id,
+        expenseId: expense.id,
+        expenseDate: tomorrow,
+        now: augustNow,
+      }),
+    ).rejects.toThrow('Expense date cannot be in the future')
+
+    const unchanged = await editorDb.getExpense({
+      householdId: household.id,
+      expenseId: expense.id,
+    })
+    expect(unchanged).toEqual(expense)
+  })
+
+  it('rejects a blank category name before writing', async () => {
+    const store = createMemoryHouseholdsDb()
+    const { household, expense, editorDb } = await seedAugustExpense({ store })
+
+    await expect(
+      findOrCreateCategory({
+        db: editorDb,
+        householdId: household.id,
+        name: '   ',
+      }),
+    ).rejects.toThrow('Category name must be non-empty')
+
+    const unchanged = await editorDb.getExpense({
+      householdId: household.id,
+      expenseId: expense.id,
+    })
+    expect(unchanged).toEqual(expense)
+  })
+
+  it('rejects a date edit that moves the expense outside the current calendar month and leaves it unchanged', async () => {
+    const store = createMemoryHouseholdsDb()
+    const { household, expense, editorDb } = await seedAugustExpense({ store })
+
+    await expect(
+      updateExpense({
+        db: editorDb,
+        householdId: household.id,
+        expenseId: expense.id,
+        expenseDate: new Date(2026, 6, 31),
+        now: augustNow,
+      }),
+    ).rejects.toThrow('Expense date must be in the current calendar month')
+
+    const unchanged = await editorDb.getExpense({
+      householdId: household.id,
+      expenseId: expense.id,
+    })
+    expect(unchanged).toEqual(expense)
+  })
+
+  it('succeeds when a different household member edits an expense they did not author', async () => {
+    const store = createMemoryHouseholdsDb()
+    const { household, expense, editorDb } = await seedAugustExpense({
+      store,
+      authorUserId: 'user-1',
+      editorUserId: 'user-2',
+    })
+
+    const updated = await updateExpense({
+      db: editorDb,
+      householdId: household.id,
+      expenseId: expense.id,
+      name: 'Shared edit',
+      now: augustNow,
+    })
+
+    expect(updated.name).toBe('Shared edit')
+    expect(updated.memberId).toBe('user-1')
+    expect(updated.authorDisplayName).toBe('Ada')
+  })
+
+  it('rejects editing an expense that is not in the current calendar month', async () => {
+    const store = createMemoryHouseholdsDb()
+    const db = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories.find((category) => category.name === 'Comida')
+    expect(comida).toBeDefined()
+    if (comida === undefined) {
+      throw new Error('expected Comida category')
+    }
+    const julyExpense = await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'July lunch',
+      price: 10,
+      comments: '',
+      expenseDate: new Date(2026, 6, 15),
+    })
+
+    await expect(
+      updateExpense({
+        db,
+        householdId: household.id,
+        expenseId: julyExpense.id,
+        name: 'Too late',
+        now: augustNow,
+      }),
+    ).rejects.toThrow('Expense is not in the current calendar month')
+
+    const unchanged = await db.getExpense({
+      householdId: household.id,
+      expenseId: julyExpense.id,
+    })
+    expect(unchanged).toEqual(julyExpense)
+  })
+
+  it('rejects an unknown category, a missing expense, and a non-member', async () => {
+    const store = createMemoryHouseholdsDb()
+    const { household, expense, editorDb } = await seedAugustExpense({ store })
+
+    await expect(
+      updateExpense({
+        db: editorDb,
+        householdId: household.id,
+        expenseId: expense.id,
+        categoryId: 'missing-category',
+        now: augustNow,
+      }),
+    ).rejects.toThrow('Category not found')
+
+    await expect(
+      updateExpense({
+        db: editorDb,
+        householdId: household.id,
+        expenseId: 'missing-expense',
+        name: 'Ghost',
+        now: augustNow,
+      }),
+    ).rejects.toThrow(ExpenseNotFoundError)
+
+    await expect(
+      updateExpense({
+        db: store.asUser('user-3'),
+        householdId: household.id,
+        expenseId: expense.id,
+        name: 'Intruder',
+        now: augustNow,
+      }),
+    ).rejects.toThrow(HouseholdAccessDeniedError)
+  })
+
+  it('returns ExpenseNotFoundError when another member deleted the expense before edit', async () => {
+    const store = createMemoryHouseholdsDb()
+    const { household, expense, editorDb } = await seedAugustExpense({
+      store,
+      authorUserId: 'user-1',
+      editorUserId: 'user-1',
+    })
+    store.seedMembership({ userId: 'user-2', householdId: household.id })
+
+    await deleteExpense({
+      db: store.asUser('user-2'),
+      householdId: household.id,
+      expenseId: expense.id,
+    })
+
+    await expect(
+      updateExpense({
+        db: editorDb,
+        householdId: household.id,
+        expenseId: expense.id,
+        name: 'Stale edit',
+        now: augustNow,
+      }),
+    ).rejects.toMatchObject({
+      name: 'ExpenseNotFoundError',
+      code: 'EXPENSE_NOT_FOUND',
+    })
+
+    const listed = await listExpensesInMonth({
+      db: editorDb,
+      householdId: household.id,
+      monthStart: new Date(2026, 7, 1),
+      monthEnd: new Date(2026, 7, 31, 23, 59, 59, 999),
+    })
+    expect(listed).toEqual([])
+  })
+
+  it('resolves a trimmed case-insensitive category name via findOrCreateCategory before updating', async () => {
+    const store = createMemoryHouseholdsDb()
+    const { household, expense, editorDb } = await seedAugustExpense({ store })
+
+    const resolved = await findOrCreateCategory({
+      db: editorDb,
+      householdId: household.id,
+      name: '  transporte  ',
+    })
+    const updated = await updateExpense({
+      db: editorDb,
+      householdId: household.id,
+      expenseId: expense.id,
+      categoryId: resolved.id,
+      now: augustNow,
+    })
+
+    expect(updated.categoryId).toBe(resolved.id)
+    expect(resolved.name).toBe('Transporte')
   })
 })

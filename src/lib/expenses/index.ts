@@ -1,6 +1,7 @@
 export type { Category, Expense } from './types'
 export {
   createExpense,
+  deleteExpense,
   ExpenseNotFoundError,
   findOrCreateCategory,
   listCategories,
@@ -11,6 +12,7 @@ export {
   computeRemainingBudget,
   currentMonthRange,
   formatBudgetAmount,
+  isDateInCurrentMonth,
 } from './remainingBudget'
 export {
   categoryDocumentId,
@@ -24,9 +26,11 @@ export {
   parseExpenseDocument,
 } from './converters'
 export {
+  assertExpenseInCurrentMonth,
   parseAuthorDisplayName,
   parseCategoryName,
   parseExpenseDate,
+  parseExpenseDateInCurrentMonth,
   parseExpenseName,
   parseExpensePrice,
 } from './validate'
