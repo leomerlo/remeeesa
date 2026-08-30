@@ -372,13 +372,30 @@ export function createFirestoreHouseholdsDb(
       )
     },
     async createExpense(input) {
-      return withHouseholdAccess('createExpense', async () => {
-        const memberId = authenticatedUserId(firestore)
-        const expenseRef = doc(collection(firestore, 'expenses'))
-        const now = Timestamp.now()
-        const createdAt = now.toDate()
-        await setDoc(expenseRef, {
-          ...expenseToDocument({
+      return withHouseholdAccess(
+        'createExpense',
+        async () => {
+          const memberId = await awaitAuthenticatedUserId(firestore)
+          const expenseRef = doc(collection(firestore, 'expenses'))
+          const now = Timestamp.now()
+          const createdAt = now.toDate()
+          await setDoc(expenseRef, {
+            ...expenseToDocument({
+              householdId: input.householdId,
+              categoryId: input.categoryId,
+              memberId,
+              authorDisplayName: input.authorDisplayName,
+              name: input.name,
+              price: input.price,
+              comments: input.comments,
+              expenseDate: input.expenseDate,
+              createdAt,
+            }),
+            expense_date: toFirestoreExpenseDate(input.expenseDate),
+            created_at: now,
+          })
+          return {
+            id: expenseRef.id,
             householdId: input.householdId,
             categoryId: input.categoryId,
             memberId,
@@ -388,23 +405,14 @@ export function createFirestoreHouseholdsDb(
             comments: input.comments,
             expenseDate: input.expenseDate,
             createdAt,
-          }),
-          expense_date: toFirestoreExpenseDate(input.expenseDate),
-          created_at: now,
-        })
-        return {
-          id: expenseRef.id,
+          }
+        },
+        {
+          authUserId: getAuth(firestore.app).currentUser?.uid,
           householdId: input.householdId,
           categoryId: input.categoryId,
-          memberId,
-          authorDisplayName: input.authorDisplayName,
-          name: input.name,
-          price: input.price,
-          comments: input.comments,
-          expenseDate: input.expenseDate,
-          createdAt,
-        }
-      })
+        },
+      )
     },
     async listExpensesInMonth(input) {
       return withHouseholdAccess('listExpensesInMonth', async () => {

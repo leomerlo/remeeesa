@@ -201,11 +201,15 @@ service cloud.firestore {
 
     match /categories/{categoryId} {
       // Missing docs have no resource; find-or-create must get a missing id
-      // before create. Existing docs stay members-only.
-      allow get: if isSignedIn() && (
-        (resource == null && isOwnHouseholdCategoryId(categoryId))
-        || isMemberOf(resource.data.household_id)
-      );
+      // before create. Existing docs stay members-only. These are separate
+      // allow lines because rules do not short-circuit `||` — reading
+      // `resource.data` when resource is null denies the whole expression.
+      allow get: if isSignedIn()
+        && resource == null
+        && isOwnHouseholdCategoryId(categoryId);
+      allow get: if isSignedIn()
+        && resource != null
+        && isMemberOf(resource.data.household_id);
       allow list: if isMemberOf(resource.data.household_id);
       allow create: if isValidCategory(request.resource.data)
         && canWriteCategoryFor(request.resource.data.household_id);
