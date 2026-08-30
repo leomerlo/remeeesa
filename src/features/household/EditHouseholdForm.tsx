@@ -6,39 +6,52 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   getHousehold,
+  parseHouseholdName,
   parseMonthlyBudget,
-  updateHouseholdBudget,
+  updateHousehold,
 } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { householdQueryKey } from './householdQueryKey'
 
-export type EditBudgetFormProps = {
+export type EditHouseholdFormProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
 }
 
-export function EditBudgetForm({
+export function EditHouseholdForm({
   db,
   householdId,
-}: EditBudgetFormProps): ReactElement {
+}: EditHouseholdFormProps): ReactElement {
   const queryClient = useQueryClient()
   const queryKey = householdQueryKey({ householdId })
   const householdQuery = useQuery({
     queryKey,
     queryFn: () => getHousehold({ db, householdId }),
   })
-  const [draft, setDraft] = useState<string | null>(null)
+  const [nameDraft, setNameDraft] = useState<string | null>(null)
+  const [budgetDraft, setBudgetDraft] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const household = householdQuery.data
+  const name = nameDraft ?? (household !== undefined ? household.name : '')
   const amount =
-    draft ?? (household !== undefined ? String(household.monthlyBudget) : '')
+    budgetDraft ??
+    (household !== undefined ? String(household.monthlyBudget) : '')
 
   const mutation = useMutation({
-    mutationFn: (monthlyBudget: number) =>
-      updateHouseholdBudget({ db, householdId, monthlyBudget }),
-    onSuccess: async (household) => {
-      queryClient.setQueryData(queryKey, household)
-      setDraft(null)
+    mutationFn: (input: {
+      readonly name: string
+      readonly monthlyBudget: number
+    }) =>
+      updateHousehold({
+        db,
+        householdId,
+        name: input.name,
+        monthlyBudget: input.monthlyBudget,
+      }),
+    onSuccess: async (updated) => {
+      queryClient.setQueryData(queryKey, updated)
+      setNameDraft(null)
+      setBudgetDraft(null)
       await queryClient.invalidateQueries({ queryKey })
     },
   })
@@ -46,14 +59,13 @@ export function EditBudgetForm({
   function onSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault()
     try {
+      const nextName = parseHouseholdName(name)
       const monthlyBudget = parseMonthlyBudget(Number(amount.trim()))
       setError(null)
-      mutation.mutate(monthlyBudget)
+      mutation.mutate({ name: nextName, monthlyBudget })
     } catch (caught) {
       const message =
-        caught instanceof Error
-          ? caught.message
-          : 'Monthly budget must be a positive number'
+        caught instanceof Error ? caught.message : 'Could not save household'
       setError(message)
     }
   }
@@ -63,6 +75,24 @@ export function EditBudgetForm({
       className="flex w-full flex-col items-center gap-8"
       onSubmit={onSubmit}
     >
+      <div className="flex w-full flex-col gap-2">
+        <Label
+          htmlFor="household-name"
+          className="text-muted-foreground font-medium"
+        >
+          Household name
+        </Label>
+        <Input
+          id="household-name"
+          name="household-name"
+          value={name}
+          onChange={(event) => {
+            setNameDraft(event.target.value)
+          }}
+          autoComplete="organization"
+        />
+      </div>
+
       {household !== undefined ? (
         <p role="status" className="font-display text-5xl tracking-tight">
           {household.monthlyBudget}
@@ -81,7 +111,7 @@ export function EditBudgetForm({
           name="monthly-budget"
           value={amount}
           onChange={(event) => {
-            setDraft(event.target.value)
+            setBudgetDraft(event.target.value)
           }}
           inputMode="decimal"
           autoComplete="off"
@@ -94,7 +124,7 @@ export function EditBudgetForm({
         </p>
       ) : null}
 
-      <Button type="submit">Save budget</Button>
+      <Button type="submit">Save</Button>
     </form>
   )
 }

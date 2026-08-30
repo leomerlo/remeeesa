@@ -199,6 +199,28 @@ export function createFirestoreHouseholdsDb(
         return { ...current, monthlyBudget: input.monthlyBudget }
       })
     },
+    async updateHousehold(input) {
+      return withHouseholdAccess('updateHousehold', async () => {
+        const householdRef = doc(firestore, 'households', input.householdId)
+        const snap = await getDoc(householdRef)
+        if (!snap.exists()) {
+          throw new Error('Household not found')
+        }
+        const current = parseHouseholdDocument({
+          id: snap.id,
+          data: snap.data(),
+        })
+        await updateDoc(householdRef, {
+          name: input.name,
+          monthly_budget: input.monthlyBudget,
+        })
+        return {
+          ...current,
+          name: input.name,
+          monthlyBudget: input.monthlyBudget,
+        }
+      })
+    },
     async getOrCreateInvite(input) {
       return withHouseholdAccess('getOrCreateInvite', async () => {
         const invitesQuery = query(

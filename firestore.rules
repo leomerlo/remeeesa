@@ -153,9 +153,12 @@ service cloud.firestore {
         && getAfter(membershipPath()).data.household_id == householdId
         && isValidHousehold(request.resource.data);
       allow update: if isMemberOf(householdId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['monthly_budget'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['monthly_budget', 'name'])
         && request.resource.data.monthly_budget is number
-        && request.resource.data.monthly_budget > 0;
+        && request.resource.data.monthly_budget > 0
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.matches('.*\\S.*');
       allow delete: if false;
     }
 

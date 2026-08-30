@@ -26,6 +26,7 @@ export {
   joinHousehold,
   leaveHousehold,
   listHouseholdMembers,
+  updateHousehold,
   updateHouseholdBudget,
 } from './households'
 export { parseHouseholdName, parseMonthlyBudget } from './validate'

@@ -44,6 +44,16 @@ describe('firestore.rules founder membership', () => {
   })
 })
 
+describe('firestore.rules household updates', () => {
+  it('lets members update the household name and monthly budget', () => {
+    expect(rules).toContain(
+      "request.resource.data.diff(resource.data).affectedKeys().hasOnly(['monthly_budget', 'name'])",
+    )
+    expect(rules).toContain('request.resource.data.name is string')
+    expect(rules).toContain('request.resource.data.name.size() > 0')
+  })
+})
+
 describe('firestore.rules invite join', () => {
   it('lets any signed-in user get an invite by token', () => {
     expect(rules).toMatch(

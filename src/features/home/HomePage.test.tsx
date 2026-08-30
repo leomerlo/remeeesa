@@ -1,6 +1,8 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import type { ReactElement } from 'react'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
+import { EditHouseholdPage } from '@/features/household'
 import { HouseholdDraftProvider } from '@/features/onboarding'
 import { listExpensesInMonth } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
@@ -24,7 +26,9 @@ function renderHome(
   options?: Parameters<typeof renderWithProviders>[1],
 ) {
   return renderWithProviders(
-    <HouseholdDraftProvider>{ui}</HouseholdDraftProvider>,
+    <MemoryRouter>
+      <HouseholdDraftProvider>{ui}</HouseholdDraftProvider>
+    </MemoryRouter>,
     options,
   )
 }
@@ -72,7 +76,7 @@ describe('HomePage', () => {
 
     expect(screen.getByLabelText('Household name')).toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: 'Generate invite link' }),
+      screen.queryByRole('link', { name: 'Edit household' }),
     ).not.toBeInTheDocument()
     expect(
       screen.queryByRole('status', { name: /remaining budget/i }),
@@ -89,7 +93,7 @@ describe('HomePage', () => {
 
     expect(await screen.findByLabelText('Household name')).toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: 'Generate invite link' }),
+      screen.queryByRole('link', { name: 'Edit household' }),
     ).not.toBeInTheDocument()
     expect(
       screen.queryByRole('status', { name: /remaining budget/i }),
@@ -102,7 +106,7 @@ describe('HomePage', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('shows the household and invite panel when the user already belongs', async () => {
+  it('shows the household and a link to edit it when the user already belongs', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     await createHouseholdWithMembership({
       db,
@@ -120,11 +124,13 @@ describe('HomePage', () => {
     expect(
       await screen.findByText('No expenses this month'),
     ).toBeInTheDocument()
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Generate invite link' }),
-    )
-    expect(await screen.findByLabelText('Invite link')).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'Edit household' }),
+    ).toHaveAttribute('href', '/household')
     expect(screen.queryByLabelText('Household name')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Generate invite link' }),
+    ).not.toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'Add expense' }),
     ).toBeInTheDocument()
@@ -135,6 +141,47 @@ describe('HomePage', () => {
     expect(
       screen.queryByRole('button', { name: 'Log out' }),
     ).not.toBeInTheDocument()
+  })
+
+  it('opens the household editor from the home button', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderWithProviders(
+      <MemoryRouter>
+        <HouseholdDraftProvider>
+          <Routes>
+            <Route
+              path="/"
+              element={<HomePage currentUserId="user-1" householdsDb={db} />}
+            />
+            <Route
+              path="/household"
+              element={
+                <EditHouseholdPage currentUserId="user-1" householdsDb={db} />
+              }
+            />
+          </Routes>
+        </HouseholdDraftProvider>
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(await screen.findByRole('link', { name: 'Edit household' }))
+    await waitFor(() => {
+      expect(screen.getByLabelText('Household name')).toHaveValue('Casa Verde')
+    })
+    expect(screen.getByLabelText('Monthly budget')).toHaveValue('100')
+    expect(
+      await screen.findByRole('heading', { name: 'Participants' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Generate invite link' }),
+    ).toBeInTheDocument()
   })
 
   it('shows logout and returns to login for returning users after signing out', async () => {
@@ -161,7 +208,7 @@ describe('HomePage', () => {
     expect(screen.queryByText('Casa Verde')).not.toBeInTheDocument()
   })
 
-  it('shows invite panel after signup creates the household', async () => {
+  it('shows the household after signup creates it', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const signupAuth = signupAuthFor('user-1')
 
@@ -193,7 +240,7 @@ describe('HomePage', () => {
       await screen.findByRole('status', { name: /remaining budget \$100/i }),
     ).toHaveTextContent('$100')
     expect(
-      screen.getByRole('button', { name: 'Generate invite link' }),
+      screen.getByRole('link', { name: 'Edit household' }),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'Add expense' }),
