@@ -36,8 +36,9 @@ import {
 } from './converters'
 import {
   AlreadyInHouseholdError,
-  HouseholdAccessDeniedError,
+  FirestoreDeniedError,
   InviteNotFoundError,
+  NotSignedInError,
 } from './households'
 import type {
   Household,
@@ -54,9 +55,34 @@ function isFirestorePermissionDenied(error: unknown): boolean {
   return code === 'permission-denied' || code === 'firestore/permission-denied'
 }
 
-export function mapHouseholdFirestoreError(error: unknown): never {
+function firestoreErrorCode(error: unknown): string {
+  if (typeof error !== 'object' || error === null || !('code' in error)) {
+    return 'permission-denied'
+  }
+  const { code } = error
+  return typeof code === 'string' && code.length > 0
+    ? code
+    : 'permission-denied'
+}
+
+function firestoreErrorDetail(error: unknown): string | undefined {
+  if (typeof error !== 'object' || error === null || !('message' in error)) {
+    return undefined
+  }
+  const { message } = error
+  return typeof message === 'string' && message.length > 0 ? message : undefined
+}
+
+export function mapHouseholdFirestoreError(
+  error: unknown,
+  operation = 'request',
+): never {
   if (isFirestorePermissionDenied(error)) {
-    throw new HouseholdAccessDeniedError()
+    throw new FirestoreDeniedError({
+      operation,
+      code: firestoreErrorCode(error),
+      detail: firestoreErrorDetail(error),
+    })
   }
   throw error
 }
@@ -70,14 +96,14 @@ async function withHouseholdAccess<T>(
     return await run()
   } catch (error) {
     logFirebaseError(error, operation, details)
-    mapHouseholdFirestoreError(error)
+    mapHouseholdFirestoreError(error, operation)
   }
 }
 
 function authenticatedUserId(firestore: Firestore): string {
   const userId = getAuth(firestore.app).currentUser?.uid
   if (userId === undefined) {
-    throw new HouseholdAccessDeniedError()
+    throw new NotSignedInError()
   }
   return userId
 }

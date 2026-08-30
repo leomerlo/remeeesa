@@ -123,6 +123,16 @@ function mutationErrorMessage(error: unknown, mode: 'add' | 'edit'): string {
   return mode === 'edit' ? 'Could not save expense' : 'Could not add expense'
 }
 
+function loadErrorMessage(error: unknown): string | null {
+  if (error === null || error === undefined) {
+    return null
+  }
+  if (error instanceof Error) {
+    return error.message
+  }
+  return 'Could not load categories'
+}
+
 type ExpenseFormBodyProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
@@ -131,6 +141,7 @@ type ExpenseFormBodyProps = {
   readonly editExpense: EditExpenseTarget | null
   readonly initialFields: ExpenseFormFields
   readonly categories: readonly Category[]
+  readonly loadError: string | null
   readonly onEditFinished?: () => void
 }
 
@@ -142,6 +153,7 @@ function ExpenseFormBody({
   editExpense,
   initialFields,
   categories,
+  loadError,
   onEditFinished,
 }: ExpenseFormBodyProps): ReactElement {
   const isEditing = editExpense !== null
@@ -242,7 +254,8 @@ function ExpenseFormBody({
     error ??
     (mutation.isError && !(mutation.error instanceof ExpenseNotFoundError)
       ? mutationErrorMessage(mutation.error, isEditing ? 'edit' : 'add')
-      : null)
+      : null) ??
+    loadError
 
   return (
     <form
@@ -403,6 +416,7 @@ export function AddExpenseForm({
       editExpense={editExpense}
       initialFields={initialFields}
       categories={categoriesQuery.data ?? []}
+      loadError={loadErrorMessage(categoriesQuery.error)}
       onEditFinished={onEditFinished}
     />
   )

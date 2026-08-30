@@ -1,23 +1,44 @@
 import { describe, expect, it } from 'vitest'
 import rules from '../../../firestore.rules?raw'
 import adapterSource from './firestoreHouseholdsDb.ts?raw'
-import {
-  AlreadyInHouseholdError,
-  HouseholdAccessDeniedError,
-} from './households'
+import { AlreadyInHouseholdError, FirestoreDeniedError } from './households'
 import { mapHouseholdFirestoreError } from './firestoreHouseholdsDb'
 
 describe('mapHouseholdFirestoreError', () => {
-  it('rethrows permission-denied as HouseholdAccessDeniedError', () => {
+  it('rethrows permission-denied as FirestoreDeniedError with the operation', () => {
     expect(() =>
-      mapHouseholdFirestoreError({ code: 'permission-denied' }),
-    ).toThrow(HouseholdAccessDeniedError)
+      mapHouseholdFirestoreError(
+        { code: 'permission-denied' },
+        'createExpense',
+      ),
+    ).toThrow(FirestoreDeniedError)
+    expect(() =>
+      mapHouseholdFirestoreError(
+        { code: 'permission-denied' },
+        'createExpense',
+      ),
+    ).toThrow('Could not add expense: permission-denied')
   })
 
-  it('rethrows firestore/permission-denied as HouseholdAccessDeniedError', () => {
+  it('includes the Firebase message when permission-denied has one', () => {
     expect(() =>
-      mapHouseholdFirestoreError({ code: 'firestore/permission-denied' }),
-    ).toThrow(HouseholdAccessDeniedError)
+      mapHouseholdFirestoreError(
+        {
+          code: 'permission-denied',
+          message: 'Missing or insufficient permissions.',
+        },
+        'findOrCreateCategory',
+      ),
+    ).toThrow('Could not save category: Missing or insufficient permissions.')
+  })
+
+  it('rethrows firestore/permission-denied as FirestoreDeniedError', () => {
+    expect(() =>
+      mapHouseholdFirestoreError(
+        { code: 'firestore/permission-denied' },
+        'listCategories',
+      ),
+    ).toThrow('Could not load categories: firestore/permission-denied')
   })
 
   it('rethrows other errors unchanged', () => {
@@ -159,6 +180,12 @@ describe('firestore.rules expenses', () => {
     )
     expect(rules).toContain('function isValidExpenseUpdate()')
     expect(rules).toContain('function expenseDateNotInFuture(expenseDate)')
+    expect(rules).toContain(
+      "expenseDate < request.time + duration.value(1, 'd')",
+    )
+    expect(rules).not.toContain('request.time.year')
+    expect(rules).not.toContain('request.time.month')
+    expect(rules).not.toContain('request.time.day')
     expect(rules).toMatch(
       /!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'member_id', 'author_display_name', 'created_at'\]\)/,
     )
@@ -176,5 +203,9 @@ describe('createExpense adapter', () => {
     expect(adapterSource).toMatch(
       /async createExpense\([\s\S]*awaitAuthenticatedUserId\(firestore\)/,
     )
+  })
+
+  it('treats a missing Firebase user as not signed in instead of a membership denial', () => {
+    expect(adapterSource).toContain('throw new NotSignedInError()')
   })
 })

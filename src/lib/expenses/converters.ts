@@ -132,8 +132,8 @@ export function parseExpenseDocument(input: {
 }
 
 export function toFirestoreExpenseDate(date: Date): Timestamp {
-  // Midday local keeps the calendar day stable under Firestore's
-  // expense_date <= request.time rule across time zones.
+  // Midday local stays on the picked calendar day and within 12 hours of
+  // "now", so rules can allow today with expense_date < request.time + 1d.
   const normalized = new Date(
     date.getFullYear(),
     date.getMonth(),

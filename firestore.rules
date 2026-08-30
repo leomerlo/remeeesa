@@ -132,15 +132,11 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/categories/$(request.resource.data.category_id)).data.household_id == resource.data.household_id;
     }
 
+    // Local-noon expense dates can be a few hours ahead of request.time
+    // (morning in the local calendar). Year/month/day on request.time are
+    // methods; using them as fields makes this check fail closed.
     function expenseDateNotInFuture(expenseDate) {
-      return expenseDate
-        < timestamp.date(request.time.year, request.time.month, request.time.day)
-          + duration.value(1, 'd');
-    }
-
-    function expenseDateInCurrentMonth(expenseDate) {
-      return expenseDate >= timestamp.date(request.time.year, request.time.month, 1)
-        && expenseDate < timestamp.date(request.time.year, request.time.month + 1, 1);
+      return expenseDate < request.time + duration.value(1, 'd');
     }
 
     match /households/{householdId} {

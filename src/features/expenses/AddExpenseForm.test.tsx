@@ -3,7 +3,10 @@ import { fireEvent, screen, waitFor } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
 import { listCategories, listExpensesInMonth } from '@/lib/expenses'
-import { createHouseholdWithMembership } from '@/lib/households'
+import {
+  createHouseholdWithMembership,
+  FirestoreDeniedError,
+} from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
@@ -446,6 +449,116 @@ describe('AddExpenseForm', () => {
     await waitFor(() => {
       expect(screen.getByText('Month expenses: 1')).toBeInTheDocument()
     })
+  })
+
+  it('shows which Firestore operation was denied when saving the category', async () => {
+    const base = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: base,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const db: HouseholdsDb = {
+      ...base,
+      findOrCreateCategory: async () => {
+        throw new FirestoreDeniedError({
+          operation: 'findOrCreateCategory',
+          code: 'permission-denied',
+          detail: 'Missing or insufficient permissions.',
+        })
+      },
+    }
+    renderWithProviders(
+      <AddExpenseForm
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
+    )
+
+    fillExpense({
+      name: 'Pizza',
+      price: '12.5',
+      category: 'Comida',
+    })
+    submitExpense()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Could not save category: Missing or insufficient permissions.',
+    )
+  })
+
+  it('shows which Firestore operation was denied when adding the expense', async () => {
+    const base = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: base,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const db: HouseholdsDb = {
+      ...base,
+      createExpense: async () => {
+        throw new FirestoreDeniedError({
+          operation: 'createExpense',
+          code: 'permission-denied',
+          detail: 'Missing or insufficient permissions.',
+        })
+      },
+    }
+    renderWithProviders(
+      <AddExpenseForm
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
+    )
+
+    fillExpense({
+      name: 'Pizza',
+      price: '12.5',
+      category: 'Comida',
+    })
+    submitExpense()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Could not add expense: Missing or insufficient permissions.',
+    )
+  })
+
+  it('shows which Firestore operation failed when categories cannot load', async () => {
+    const base = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: base,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const db: HouseholdsDb = {
+      ...base,
+      listCategories: async () => {
+        throw new FirestoreDeniedError({
+          operation: 'listCategories',
+          code: 'permission-denied',
+          detail: 'Missing or insufficient permissions.',
+        })
+      },
+    }
+    renderWithProviders(
+      <AddExpenseForm
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
+    )
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Could not load categories: Missing or insufficient permissions.',
+    )
   })
 })
 

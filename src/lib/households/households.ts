@@ -22,6 +22,54 @@ export class HouseholdAccessDeniedError extends Error {
   }
 }
 
+export class NotSignedInError extends Error {
+  override readonly name = 'NotSignedInError'
+
+  constructor() {
+    super('Not signed in. Refresh the page and try again.')
+  }
+}
+
+const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
+  createHouseholdAndMembership: 'create household',
+  getHousehold: 'load household',
+  listMembers: 'load members',
+  getMembership: 'load membership',
+  updateMonthlyBudget: 'save budget',
+  updateHousehold: 'save household',
+  getOrCreateInvite: 'generate invite link',
+  joinHousehold: 'join household',
+  listCategories: 'load categories',
+  findOrCreateCategory: 'save category',
+  createExpense: 'add expense',
+  listExpensesInMonth: 'load expenses',
+  getExpense: 'load expense',
+  updateExpense: 'save expense',
+  deleteExpense: 'delete expense',
+}
+
+export class FirestoreDeniedError extends Error {
+  override readonly name = 'FirestoreDeniedError'
+  readonly operation: string
+  readonly code: string
+
+  constructor(input: {
+    readonly operation: string
+    readonly code: string
+    readonly detail?: string
+  }) {
+    const action =
+      FIRESTORE_OPERATION_ACTIONS[input.operation] ?? input.operation
+    const detail =
+      input.detail !== undefined && input.detail.length > 0
+        ? input.detail
+        : input.code
+    super(`Could not ${action}: ${detail}`)
+    this.operation = input.operation
+    this.code = input.code
+  }
+}
+
 export class InviteNotFoundError extends Error {
   override readonly name = 'InviteNotFoundError'
 

@@ -18,6 +18,7 @@ export { createFirestoreHouseholdsDb } from './firestoreHouseholdsDb'
 export {
   AlreadyInHouseholdError,
   createHouseholdWithMembership,
+  FirestoreDeniedError,
   getHousehold,
   getMembership,
   getOrCreateHouseholdInvite,
@@ -26,6 +27,7 @@ export {
   joinHousehold,
   leaveHousehold,
   listHouseholdMembers,
+  NotSignedInError,
   updateHousehold,
   updateHouseholdBudget,
 } from './households'
