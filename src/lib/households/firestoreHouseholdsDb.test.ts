@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import rules from '../../../firestore.rules?raw'
+import adapterSource from './firestoreHouseholdsDb.ts?raw'
 import {
   AlreadyInHouseholdError,
   HouseholdAccessDeniedError,
@@ -91,11 +92,11 @@ describe('firestore.rules invite join', () => {
 describe('firestore.rules categories', () => {
   it('lets members get a missing category id for their household so find-or-create can run', () => {
     expect(rules).toContain('function isOwnHouseholdCategoryId(categoryId)')
-    expect(rules).toMatch(
-      /match \/categories\/\{categoryId\}[\s\S]*allow get: if isSignedIn\(\) && \(/,
+    expect(rules).toContain(
+      'allow get: if isSignedIn()\n        && resource == null\n        && isOwnHouseholdCategoryId(categoryId);',
     )
     expect(rules).toContain(
-      'resource == null && isOwnHouseholdCategoryId(categoryId)',
+      'allow get: if isSignedIn()\n        && resource != null\n        && isMemberOf(resource.data.household_id);',
     )
   })
 
@@ -166,6 +167,14 @@ describe('firestore.rules expenses', () => {
     )
     expect(rules).toMatch(
       /match \/expenses\/\{expenseId\}[\s\S]*allow delete: if isMemberOf\(resource\.data\.household_id\);/,
+    )
+  })
+})
+
+describe('createExpense adapter', () => {
+  it('waits for auth before writing so Firestore sees request.auth', () => {
+    expect(adapterSource).toMatch(
+      /async createExpense\([\s\S]*awaitAuthenticatedUserId\(firestore\)/,
     )
   })
 })
