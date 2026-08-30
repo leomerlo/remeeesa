@@ -151,6 +151,25 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       })
       return updated
     },
+    async updateHousehold(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const record = state.households.get(input.householdId)
+      if (record === undefined) {
+        throw new Error('Household not found')
+      }
+      const updated: Household = {
+        id: input.householdId,
+        name: input.name,
+        monthlyBudget: input.monthlyBudget,
+        createdAt: record.createdAt,
+      }
+      state.households.set(input.householdId, {
+        name: updated.name,
+        monthlyBudget: updated.monthlyBudget,
+        createdAt: updated.createdAt,
+      })
+      return updated
+    },
     async getOrCreateInvite(input) {
       assertMemberOf(state, userId, input.householdId)
       for (const [token, record] of state.invites) {

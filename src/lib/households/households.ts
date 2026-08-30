@@ -58,6 +58,21 @@ export async function updateHouseholdBudget(input: {
   })
 }
 
+export async function updateHousehold(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly name: string
+  readonly monthlyBudget: number
+}): Promise<Household> {
+  const name = parseHouseholdName(input.name)
+  const monthlyBudget = parseMonthlyBudget(input.monthlyBudget)
+  return input.db.updateHousehold({
+    householdId: input.householdId,
+    name,
+    monthlyBudget,
+  })
+}
+
 export async function getHousehold(input: {
   readonly db: HouseholdsDb
   readonly householdId: string

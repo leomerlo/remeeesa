@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { HomePage } from '@/features/home'
+import { EditHouseholdPage } from '@/features/household'
 import { JoinHouseholdPage } from '@/features/join'
 import { HouseholdDraftProvider } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
@@ -29,6 +30,15 @@ export function AppRoutes({
                 currentUserId={currentUserId}
                 householdsDb={householdsDb}
                 signupAuth={signupAuth}
+              />
+            }
+          />
+          <Route
+            path="/household"
+            element={
+              <EditHouseholdPage
+                currentUserId={currentUserId}
+                householdsDb={householdsDb}
               />
             }
           />

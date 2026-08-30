@@ -11,6 +11,7 @@ import {
   joinHousehold,
   leaveHousehold,
   listHouseholdMembers,
+  updateHousehold,
   updateHouseholdBudget,
 } from './households'
 
@@ -196,6 +197,110 @@ describe('updateHouseholdBudget', () => {
   })
 })
 
+describe('updateHousehold', () => {
+  it('lets a member update the household name and budget together', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    const updated = await updateHousehold({
+      db,
+      householdId: household.id,
+      name: 'Casa Azul',
+      monthlyBudget: 250.75,
+    })
+
+    expect(updated).toEqual({
+      ...household,
+      name: 'Casa Azul',
+      monthlyBudget: 250.75,
+    })
+    await expect(
+      getHousehold({ db, householdId: household.id }),
+    ).resolves.toEqual(updated)
+  })
+
+  it('trims surrounding whitespace from the household name', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    const updated = await updateHousehold({
+      db,
+      householdId: household.id,
+      name: '  Casa Azul  ',
+      monthlyBudget: household.monthlyBudget,
+    })
+
+    expect(updated.name).toBe('Casa Azul')
+  })
+
+  it('rejects an empty household name', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    await expect(
+      updateHousehold({
+        db,
+        householdId: household.id,
+        name: '',
+        monthlyBudget: household.monthlyBudget,
+      }),
+    ).rejects.toThrow('Household name must be non-empty')
+  })
+
+  it('rejects a whitespace-only household name', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    await expect(
+      updateHousehold({
+        db,
+        householdId: household.id,
+        name: '   ',
+        monthlyBudget: household.monthlyBudget,
+      }),
+    ).rejects.toThrow('Household name must be non-empty')
+  })
+
+  it('rejects a non-positive monthly budget', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    await expect(
+      updateHousehold({
+        db,
+        householdId: household.id,
+        name: 'Casa Azul',
+        monthlyBudget: 0,
+      }),
+    ).rejects.toThrow('Monthly budget must be a positive number')
+  })
+})
+
 describe('household member access', () => {
   it('does not let a non-member read or update the household', async () => {
     const store = createMemoryHouseholdsDb()
@@ -221,6 +326,15 @@ describe('household member access', () => {
       updateHouseholdBudget({
         db: strangerDb,
         householdId: household.id,
+        monthlyBudget: 50,
+      }),
+    ).rejects.toThrow(HouseholdAccessDeniedError)
+
+    await expect(
+      updateHousehold({
+        db: strangerDb,
+        householdId: household.id,
+        name: 'Hacked',
         monthlyBudget: 50,
       }),
     ).rejects.toThrow(HouseholdAccessDeniedError)
@@ -256,6 +370,15 @@ describe('household member access', () => {
       updateHouseholdBudget({
         db: otherDb,
         householdId: household.id,
+        monthlyBudget: 50,
+      }),
+    ).rejects.toThrow(HouseholdAccessDeniedError)
+
+    await expect(
+      updateHousehold({
+        db: otherDb,
+        householdId: household.id,
+        name: 'Hacked',
         monthlyBudget: 50,
       }),
     ).rejects.toThrow(HouseholdAccessDeniedError)

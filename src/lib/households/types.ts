@@ -37,6 +37,11 @@ export type HouseholdsDb = {
     readonly householdId: string
     readonly monthlyBudget: number
   }): Promise<Household>
+  updateHousehold(input: {
+    readonly householdId: string
+    readonly name: string
+    readonly monthlyBudget: number
+  }): Promise<Household>
   getOrCreateInvite(input: {
     readonly householdId: string
   }): Promise<HouseholdInvite>

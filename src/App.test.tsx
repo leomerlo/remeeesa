@@ -1,6 +1,8 @@
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
+import { createHouseholdWithMembership } from '@/lib/households'
+import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { App, AppRoutes } from './App'
 
@@ -36,5 +38,35 @@ describe('App', () => {
       screen.getByRole('button', { name: 'Create account' }),
     ).toBeInTheDocument()
     expect(screen.queryByLabelText('Household name')).not.toBeInTheDocument()
+  })
+
+  it('renders household editing at /household', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderWithProviders(
+      <MemoryRouter initialEntries={['/household']}>
+        <AppRoutes currentUserId="user-1" householdsDb={db} />
+      </MemoryRouter>,
+    )
+
+    expect(
+      screen.getByRole('heading', { name: 'remeeesa' }),
+    ).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByLabelText('Household name')).toHaveValue('Casa Verde')
+    })
+    expect(screen.getByLabelText('Monthly budget')).toHaveValue('100')
+    expect(
+      await screen.findByRole('heading', { name: 'Participants' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Generate invite link' }),
+    ).toBeInTheDocument()
   })
 })

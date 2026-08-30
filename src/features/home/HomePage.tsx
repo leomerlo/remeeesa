@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
+import { Link } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
 import {
   AddExpenseForm,
   ExpenseList,
   RemainingBudgetDisplay,
 } from '@/features/expenses'
 import type { EditExpenseTarget } from '@/features/expenses/AddExpenseForm'
-import { InviteLinkPanel } from '@/features/invite'
 import { LogoutButton } from '@/features/auth'
 import { OnboardingForm } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
@@ -183,6 +184,9 @@ export function HomePage({
   return (
     <div className="flex w-full flex-col items-center gap-8">
       <p className="text-sm font-medium">{household?.name ?? 'Household'}</p>
+      <Button variant="outline" asChild>
+        <Link to="/household">Edit household</Link>
+      </Button>
       <RemainingBudgetDisplay db={db} householdId={membership.householdId} />
       <AddExpenseForm
         db={db}
@@ -194,7 +198,6 @@ export function HomePage({
           setEditExpense(null)
         }}
       />
-      <InviteLinkPanel db={db} householdId={membership.householdId} />
       <ExpenseList
         db={db}
         householdId={membership.householdId}

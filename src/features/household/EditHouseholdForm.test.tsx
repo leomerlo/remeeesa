@@ -6,10 +6,10 @@ import { createHouseholdWithMembership, getHousehold } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
-import { EditBudgetForm } from './EditBudgetForm'
+import { EditHouseholdForm } from './EditHouseholdForm'
 import { householdQueryKey } from './householdQueryKey'
 
-async function renderEditBudgetForm(input: {
+async function renderEditHouseholdForm(input: {
   readonly monthlyBudget: number
 }): Promise<{
   readonly householdId: string
@@ -22,7 +22,7 @@ async function renderEditBudgetForm(input: {
     name: 'Casa Verde',
     monthlyBudget: input.monthlyBudget,
   })
-  renderWithProviders(<EditBudgetForm db={db} householdId={household.id} />)
+  renderWithProviders(<EditHouseholdForm db={db} householdId={household.id} />)
   return { householdId: household.id, db }
 }
 
@@ -30,7 +30,7 @@ async function submitBudget(value: string): Promise<void> {
   fireEvent.change(await screen.findByLabelText('Monthly budget'), {
     target: { value },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Save budget' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
 }
 
 function SharedBudgetView(props: {
@@ -49,17 +49,68 @@ function SharedBudgetView(props: {
   return <p>{`Shared budget: ${String(householdQuery.data.monthlyBudget)}`}</p>
 }
 
-describe('EditBudgetForm', () => {
-  it('loads the current monthly budget into the form', async () => {
-    await renderEditBudgetForm({ monthlyBudget: 100 })
+describe('EditHouseholdForm', () => {
+  it('loads the current name and monthly budget into the form', async () => {
+    await renderEditHouseholdForm({ monthlyBudget: 100 })
 
     await waitFor(() => {
+      expect(screen.getByLabelText('Household name')).toHaveValue('Casa Verde')
       expect(screen.getByLabelText('Monthly budget')).toHaveValue('100')
     })
   })
 
+  it('saves name and budget together', async () => {
+    const { householdId, db } = await renderEditHouseholdForm({
+      monthlyBudget: 100,
+    })
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Household name')).toHaveValue('Casa Verde')
+      expect(screen.getByLabelText('Monthly budget')).toHaveValue('100')
+    })
+    fireEvent.change(screen.getByLabelText('Household name'), {
+      target: { value: 'Casa Azul' },
+    })
+    fireEvent.change(screen.getByLabelText('Monthly budget'), {
+      target: { value: '250' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Household name')).toHaveValue('Casa Azul')
+      expect(screen.getByLabelText('Monthly budget')).toHaveValue('250')
+    })
+    await expect(getHousehold({ db, householdId })).resolves.toMatchObject({
+      name: 'Casa Azul',
+      monthlyBudget: 250,
+    })
+  })
+
+  it('rejects an empty name and leaves name and budget unchanged', async () => {
+    const { householdId, db } = await renderEditHouseholdForm({
+      monthlyBudget: 100,
+    })
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Household name')).toHaveValue('Casa Verde')
+    })
+    fireEvent.change(screen.getByLabelText('Household name'), {
+      target: { value: '' },
+    })
+    fireEvent.change(screen.getByLabelText('Monthly budget'), {
+      target: { value: '250' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/name/i)
+    await expect(getHousehold({ db, householdId })).resolves.toMatchObject({
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+  })
+
   it('shows the updated budget after a member submits a new amount', async () => {
-    const { householdId, db } = await renderEditBudgetForm({
+    const { householdId, db } = await renderEditHouseholdForm({
       monthlyBudget: 100,
     })
 
@@ -75,23 +126,27 @@ describe('EditBudgetForm', () => {
     })
   })
 
-  it('rejects a zero budget and leaves the stored amount unchanged', async () => {
-    const { householdId, db } = await renderEditBudgetForm({
+  it('rejects a zero budget and leaves name and budget unchanged', async () => {
+    const { householdId, db } = await renderEditHouseholdForm({
       monthlyBudget: 100,
     })
 
+    fireEvent.change(await screen.findByLabelText('Household name'), {
+      target: { value: 'Casa Azul' },
+    })
     expect(await screen.findByRole('status')).toHaveTextContent('100')
     await submitBudget('0')
 
     expect(screen.getByRole('alert')).toHaveTextContent(/budget/i)
     expect(screen.getByRole('status')).toHaveTextContent('100')
     await expect(getHousehold({ db, householdId })).resolves.toMatchObject({
+      name: 'Casa Verde',
       monthlyBudget: 100,
     })
   })
 
   it('rejects a negative budget and leaves the stored amount unchanged', async () => {
-    const { householdId, db } = await renderEditBudgetForm({
+    const { householdId, db } = await renderEditHouseholdForm({
       monthlyBudget: 100,
     })
 
@@ -106,7 +161,7 @@ describe('EditBudgetForm', () => {
   })
 
   it('rejects a non-numeric budget and leaves the stored amount unchanged', async () => {
-    const { householdId, db } = await renderEditBudgetForm({
+    const { householdId, db } = await renderEditHouseholdForm({
       monthlyBudget: 100,
     })
 
@@ -121,7 +176,7 @@ describe('EditBudgetForm', () => {
   })
 
   it('rejects an empty budget and leaves the stored amount unchanged', async () => {
-    const { householdId, db } = await renderEditBudgetForm({
+    const { householdId, db } = await renderEditHouseholdForm({
       monthlyBudget: 100,
     })
 
@@ -136,7 +191,7 @@ describe('EditBudgetForm', () => {
   })
 
   it('rejects a whitespace-only budget and leaves the stored amount unchanged', async () => {
-    const { householdId, db } = await renderEditBudgetForm({
+    const { householdId, db } = await renderEditHouseholdForm({
       monthlyBudget: 100,
     })
 
@@ -151,7 +206,7 @@ describe('EditBudgetForm', () => {
   })
 
   it('accepts a decimal budget and shows the updated amount', async () => {
-    const { householdId, db } = await renderEditBudgetForm({
+    const { householdId, db } = await renderEditHouseholdForm({
       monthlyBudget: 100,
     })
 
@@ -167,7 +222,7 @@ describe('EditBudgetForm', () => {
   })
 
   it('accepts a very small decimal budget and shows the updated amount', async () => {
-    const { householdId, db } = await renderEditBudgetForm({
+    const { householdId, db } = await renderEditHouseholdForm({
       monthlyBudget: 100,
     })
 
@@ -183,7 +238,7 @@ describe('EditBudgetForm', () => {
   })
 
   it('trims surrounding whitespace from a valid budget before saving', async () => {
-    const { householdId, db } = await renderEditBudgetForm({
+    const { householdId, db } = await renderEditHouseholdForm({
       monthlyBudget: 100,
     })
 
@@ -199,7 +254,7 @@ describe('EditBudgetForm', () => {
   })
 
   it('clears the error after a subsequent valid submit', async () => {
-    await renderEditBudgetForm({ monthlyBudget: 100 })
+    await renderEditHouseholdForm({ monthlyBudget: 100 })
 
     expect(await screen.findByRole('status')).toHaveTextContent('100')
     await submitBudget('0')
@@ -224,7 +279,7 @@ describe('EditBudgetForm', () => {
     })
     renderWithProviders(
       <>
-        <EditBudgetForm db={db} householdId={household.id} />
+        <EditHouseholdForm db={db} householdId={household.id} />
         <SharedBudgetView db={db} householdId={household.id} />
       </>,
     )
