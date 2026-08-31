@@ -1,31 +1,42 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
-import { Link, Navigate } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
-import { LogoutButton } from '@/features/auth'
-import { InviteLinkPanel } from '@/features/invite'
+import { NavLink, Outlet } from 'react-router-dom'
+import { History, Home, LayoutGrid, Settings } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useFirebase } from '@/lib/firebaseContext'
 import { createFirestoreHouseholdsDb, getMembership } from '@/lib/households'
 import type { HouseholdMember, HouseholdsDb } from '@/lib/households'
-import { EditHouseholdForm } from './EditHouseholdForm'
-import { MemberList } from './MemberList'
 
-export type EditHouseholdPageProps = {
+export type AppShellProps = {
   readonly currentUserId?: string | null
   readonly householdsDb?: HouseholdsDb
 }
 
-export function EditHouseholdPage({
+type NavItem = {
+  readonly to: string
+  readonly label: string
+  readonly icon: LucideIcon
+  readonly end: boolean
+}
+
+const NAV_ITEMS: readonly NavItem[] = [
+  { to: '/', label: 'Home', icon: Home, end: true },
+  { to: '/historico', label: 'Histórico', icon: History, end: false },
+  { to: '/categorias', label: 'Categorías', icon: LayoutGrid, end: false },
+  { to: '/household', label: 'Ajustes', icon: Settings, end: false },
+]
+
+export function AppShell({
   currentUserId: currentUserIdProp,
   householdsDb,
-}: EditHouseholdPageProps): ReactElement {
+}: AppShellProps): ReactElement {
   const firebase = useFirebase()
   const [sessionUserId, setSessionUserId] = useState<string | null | undefined>(
     undefined,
   )
   const currentUserId =
     currentUserIdProp !== undefined ? currentUserIdProp : sessionUserId
-  const usesLiveSession = currentUserIdProp === undefined
   const db = useMemo(
     () => householdsDb ?? createFirestoreHouseholdsDb(firebase.db),
     [householdsDb, firebase.db],
@@ -83,47 +94,46 @@ export function EditHouseholdPage({
     }
   }, [currentUserId, db])
 
-  if (currentUserId === undefined) {
-    return (
-      <div className="bg-muted w-full rounded-3xl p-8">
-        <p role="status" className="text-sm font-medium">
-          Loading…
-        </p>
-      </div>
-    )
-  }
+  const showNav =
+    typeof currentUserId === 'string' &&
+    membership !== undefined &&
+    membership !== null
 
-  if (currentUserId === null) {
-    return <Navigate to="/" replace />
-  }
-
-  if (membership === undefined) {
-    return (
-      <div className="bg-muted w-full rounded-3xl p-8">
-        <p role="status" className="text-sm font-medium">
-          Loading…
-        </p>
-      </div>
-    )
-  }
-
-  if (membership === null) {
-    return <Navigate to="/" replace />
+  if (!showNav) {
+    return <Outlet />
   }
 
   return (
-    <div className="bg-muted flex w-full flex-col items-center gap-8 rounded-3xl p-8">
-      <Button variant="ghost" asChild className="self-start">
-        <Link to="/">Back</Link>
-      </Button>
-      <EditHouseholdForm db={db} householdId={membership.householdId} />
-      <MemberList
-        db={db}
-        householdId={membership.householdId}
-        currentUserId={currentUserId}
-      />
-      <InviteLinkPanel db={db} householdId={membership.householdId} />
-      {usesLiveSession ? <LogoutButton /> : null}
-    </div>
+    <>
+      <div className="w-full pb-24">
+        <Outlet />
+      </div>
+      <nav
+        aria-label="Primary"
+        className="bg-card shadow-raised fixed inset-x-0 bottom-0 z-30 mx-auto max-w-sm rounded-t-3xl"
+      >
+        <ul className="flex items-stretch justify-around">
+          {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+            <li key={to}>
+              <NavLink
+                to={to}
+                end={end}
+                className={({ isActive }) =>
+                  cn(
+                    'flex min-h-11 min-w-11 flex-col items-center justify-center gap-1 rounded-2xl px-3 py-2 text-xs font-medium',
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground',
+                  )
+                }
+              >
+                <Icon className="size-5" aria-hidden="true" />
+                <span>{label}</span>
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </>
   )
 }

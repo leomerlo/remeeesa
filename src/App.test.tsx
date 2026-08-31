@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { createHouseholdWithMembership } from '@/lib/households'
@@ -68,5 +68,45 @@ describe('App', () => {
     expect(
       screen.getByRole('button', { name: 'Generate invite link' }),
     ).toBeInTheDocument()
+  })
+
+  it('shows the nav for a signed-in user with a household and navigates to Ajustes', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderWithProviders(
+      <MemoryRouter initialEntries={['/']}>
+        <AppRoutes currentUserId="user-1" householdsDb={db} />
+      </MemoryRouter>,
+    )
+
+    const nav = await screen.findByRole('navigation')
+    expect(within(nav).getAllByRole('link')).toHaveLength(4)
+    expect(
+      within(nav).getByRole('link', { name: /home/i }),
+    ).toHaveAttribute('aria-current', 'page')
+
+    fireEvent.click(within(nav).getByRole('link', { name: /ajustes/i }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Participants' }),
+    ).toBeInTheDocument()
+  })
+
+  it('does not show the nav during onboarding or on /join/:token', async () => {
+    renderWithProviders(<App currentUserId={null} />)
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
+
+    renderWithProviders(
+      <MemoryRouter initialEntries={['/join/invite-token']}>
+        <AppRoutes currentUserId={null} />
+      </MemoryRouter>,
+    )
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
   })
 })
