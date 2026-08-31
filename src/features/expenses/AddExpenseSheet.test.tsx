@@ -271,5 +271,12 @@ describe('AddExpenseSheet', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Network blip')
     // Still open and showing the failed draft -- nothing was silently lost.
     expect(screen.getByLabelText('Name')).toHaveValue('Pizza')
+
+    // Once the mutation has settled, the dismiss guard must release: a
+    // second Escape now closes the sheet as normal.
+    fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+    })
   })
 })
