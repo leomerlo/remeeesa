@@ -1,8 +1,9 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { createHouseholdWithMembership } from '@/lib/households'
 import type { AppFirebaseClient } from '@/lib/firebase'
+import type { HouseholdsDb } from '@/lib/households'
 import { createFirebaseStub } from '@/test/firebaseStub'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
@@ -21,6 +22,8 @@ function renderShell(
       <Routes>
         <Route element={<AppShell {...props} />}>
           <Route path="/" element={<p>Home content</p>} />
+          <Route path="/historico" element={<p>Historico content</p>} />
+          <Route path="/categorias" element={<p>Categorias content</p>} />
           <Route path="/household" element={<p>Household content</p>} />
         </Route>
       </Routes>
@@ -78,9 +81,10 @@ describe('AppShell', () => {
     renderShell({ currentUserId: 'user-1', householdsDb: db })
 
     const nav = await screen.findByRole('navigation')
-    expect(
-      within(nav).getByRole('link', { name: /home/i }),
-    ).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).getByRole('link', { name: /home/i })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
     expect(
       within(nav).getByRole('link', { name: /histórico/i }),
     ).toBeInTheDocument()
@@ -108,9 +112,10 @@ describe('AppShell', () => {
     )
 
     const nav = await screen.findByRole('navigation')
-    expect(
-      within(nav).getByRole('link', { name: /ajustes/i }),
-    ).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).getByRole('link', { name: /ajustes/i })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
     expect(
       within(nav).getByRole('link', { name: /home/i }),
     ).not.toHaveAttribute('aria-current', 'page')
@@ -132,5 +137,129 @@ describe('AppShell', () => {
       expect(link).toHaveClass('min-h-11')
       expect(link).toHaveClass('min-w-11')
     }
+  })
+
+  it('marks Histórico active at /historico and leaves the others inactive', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderShell(
+      { currentUserId: 'user-1', householdsDb: db },
+      { initialEntries: ['/historico'] },
+    )
+
+    const nav = await screen.findByRole('navigation')
+    expect(
+      within(nav).getByRole('link', { name: /histórico/i }),
+    ).toHaveAttribute('aria-current', 'page')
+    expect(
+      within(nav).getByRole('link', { name: /home/i }),
+    ).not.toHaveAttribute('aria-current', 'page')
+    expect(
+      within(nav).getByRole('link', { name: /categorías/i }),
+    ).not.toHaveAttribute('aria-current', 'page')
+    expect(
+      within(nav).getByRole('link', { name: /ajustes/i }),
+    ).not.toHaveAttribute('aria-current', 'page')
+  })
+
+  it('marks Categorías active at /categorias', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderShell(
+      { currentUserId: 'user-1', householdsDb: db },
+      { initialEntries: ['/categorias'] },
+    )
+
+    const nav = await screen.findByRole('navigation')
+    expect(
+      within(nav).getByRole('link', { name: /categorías/i }),
+    ).toHaveAttribute('aria-current', 'page')
+    expect(
+      within(nav).getByRole('link', { name: /home/i }),
+    ).not.toHaveAttribute('aria-current', 'page')
+  })
+
+  it('hides the nav when loading membership throws', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const throwingDb: HouseholdsDb = {
+      ...db,
+      getMembership: async () => {
+        throw new Error('boom')
+      },
+    }
+
+    renderShell({ currentUserId: 'user-1', householdsDb: throwingDb })
+
+    expect(await screen.findByText('Home content')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
+    })
+  })
+
+  it('makes every nav link keyboard-reachable and activatable', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderShell({ currentUserId: 'user-1', householdsDb: db })
+
+    const nav = await screen.findByRole('navigation')
+    const ajustesLink = within(nav).getByRole('link', { name: /ajustes/i })
+    // A real <a href> is Tab-reachable and Enter-activated by the browser
+    // by default; asserting no tabIndex override keeps that contract intact
+    // rather than re-implementing default anchor behavior in the test.
+    expect(ajustesLink).not.toHaveAttribute('tabindex', '-1')
+    ajustesLink.focus()
+    expect(ajustesLink).toHaveFocus()
+
+    fireEvent.click(ajustesLink)
+
+    expect(await screen.findByText('Household content')).toBeInTheDocument()
+  })
+
+  it('renders nothing, including the nav, on a path with no matching route', async () => {
+    // AppShell is nested as a pathless layout route: React Router only
+    // renders a layout route when one of its children also matches, so an
+    // unmatched path (no catch-all/404 route exists yet) drops the shell
+    // entirely, taking the persistent nav down with it.
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    const { container } = renderShell(
+      { currentUserId: 'user-1', householdsDb: db },
+      { initialEntries: ['/does-not-exist'] },
+    )
+
+    await waitFor(() => {
+      expect(container).toBeEmptyDOMElement()
+    })
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
   })
 })

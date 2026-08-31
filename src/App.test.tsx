@@ -87,9 +87,10 @@ describe('App', () => {
 
     const nav = await screen.findByRole('navigation')
     expect(within(nav).getAllByRole('link')).toHaveLength(4)
-    expect(
-      within(nav).getByRole('link', { name: /home/i }),
-    ).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).getByRole('link', { name: /home/i })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
 
     fireEvent.click(within(nav).getByRole('link', { name: /ajustes/i }))
 
@@ -108,5 +109,73 @@ describe('App', () => {
       </MemoryRouter>,
     )
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
+  })
+
+  it.each(['/historico', '/categorias'] as const)(
+    'renders %s with no nav when there is no session',
+    async (path) => {
+      renderWithProviders(
+        <MemoryRouter initialEntries={[path]}>
+          <AppRoutes currentUserId={null} />
+        </MemoryRouter>,
+      )
+
+      expect(
+        await screen.findByRole('heading', {
+          name: path === '/historico' ? 'Histórico' : 'Categorías',
+        }),
+      ).toBeInTheDocument()
+      expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
+    },
+  )
+
+  it.each(['/historico', '/categorias'] as const)(
+    'renders %s with no nav for a signed-in user with no household',
+    async (path) => {
+      const db = createMemoryHouseholdsDb().asUser('user-1')
+
+      renderWithProviders(
+        <MemoryRouter initialEntries={[path]}>
+          <AppRoutes currentUserId="user-1" householdsDb={db} />
+        </MemoryRouter>,
+      )
+
+      expect(
+        await screen.findByRole('heading', {
+          name: path === '/historico' ? 'Histórico' : 'Categorías',
+        }),
+      ).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
+      })
+    },
+  )
+
+  it('shows the nav and marks Histórico active when navigating there directly', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderWithProviders(
+      <MemoryRouter initialEntries={['/historico']}>
+        <AppRoutes currentUserId="user-1" householdsDb={db} />
+      </MemoryRouter>,
+    )
+
+    // Wait for the nav (the final, settled render) before asserting on the
+    // heading: the shell remounts its Outlet subtree when membership
+    // resolves, so a heading found during the pre-nav render can become a
+    // stale reference by the time the assertion runs.
+    const nav = await screen.findByRole('navigation')
+    expect(
+      screen.getByRole('heading', { name: 'Histórico' }),
+    ).toBeInTheDocument()
+    expect(
+      within(nav).getByRole('link', { name: /histórico/i }),
+    ).toHaveAttribute('aria-current', 'page')
   })
 })
