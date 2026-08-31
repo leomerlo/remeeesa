@@ -1,13 +1,11 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import type { ReactElement } from 'react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
-import { EditHouseholdPage } from '@/features/household'
 import { HouseholdDraftProvider } from '@/features/onboarding'
 import { listExpensesInMonth } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
-import { createFirebaseStub } from '@/test/firebaseStub'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import type { SignupAuth } from '@/features/onboarding/signupAuth'
 import { HomePage } from './HomePage'
@@ -31,25 +29,6 @@ function renderHome(
     </MemoryRouter>,
     options,
   )
-}
-
-function createLiveAuthStub(userId: string) {
-  let emitAuth: ((user: { readonly uid: string } | null) => void) | undefined
-
-  return {
-    currentUser: { uid: userId },
-    authStateReady: async () => {},
-    onAuthStateChanged: (
-      listener: (user: { readonly uid: string } | null) => void,
-    ) => {
-      emitAuth = listener
-      listener({ uid: userId })
-      return () => {}
-    },
-    signOut: async () => {
-      emitAuth?.(null)
-    },
-  }
 }
 
 function currentMonthRange(now = new Date()): {
@@ -106,7 +85,7 @@ describe('HomePage', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('shows the household and a link to edit it when the user already belongs', async () => {
+  it('shows the household when the user already belongs', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     await createHouseholdWithMembership({
       db,
@@ -125,8 +104,8 @@ describe('HomePage', () => {
       await screen.findByText('No expenses this month'),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('link', { name: 'Edit household' }),
-    ).toHaveAttribute('href', '/household')
+      screen.queryByRole('link', { name: 'Edit household' }),
+    ).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Household name')).not.toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Generate invite link' }),
@@ -141,71 +120,6 @@ describe('HomePage', () => {
     expect(
       screen.queryByRole('button', { name: 'Log out' }),
     ).not.toBeInTheDocument()
-  })
-
-  it('opens the household editor from the home button', async () => {
-    const db = createMemoryHouseholdsDb().asUser('user-1')
-    await createHouseholdWithMembership({
-      db,
-      userId: 'user-1',
-      name: 'Casa Verde',
-      monthlyBudget: 100,
-    })
-
-    renderWithProviders(
-      <MemoryRouter>
-        <HouseholdDraftProvider>
-          <Routes>
-            <Route
-              path="/"
-              element={<HomePage currentUserId="user-1" householdsDb={db} />}
-            />
-            <Route
-              path="/household"
-              element={
-                <EditHouseholdPage currentUserId="user-1" householdsDb={db} />
-              }
-            />
-          </Routes>
-        </HouseholdDraftProvider>
-      </MemoryRouter>,
-    )
-
-    fireEvent.click(await screen.findByRole('link', { name: 'Edit household' }))
-    await waitFor(() => {
-      expect(screen.getByLabelText('Household name')).toHaveValue('Casa Verde')
-    })
-    expect(screen.getByLabelText('Monthly budget')).toHaveValue('100')
-    expect(
-      await screen.findByRole('heading', { name: 'Participants' }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'Generate invite link' }),
-    ).toBeInTheDocument()
-  })
-
-  it('shows logout and returns to login for returning users after signing out', async () => {
-    const db = createMemoryHouseholdsDb().asUser('user-1')
-    await createHouseholdWithMembership({
-      db,
-      userId: 'user-1',
-      name: 'Casa Verde',
-      monthlyBudget: 100,
-    })
-    const client = createFirebaseStub({
-      auth: createLiveAuthStub('user-1'),
-    })
-
-    renderHome(<HomePage householdsDb={db} />, { client })
-
-    expect(await screen.findByText('Casa Verde')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Log out' }))
-
-    expect(
-      await screen.findByRole('button', { name: 'Sign in' }),
-    ).toBeInTheDocument()
-    expect(screen.queryByLabelText('Household name')).not.toBeInTheDocument()
-    expect(screen.queryByText('Casa Verde')).not.toBeInTheDocument()
   })
 
   it('shows the household after signup creates it', async () => {
@@ -240,8 +154,8 @@ describe('HomePage', () => {
       await screen.findByRole('status', { name: /remaining budget \$100/i }),
     ).toHaveTextContent('$100')
     expect(
-      screen.getByRole('link', { name: 'Edit household' }),
-    ).toBeInTheDocument()
+      screen.queryByRole('link', { name: 'Edit household' }),
+    ).not.toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'Add expense' }),
     ).toBeInTheDocument()

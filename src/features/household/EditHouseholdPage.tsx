@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { LogoutButton } from '@/features/auth'
 import { InviteLinkPanel } from '@/features/invite'
 import { useFirebase } from '@/lib/firebaseContext'
 import { createFirestoreHouseholdsDb, getMembership } from '@/lib/households'
@@ -24,6 +25,7 @@ export function EditHouseholdPage({
   )
   const currentUserId =
     currentUserIdProp !== undefined ? currentUserIdProp : sessionUserId
+  const usesLiveSession = currentUserIdProp === undefined
   const db = useMemo(
     () => householdsDb ?? createFirestoreHouseholdsDb(firebase.db),
     [householdsDb, firebase.db],
@@ -121,6 +123,7 @@ export function EditHouseholdPage({
         currentUserId={currentUserId}
       />
       <InviteLinkPanel db={db} householdId={membership.householdId} />
+      {usesLiveSession ? <LogoutButton /> : null}
     </div>
   )
 }

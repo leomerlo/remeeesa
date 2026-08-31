@@ -23,6 +23,25 @@ function renderEditPage(
   )
 }
 
+function createLiveAuthStub(userId: string) {
+  let emitAuth: ((user: { readonly uid: string } | null) => void) | undefined
+
+  return {
+    currentUser: { uid: userId },
+    authStateReady: async () => {},
+    onAuthStateChanged: (
+      listener: (user: { readonly uid: string } | null) => void,
+    ) => {
+      emitAuth = listener
+      listener({ uid: userId })
+      return () => {}
+    },
+    signOut: async () => {
+      emitAuth?.(null)
+    },
+  }
+}
+
 describe('EditHouseholdPage', () => {
   it('shows a loading status while resolving the session user', () => {
     const client = createFirebaseStub({
@@ -128,6 +147,49 @@ describe('EditHouseholdPage', () => {
     renderEditPage(
       <EditHouseholdPage currentUserId="user-1" householdsDb={db} />,
     )
+
+    expect(await screen.findByText('Home')).toBeInTheDocument()
+  })
+
+  it('hides logout when currentUserId is passed as a prop', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderEditPage(
+      <EditHouseholdPage currentUserId="user-1" householdsDb={db} />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Household name')).toHaveValue('Casa Verde')
+    })
+    expect(
+      screen.queryByRole('button', { name: 'Log out' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows logout and returns to login for returning users after signing out', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const client = createFirebaseStub({
+      auth: createLiveAuthStub('user-1'),
+    })
+
+    renderEditPage(<EditHouseholdPage householdsDb={db} />, { client })
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Household name')).toHaveValue('Casa Verde')
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Log out' }))
 
     expect(await screen.findByText('Home')).toBeInTheDocument()
   })

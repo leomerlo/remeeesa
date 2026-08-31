@@ -3,6 +3,9 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { HomePage } from '@/features/home'
 import { EditHouseholdPage } from '@/features/household'
 import { JoinHouseholdPage } from '@/features/join'
+import { AppShell } from '@/features/navigation'
+import { HistoricoPage } from '@/features/historico'
+import { CategoriasPage } from '@/features/categorias'
 import { HouseholdDraftProvider } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
 import type { HouseholdsDb } from '@/lib/households'
@@ -24,24 +27,35 @@ export function AppRoutes({
         <h1 className="font-display text-2xl tracking-tight">remeeesa</h1>
         <Routes>
           <Route
-            path="/"
             element={
-              <HomePage
-                currentUserId={currentUserId}
-                householdsDb={householdsDb}
-                signupAuth={signupAuth}
-              />
-            }
-          />
-          <Route
-            path="/household"
-            element={
-              <EditHouseholdPage
+              <AppShell
                 currentUserId={currentUserId}
                 householdsDb={householdsDb}
               />
             }
-          />
+          >
+            <Route
+              path="/"
+              element={
+                <HomePage
+                  currentUserId={currentUserId}
+                  householdsDb={householdsDb}
+                  signupAuth={signupAuth}
+                />
+              }
+            />
+            <Route path="/historico" element={<HistoricoPage />} />
+            <Route path="/categorias" element={<CategoriasPage />} />
+            <Route
+              path="/household"
+              element={
+                <EditHouseholdPage
+                  currentUserId={currentUserId}
+                  householdsDb={householdsDb}
+                />
+              }
+            />
+          </Route>
           <Route
             path="/join/:token"
             element={
