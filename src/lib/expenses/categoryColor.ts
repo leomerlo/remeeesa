@@ -1,10 +1,19 @@
-// Values are copied from the design tokens in src/index.css (purple/green/red/yellow
-// 400 and 600 steps). Keep these two lists in sync if the tokens are ever regenerated.
+// Values are copied from the design tokens in src/index.css. Eight visually
+// distinct hues (one step each) rather than four hues at two steps -- the
+// approved Home comp uses this many genuinely different category colors
+// (coral, teal, yellow, purple, orange, green, blue) side by side in one
+// screen, and two steps of the same hue read as "the same category" at a
+// glance, which defeats the point of color-coding. Keep this list in sync
+// with src/index.css if the tokens are ever regenerated.
 export const CATEGORY_COLOR_PALETTE = [
-  '#7b5cfa', '#2c06c6', // purple-400, purple-600
-  '#59c07f', '#3fa665', // green-400, green-600
-  '#df473c', '#ad261c', // red-400, red-600
-  '#f6a925', '#c27d08', // yellow-400, yellow-600
+  '#7b5cfa', // purple-400
+  '#df473c', // red-400 (coral)
+  '#5bb9b6', // teal-400
+  '#f6a925', // yellow-400
+  '#f2a25c', // orange-400
+  '#59c07f', // green-400
+  '#5394c7', // blue-400
+  '#2c06c6', // purple-600
 ] as const
 
 function hashCategoryName(name: string): number {
@@ -17,5 +26,7 @@ function hashCategoryName(name: string): number {
 }
 
 export function colorForCategoryName(name: string): string {
-  return CATEGORY_COLOR_PALETTE[hashCategoryName(name) % CATEGORY_COLOR_PALETTE.length]
+  return CATEGORY_COLOR_PALETTE[
+    hashCategoryName(name) % CATEGORY_COLOR_PALETTE.length
+  ]
 }

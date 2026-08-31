@@ -61,7 +61,7 @@ function DeleteExpenseDialog(input: {
       role="alertdialog"
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
-      className="flex flex-col gap-4 rounded-2xl border border-border bg-muted p-4"
+      className="bg-card shadow-raised flex flex-col gap-4 rounded-2xl border border-border p-4"
     >
       <div className="flex flex-col gap-1">
         <p id={titleId} className="text-sm font-medium">
@@ -219,8 +219,8 @@ export function ExpenseList({
               key={expense.id}
               className={
                 isConfirmingDelete
-                  ? 'flex flex-col gap-3 rounded-2xl bg-muted p-4'
-                  : 'flex items-center gap-3 rounded-2xl bg-muted p-4'
+                  ? 'bg-card shadow-resting flex flex-col gap-3 rounded-2xl p-4'
+                  : 'bg-card shadow-resting flex items-center gap-3 rounded-2xl p-4'
               }
             >
               <div className="flex items-center gap-3">

@@ -76,11 +76,51 @@
   --color-yellow-900: #563908;
   --color-yellow-950: #3a2705;
 
+  /* Color: teal (category accent), seed #45A29F sampled from the approved
+     Home comp's "Agua"/water-bill icon, anchor step 500 */
+  --color-teal-50: #ebf4f4;
+  --color-teal-100: #d7eae9;
+  --color-teal-200: #b0dedc;
+  --color-teal-300: #86cbc9;
+  --color-teal-400: #5bb9b6;
+  --color-teal-500: #45a29f;
+  --color-teal-600: #3a8886;
+  --color-teal-700: #2f6f6d;
+  --color-teal-800: #255654;
+  --color-teal-900: #1c3b3a;
+  --color-teal-950: #122626;
+
+  /* Color: blue (category accent), seed #4E91C5 sampled from the approved
+     Home comp's "Regalo"/gift icon, anchor step 500 */
+  --color-blue-50: #eff4f8;
+  --color-blue-100: #d9e5ee;
+  --color-blue-200: #b0cee5;
+  --color-blue-300: #82b1d6;
+  --color-blue-400: #5394c7;
+  --color-blue-500: #4e91c5;
+  --color-blue-600: #326b97;
+  --color-blue-700: #29587c;
+  --color-blue-800: #204561;
+  --color-blue-900: #193144;
+  --color-blue-950: #11212e;
+
+  /* Color: orange (category accent), seed #F2A25C sampled from the approved
+     Home comp's "Cafe"/coffee icon, anchor step 400 */
+  --color-orange-50: #fbf4ed;
+  --color-orange-100: #f6e4d4;
+  --color-orange-200: #f7c89f;
+  --color-orange-300: #f3a867;
+  --color-orange-400: #f2a25c;
+  --color-orange-500: #dd7012;
+  --color-orange-600: #bc600f;
+  --color-orange-700: #9b4f0c;
+  --color-orange-800: #793e0a;
+  --color-orange-900: #542d0b;
+  --color-orange-950: #391f08;
+
   /* Radius: 4px-grid steps for the moderate Container radius track, aliased
      as --radius-2xl/--radius-3xl in @theme inline below. Independent steps,
-     not a calc() derivation from one root value. No component consumes
-     rounded-2xl/rounded-3xl yet -- pre-provisioned for the screen restyles
-     in issues #61-65, per this issue's approved plan. */
+     not a calc() derivation from one root value. */
   --radius-20: 20px;
   --radius-24: 24px;
 
@@ -97,6 +137,27 @@
   --font-weight-extrabold: 800;
   --font-weight-black: 900;
   --font-weight-display: 700;
+
+  /* Type scale: a real ramp, not just weight tokens. Named for role (hero
+     numeral down to captions) rather than t-shirt size, matching how the
+     approved Home comp actually uses type -- one huge bold numeral, section
+     headers, card titles, and small muted metadata, nothing in between. */
+  --text-display: 2.75rem; /* 44px -- the hero "$284.50" numeral */
+  --text-display--line-height: 1.05;
+  --text-title: 1.25rem; /* 20px -- section headers ("Por pagar") */
+  --text-title--line-height: 1.3;
+  --text-body: 1rem; /* 16px -- card titles, primary row text */
+  --text-body--line-height: 1.4;
+  --text-caption: 0.8125rem; /* 13px -- muted metadata (category - date) */
+  --text-caption--line-height: 1.35;
+
+  /* Elevation: soft, low-contrast card shadows -- the comp's cards read as
+     "resting on" the lavender page background, not bordered boxes. Two
+     steps: resting cards (list/por-pagar rows) and raised surfaces (sheets,
+     popovers). No shadow on the gradient hero card itself -- it's a filled
+     surface, not a floating one. */
+  --shadow-resting: 0 1px 2px 0 rgb(23 7 89 / 0.04), 0 1px 3px 0 rgb(23 7 89 / 0.06);
+  --shadow-raised: 0 4px 8px -2px rgb(23 7 89 / 0.08), 0 12px 24px -4px rgb(23 7 89 / 0.1);
 }
 
 /* ============================================================
@@ -113,7 +174,14 @@
    ============================================================ */
 :root {
   /* Surface */
-  --surface-page: var(--color-grey-white);
+  /* Page sits on a light lavender tint, not white -- sampled from the
+     approved Home comp's page background (#F2F2FE), which purple-50 lands
+     almost exactly on. Cards are --surface-card (white), floating on top
+     with --shadow-resting -- this pairing (tinted page + white elevated
+     cards) is what gives the comp its "wallet" warmth instead of a flat
+     white app shell. */
+  --surface-page: var(--color-purple-50);
+  --surface-card: var(--color-grey-white);
   --surface-primary: var(--color-grey-50);
   --surface-secondary: var(--color-grey-100);
   --surface-action: var(--color-purple-400);
@@ -164,6 +232,7 @@
 [data-theme='dark'] {
   /* Surface */
   --surface-page: var(--color-grey-950);
+  --surface-card: var(--color-grey-900);
   --surface-primary: var(--color-grey-900);
   --surface-secondary: var(--color-grey-800);
   --surface-action: var(--color-purple-400);
@@ -225,6 +294,8 @@
   --font-sans: 'Geist Variable', sans-serif;
   --color-background: var(--surface-page);
   --color-foreground: var(--text-primary);
+  --color-card: var(--surface-card);
+  --color-card-foreground: var(--text-primary);
   --color-primary: var(--surface-action);
   --color-primary-foreground: var(--text-on-action);
   --color-muted: var(--surface-secondary);
