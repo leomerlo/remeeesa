@@ -4,6 +4,7 @@ import type { FormEvent, ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { CategoryCombobox } from './CategoryCombobox'
 import {
   createExpense,
   ExpenseNotFoundError,
@@ -307,21 +308,12 @@ function ExpenseFormBody({
         >
           Category
         </Label>
-        <Input
+        <CategoryCombobox
           id="expense-category"
-          name="expense-category"
-          list="expense-categories"
+          categories={categories}
           value={category}
-          onChange={(event) => {
-            setCategory(event.target.value)
-          }}
-          autoComplete="off"
+          onChange={setCategory}
         />
-        <datalist id="expense-categories">
-          {categories.map((item) => (
-            <option key={item.id} value={item.name} />
-          ))}
-        </datalist>
       </div>
 
       <div className="flex w-full flex-col gap-2">
