@@ -139,6 +139,12 @@ describe('OnboardingForm', () => {
     expect(screen.queryByLabelText('Household name')).not.toBeInTheDocument()
   })
 
+  it('renders a decorative illustration alongside the household-creation form', () => {
+    const { container } = renderOnboarding()
+
+    expect(container.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
+  })
+
   it('stores a household draft when name and budget are valid', () => {
     renderOnboarding()
     submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })

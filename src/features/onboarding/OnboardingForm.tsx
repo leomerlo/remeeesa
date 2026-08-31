@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label'
 import type { HouseholdsDb } from '@/lib/households'
 import { parseHouseholdDraft } from './householdDraft'
 import { useHouseholdDraft } from './HouseholdDraftContext'
+import { OnboardingIllustration } from './OnboardingIllustration'
 import { hasReturningUser } from './returningUserStorage'
 import { SignupForm } from './SignupForm'
 import type { SignupAuth } from './signupAuth'
@@ -92,6 +93,8 @@ export function OnboardingForm({
       className="flex w-full flex-col items-center gap-8"
       onSubmit={onSubmit}
     >
+      <OnboardingIllustration className="h-32 w-40" />
+
       <div className="flex w-full flex-col gap-2">
         <Label
           htmlFor="household-name"
