@@ -1,0 +1,45 @@
+import type { ComponentProps } from 'react'
+import { Popover as PopoverPrimitive } from 'radix-ui'
+
+import { cn } from '@/lib/utils'
+
+// Thin wrapper, same trim convention as button.tsx/label.tsx: strip nothing
+// shadcn-specific here since the primitive has no invalid/destructive state
+// to remove. `bg-background`/`border-border` and `rounded-2xl` reuse the same
+// tokens DeleteExpenseDialog (ExpenseList.tsx) already uses for a floating
+// panel — this is a container, not a control, so it gets the 2xl radius, not
+// the pill.
+function Popover({ ...props }: ComponentProps<typeof PopoverPrimitive.Root>) {
+  return <PopoverPrimitive.Root data-slot="popover" {...props} />
+}
+
+function PopoverAnchor({
+  ...props
+}: ComponentProps<typeof PopoverPrimitive.Anchor>) {
+  return <PopoverPrimitive.Anchor data-slot="popover-anchor" {...props} />
+}
+
+function PopoverContent({
+  className,
+  align = 'start',
+  sideOffset = 4,
+  ...props
+}: ComponentProps<typeof PopoverPrimitive.Content>) {
+  return (
+    <PopoverPrimitive.Portal>
+      <PopoverPrimitive.Content
+        data-slot="popover-content"
+        align={align}
+        sideOffset={sideOffset}
+        className={cn(
+          'z-50 w-(--radix-popover-trigger-width) rounded-2xl border border-border bg-background p-1 text-foreground shadow-md outline-none',
+          'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2',
+          className,
+        )}
+        {...props}
+      />
+    </PopoverPrimitive.Portal>
+  )
+}
+
+export { Popover, PopoverAnchor, PopoverContent }

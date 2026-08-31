@@ -75,7 +75,7 @@ function fillExpense(fields: {
     })
   }
   if (fields.category !== undefined) {
-    fireEvent.change(screen.getByLabelText('Category'), {
+    fireEvent.change(screen.getByRole('combobox', { name: 'Category' }), {
       target: { value: fields.category },
     })
   }
@@ -282,6 +282,244 @@ describe('AddExpenseForm', () => {
     expect(
       after.filter((category) => category.name.toLowerCase() === 'comida'),
     ).toHaveLength(1)
+  })
+
+  it('selects an existing category by clicking its colored option', async () => {
+    const { db, householdId } = await renderForm()
+    const categories = await listCategories({ db, householdId })
+    const servicios = categories.find(
+      (category) => category.name === 'Servicios',
+    )
+    expect(servicios).toBeDefined()
+    if (servicios === undefined) {
+      throw new Error('expected Servicios category')
+    }
+
+    fillExpense({ name: 'Internet', price: '15' })
+    const combobox = screen.getByRole('combobox', { name: 'Category' })
+    fireEvent.focus(combobox)
+
+    const option = await screen.findByRole('option', { name: 'Servicios' })
+    expect(option.querySelector('[aria-hidden="true"]')).toHaveStyle({
+      backgroundColor: servicios.color,
+    })
+    fireEvent.click(option)
+
+    expect(combobox).toHaveValue('Servicios')
+    submitExpense()
+
+    await waitFor(async () => {
+      const listed = await listExpensesInMonth({
+        db,
+        householdId,
+        ...currentMonthRange(),
+      })
+      expect(listed).toEqual([
+        expect.objectContaining({
+          categoryId: servicios.id,
+          name: 'Internet',
+        }),
+      ])
+    })
+  })
+
+  it('selects an option using only the keyboard, without clicking', async () => {
+    const { db, householdId } = await renderForm()
+    const categories = await listCategories({ db, householdId })
+    const comida = categories.find((category) => category.name === 'Comida')
+    expect(comida).toBeDefined()
+    if (comida === undefined) {
+      throw new Error('expected Comida category')
+    }
+
+    fillExpense({ name: 'Groceries', price: '5' })
+    const combobox = screen.getByRole('combobox', { name: 'Category' })
+    fireEvent.focus(combobox)
+
+    const listbox = await screen.findByRole('listbox', { name: 'Categories' })
+    expect(combobox).toHaveAttribute('aria-controls', listbox.id)
+
+    fireEvent.keyDown(combobox, { key: 'ArrowDown' })
+    const active = await screen.findByRole('option', { name: 'Comida' })
+    expect(active).toHaveAttribute('aria-selected', 'true')
+    expect(combobox).toHaveAttribute('aria-activedescendant', active.id)
+
+    fireEvent.keyDown(combobox, { key: 'Enter' })
+
+    expect(combobox).toHaveValue('Comida')
+    expect(combobox).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+
+    submitExpense()
+
+    await waitFor(async () => {
+      const listed = await listExpensesInMonth({
+        db,
+        householdId,
+        ...currentMonthRange(),
+      })
+      expect(listed).toEqual([
+        expect.objectContaining({
+          categoryId: comida.id,
+          name: 'Groceries',
+        }),
+      ])
+    })
+  })
+
+  async function renderFormWithCategoriesLoaded(): Promise<{
+    readonly combobox: HTMLElement
+  }> {
+    await renderForm()
+    const combobox = screen.getByRole('combobox', { name: 'Category' })
+    // React Query resolves `listCategories` asynchronously; open once and
+    // close so the categories are cached before a test exercises the
+    // closed-state keyboard branches (they'd otherwise navigate an
+    // empty list on the first synchronous keydown).
+    fireEvent.focus(combobox)
+    await screen.findByRole('listbox', { name: 'Categories' })
+    fireEvent.keyDown(combobox, { key: 'Escape' })
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    })
+    return { combobox }
+  }
+
+  it('opens the list at the last option when ArrowUp is pressed while closed', async () => {
+    const { combobox } = await renderFormWithCategoriesLoaded()
+
+    fireEvent.keyDown(combobox, { key: 'ArrowUp' })
+
+    const active = await screen.findByRole('option', { name: 'Otros' })
+    expect(active).toHaveAttribute('aria-selected', 'true')
+    expect(combobox).toHaveAttribute('aria-activedescendant', active.id)
+  })
+
+  it('wraps ArrowDown navigation from the last option back to the first', async () => {
+    const { combobox } = await renderFormWithCategoriesLoaded()
+
+    // Jump straight to the last option (Otros), then one more ArrowDown
+    // should wrap around to the first (Comida).
+    fireEvent.keyDown(combobox, { key: 'ArrowUp' })
+    await screen.findByRole('option', { name: 'Otros' })
+    fireEvent.keyDown(combobox, { key: 'ArrowDown' })
+
+    const active = await screen.findByRole('option', { name: 'Comida' })
+    expect(active).toHaveAttribute('aria-selected', 'true')
+    expect(combobox).toHaveAttribute('aria-activedescendant', active.id)
+  })
+
+  it('wraps ArrowUp navigation from the first option back to the last', async () => {
+    const { combobox } = await renderFormWithCategoriesLoaded()
+
+    // Jump straight to the first option (Comida), then one more ArrowUp
+    // should wrap around to the last (Otros).
+    fireEvent.keyDown(combobox, { key: 'ArrowDown' })
+    await screen.findByRole('option', { name: 'Comida' })
+    fireEvent.keyDown(combobox, { key: 'ArrowUp' })
+
+    const active = await screen.findByRole('option', { name: 'Otros' })
+    expect(active).toHaveAttribute('aria-selected', 'true')
+    expect(combobox).toHaveAttribute('aria-activedescendant', active.id)
+  })
+
+  it('closes the list on Escape without changing the field value', async () => {
+    await renderForm()
+    const combobox = screen.getByRole('combobox', { name: 'Category' })
+
+    fireEvent.change(combobox, { target: { value: 'serv' } })
+    await screen.findByRole('option', { name: 'Servicios' })
+
+    fireEvent.keyDown(combobox, { key: 'Escape' })
+
+    expect(combobox).toHaveValue('serv')
+    expect(combobox).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+
+  it('narrows the option list to categories matching typed text, case-insensitively', async () => {
+    await renderForm()
+    const combobox = screen.getByRole('combobox', { name: 'Category' })
+
+    fireEvent.change(combobox, { target: { value: 'SERV' } })
+
+    expect(
+      await screen.findByRole('option', { name: 'Servicios' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('option', { name: 'Comida' }),
+    ).not.toBeInTheDocument()
+    expect(screen.getAllByRole('option')).toHaveLength(1)
+  })
+
+  it('closes the list when Enter is pressed on free text with no option highlighted', async () => {
+    await renderForm()
+    const combobox = screen.getByRole('combobox', { name: 'Category' })
+
+    fireEvent.change(combobox, { target: { value: 'Cultura' } })
+    await screen.findByText('No matching categories')
+    expect(combobox).toHaveAttribute('aria-expanded', 'true')
+
+    fireEvent.keyDown(combobox, { key: 'Enter' })
+
+    expect(combobox).toHaveValue('Cultura')
+    expect(combobox).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+  })
+
+  it('does not silently select a stale highlighted option after the list closes from an outside interaction', async () => {
+    await renderForm()
+    const combobox = screen.getByRole('combobox', { name: 'Category' })
+
+    fireEvent.focus(combobox)
+    await screen.findByRole('listbox', { name: 'Categories' })
+    fireEvent.keyDown(combobox, { key: 'ArrowDown' })
+    await screen.findByRole('option', { name: 'Comida' })
+
+    // Close the way Radix's dismissable layer does on an outside pointer
+    // interaction (pointerdown then click, its outside-click detection
+    // pattern), not via this component's own Escape/select handlers.
+    fireEvent.pointerDown(document.body)
+    fireEvent.click(document.body)
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    })
+
+    fireEvent.focus(combobox)
+    await screen.findByRole('listbox', { name: 'Categories' })
+    fireEvent.keyDown(combobox, { key: 'Enter' })
+
+    expect(combobox).toHaveValue('')
+  })
+
+  it('shows an empty state when the household has no categories yet', async () => {
+    const base = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: base,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const db: HouseholdsDb = {
+      ...base,
+      listCategories: async () => [],
+    }
+    renderWithProviders(
+      <AddExpenseForm
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
+    )
+
+    const combobox = screen.getByRole('combobox', { name: 'Category' })
+    fireEvent.focus(combobox)
+
+    expect(
+      await screen.findByText('No matching categories'),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('option')).not.toBeInTheDocument()
   })
 
   it('includes a backdated expense in the calendar month of its date', async () => {
