@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { colorForCategoryName } from './categoryColor'
 import {
   categoryToDocument,
   expenseToDocument,
@@ -57,8 +58,14 @@ describe('parseCategoryDocument', () => {
     ).toThrow('Category name must be non-empty')
   })
 
-  it('rejects a missing or empty color', () => {
-    expect(() =>
+  // Categories created before `color` existed on the schema have no stored
+  // value for it in Firestore. Falling back to the same hash used at
+  // creation time (rather than rejecting the document) keeps existing
+  // households' categories loadable without a migration step.
+  it('falls back to the computed color for a category with no stored color (legacy document)', () => {
+    const expected = colorForCategoryName('Comida')
+
+    expect(
       parseCategoryDocument({
         id: 'c1',
         data: {
@@ -67,10 +74,10 @@ describe('parseCategoryDocument', () => {
           color: '',
           created_at: new Date('2026-01-15T12:00:00.000Z'),
         },
-      }),
-    ).toThrow('color must be a non-empty string')
+      }).color,
+    ).toBe(expected)
 
-    expect(() =>
+    expect(
       parseCategoryDocument({
         id: 'c1',
         data: {
@@ -78,10 +85,10 @@ describe('parseCategoryDocument', () => {
           name: 'Comida',
           created_at: new Date('2026-01-15T12:00:00.000Z'),
         },
-      }),
-    ).toThrow('color must be a non-empty string')
+      }).color,
+    ).toBe(expected)
 
-    expect(() =>
+    expect(
       parseCategoryDocument({
         id: 'c1',
         data: {
@@ -90,8 +97,8 @@ describe('parseCategoryDocument', () => {
           color: 12345,
           created_at: new Date('2026-01-15T12:00:00.000Z'),
         },
-      }),
-    ).toThrow('color must be a non-empty string')
+      }).color,
+    ).toBe(expected)
   })
 
   // parseCategoryDocument intentionally does NOT validate the hex format of
