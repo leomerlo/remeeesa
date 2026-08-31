@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
-import { Label } from '@/components/ui/label'
 import { householdQueryKey } from '@/features/household'
 import {
   computeRemainingBudget,
@@ -47,9 +46,11 @@ export function RemainingBudgetDisplay({
 
   if (household === undefined || expenses === undefined) {
     return (
-      <p role="status" className="text-sm font-medium">
-        Loading…
-      </p>
+      <div className="bg-muted flex w-full flex-col items-center gap-2 rounded-3xl p-8">
+        <p role="status" className="text-sm font-medium">
+          Loading…
+        </p>
+      </div>
     )
   }
 
@@ -57,14 +58,14 @@ export function RemainingBudgetDisplay({
   const formattedRemaining = formatBudgetAmount(remaining)
 
   return (
-    <div className="flex w-full flex-col items-center gap-2">
-      <Label className="text-muted-foreground font-medium">
+    <div className="from-primary to-[var(--surface-action-gradient-end)] flex w-full flex-col items-center gap-2 rounded-3xl bg-gradient-to-br p-8">
+      <span className="text-primary-foreground font-medium">
         Remaining budget
-      </Label>
+      </span>
       <p
         role="status"
         aria-label={`Remaining budget ${formattedRemaining}`}
-        className="font-display text-5xl tracking-tight"
+        className="text-primary-foreground font-display text-5xl tracking-tight"
       >
         {formattedRemaining}
       </p>
