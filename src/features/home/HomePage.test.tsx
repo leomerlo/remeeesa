@@ -113,13 +113,19 @@ describe('HomePage', () => {
     expect(
       screen.getByRole('button', { name: 'Add expense' }),
     ).toBeInTheDocument()
-    expect(screen.getByLabelText('Price')).toBeInTheDocument()
-    expect(screen.getByLabelText('Category')).toBeInTheDocument()
-    expect(screen.getByLabelText('Date')).toBeInTheDocument()
-    expect(screen.queryByLabelText(/author/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Price')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Category')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Date')).not.toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Log out' }),
     ).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+
+    expect(await screen.findByLabelText('Price')).toBeInTheDocument()
+    expect(screen.getByLabelText('Category')).toBeInTheDocument()
+    expect(screen.getByLabelText('Date')).toBeInTheDocument()
+    expect(screen.queryByLabelText(/author/i)).not.toBeInTheDocument()
   })
 
   it('shows the household after signup creates it', async () => {
@@ -181,6 +187,7 @@ describe('HomePage', () => {
       />,
     )
 
+    fireEvent.click(await screen.findByRole('button', { name: 'Add expense' }))
     fireEvent.change(await screen.findByLabelText('Name'), {
       target: { value: 'Pizza' },
     })
@@ -208,6 +215,56 @@ describe('HomePage', () => {
     })
   })
 
+  it('closes the sheet and updates the list and remaining budget on screen after a successful add', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderHome(
+      <HomePage
+        currentUserId="user-1"
+        householdsDb={db}
+        authorDisplayName="Ada"
+      />,
+    )
+
+    expect(
+      await screen.findByRole('status', { name: /remaining budget \$100/i }),
+    ).toHaveTextContent('$100')
+    expect(
+      await screen.findByText('No expenses this month'),
+    ).toBeInTheDocument()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add expense' }))
+    fireEvent.change(await screen.findByLabelText('Name'), {
+      target: { value: 'Pizza' },
+    })
+    fireEvent.change(screen.getByLabelText('Price'), {
+      target: { value: '10' },
+    })
+    fireEvent.change(screen.getByLabelText('Category'), {
+      target: { value: 'Comida' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+
+    // Sheet closes and the trigger reappears, with no route change and no
+    // full reload -- the list and remaining budget update in place.
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+    })
+    expect(
+      screen.getByRole('button', { name: 'Add expense' }),
+    ).toBeInTheDocument()
+    expect(await screen.findByText('Pizza')).toBeInTheDocument()
+    expect(
+      await screen.findByRole('status', { name: /remaining budget \$90/i }),
+    ).toHaveTextContent('$90')
+  })
+
   it('attributes a submitted expense to the signed-in member with a Member display name', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -219,6 +276,7 @@ describe('HomePage', () => {
 
     renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
 
+    fireEvent.click(await screen.findByRole('button', { name: 'Add expense' }))
     fireEvent.change(await screen.findByLabelText('Name'), {
       target: { value: 'Pizza' },
     })

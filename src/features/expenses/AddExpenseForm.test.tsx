@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
 import { listCategories, listExpensesInMonth } from '@/lib/expenses'
@@ -10,8 +11,16 @@ import {
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
-import { AddExpenseForm } from './AddExpenseForm'
+import { AddExpenseSheet } from './AddExpenseSheet'
+import type { AddExpenseSheetProps } from './AddExpenseSheet'
 import { expensesInMonthQueryKey } from './queryKeys'
+
+function AddExpenseSheetHarness(
+  props: Omit<AddExpenseSheetProps, 'open' | 'onOpenChange'>,
+): ReactElement {
+  const [open, setOpen] = useState(false)
+  return <AddExpenseSheet open={open} onOpenChange={setOpen} {...props} />
+}
 
 function localDateInputValue(date: Date): string {
   const year = String(date.getFullYear()).padStart(4, '0')
@@ -47,13 +56,15 @@ async function renderForm() {
     monthlyBudget: 100,
   })
   renderWithProviders(
-    <AddExpenseForm
+    <AddExpenseSheetHarness
       db={db}
       householdId={household.id}
       memberId="user-1"
       authorDisplayName="Ada"
     />,
   )
+  fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+  await screen.findByLabelText('Name')
   return { db, householdId: household.id }
 }
 
@@ -128,7 +139,43 @@ describe('AddExpenseForm', () => {
       ])
     })
 
-    expect(screen.getByLabelText('Name')).toHaveValue('')
+    // A successful save closes the sheet: the form unmounts and the
+    // trigger button reappears.
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: 'Add expense' }),
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('resets the fields to empty defaults when reopened after a successful save', async () => {
+    const { db, householdId } = await renderForm()
+    const today = new Date()
+
+    fillExpense({
+      name: 'Pizza',
+      price: '12.5',
+      category: 'Comida',
+      comments: 'Friday dinner',
+    })
+    submitExpense()
+
+    await waitFor(async () => {
+      const listed = await listExpensesInMonth({
+        db,
+        householdId,
+        ...currentMonthRange(today),
+      })
+      expect(listed).toHaveLength(1)
+    })
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+
+    expect(await screen.findByLabelText('Name')).toHaveValue('')
     expect(screen.getByLabelText('Price')).toHaveValue('')
     expect(screen.getByLabelText('Category')).toHaveValue('')
     expect(screen.getByLabelText('Comments')).toHaveValue('')
@@ -136,6 +183,92 @@ describe('AddExpenseForm', () => {
       localDateInputValue(today),
     )
     expect(screen.queryByLabelText(/author/i)).not.toBeInTheDocument()
+  })
+
+  it('discards unsaved input when dismissed with Escape, reopening with empty defaults', async () => {
+    await renderForm()
+    const today = new Date()
+
+    // Category is deliberately left unset here: typing into it opens its
+    // suggestion popover, which is itself a dismissable layer nested inside
+    // the sheet -- a bare Escape would close that popover first rather than
+    // the sheet, which isn't what this test is exercising.
+    fillExpense({
+      name: 'Draft pizza',
+      price: '9',
+      comments: 'Unsaved',
+    })
+    expect(screen.getByLabelText('Name')).toHaveValue('Draft pizza')
+
+    fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+    })
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+
+    expect(await screen.findByLabelText('Name')).toHaveValue('')
+    expect(screen.getByLabelText('Price')).toHaveValue('')
+    expect(screen.getByLabelText('Category')).toHaveValue('')
+    expect(screen.getByLabelText('Comments')).toHaveValue('')
+    expect(screen.getByLabelText('Date')).toHaveValue(
+      localDateInputValue(today),
+    )
+  })
+
+  it('discards unsaved input when dismissed via an outside click, reopening with empty defaults', async () => {
+    await renderForm()
+
+    fillExpense({
+      name: 'Draft pizza',
+      price: '9',
+      category: 'Comida',
+    })
+    expect(screen.getByLabelText('Name')).toHaveValue('Draft pizza')
+
+    // Radix's outside-pointer-down listener attaches after a 0ms timeout, to
+    // avoid reacting to the same click that opened the dialog.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const overlay = document.querySelector('[data-slot="sheet-overlay"]')
+    expect(overlay).not.toBeNull()
+    fireEvent.pointerDown(overlay as Element)
+    fireEvent.click(overlay as Element)
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+
+    expect(await screen.findByLabelText('Name')).toHaveValue('')
+  })
+
+  it('discards unsaved input when dismissed via the close control, reopening with empty defaults', async () => {
+    await renderForm()
+
+    fillExpense({
+      name: 'Draft pizza',
+      price: '9',
+      category: 'Comida',
+    })
+    expect(screen.getByLabelText('Name')).toHaveValue('Draft pizza')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+    })
+    expect(
+      screen.getByRole('button', { name: 'Add expense' }),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+
+    expect(await screen.findByLabelText('Name')).toHaveValue('')
+    expect(screen.getByLabelText('Price')).toHaveValue('')
+    expect(screen.getByLabelText('Category')).toHaveValue('')
   })
 
   it('rejects an empty name', async () => {
@@ -478,12 +611,17 @@ describe('AddExpenseForm', () => {
 
     // Close the way Radix's dismissable layer does on an outside pointer
     // interaction (pointerdown then click, its outside-click detection
-    // pattern), not via this component's own Escape/select handlers.
-    fireEvent.pointerDown(document.body)
-    fireEvent.click(document.body)
+    // pattern), not via this component's own Escape/select handlers. The
+    // click lands elsewhere inside the sheet content (not `document.body`)
+    // so it dismisses only the popover, not the sheet itself.
+    const sheetContent = document.querySelector('[data-slot="sheet-content"]')
+    expect(sheetContent).not.toBeNull()
+    fireEvent.pointerDown(sheetContent as Element)
+    fireEvent.click(sheetContent as Element)
     await waitFor(() => {
       expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
     })
+    expect(screen.getByLabelText('Name')).toBeInTheDocument()
 
     fireEvent.focus(combobox)
     await screen.findByRole('listbox', { name: 'Categories' })
@@ -505,13 +643,15 @@ describe('AddExpenseForm', () => {
       listCategories: async () => [],
     }
     renderWithProviders(
-      <AddExpenseForm
+      <AddExpenseSheetHarness
         db={db}
         householdId={household.id}
         memberId="user-1"
         authorDisplayName="Ada"
       />,
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+    await screen.findByLabelText('Name')
 
     const combobox = screen.getByRole('combobox', { name: 'Category' })
     fireEvent.focus(combobox)
@@ -666,7 +806,7 @@ describe('AddExpenseForm', () => {
     })
     renderWithProviders(
       <>
-        <AddExpenseForm
+        <AddExpenseSheetHarness
           db={db}
           householdId={household.id}
           memberId="user-1"
@@ -675,6 +815,8 @@ describe('AddExpenseForm', () => {
         <MonthExpenseCount db={db} householdId={household.id} />
       </>,
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+    await screen.findByLabelText('Name')
 
     expect(await screen.findByText('Month expenses: 0')).toBeInTheDocument()
     fillExpense({
@@ -708,13 +850,15 @@ describe('AddExpenseForm', () => {
       },
     }
     renderWithProviders(
-      <AddExpenseForm
+      <AddExpenseSheetHarness
         db={db}
         householdId={household.id}
         memberId="user-1"
         authorDisplayName="Ada"
       />,
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+    await screen.findByLabelText('Name')
 
     fillExpense({
       name: 'Pizza',
@@ -747,13 +891,15 @@ describe('AddExpenseForm', () => {
       },
     }
     renderWithProviders(
-      <AddExpenseForm
+      <AddExpenseSheetHarness
         db={db}
         householdId={household.id}
         memberId="user-1"
         authorDisplayName="Ada"
       />,
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+    await screen.findByLabelText('Name')
 
     fillExpense({
       name: 'Pizza',
@@ -786,13 +932,14 @@ describe('AddExpenseForm', () => {
       },
     }
     renderWithProviders(
-      <AddExpenseForm
+      <AddExpenseSheetHarness
         db={db}
         householdId={household.id}
         memberId="user-1"
         authorDisplayName="Ada"
       />,
     )
+    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Could not load categories: Missing or insufficient permissions.',

@@ -40,6 +40,7 @@ export type AddExpenseFormProps = {
   readonly authorDisplayName: string
   readonly editExpense?: EditExpenseTarget | null
   readonly onEditFinished?: () => void
+  readonly onAdded?: () => void
 }
 
 type ExpenseFormFields = {
@@ -144,6 +145,7 @@ type ExpenseFormBodyProps = {
   readonly categories: readonly Category[]
   readonly loadError: string | null
   readonly onEditFinished?: () => void
+  readonly onAdded?: () => void
 }
 
 function ExpenseFormBody({
@@ -156,6 +158,7 @@ function ExpenseFormBody({
   categories,
   loadError,
   onEditFinished,
+  onAdded,
 }: ExpenseFormBodyProps): ReactElement {
   const isEditing = editExpense !== null
   const queryClient = useQueryClient()
@@ -220,6 +223,7 @@ function ExpenseFormBody({
         setCategory('')
         setComments('')
         setDate(localDateInputValue(new Date()))
+        onAdded?.()
       }
       setError(null)
       await invalidateExpenseViews()
@@ -388,6 +392,7 @@ export function AddExpenseForm({
   authorDisplayName,
   editExpense = null,
   onEditFinished,
+  onAdded,
 }: AddExpenseFormProps): ReactElement {
   const categoriesKey = categoriesQueryKey({ householdId })
   const categoriesQuery = useQuery({
@@ -410,6 +415,7 @@ export function AddExpenseForm({
       categories={categoriesQuery.data ?? []}
       loadError={loadErrorMessage(categoriesQuery.error)}
       onEditFinished={onEditFinished}
+      onAdded={onAdded}
     />
   )
 }

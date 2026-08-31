@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
 import {
-  AddExpenseForm,
+  AddExpenseSheet,
   ExpenseList,
   RemainingBudgetDisplay,
 } from '@/features/expenses'
@@ -73,6 +73,7 @@ export function HomePage({
   const [household, setHousehold] = useState<Household | null>(null)
   const [homeEpoch, setHomeEpoch] = useState(0)
   const [editExpense, setEditExpense] = useState<EditExpenseTarget | null>(null)
+  const [isAddExpenseSheetOpen, setIsAddExpenseSheetOpen] = useState(false)
 
   useEffect(() => {
     if (currentUserIdProp !== undefined) {
@@ -183,7 +184,9 @@ export function HomePage({
     <div className="flex w-full flex-col items-center gap-8">
       <p className="text-sm font-medium">{household?.name ?? 'Household'}</p>
       <RemainingBudgetDisplay db={db} householdId={membership.householdId} />
-      <AddExpenseForm
+      <AddExpenseSheet
+        open={isAddExpenseSheetOpen}
+        onOpenChange={setIsAddExpenseSheetOpen}
         db={db}
         householdId={membership.householdId}
         memberId={currentUserId}
