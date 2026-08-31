@@ -99,41 +99,46 @@ export function AppShell({
     membership !== undefined &&
     membership !== null
 
-  if (!showNav) {
-    return <Outlet />
-  }
-
+  // Outlet always sits in the same position in the tree (Fragment > div >
+  // Outlet) across both the nav-hidden and nav-shown branches -- only the
+  // wrapper's padding and the nav sibling toggle. If showNav instead changed
+  // Outlet's position (e.g. bare `<Outlet/>` vs. nested inside a div), React
+  // would unmount and remount the whole routed subtree the moment membership
+  // resolves and the nav pops in, discarding any in-progress state (like a
+  // half-filled AddExpenseForm) in the page it renders.
   return (
     <>
-      <div className="w-full pb-24">
+      <div className={cn('w-full', showNav && 'pb-24')}>
         <Outlet />
       </div>
-      <nav
-        aria-label="Primary"
-        className="bg-card shadow-raised fixed inset-x-0 bottom-0 z-30 mx-auto max-w-sm rounded-t-3xl"
-      >
-        <ul className="flex items-stretch justify-around">
-          {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
-            <li key={to}>
-              <NavLink
-                to={to}
-                end={end}
-                className={({ isActive }) =>
-                  cn(
-                    'flex min-h-11 min-w-11 flex-col items-center justify-center gap-1 rounded-2xl px-3 py-2 text-xs font-medium',
-                    isActive
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground',
-                  )
-                }
-              >
-                <Icon className="size-5" aria-hidden="true" />
-                <span>{label}</span>
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      {showNav ? (
+        <nav
+          aria-label="Primary"
+          className="bg-card shadow-raised fixed inset-x-0 bottom-0 z-30 mx-auto max-w-sm rounded-t-3xl"
+        >
+          <ul className="flex items-stretch justify-around">
+            {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+              <li key={to}>
+                <NavLink
+                  to={to}
+                  end={end}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex min-h-11 min-w-11 flex-col items-center justify-center gap-1 rounded-2xl px-3 py-2 text-xs font-medium',
+                      isActive
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground',
+                    )
+                  }
+                >
+                  <Icon className="size-5" aria-hidden="true" />
+                  <span>{label}</span>
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ) : null}
     </>
   )
 }

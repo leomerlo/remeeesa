@@ -167,9 +167,7 @@ describe('App', () => {
     )
 
     // Wait for the nav (the final, settled render) before asserting on the
-    // heading: the shell remounts its Outlet subtree when membership
-    // resolves, so a heading found during the pre-nav render can become a
-    // stale reference by the time the assertion runs.
+    // active-link state below, which only exists once the nav has mounted.
     const nav = await screen.findByRole('navigation')
     expect(
       screen.getByRole('heading', { name: 'Histórico' }),

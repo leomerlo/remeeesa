@@ -239,6 +239,48 @@ describe('AppShell', () => {
     expect(await screen.findByText('Household content')).toBeInTheDocument()
   })
 
+  it('preserves in-progress state in the routed page when the nav appears', async () => {
+    // Regression test: AppShell used to return a bare `<Outlet/>` while
+    // resolving membership, then switch to `<Outlet/>` nested inside a new
+    // wrapper alongside the nav once resolved. Because Outlet's position in
+    // the tree changed between renders, React couldn't reconcile it as the
+    // same node and remounted the whole routed subtree, silently discarding
+    // any local state -- e.g. a half-typed form -- the moment the nav popped
+    // in. This test types into a stateful child before membership resolves
+    // and asserts the value survives once the nav appears.
+    function StatefulChild() {
+      return <input aria-label="Draft note" defaultValue="" />
+    }
+
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderWithProviders(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route
+            element={<AppShell currentUserId="user-1" householdsDb={db} />}
+          >
+            <Route path="/" element={<StatefulChild />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.change(screen.getByLabelText('Draft note'), {
+      target: { value: 'buy milk' },
+    })
+
+    await screen.findByRole('navigation')
+
+    expect(screen.getByLabelText('Draft note')).toHaveValue('buy milk')
+  })
+
   it('renders nothing, including the nav, on a path with no matching route', async () => {
     // AppShell is nested as a pathless layout route: React Router only
     // renders a layout route when one of its children also matches, so an
