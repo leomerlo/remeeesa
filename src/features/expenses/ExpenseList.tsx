@@ -8,6 +8,7 @@ import {
   listCategories,
   listExpensesInMonth,
 } from '@/lib/expenses'
+import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import type { Expense } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
 import { EmptyExpensesIllustration } from './EmptyExpensesIllustration'
@@ -60,7 +61,7 @@ function DeleteExpenseDialog(input: {
       role="alertdialog"
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
-      className="flex flex-col gap-4 rounded-lg border border-border p-4"
+      className="flex flex-col gap-4 rounded-2xl border border-border bg-muted p-4"
     >
       <div className="flex flex-col gap-1">
         <p id={titleId} className="text-sm font-medium">
@@ -186,8 +187,8 @@ export function ExpenseList({
     )
   }
 
-  const categoryNameById = new Map(
-    categories.map((category) => [category.id, category.name]),
+  const categoryById = new Map(
+    categories.map((category) => [category.id, category]),
   )
 
   return (
@@ -205,58 +206,90 @@ export function ExpenseList({
         aria-label="This month's expenses"
         className="flex w-full flex-col gap-8 text-sm"
       >
-        {expenses.map((expense) => (
-          <li key={expense.id} className="flex flex-col gap-2">
-            <span>{expense.name}</span>
-            <span>{formatExpensePrice(expense.price)}</span>
-            <span>
-              {categoryNameById.get(expense.categoryId) ?? 'Unknown category'}
-            </span>
-            <span>{formatExpenseDate(expense.expenseDate)}</span>
-            <span>{expense.authorDisplayName}</span>
-            {confirmDeleteExpense?.id === expense.id ? (
-              <DeleteExpenseDialog
-                expense={expense}
-                isPending={deleteMutation.isPending}
-                onCancel={() => {
-                  setConfirmDeleteExpense(null)
-                }}
-                onConfirm={() => {
-                  deleteMutation.mutate(expense.id)
-                }}
-              />
-            ) : (
-              <div className="flex gap-2">
-                {onEditExpense !== undefined ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    aria-label={`Edit ${expense.name}`}
-                    onClick={() => {
-                      onEditExpense(
-                        expense,
-                        categoryNameById.get(expense.categoryId) ?? '',
-                      )
-                    }}
-                  >
-                    Edit
-                  </Button>
-                ) : null}
-                <Button
-                  type="button"
-                  variant="outline"
-                  aria-label={`Delete ${expense.name}`}
-                  onClick={() => {
-                    setDeleteError(null)
-                    setConfirmDeleteExpense(expense)
-                  }}
-                >
-                  Delete
-                </Button>
+        {expenses.map((expense) => {
+          const category = categoryById.get(expense.categoryId)
+          const categoryName = category?.name ?? 'Unknown category'
+          const categoryColor =
+            category?.color ?? colorForCategoryName(categoryName)
+
+          const isConfirmingDelete = confirmDeleteExpense?.id === expense.id
+
+          return (
+            <li
+              key={expense.id}
+              className={
+                isConfirmingDelete
+                  ? 'flex flex-col gap-3 rounded-2xl bg-muted p-4'
+                  : 'flex items-center gap-3 rounded-2xl bg-muted p-4'
+              }
+            >
+              <div className="flex items-center gap-3">
+                <span
+                  aria-hidden="true"
+                  data-testid="category-icon"
+                  className="size-10 shrink-0 rounded-full"
+                  style={{ backgroundColor: categoryColor }}
+                />
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="truncate text-foreground font-medium">
+                      {expense.name}
+                    </span>
+                    <span className="font-display text-lg text-foreground">
+                      {formatExpensePrice(expense.price)}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-x-1.5 text-xs text-muted-foreground">
+                    <span>{categoryName}</span>
+                    <span aria-hidden="true">·</span>
+                    <span>{formatExpenseDate(expense.expenseDate)}</span>
+                    <span aria-hidden="true">·</span>
+                    <span>{expense.authorDisplayName}</span>
+                  </div>
+                </div>
+                {isConfirmingDelete ? null : (
+                  <div className="flex shrink-0 gap-2">
+                    {onEditExpense !== undefined ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        aria-label={`Edit ${expense.name}`}
+                        onClick={() => {
+                          onEditExpense(expense, category?.name ?? '')
+                        }}
+                      >
+                        Edit
+                      </Button>
+                    ) : null}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      aria-label={`Delete ${expense.name}`}
+                      onClick={() => {
+                        setDeleteError(null)
+                        setConfirmDeleteExpense(expense)
+                      }}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                )}
               </div>
-            )}
-          </li>
-        ))}
+              {isConfirmingDelete ? (
+                <DeleteExpenseDialog
+                  expense={expense}
+                  isPending={deleteMutation.isPending}
+                  onCancel={() => {
+                    setConfirmDeleteExpense(null)
+                  }}
+                  onConfirm={() => {
+                    deleteMutation.mutate(expense.id)
+                  }}
+                />
+              ) : null}
+            </li>
+          )
+        })}
       </ul>
     </>
   )

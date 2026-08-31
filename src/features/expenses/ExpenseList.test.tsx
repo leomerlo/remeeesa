@@ -516,6 +516,109 @@ describe('ExpenseList', () => {
     expect(screen.queryByText('Pizza')).not.toBeInTheDocument()
   })
 
+  it("fills each expense's leading icon with its category color", async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories.find((category) => category.name === 'Comida')
+    expect(comida).toBeDefined()
+    if (comida === undefined) {
+      throw new Error('expected Comida category')
+    }
+
+    await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Pizza',
+      price: 12.5,
+      comments: '',
+      expenseDate: currentMonthDate(15),
+    })
+
+    renderWithProviders(<ExpenseList db={db} householdId={household.id} />)
+
+    const row = await screen.findByRole('listitem')
+    const icon = row.querySelector('[data-testid="category-icon"]')
+    expect(icon).not.toBeNull()
+    expect(icon).toHaveStyle({ backgroundColor: comida.color })
+  })
+
+  it("gives each expense row its own category's icon color, not a shared default", async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories.find((category) => category.name === 'Comida')
+    const transporte = categories.find(
+      (category) => category.name === 'Transporte',
+    )
+    expect(comida).toBeDefined()
+    expect(transporte).toBeDefined()
+    if (comida === undefined || transporte === undefined) {
+      throw new Error('expected seeded categories')
+    }
+    expect(comida.color).not.toBe(transporte.color)
+
+    await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Pizza',
+      price: 12.5,
+      comments: '',
+      expenseDate: currentMonthDate(15),
+    })
+    await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: transporte.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Bob',
+      name: 'Taxi',
+      price: 8.25,
+      comments: '',
+      expenseDate: currentMonthDate(20),
+    })
+
+    renderWithProviders(<ExpenseList db={db} householdId={household.id} />)
+
+    const rows = await screen.findAllByRole('listitem')
+    expect(rows).toHaveLength(2)
+
+    const pizzaRow = rows.find((row) => row.textContent?.includes('Pizza'))
+    const taxiRow = rows.find((row) => row.textContent?.includes('Taxi'))
+    expect(pizzaRow).toBeDefined()
+    expect(taxiRow).toBeDefined()
+    if (pizzaRow === undefined || taxiRow === undefined) {
+      throw new Error('expected both expense rows')
+    }
+
+    expect(
+      pizzaRow.querySelector('[data-testid="category-icon"]'),
+    ).toHaveStyle({
+      backgroundColor: comida.color,
+    })
+    expect(
+      taxiRow.querySelector('[data-testid="category-icon"]'),
+    ).toHaveStyle({
+      backgroundColor: transporte.color,
+    })
+  })
+
   it('shows an error when the current user is not a household member', async () => {
     const store = createMemoryHouseholdsDb()
     const ownerDb = store.asUser('user-1')
