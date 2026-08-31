@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -40,6 +40,8 @@ export type AddExpenseFormProps = {
   readonly authorDisplayName: string
   readonly editExpense?: EditExpenseTarget | null
   readonly onEditFinished?: () => void
+  readonly onAdded?: () => void
+  readonly onPendingChange?: (pending: boolean) => void
 }
 
 type ExpenseFormFields = {
@@ -144,6 +146,8 @@ type ExpenseFormBodyProps = {
   readonly categories: readonly Category[]
   readonly loadError: string | null
   readonly onEditFinished?: () => void
+  readonly onAdded?: () => void
+  readonly onPendingChange?: (pending: boolean) => void
 }
 
 function ExpenseFormBody({
@@ -156,6 +160,8 @@ function ExpenseFormBody({
   categories,
   loadError,
   onEditFinished,
+  onAdded,
+  onPendingChange,
 }: ExpenseFormBodyProps): ReactElement {
   const isEditing = editExpense !== null
   const queryClient = useQueryClient()
@@ -220,6 +226,7 @@ function ExpenseFormBody({
         setCategory('')
         setComments('')
         setDate(localDateInputValue(new Date()))
+        onAdded?.()
       }
       setError(null)
       await invalidateExpenseViews()
@@ -231,6 +238,13 @@ function ExpenseFormBody({
       }
     },
   })
+
+  // Lets a container (e.g. AddExpenseSheet) keep the form mounted while a
+  // submit is in flight, so a dismiss can't abandon a pending mutation and
+  // silently swallow its result.
+  useEffect(() => {
+    onPendingChange?.(mutation.isPending)
+  }, [mutation.isPending, onPendingChange])
 
   function onSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault()
@@ -388,6 +402,8 @@ export function AddExpenseForm({
   authorDisplayName,
   editExpense = null,
   onEditFinished,
+  onAdded,
+  onPendingChange,
 }: AddExpenseFormProps): ReactElement {
   const categoriesKey = categoriesQueryKey({ householdId })
   const categoriesQuery = useQuery({
@@ -410,6 +426,8 @@ export function AddExpenseForm({
       categories={categoriesQuery.data ?? []}
       loadError={loadErrorMessage(categoriesQuery.error)}
       onEditFinished={onEditFinished}
+      onAdded={onAdded}
+      onPendingChange={onPendingChange}
     />
   )
 }
