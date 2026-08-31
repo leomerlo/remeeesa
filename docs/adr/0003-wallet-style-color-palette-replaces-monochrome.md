@@ -48,3 +48,15 @@ screen, card-detail screen). Direction: **fun, young, jovial** — the opposite 
 `design-tokens` will generate the full layered scale from this primary color and Geist Variable
 (kept as-is — already integrated, and the fun/young/jovial tone is carried by color and
 illustration, not typeface).
+
+## Implementation posture (resolved)
+
+This is a full rebuild, not an incremental patch. Nothing about matching today's markup/CSS
+structure is a constraint — where the reference mockup calls for a different structure (card
+layout, gradient surfaces, icon treatment, spacing) than what exists today, rebuild the component
+from zero rather than adapting the old one. No old-system styling code (classes, one-off
+inline styles, structural assumptions built around the monochrome/pill-everywhere system) should
+survive in a component once it's been redesigned. The only things that must survive a rebuild are
+behavior and accessibility (what a component does, its accessible name/role/label) — never its
+old visual implementation. Every remaining visual ticket in this feature (#62-65) should be read
+with this posture, not as a minimal-diff restyle.
