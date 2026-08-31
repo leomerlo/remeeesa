@@ -1,15 +1,48 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { useState } from 'react'
+import type { ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { createExpense, listCategories, listExpensesInMonth } from '@/lib/expenses'
+import {
+  createExpense,
+  listCategories,
+  listExpensesInMonth,
+} from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
+import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { AddExpenseSheet } from './AddExpenseSheet'
+import type { AddExpenseSheetProps } from './AddExpenseSheet'
 import type { EditExpenseTarget } from './AddExpenseForm'
+
+function AddExpenseSheetHarness(
+  props: Omit<AddExpenseSheetProps, 'open' | 'onOpenChange'>,
+): ReactElement {
+  const [open, setOpen] = useState(false)
+  return <AddExpenseSheet open={open} onOpenChange={setOpen} {...props} />
+}
+
+function deferred<T>(): {
+  readonly promise: Promise<T>
+  readonly resolve: (value: T) => void
+  readonly reject: (reason: unknown) => void
+} {
+  let resolve!: (value: T) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
 
 function currentMonthDate(day: number): Date {
   const now = new Date()
-  return new Date(now.getFullYear(), now.getMonth(), Math.min(day, now.getDate()))
+  return new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    Math.min(day, now.getDate()),
+  )
 }
 
 function currentMonthRange(now = new Date()): {
@@ -18,7 +51,15 @@ function currentMonthRange(now = new Date()): {
 } {
   return {
     monthStart: new Date(now.getFullYear(), now.getMonth(), 1),
-    monthEnd: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999),
+    monthEnd: new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    ),
   }
 }
 
@@ -155,5 +196,80 @@ describe('AddExpenseSheet', () => {
       ...currentMonthRange(),
     })
     expect(listed).toEqual([expect.objectContaining({ name: 'Pasta' })])
+  })
+
+  it('restores focus to the trigger button after the sheet closes', async () => {
+    const { db, householdId } = await seedHousehold()
+
+    renderWithProviders(
+      <AddExpenseSheetHarness
+        db={db}
+        householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
+    )
+
+    const trigger = screen.getByRole('button', { name: 'Add expense' })
+    trigger.focus()
+    expect(trigger).toHaveFocus()
+
+    fireEvent.click(trigger)
+    await screen.findByLabelText('Name')
+    expect(trigger).not.toBeInTheDocument()
+
+    fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+    })
+    expect(screen.getByRole('button', { name: 'Add expense' })).toHaveFocus()
+  })
+
+  it('keeps the sheet open while a submit is in flight, so a failure that arrives after a dismiss attempt is still shown', async () => {
+    const base = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: base,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const create = deferred<never>()
+    const db: HouseholdsDb = {
+      ...base,
+      createExpense: async () => create.promise,
+    }
+
+    renderWithProviders(
+      <AddExpenseSheetHarness
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+    fireEvent.change(await screen.findByLabelText('Name'), {
+      target: { value: 'Pizza' },
+    })
+    fireEvent.change(screen.getByLabelText('Price'), {
+      target: { value: '10' },
+    })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Category' }), {
+      target: { value: 'Comida' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+
+    // The mutation is still pending: an Escape dismiss attempt must be a
+    // no-op rather than unmounting the form out from under it.
+    fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
+    expect(screen.getByLabelText('Name')).toBeInTheDocument()
+
+    create.reject(new Error('Network blip'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Network blip')
+    // Still open and showing the failed draft -- nothing was silently lost.
+    expect(screen.getByLabelText('Name')).toHaveValue('Pizza')
   })
 })

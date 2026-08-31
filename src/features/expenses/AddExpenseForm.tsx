@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -41,6 +41,7 @@ export type AddExpenseFormProps = {
   readonly editExpense?: EditExpenseTarget | null
   readonly onEditFinished?: () => void
   readonly onAdded?: () => void
+  readonly onPendingChange?: (pending: boolean) => void
 }
 
 type ExpenseFormFields = {
@@ -146,6 +147,7 @@ type ExpenseFormBodyProps = {
   readonly loadError: string | null
   readonly onEditFinished?: () => void
   readonly onAdded?: () => void
+  readonly onPendingChange?: (pending: boolean) => void
 }
 
 function ExpenseFormBody({
@@ -159,6 +161,7 @@ function ExpenseFormBody({
   loadError,
   onEditFinished,
   onAdded,
+  onPendingChange,
 }: ExpenseFormBodyProps): ReactElement {
   const isEditing = editExpense !== null
   const queryClient = useQueryClient()
@@ -235,6 +238,13 @@ function ExpenseFormBody({
       }
     },
   })
+
+  // Lets a container (e.g. AddExpenseSheet) keep the form mounted while a
+  // submit is in flight, so a dismiss can't abandon a pending mutation and
+  // silently swallow its result.
+  useEffect(() => {
+    onPendingChange?.(mutation.isPending)
+  }, [mutation.isPending, onPendingChange])
 
   function onSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault()
@@ -393,6 +403,7 @@ export function AddExpenseForm({
   editExpense = null,
   onEditFinished,
   onAdded,
+  onPendingChange,
 }: AddExpenseFormProps): ReactElement {
   const categoriesKey = categoriesQueryKey({ householdId })
   const categoriesQuery = useQuery({
@@ -416,6 +427,7 @@ export function AddExpenseForm({
       loadError={loadErrorMessage(categoriesQuery.error)}
       onEditFinished={onEditFinished}
       onAdded={onAdded}
+      onPendingChange={onPendingChange}
     />
   )
 }
