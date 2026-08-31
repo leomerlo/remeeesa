@@ -7,6 +7,7 @@ import {
   leaveHousehold,
 } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
+import { colorForCategoryName } from './categoryColor'
 import {
   createExpense,
   deleteExpense,
@@ -124,6 +125,48 @@ describe('findOrCreateCategory', () => {
     })
     const fromList = listed.find((category) => category.name === 'Regalos')
     expect(fromList).toEqual(created)
+  })
+
+  it('assigns the deterministic hash color to a newly created category', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    const created = await findOrCreateCategory({
+      db,
+      householdId: household.id,
+      name: 'Regalos',
+    })
+
+    expect(created.color).toBe(colorForCategoryName('Regalos'))
+  })
+
+  it('returns the same stored color both times an existing name is resolved', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    const first = await findOrCreateCategory({
+      db,
+      householdId: household.id,
+      name: 'Regalos',
+    })
+    const second = await findOrCreateCategory({
+      db,
+      householdId: household.id,
+      name: '  REGALOS  ',
+    })
+
+    expect(first.color).toBe(second.color)
+    expect(second.color).toBe(colorForCategoryName('Regalos'))
   })
 
   it('returns one category when two members create the same new name in parallel', async () => {

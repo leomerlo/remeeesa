@@ -50,7 +50,7 @@ export function parseCategoryDocument(input: {
     throw new Error('Category document must be an object')
   }
 
-  const { household_id, name, created_at } = input.data
+  const { household_id, name, color, created_at } = input.data
   if (typeof name !== 'string') {
     throw new Error('Category name must be a string')
   }
@@ -59,6 +59,7 @@ export function parseCategoryDocument(input: {
     id: input.id,
     householdId: parseRequiredString(household_id, 'household_id'),
     name: parseCategoryName(name),
+    color: parseRequiredString(color, 'color'),
     createdAt: parseTimestamp(created_at, 'created_at'),
   }
 }
@@ -66,15 +67,18 @@ export function parseCategoryDocument(input: {
 export function categoryToDocument(input: {
   readonly householdId: string
   readonly name: string
+  readonly color: string
   readonly createdAt: Date
 }): {
   readonly household_id: string
   readonly name: string
+  readonly color: string
   readonly created_at: Date
 } {
   return {
     household_id: input.householdId,
     name: input.name,
+    color: input.color,
     created_at: input.createdAt,
   }
 }

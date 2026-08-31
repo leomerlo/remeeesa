@@ -1,3 +1,4 @@
+import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
 import { ExpenseNotFoundError } from '@/lib/expenses/expenses'
 import type { Category, Expense } from '@/lib/expenses/types'
@@ -254,6 +255,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         id,
         householdId: input.householdId,
         name: input.name,
+        color: colorForCategoryName(input.name),
         createdAt: new Date(),
       }
       state.categories.set(id, category)

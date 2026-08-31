@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore'
 import type { Firestore } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
+import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import {
   categoryToDocument,
   expenseToDocument,
@@ -151,6 +152,7 @@ export function createFirestoreHouseholdsDb(
               ...categoryToDocument({
                 householdId: category.householdId,
                 name: category.name,
+                color: category.color,
                 createdAt: category.createdAt,
               }),
               created_at: now,
@@ -364,11 +366,13 @@ export function createFirestoreHouseholdsDb(
 
           const now = Timestamp.now()
           const createdAt = now.toDate()
+          const color = colorForCategoryName(name)
           try {
             await setDoc(categoryRef, {
               ...categoryToDocument({
                 householdId: input.householdId,
                 name,
+                color,
                 createdAt,
               }),
               created_at: now,
@@ -391,6 +395,7 @@ export function createFirestoreHouseholdsDb(
             id: categoryId,
             householdId: input.householdId,
             name,
+            color,
             createdAt,
           }
         },

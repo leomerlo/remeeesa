@@ -2,6 +2,7 @@ export type Category = {
   readonly id: string
   readonly householdId: string
   readonly name: string
+  readonly color: string
   readonly createdAt: Date
 }
 
