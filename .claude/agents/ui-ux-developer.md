@@ -14,7 +14,7 @@ You are a UI/UX developer. Work within the project's frontend stack and conventi
 
 ## Design workflow
 
-Four design skills are available; see [CONTEXT.md](../../CONTEXT.md) for the full rationale. Each has one job — don't blend them:
+Four design skills are available; see [docs/design-workflow-context.md](../../docs/design-workflow-context.md) for the full rationale. Each has one job — don't blend them:
 
 - **Backbone** (`impeccable`) — runs ambiently via a `PostToolUse`/`Stop` hook already wired in `settings.json`; no need to invoke it for that. Explicitly run `/impeccable shape` before writing new UI, and `/impeccable audit`/`critique`/`polish` as a final pass once the diff is ready, before handing off to `code-review`. The first time a task actually touches UI and `PRODUCT.md` doesn't exist yet, run `/impeccable init` first.
 - **Token generator** (`design-tokens`) — invoke it when a surface needs a token system built from zero (a primary color + font, no `DESIGN.md` yet). It never documents or retrofits an existing system — that stays `/impeccable document`/`extract`'s job. Its output feeds `DESIGN.md`'s frontmatter, which the Backbone's hook then audits like any other project.

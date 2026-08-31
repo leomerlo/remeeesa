@@ -44,7 +44,7 @@ Run the typecheck and test commands before considering a change done. Wire them 
 - `implement-feat` — work every subtask of a parent/feature issue in dependency order via `work-issue`, merging into a shared feature branch
 - `sync-project-info` — re-scan the codebase and refresh this file's Description/Technologies (e.g. after copying an existing app into the template)
 - `prepare-release` — produce a manual test checklist for a release: fixed smoke tests plus feature tests derived from the diff between the release branches above
-- `impeccable`, `design-tokens`, `animate`, `apple-design` — design workflow for UI work inside `work-issue`; see [CONTEXT.md](CONTEXT.md) and `.claude/agents/ui-ux-developer.md` for how they fit together
+- `impeccable`, `design-tokens`, `animate`, `apple-design` — design workflow for UI work inside `work-issue`; see [docs/design-workflow-context.md](docs/design-workflow-context.md) and `.claude/agents/ui-ux-developer.md` for how they fit together
 
 ## Agents
 
