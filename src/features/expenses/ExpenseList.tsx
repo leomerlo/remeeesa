@@ -10,6 +10,7 @@ import {
 } from '@/lib/expenses'
 import type { Expense } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
+import { EmptyExpensesIllustration } from './EmptyExpensesIllustration'
 import { expenseListQueryKey, expensesInMonthQueryKey } from './queryKeys'
 
 export type ExpenseListProps = {
@@ -177,6 +178,7 @@ export function ExpenseList({
             {deleteError}
           </p>
         ) : null}
+        <EmptyExpensesIllustration className="mx-auto h-32 w-40" />
         <p role="status" className="text-sm font-medium">
           No expenses this month
         </p>

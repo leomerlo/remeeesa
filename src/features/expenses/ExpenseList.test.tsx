@@ -41,12 +41,15 @@ describe('ExpenseList', () => {
       monthlyBudget: 100,
     })
 
-    renderWithProviders(<ExpenseList db={db} householdId={household.id} />)
+    const { container } = renderWithProviders(
+      <ExpenseList db={db} householdId={household.id} />,
+    )
 
     expect(
       await screen.findByText('No expenses this month'),
     ).toBeInTheDocument()
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
+    expect(container.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
   })
 
   it("lists this month's expenses with name, price, category, date, and author", async () => {
