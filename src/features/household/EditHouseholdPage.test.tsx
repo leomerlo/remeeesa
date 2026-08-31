@@ -3,6 +3,7 @@ import type { ReactElement } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { createHouseholdWithMembership } from '@/lib/households'
+import { createFirebaseStub } from '@/test/firebaseStub'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { EditHouseholdPage } from './EditHouseholdPage'
@@ -23,6 +24,45 @@ function renderEditPage(
 }
 
 describe('EditHouseholdPage', () => {
+  it('shows a loading status while resolving the session user', () => {
+    const client = createFirebaseStub({
+      auth: {
+        currentUser: null,
+        authStateReady: () => new Promise(() => {}),
+        onAuthStateChanged: () => () => {},
+      },
+    })
+
+    renderEditPage(
+      <EditHouseholdPage
+        householdsDb={createMemoryHouseholdsDb().asUser('user-1')}
+      />,
+      { client },
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent('Loading…')
+  })
+
+  it('shows a loading status before membership resolves', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderEditPage(
+      <EditHouseholdPage currentUserId="user-1" householdsDb={db} />,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent('Loading…')
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Household name')).toHaveValue('Casa Verde')
+    })
+  })
+
   it('shows name, budget, participants, and invite controls', async () => {
     const store = createMemoryHouseholdsDb()
     const db = store.asUser('user-1')

@@ -27,6 +27,20 @@ async function seedHousehold(monthlyBudget: number) {
 }
 
 describe('RemainingBudgetDisplay', () => {
+  it('shows a loading status before household and expenses resolve', async () => {
+    const { db, household } = await seedHousehold(100)
+
+    renderWithProviders(
+      <RemainingBudgetDisplay db={db} householdId={household.id} />,
+    )
+
+    expect(screen.getByRole('status')).toHaveTextContent('Loading…')
+
+    expect(
+      await screen.findByRole('status', { name: 'Remaining budget $100' }),
+    ).toHaveTextContent('$100')
+  })
+
   it('shows the monthly budget when there are no expenses this month', async () => {
     const { db, household } = await seedHousehold(100)
 
