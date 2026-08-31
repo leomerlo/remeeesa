@@ -130,7 +130,10 @@ describe('firestore.rules categories', () => {
   it('lets members create categories and founders seed them with the household', () => {
     expect(rules).toContain('function isValidCategory(data)')
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'name', 'created_at'])",
+      "data.keys().hasOnly(['household_id', 'name', 'color', 'created_at'])",
+    )
+    expect(rules).toContain(
+      "data.color.matches('^#[0-9a-fA-F]{6}$')",
     )
     expect(rules).toContain('function canWriteCategoryFor(householdId)')
     expect(rules).toContain(

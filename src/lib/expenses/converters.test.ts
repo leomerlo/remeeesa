@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { colorForCategoryName } from './categoryColor'
 import {
   categoryToDocument,
   expenseToDocument,
@@ -15,6 +16,7 @@ describe('parseCategoryDocument', () => {
         data: {
           household_id: 'h1',
           name: 'Comida',
+          color: '#7b5cfa',
           created_at: new Date('2026-01-15T12:00:00.000Z'),
         },
       }),
@@ -22,6 +24,7 @@ describe('parseCategoryDocument', () => {
       id: 'c1',
       householdId: 'h1',
       name: 'Comida',
+      color: '#7b5cfa',
       createdAt: new Date('2026-01-15T12:00:00.000Z'),
     })
   })
@@ -34,6 +37,7 @@ describe('parseCategoryDocument', () => {
         data: {
           household_id: 'h1',
           name: 'Comida',
+          color: '#7b5cfa',
           created_at: { toDate: () => createdAt },
         },
       }).createdAt,
@@ -47,10 +51,73 @@ describe('parseCategoryDocument', () => {
         data: {
           household_id: 'h1',
           name: '   ',
+          color: '#7b5cfa',
           created_at: new Date('2026-01-15T12:00:00.000Z'),
         },
       }),
     ).toThrow('Category name must be non-empty')
+  })
+
+  // Categories created before `color` existed on the schema have no stored
+  // value for it in Firestore. Falling back to the same hash used at
+  // creation time (rather than rejecting the document) keeps existing
+  // households' categories loadable without a migration step.
+  it('falls back to the computed color for a category with no stored color (legacy document)', () => {
+    const expected = colorForCategoryName('Comida')
+
+    expect(
+      parseCategoryDocument({
+        id: 'c1',
+        data: {
+          household_id: 'h1',
+          name: 'Comida',
+          color: '',
+          created_at: new Date('2026-01-15T12:00:00.000Z'),
+        },
+      }).color,
+    ).toBe(expected)
+
+    expect(
+      parseCategoryDocument({
+        id: 'c1',
+        data: {
+          household_id: 'h1',
+          name: 'Comida',
+          created_at: new Date('2026-01-15T12:00:00.000Z'),
+        },
+      }).color,
+    ).toBe(expected)
+
+    expect(
+      parseCategoryDocument({
+        id: 'c1',
+        data: {
+          household_id: 'h1',
+          name: 'Comida',
+          color: 12345,
+          created_at: new Date('2026-01-15T12:00:00.000Z'),
+        },
+      }).color,
+    ).toBe(expected)
+  })
+
+  // parseCategoryDocument intentionally does NOT validate the hex format of
+  // `color` (only that it's a non-empty string) — the '^#[0-9a-fA-F]{6}$'
+  // shape is enforced by the Firestore security rule (isValidCategory) on
+  // write, not by this client-side read parser. This test documents that
+  // boundary so it isn't mistaken for a bug.
+  it('accepts a non-hex color string, since hex format is only enforced by Firestore rules', () => {
+    expect(
+      parseCategoryDocument({
+        id: 'c1',
+        data: {
+          household_id: 'h1',
+          name: 'Comida',
+          color: 'not-a-hex-color',
+          created_at: new Date('2026-01-15T12:00:00.000Z'),
+        },
+      }).color,
+    ).toBe('not-a-hex-color')
   })
 })
 
@@ -113,11 +180,13 @@ describe('toDocument converters', () => {
       categoryToDocument({
         householdId: 'h1',
         name: 'Comida',
+        color: '#7b5cfa',
         createdAt,
       }),
     ).toEqual({
       household_id: 'h1',
       name: 'Comida',
+      color: '#7b5cfa',
       created_at: createdAt,
     })
   })

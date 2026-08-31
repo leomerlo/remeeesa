@@ -1,4 +1,5 @@
 import { Timestamp } from 'firebase/firestore'
+import { colorForCategoryName } from './categoryColor'
 import type { Category, Expense } from './types'
 import {
   parseCategoryName,
@@ -50,15 +51,27 @@ export function parseCategoryDocument(input: {
     throw new Error('Category document must be an object')
   }
 
-  const { household_id, name, created_at } = input.data
+  const { household_id, name, color, created_at } = input.data
   if (typeof name !== 'string') {
     throw new Error('Category name must be a string')
   }
 
+  const parsedName = parseCategoryName(name)
+  // Legacy categories created before this field existed have no stored color.
+  // Fall back to computing it from the name (same rule as creation) instead
+  // of rejecting the document -- this repo has real household data
+  // predating this field. The computed value is not written back here; it's
+  // only ever persisted the next time the category is actually written.
+  const parsedColor =
+    typeof color === 'string' && color.trim() !== ''
+      ? color
+      : colorForCategoryName(parsedName)
+
   return {
     id: input.id,
     householdId: parseRequiredString(household_id, 'household_id'),
-    name: parseCategoryName(name),
+    name: parsedName,
+    color: parsedColor,
     createdAt: parseTimestamp(created_at, 'created_at'),
   }
 }
@@ -66,15 +79,18 @@ export function parseCategoryDocument(input: {
 export function categoryToDocument(input: {
   readonly householdId: string
   readonly name: string
+  readonly color: string
   readonly createdAt: Date
 }): {
   readonly household_id: string
   readonly name: string
+  readonly color: string
   readonly created_at: Date
 } {
   return {
     household_id: input.householdId,
     name: input.name,
+    color: input.color,
     created_at: input.createdAt,
   }
 }

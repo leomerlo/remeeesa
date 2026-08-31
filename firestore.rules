@@ -54,12 +54,14 @@ service cloud.firestore {
     }
 
     function isValidCategory(data) {
-      return data.keys().hasOnly(['household_id', 'name', 'created_at'])
+      return data.keys().hasOnly(['household_id', 'name', 'color', 'created_at'])
         && data.household_id is string
         && data.household_id.size() > 0
         && data.name is string
         && data.name.size() > 0
         && data.name.matches('.*\\S.*')
+        && data.color is string
+        && data.color.matches('^#[0-9a-fA-F]{6}$')
         && data.created_at is timestamp;
     }
 
