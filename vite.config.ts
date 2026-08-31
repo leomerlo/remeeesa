@@ -13,5 +13,10 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: './src/vitest.setup.ts',
+    // Scope to the app's own tests. Without this, Vitest's default *.test.*
+    // glob also picks up test files bundled with .claude/ skills (e.g.
+    // design-tokens' generate-scale.test.mjs, written for Node's test
+    // runner, not Vitest), which fails with "No test suite found".
+    include: ['src/**/*.test.{ts,tsx}'],
   },
 })
