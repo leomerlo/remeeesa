@@ -1,3 +1,4 @@
+import type { Cuenta } from '@/lib/cuentas/types'
 import type { Category, Expense } from '@/lib/expenses/types'
 
 export type HouseholdDraft = {
@@ -100,4 +101,18 @@ export type HouseholdsDb = {
     readonly householdId: string
     readonly expenseId: string
   }): Promise<void>
+  createCuenta(input: {
+    readonly householdId: string
+    readonly categoryId: string
+    readonly name: string
+    readonly dueDate: Date
+    readonly expectedAmount: number | null
+  }): Promise<Cuenta>
+  getCuenta(input: {
+    readonly householdId: string
+    readonly cuentaId: string
+  }): Promise<Cuenta | null>
+  listPendingCuentas(input: {
+    readonly householdId: string
+  }): Promise<readonly Cuenta[]>
 }

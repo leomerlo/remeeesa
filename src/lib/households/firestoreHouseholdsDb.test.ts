@@ -199,10 +199,76 @@ describe('firestore.rules expenses', () => {
   })
 })
 
+describe('firestore.rules cuentas', () => {
+  it('lets only household members read cuentas', () => {
+    expect(rules).toMatch(
+      /match \/cuentas\/\{cuentaId\}[\s\S]*allow read: if isMemberOf\(resource\.data\.household_id\);/,
+    )
+  })
+
+  it('requires the exact field set and a category belonging to the same household', () => {
+    expect(rules).toContain('function isValidCuenta(data)')
+    expect(rules).toContain(
+      "data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'status', 'paid_expense_id', 'created_at'])",
+    )
+    expect(rules).toContain('data.due_date is timestamp')
+    expect(rules).toContain(
+      'data.expected_amount == null || (data.expected_amount is number && data.expected_amount > 0)',
+    )
+    expect(rules).toContain('data.recurring is bool')
+    expect(rules).toContain(
+      'exists(/databases/$(database)/documents/categories/$(data.category_id))',
+    )
+    expect(rules).toContain(
+      'get(/databases/$(database)/documents/categories/$(data.category_id)).data.household_id == data.household_id',
+    )
+  })
+
+  it('requires household_id and category_id to be non-empty strings', () => {
+    expect(rules).toMatch(
+      /function isValidCuenta\(data\) \{[\s\S]*?data\.household_id is string[\s\S]*?data\.household_id\.size\(\) > 0/,
+    )
+    expect(rules).toMatch(
+      /function isValidCuenta\(data\) \{[\s\S]*?data\.category_id is string[\s\S]*?data\.category_id\.size\(\) > 0/,
+    )
+  })
+
+  it('requires a non-blank name', () => {
+    expect(rules).toMatch(
+      /function isValidCuenta\(data\) \{[\s\S]*?data\.name is string[\s\S]*?data\.name\.size\(\) > 0[\s\S]*?data\.name\.matches\('\.\*\\\\S\.\*'\)/,
+    )
+  })
+
+  it('blocks creating a cuenta with any status other than pending', () => {
+    expect(rules).toContain("data.status == 'pending'")
+  })
+
+  it('blocks creating a cuenta with a non-null paid_expense_id', () => {
+    expect(rules).toContain('data.paid_expense_id == null')
+  })
+
+  it('lets members create cuentas and closes update and delete', () => {
+    expect(rules).toMatch(
+      /match \/cuentas\/\{cuentaId\}[\s\S]*allow create: if isMemberOf\(request\.resource\.data\.household_id\)\s*&& isValidCuenta\(request\.resource\.data\);/,
+    )
+    expect(rules).toMatch(
+      /match \/cuentas\/\{cuentaId\}[\s\S]*allow update, delete: if false;/,
+    )
+  })
+})
+
 describe('listRecentExpenses adapter', () => {
   it('scopes to the household, orders newest expense_date first with created_at as tiebreaker, and applies the caller limit', () => {
     expect(adapterSource).toMatch(
       /async listRecentExpenses\(input\) \{[\s\S]*?where\('household_id', '==', input\.householdId\),[\s\S]*?orderBy\('expense_date', 'desc'\),[\s\S]*?orderBy\('created_at', 'desc'\),[\s\S]*?limit\(input\.limit\),[\s\S]*?\}/,
+    )
+  })
+})
+
+describe('listPendingCuentas adapter', () => {
+  it('scopes to the household, filters to pending status, and orders by due date ascending -- matching the household_id+status+due_date composite index', () => {
+    expect(adapterSource).toMatch(
+      /async listPendingCuentas\(input\) \{[\s\S]*?where\('household_id', '==', input\.householdId\),[\s\S]*?where\('status', '==', 'pending'\),[\s\S]*?orderBy\('due_date', 'asc'\),[\s\S]*?\}/,
     )
   })
 })

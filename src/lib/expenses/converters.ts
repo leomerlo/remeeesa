@@ -1,4 +1,9 @@
 import { Timestamp } from 'firebase/firestore'
+import {
+  isRecord,
+  parseRequiredString,
+  parseTimestamp,
+} from '@/lib/firestore/documentParsing'
 import { colorForCategoryName } from './categoryColor'
 import type { Category, Expense } from './types'
 import {
@@ -6,39 +11,6 @@ import {
   parseExpenseName,
   parseExpensePrice,
 } from './validate'
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function hasToDate(value: unknown): value is { toDate: () => unknown } {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'toDate' in value &&
-    typeof value.toDate === 'function'
-  )
-}
-
-function parseTimestamp(value: unknown, field: string): Date {
-  if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return value
-  }
-  if (hasToDate(value)) {
-    const date = value.toDate()
-    if (date instanceof Date && !Number.isNaN(date.getTime())) {
-      return date
-    }
-  }
-  throw new Error(`${field} must be a timestamp`)
-}
-
-function parseRequiredString(value: unknown, field: string): string {
-  if (typeof value !== 'string' || value.trim() === '') {
-    throw new Error(`${field} must be a non-empty string`)
-  }
-  return value
-}
 
 export function parseCategoryDocument(input: {
   readonly id: string

@@ -1,3 +1,4 @@
+import type { Cuenta } from '@/lib/cuentas/types'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
 import { ExpenseNotFoundError } from '@/lib/expenses/expenses'
@@ -36,6 +37,7 @@ type MemoryState = {
   invites: Map<string, InviteRecord>
   categories: Map<string, Category>
   expenses: Map<string, Expense>
+  cuentas: Map<string, Cuenta>
 }
 
 function toHousehold(id: string, record: HouseholdRecord): Household {
@@ -374,6 +376,54 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       }
       state.expenses.delete(input.expenseId)
     },
+    async createCuenta(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const category = state.categories.get(input.categoryId)
+      if (
+        category === undefined ||
+        category.householdId !== input.householdId
+      ) {
+        throw new Error('Category not found')
+      }
+      const cuenta: Cuenta = {
+        id: crypto.randomUUID(),
+        householdId: input.householdId,
+        categoryId: input.categoryId,
+        name: input.name,
+        dueDate: input.dueDate,
+        expectedAmount: input.expectedAmount,
+        recurring: false,
+        status: 'pending',
+        paidExpenseId: null,
+        createdAt: new Date(),
+      }
+      state.cuentas.set(cuenta.id, cuenta)
+      return cuenta
+    },
+    async getCuenta(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const cuenta = state.cuentas.get(input.cuentaId)
+      if (cuenta === undefined || cuenta.householdId !== input.householdId) {
+        return null
+      }
+      return cuenta
+    },
+    async listPendingCuentas(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const cuentas: Cuenta[] = []
+      for (const cuenta of state.cuentas.values()) {
+        if (
+          cuenta.householdId === input.householdId &&
+          cuenta.status === 'pending'
+        ) {
+          cuentas.push(cuenta)
+        }
+      }
+      cuentas.sort(
+        (left, right) => left.dueDate.getTime() - right.dueDate.getTime(),
+      )
+      return cuentas
+    },
   }
 }
 
@@ -387,6 +437,7 @@ export function createMemoryHouseholdsDb(): {
     readonly userId: string
     readonly householdId: string
   }): void
+  seedCuenta(cuenta: Cuenta): void
 } {
   const state: MemoryState = {
     households: new Map(),
@@ -394,6 +445,7 @@ export function createMemoryHouseholdsDb(): {
     invites: new Map(),
     categories: new Map(),
     expenses: new Map(),
+    cuentas: new Map(),
   }
 
   return {
@@ -417,6 +469,12 @@ export function createMemoryHouseholdsDb(): {
         householdId: input.householdId,
         joinedAt: new Date(),
       })
+    },
+    // Test-only escape hatch: createCuenta always writes status 'pending',
+    // so this is the only way to get a 'paid' cuenta into the store to
+    // verify listPendingCuentas filters it out.
+    seedCuenta(cuenta) {
+      state.cuentas.set(cuenta.id, cuenta)
     },
   }
 }
