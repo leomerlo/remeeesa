@@ -171,7 +171,7 @@ export function SignupForm({
             </p>
           ) : null}
 
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending} className="w-full">
             {submitLabel}
           </Button>
         </form>

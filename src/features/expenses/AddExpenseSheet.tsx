@@ -30,33 +30,24 @@ export function AddExpenseSheet({
 }: AddExpenseSheetProps): ReactElement {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const wasOpenRef = useRef(open)
+  const isEditing = editExpense !== null
+  // Editing now shares the exact same sheet as adding -- tapping a row
+  // (which sets editExpense, not `open`) opens it too, instead of the old
+  // behavior where editing bypassed the sheet and rendered the form
+  // awkwardly inline on the page.
+  const sheetOpen = open || isEditing
+  const wasOpenRef = useRef(sheetOpen)
 
   // Radix restores focus to its own Dialog.Trigger on close, but the trigger
   // here unmounts entirely while the sheet is open (see below), so there's
   // no trigger ref for Radix to hand focus back to -- restore it manually
   // once the trigger has remounted.
   useEffect(() => {
-    if (wasOpenRef.current && !open) {
+    if (wasOpenRef.current && !sheetOpen) {
       triggerRef.current?.focus()
     }
-    wasOpenRef.current = open
-  }, [open])
-
-  if (editExpense !== null) {
-    // Deliberately left bypassing the sheet -- routing the edit flow through
-    // the same <Sheet> is a separate later issue (#71).
-    return (
-      <AddExpenseForm
-        db={db}
-        householdId={householdId}
-        memberId={memberId}
-        authorDisplayName={authorDisplayName}
-        editExpense={editExpense}
-        onEditFinished={onEditFinished}
-      />
-    )
-  }
+    wasOpenRef.current = sheetOpen
+  }, [sheetOpen])
 
   function handleOpenChange(next: boolean): void {
     // A submit already in flight must resolve inside the still-mounted
@@ -67,12 +58,18 @@ export function AddExpenseSheet({
     if (!next && isSubmitting) {
       return
     }
+    if (isEditing) {
+      if (!next) {
+        onEditFinished?.()
+      }
+      return
+    }
     onOpenChange(next)
   }
 
   return (
     <>
-      {!open ? (
+      {!sheetOpen ? (
         <Button
           ref={triggerRef}
           className="flex-1 gap-1.5"
@@ -84,12 +81,18 @@ export function AddExpenseSheet({
           Agregar gasto
         </Button>
       ) : null}
-      <Sheet open={open} onOpenChange={handleOpenChange} title="Agregar gasto">
+      <Sheet
+        open={sheetOpen}
+        onOpenChange={handleOpenChange}
+        title={isEditing ? 'Editar gasto' : 'Agregar gasto'}
+      >
         <AddExpenseForm
           db={db}
           householdId={householdId}
           memberId={memberId}
           authorDisplayName={authorDisplayName}
+          editExpense={editExpense}
+          onEditFinished={onEditFinished}
           onAdded={() => {
             onOpenChange(false)
           }}

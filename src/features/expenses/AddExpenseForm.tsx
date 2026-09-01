@@ -419,10 +419,11 @@ function ExpenseFormBody({
           <p id="delete-expense-title" className="text-sm font-medium">
             ¿Eliminar el gasto?
           </p>
-          <div className="flex gap-2">
+          <div className="flex w-full gap-2">
             <Button
               type="button"
               variant="outline"
+              className="flex-1"
               disabled={deleteMutation.isPending}
               onClick={() => {
                 setConfirmingDelete(false)
@@ -432,6 +433,7 @@ function ExpenseFormBody({
             </Button>
             <Button
               type="button"
+              className="flex-1"
               disabled={deleteMutation.isPending}
               onClick={() => {
                 deleteMutation.mutate()
@@ -443,7 +445,11 @@ function ExpenseFormBody({
         </div>
       ) : (
         <div className="flex w-full flex-col items-center gap-2">
-          <Button type="submit" disabled={mutation.isPending}>
+          <Button
+            type="submit"
+            disabled={mutation.isPending}
+            className="w-full"
+          >
             {isEditing ? 'Guardar cambios' : 'Agregar gasto'}
           </Button>
           {isEditing ? (
@@ -452,6 +458,7 @@ function ExpenseFormBody({
                 type="button"
                 variant="outline"
                 disabled={mutation.isPending}
+                className="w-full"
                 onClick={() => {
                   setError(null)
                   onEditFinished?.()

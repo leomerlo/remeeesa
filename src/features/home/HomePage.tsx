@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
-import { Link } from 'react-router-dom'
-import { Settings, Wallet } from 'lucide-react'
+import { Wallet } from 'lucide-react'
 import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import {
@@ -188,16 +187,10 @@ export function HomePage({
 
   return (
     <div className="flex w-full flex-col items-center gap-8">
-      <PageHeader
-        title={household?.name ?? 'Hogar'}
-        action={
-          <Button variant="ghost" size="icon" asChild aria-label="Ajustes">
-            <Link to="/household">
-              <Settings aria-hidden="true" />
-            </Link>
-          </Button>
-        }
-      />
+      {/* No settings shortcut here: Ajustes is already one tap away in the
+          bottom nav, so a second icon-link to the same destination is
+          redundant. */}
+      <PageHeader title={household?.name ?? 'Hogar'} />
       <RemainingBudgetDisplay db={db} householdId={membership.householdId} />
       <div className="flex w-full gap-3">
         <AddExpenseSheet

@@ -130,7 +130,9 @@ export function EditHouseholdForm({
         </p>
       ) : null}
 
-      <Button type="submit">Guardar</Button>
+      <Button type="submit" className="w-full">
+        Guardar
+      </Button>
     </form>
   )
 }

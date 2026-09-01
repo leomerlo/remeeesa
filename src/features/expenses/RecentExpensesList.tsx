@@ -130,6 +130,8 @@ export function RecentExpensesList({
                 <span>{categoryName}</span>
                 <span aria-hidden="true">·</span>
                 <span>{formatExpenseDate(expense.expenseDate)}</span>
+                <span aria-hidden="true">·</span>
+                <span>{expense.authorDisplayName}</span>
               </div>
             </div>
           </>

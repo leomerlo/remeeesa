@@ -47,7 +47,7 @@ describe('RecentExpensesList', () => {
     expect(container.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
   })
 
-  it('lists recent expenses with name, price, category and date, newest first', async () => {
+  it('lists recent expenses with name, price, category, date, and author, newest first', async () => {
     const realNow = new Date()
     const fixedNow = new Date(
       realNow.getFullYear(),
@@ -117,10 +117,12 @@ describe('RecentExpensesList', () => {
       expect(rows[0]).toHaveTextContent('$8,25')
       expect(rows[0]).toHaveTextContent('Transporte')
       expect(rows[0]).toHaveTextContent(formatExpenseDate(laterDate))
+      expect(rows[0]).toHaveTextContent('Bob')
       expect(rows[1]).toHaveTextContent('Pizza')
       expect(rows[1]).toHaveTextContent('$12,50')
       expect(rows[1]).toHaveTextContent('Comida')
       expect(rows[1]).toHaveTextContent(formatExpenseDate(earlierDate))
+      expect(rows[1]).toHaveTextContent('Ada')
       expect(
         screen.queryByText('Todavía no hay gastos'),
       ).not.toBeInTheDocument()
@@ -201,7 +203,7 @@ describe('RecentExpensesList', () => {
     expect(rows).toHaveLength(10)
   })
 
-  it('still shows an expense after its author leaves the household', async () => {
+  it('shows the stored author display name after the author leaves the household', async () => {
     const store = createMemoryHouseholdsDb()
     const authorDb = store.asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -243,6 +245,7 @@ describe('RecentExpensesList', () => {
     const row = await screen.findByRole('listitem')
     expect(row).toHaveTextContent('Pizza')
     expect(row).toHaveTextContent('$12,50')
+    expect(row).toHaveTextContent('Ada')
   })
 
   // Matches the approved comp: rows are plain, buttonless cards -- tapping

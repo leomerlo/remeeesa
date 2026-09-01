@@ -204,7 +204,7 @@ export function JoinHouseholdPage({
             </p>
           ) : null}
 
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending} className="w-full">
             Crear cuenta
           </Button>
         </form>
