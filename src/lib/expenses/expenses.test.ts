@@ -768,6 +768,7 @@ describe('updateExpense author display name', () => {
       categoryId: comida.id,
       comments: 'extra cheese',
       expenseDate: new Date(2026, 7, 16),
+      now: augustNow,
     })
 
     expect(updated.authorDisplayName).toBe('Ada')
