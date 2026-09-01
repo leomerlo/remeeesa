@@ -114,7 +114,7 @@ export function AppShell({
       {showNav ? (
         <nav
           aria-label="Navegación principal"
-          className="bg-card shadow-raised fixed inset-x-0 bottom-0 z-30 mx-auto max-w-sm rounded-t-3xl"
+          className="bg-card shadow-raised fixed inset-x-0 bottom-0 z-30 mx-auto max-w-md rounded-t-3xl sm:max-w-lg"
         >
           <ul className="flex items-stretch justify-around">
             {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (

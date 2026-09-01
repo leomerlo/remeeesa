@@ -56,18 +56,20 @@ export function RemainingBudgetDisplay({
   const percentUsed = computePercentUsed(household.monthlyBudget, expenses)
 
   return (
-    <div className="from-primary to-[var(--surface-action-gradient-end)] flex w-full flex-col items-center gap-4 rounded-3xl bg-gradient-to-br p-8">
-      <PiggyBankIllustration className="h-24 w-28" />
-      <span className="text-primary-foreground text-body font-medium [text-shadow:0_1px_3px_rgba(0,0,0,0.35)]">
-        Presupuesto restante
-      </span>
-      <p
-        role="status"
-        aria-label={`Presupuesto restante ${formattedRemaining}`}
-        className="text-primary-foreground font-display text-display tracking-tight [text-shadow:0_1px_4px_rgba(0,0,0,0.35)]"
-      >
-        {formattedRemaining}
-      </p>
+    <div className="from-primary to-[var(--surface-action-gradient-end)] relative flex w-full flex-col gap-6 overflow-hidden rounded-3xl bg-gradient-to-br p-6">
+      <PiggyBankIllustration className="pointer-events-none absolute -top-2 right-2 h-24 w-28" />
+      <div className="flex flex-col gap-2 pr-20">
+        <span className="text-primary-foreground text-body font-medium [text-shadow:0_1px_3px_rgba(0,0,0,0.35)]">
+          Presupuesto restante
+        </span>
+        <p
+          role="status"
+          aria-label={`Presupuesto restante ${formattedRemaining}`}
+          className="text-primary-foreground font-display text-display tracking-tight [text-shadow:0_1px_4px_rgba(0,0,0,0.35)]"
+        >
+          {formattedRemaining}
+        </p>
+      </div>
       <div className="flex w-full flex-col gap-1">
         <div
           role="progressbar"

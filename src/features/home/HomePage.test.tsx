@@ -116,9 +116,7 @@ describe('HomePage', () => {
     expect(screen.getAllByText('Todavía no hay gastos este mes')).toHaveLength(
       2,
     )
-    expect(
-      screen.queryByRole('button', { name: 'Nueva cuenta' }),
-    ).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Nueva cuenta' })).toBeDisabled()
     expect(screen.queryByText('Por pagar')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Precio')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Categoría')).not.toBeInTheDocument()

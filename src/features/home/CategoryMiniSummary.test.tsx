@@ -1,7 +1,11 @@
 import { QueryClient } from '@tanstack/react-query'
 import { screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { createExpense, findOrCreateCategory, listCategories } from '@/lib/expenses'
+import {
+  createExpense,
+  findOrCreateCategory,
+  listCategories,
+} from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
@@ -105,9 +109,9 @@ describe('CategoryMiniSummary', () => {
     const items = within(list).getAllByRole('listitem')
     expect(items).toHaveLength(2)
     expect(items[0]).toHaveTextContent('Comida')
-    expect(items[0]).toHaveTextContent('40.00')
+    expect(items[0]).toHaveTextContent('$40,00')
     expect(items[1]).toHaveTextContent('Transporte')
-    expect(items[1]).toHaveTextContent('8.00')
+    expect(items[1]).toHaveTextContent('$8,00')
     const swatch = items[0]?.querySelector('[data-testid="category-swatch"]')
     expect(swatch).toHaveStyle({ backgroundColor: comida.color })
   })

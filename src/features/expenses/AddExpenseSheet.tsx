@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
+import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet } from '@/components/ui/sheet'
 import type { HouseholdsDb } from '@/lib/households'
@@ -74,10 +75,12 @@ export function AddExpenseSheet({
       {!open ? (
         <Button
           ref={triggerRef}
+          className="flex-1 gap-1.5"
           onClick={() => {
             onOpenChange(true)
           }}
         >
+          <Plus aria-hidden="true" />
           Agregar gasto
         </Button>
       ) : null}

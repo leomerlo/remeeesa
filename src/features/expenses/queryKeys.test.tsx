@@ -1,11 +1,15 @@
 import { QueryClient } from '@tanstack/react-query'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { useState } from 'react'
+import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
 import { createExpense, listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
+import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { AddExpenseForm } from './AddExpenseForm'
+import type { EditExpenseTarget } from './AddExpenseForm'
 import {
   categoriesQueryKey,
   expensesInMonthQueryKey,
@@ -14,6 +18,47 @@ import {
 } from './queryKeys'
 import { RecentExpensesList } from './RecentExpensesList'
 import { RemainingBudgetDisplay } from './RemainingBudgetDisplay'
+
+// Wires RecentExpensesList's tap-to-edit row into AddExpenseForm's edit
+// mode, the same pairing HomePage does -- delete now lives inside the edit
+// form (see AddExpenseForm.tsx), not on the row itself.
+function RecentExpensesListWithEdit(props: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly memberId: string
+  readonly authorDisplayName: string
+}): ReactElement {
+  const [editExpense, setEditExpense] = useState<EditExpenseTarget | null>(null)
+
+  return (
+    <>
+      <AddExpenseForm
+        db={props.db}
+        householdId={props.householdId}
+        memberId={props.memberId}
+        authorDisplayName={props.authorDisplayName}
+        editExpense={editExpense}
+        onEditFinished={() => {
+          setEditExpense(null)
+        }}
+      />
+      <RecentExpensesList
+        db={props.db}
+        householdId={props.householdId}
+        onEditExpense={(expense, categoryName) => {
+          setEditExpense({
+            expenseId: expense.id,
+            name: expense.name,
+            price: expense.price,
+            categoryName,
+            comments: expense.comments,
+            expenseDate: expense.expenseDate,
+          })
+        }}
+      />
+    </>
+  )
+}
 
 describe('expense query keys', () => {
   it('scopes categories to the household', () => {
@@ -110,13 +155,14 @@ describe('expenses prefix invalidation', () => {
     expect(screen.queryByText('Todavía no hay gastos')).not.toBeInTheDocument()
   })
 
-  // RecentExpensesList's delete mutation invalidates only expensesQueryKey,
-  // a sibling prefix to categoriesQueryKey -- not an ancestor of it -- so it
-  // must not touch the categories cache another consumer (AddExpenseForm)
-  // depends on. This is the actual behavior read from the implementation,
-  // not an assumption: contrast with AddExpenseForm's own mutation, which
-  // deliberately invalidates categoriesQueryKey too because it can create a
-  // category via findOrCreateCategory.
+  // AddExpenseForm's delete mutation (reached by tapping a row open, then
+  // "Eliminar gasto") invalidates only expensesQueryKey, a sibling prefix to
+  // categoriesQueryKey -- not an ancestor of it -- so it must not touch the
+  // categories cache. This is the actual behavior read from the
+  // implementation, not an assumption: contrast with the same form's
+  // add/edit mutation, which deliberately invalidates categoriesQueryKey too
+  // because it can create a category via findOrCreateCategory, something a
+  // delete can never do.
   it('does not invalidate the categories cache when an expense is deleted', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -147,15 +193,12 @@ describe('expenses prefix invalidation', () => {
     })
 
     renderWithProviders(
-      <>
-        <AddExpenseForm
-          db={db}
-          householdId={household.id}
-          memberId="user-1"
-          authorDisplayName="Ada"
-        />
-        <RecentExpensesList db={db} householdId={household.id} />
-      </>,
+      <RecentExpensesListWithEdit
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
       { queryClient },
     )
 
@@ -171,10 +214,10 @@ describe('expenses prefix invalidation', () => {
       categoriesQueryKey({ householdId: household.id }),
     )?.dataUpdatedAt
 
+    fireEvent.click(screen.getByRole('button', { name: 'Editar Pizza' }))
     fireEvent.click(
-      screen.getByRole('button', { name: 'Más acciones para Pizza' }),
+      await screen.findByRole('button', { name: 'Eliminar gasto' }),
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Eliminar Pizza' }))
     fireEvent.click(
       within(screen.getByRole('alertdialog')).getByRole('button', {
         name: 'Eliminar gasto',

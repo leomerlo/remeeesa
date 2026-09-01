@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { CategoryCombobox } from './CategoryCombobox'
 import {
   createExpense,
+  deleteExpense,
   ExpenseNotFoundError,
   findOrCreateCategory,
   listCategories,
@@ -171,6 +172,7 @@ function ExpenseFormBody({
   const [comments, setComments] = useState(initialFields.comments)
   const [date, setDate] = useState(initialFields.date)
   const [error, setError] = useState<string | null>(null)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const today = localDateInputValue(new Date())
 
   async function invalidateExpenseViews(): Promise<void> {
@@ -234,12 +236,52 @@ function ExpenseFormBody({
     },
   })
 
+  // Deleting lives here (inside the edit form) rather than on the
+  // "Últimos movimientos" row itself -- the approved comp shows those rows
+  // as plain, buttonless cards, so the only affordance left on a row is
+  // tapping it open to edit.
+  //
+  // Invalidates only expensesKey, not categoriesKey (unlike the save
+  // mutation above) -- deleting can never create a category, only
+  // findOrCreateCategory (used by add/edit) can, so there's nothing on the
+  // categories cache a delete would ever need to refresh.
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (editExpense === null) {
+        throw new Error('No hay un gasto para eliminar')
+      }
+      await deleteExpense({
+        db,
+        householdId,
+        expenseId: editExpense.expenseId,
+      })
+    },
+    onSuccess: async () => {
+      setConfirmingDelete(false)
+      onEditFinished?.()
+      await queryClient.invalidateQueries({ queryKey: expensesKey })
+    },
+    onError: async (caught) => {
+      setConfirmingDelete(false)
+      if (caught instanceof ExpenseNotFoundError) {
+        setError('Este gasto ya no existe')
+        await queryClient.invalidateQueries({ queryKey: expensesKey })
+        return
+      }
+      const message =
+        caught instanceof Error
+          ? caught.message
+          : 'No se pudo eliminar el gasto'
+      setError(message)
+    },
+  })
+
   // Lets a container (e.g. AddExpenseSheet) keep the form mounted while a
   // submit is in flight, so a dismiss can't abandon a pending mutation and
   // silently swallow its result.
   useEffect(() => {
-    onPendingChange?.(mutation.isPending)
-  }, [mutation.isPending, onPendingChange])
+    onPendingChange?.(mutation.isPending || deleteMutation.isPending)
+  }, [mutation.isPending, deleteMutation.isPending, onPendingChange])
 
   function onSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault()
@@ -368,24 +410,71 @@ function ExpenseFormBody({
         </p>
       ) : null}
 
-      <div className="flex w-full flex-col items-center gap-2">
-        <Button type="submit" disabled={mutation.isPending}>
-          {isEditing ? 'Guardar cambios' : 'Agregar gasto'}
-        </Button>
-        {isEditing ? (
-          <Button
-            type="button"
-            variant="outline"
-            disabled={mutation.isPending}
-            onClick={() => {
-              setError(null)
-              onEditFinished?.()
-            }}
-          >
-            Cancelar edición
+      {confirmingDelete ? (
+        <div
+          role="alertdialog"
+          aria-labelledby="delete-expense-title"
+          className="bg-card shadow-raised flex w-full flex-col gap-4 rounded-2xl border border-border p-4"
+        >
+          <p id="delete-expense-title" className="text-sm font-medium">
+            ¿Eliminar el gasto?
+          </p>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                setConfirmingDelete(false)
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                deleteMutation.mutate()
+              }}
+            >
+              Eliminar gasto
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex w-full flex-col items-center gap-2">
+          <Button type="submit" disabled={mutation.isPending}>
+            {isEditing ? 'Guardar cambios' : 'Agregar gasto'}
           </Button>
-        ) : null}
-      </div>
+          {isEditing ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={mutation.isPending}
+                onClick={() => {
+                  setError(null)
+                  onEditFinished?.()
+                }}
+              >
+                Cancelar edición
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                className="text-error hover:text-error"
+                disabled={mutation.isPending}
+                onClick={() => {
+                  setError(null)
+                  setConfirmingDelete(true)
+                }}
+              >
+                Eliminar gasto
+              </Button>
+            </>
+          ) : null}
+        </div>
+      )}
     </form>
   )
 }

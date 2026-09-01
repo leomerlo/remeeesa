@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { ReactElement } from 'react'
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import {
   createExpense,
@@ -49,15 +49,6 @@ function currentMonthDate(day: number): Date {
     now.getFullYear(),
     now.getMonth(),
     Math.min(day, now.getDate()),
-  )
-}
-
-// Editar/Eliminar collapse into a single 44x44 kebab-menu trigger
-// (RecentExpensesList.tsx) -- open it before either action button is
-// reachable by role/name.
-async function openRowMenu(name: string): Promise<void> {
-  fireEvent.click(
-    await screen.findByRole('button', { name: `Más acciones para ${name}` }),
   )
 }
 
@@ -130,7 +121,7 @@ async function seedCurrentMonthExpense(input: {
 }
 
 describe('EditExpenseFlow', () => {
-  it('opens a pre-filled form when edit is clicked on a list row', async () => {
+  it('opens a pre-filled form when a list row is tapped', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -154,7 +145,6 @@ describe('EditExpenseFlow', () => {
       />,
     )
 
-    await openRowMenu('Pizza')
     fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
 
     expect(screen.getByLabelText('Nombre')).toHaveValue('Pizza')
@@ -194,7 +184,6 @@ describe('EditExpenseFlow', () => {
     )
 
     expect(await screen.findByText('$90,00')).toBeInTheDocument()
-    await openRowMenu('Pizza')
     fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
     fireEvent.change(screen.getByLabelText('Nombre'), {
       target: { value: 'Pasta' },
@@ -258,7 +247,6 @@ describe('EditExpenseFlow', () => {
     const today = new Date()
     const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 15)
 
-    await openRowMenu('Pizza')
     fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
     fireEvent.change(screen.getByLabelText('Fecha'), {
       target: { value: localDateInputValue(lastMonth) },
@@ -300,7 +288,6 @@ describe('EditExpenseFlow', () => {
       />,
     )
 
-    await openRowMenu('Pizza')
     fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
     await deleteExpense({
       db: store.asUser('user-2'),
@@ -350,7 +337,6 @@ describe('EditExpenseFlow', () => {
       />,
     )
 
-    await openRowMenu('Pizza')
     fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
     fireEvent.change(screen.getByLabelText('Nombre'), {
       target: { value: 'Shared edit' },
@@ -373,5 +359,98 @@ describe('EditExpenseFlow', () => {
         authorDisplayName: 'Ada',
       }),
     ])
+  })
+
+  // Deleting now lives inside the edit form (the row itself has no
+  // buttons, matching the approved comp) -- opening a row, confirming
+  // delete, removes the expense and refetches the list and budget.
+  it('deletes the expense from within the edit form and refetches the list and budget', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    await seedCurrentMonthExpense({
+      db,
+      householdId: household.id,
+      name: 'Pizza',
+      price: 30,
+    })
+
+    renderWithProviders(
+      <EditExpenseHarness
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
+    )
+
+    expect(
+      await screen.findByRole('status', {
+        name: 'Presupuesto restante $70,00',
+      }),
+    ).toBeInTheDocument()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar gasto' }))
+
+    const dialog = screen.getByRole('alertdialog')
+    expect(dialog).toHaveTextContent('¿Eliminar el gasto?')
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Eliminar gasto' }),
+    )
+
+    await waitFor(() => {
+      expect(screen.queryByText('Pizza')).not.toBeInTheDocument()
+    })
+    expect(await screen.findByText('Todavía no hay gastos')).toBeInTheDocument()
+    expect(
+      screen.getByRole('status', { name: 'Presupuesto restante $100,00' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Guardar cambios' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('cancels the delete confirmation and keeps the expense', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    await seedCurrentMonthExpense({
+      db,
+      householdId: household.id,
+      name: 'Pizza',
+      price: 10,
+    })
+
+    renderWithProviders(
+      <EditExpenseHarness
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar gasto' }))
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Cancelar',
+      }),
+    )
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Guardar cambios' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Pizza')).toBeInTheDocument()
   })
 })
