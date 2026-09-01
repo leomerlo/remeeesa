@@ -349,6 +349,42 @@ describe('markCuentaPaid adapter', () => {
       /async markCuentaPaid\(input\) \{[\s\S]*?tx\.set\(expenseRef, \{[\s\S]*?tx\.update\(cuentaRef, \{[\s\S]*?status: 'paid',[\s\S]*?paid_expense_id: expenseRef\.id,/,
     )
   })
+
+  // runTransaction retries its callback on contention. A doc ref minted
+  // inside the callback would get a fresh client-side id on every attempt,
+  // so the id written to the store could drift from the one handed back to
+  // the caller -- hoisting it out pins one id for the whole operation. The
+  // hoisted ref is harmless on the non-recurring path: doc(collection(...))
+  // only mints an id locally, it writes nothing.
+  it('mints the next-cycle doc ref outside the runTransaction callback so retries keep one stable id', () => {
+    expect(adapterSource).toMatch(
+      /async markCuentaPaid\(input\) \{[\s\S]*?const nextCuentaRef = doc\(collection\(firestore, 'cuentas'\)\)[\s\S]*?runTransaction\(firestore, async \(tx\) => \{/,
+    )
+  })
+
+  it('writes the next cycle via tx.set after the cuenta update, guarded by the recurring check', () => {
+    expect(adapterSource).toMatch(
+      /async markCuentaPaid\(input\) \{[\s\S]*?tx\.update\(cuentaRef, \{[\s\S]*?current\.recurring[\s\S]*?tx\.set\(nextCuentaRef, \{/,
+    )
+  })
+
+  it('blanks the next cycle expected amount instead of copying the paid cycle amount', () => {
+    expect(adapterSource).toMatch(
+      /tx\.set\(nextCuentaRef, \{[\s\S]*?expectedAmount: null,/,
+    )
+    expect(adapterSource).not.toContain(
+      'expectedAmount: current.expectedAmount',
+    )
+  })
+
+  // recurring: true is what keeps the series going -- writing false here
+  // would silently end every recurring cuenta after one extra cycle, and the
+  // ordering assertions above would not notice.
+  it('writes the next cycle as a fresh unpaid recurring cuenta', () => {
+    expect(adapterSource).toMatch(
+      /tx\.set\(nextCuentaRef, \{[\s\S]*?recurring: true,[\s\S]*?status: 'pending',[\s\S]*?paidExpenseId: null,/,
+    )
+  })
 })
 
 describe('listRecentExpenses adapter', () => {

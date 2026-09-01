@@ -136,5 +136,9 @@ export type HouseholdsDb = {
     readonly authorDisplayName: string
     readonly finalAmount: number
     readonly paymentDate: Date
-  }): Promise<{ cuenta: Cuenta; expense: Expense }>
+    // nextCuenta is the auto-created next cycle for a recurring Cuenta,
+    // written in the same transaction; null for a non-recurring one. Declared
+    // as `Cuenta | null` rather than an optional property so every adapter has
+    // to state the non-recurring case explicitly instead of omitting it.
+  }): Promise<{ cuenta: Cuenta; expense: Expense; nextCuenta: Cuenta | null }>
 }

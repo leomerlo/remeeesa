@@ -2,6 +2,7 @@ import {
   CuentaAlreadyPaidError,
   CuentaNotFoundError,
 } from '@/lib/cuentas/cuentas'
+import { nextCycleDueDate } from '@/lib/cuentas/recurrence'
 import type { Cuenta } from '@/lib/cuentas/types'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
@@ -499,6 +500,10 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       if (existing.status !== 'pending') {
         throw new CuentaAlreadyPaidError()
       }
+      // One instant for every record this call writes, mirroring the real
+      // adapter's single hoisted Timestamp.now() -- all of them are created
+      // by the same commit.
+      const createdAt = new Date()
       const expense: Expense = {
         id: crypto.randomUUID(),
         householdId: input.householdId,
@@ -509,16 +514,39 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         price: input.finalAmount,
         comments: '',
         expenseDate: input.paymentDate,
-        createdAt: new Date(),
+        createdAt,
       }
       const updated: Cuenta = {
         ...existing,
         status: 'paid',
         paidExpenseId: expense.id,
       }
+      // A recurring cuenta spawns its next cycle with a blank expected amount
+      // -- the previous cycle's amount is deliberately never carried over.
+      const nextCuenta: Cuenta | null = existing.recurring
+        ? {
+            id: crypto.randomUUID(),
+            householdId: existing.householdId,
+            categoryId: existing.categoryId,
+            name: existing.name,
+            dueDate: nextCycleDueDate(existing.dueDate),
+            expectedAmount: null,
+            recurring: true,
+            status: 'pending',
+            paidExpenseId: null,
+            createdAt,
+          }
+        : null
+      // Every record is built above before any store mutation below, so a
+      // throw (e.g. from id generation) can never leave a partial write --
+      // mirroring the all-or-nothing guarantee of the real adapter's
+      // Firestore transaction.
       state.expenses.set(expense.id, expense)
       state.cuentas.set(input.cuentaId, updated)
-      return { cuenta: updated, expense }
+      if (nextCuenta !== null) {
+        state.cuentas.set(nextCuenta.id, nextCuenta)
+      }
+      return { cuenta: updated, expense, nextCuenta }
     },
   }
 }

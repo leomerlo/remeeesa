@@ -35,6 +35,12 @@ one `Expense` is ever created. Inside the same transaction: update Cuenta → pa
 create the Expense doc, and — if recurring — create the next cycle's Cuenta (due date +1 month,
 amount blank). All three writes, one transaction: a partial failure rolls back everything.
 
+**Short months:** "+1 month" clamps to the last day of the target month (Jan 31 → Feb 28, or Feb 29
+in a leap year). The clamp is permanent by design — each cycle is computed from the previous
+cycle's stored day, so a Jan 31 cuenta becomes Feb 28 and then stays on the 28th rather than
+snapping back to 31; snapping back would require storing an extra anchor-day field on the Cuenta,
+which we deliberately do not.
+
 ## Firestore rules
 
 New `/cuentas/{cuentaId}` block, `isMemberOf`-gated like `expenses`/`categories`: edits to

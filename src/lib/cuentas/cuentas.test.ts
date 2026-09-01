@@ -1400,6 +1400,61 @@ describe('markCuentaPaid', () => {
     expect(expenses).toHaveLength(0)
   })
 
+  // The recurring path builds three records (expense, paid cuenta, next
+  // cycle) and must still commit all-or-nothing. The failure is planted on
+  // the *second* id generation, so it lands after the expense id already
+  // exists but before any store mutation -- the worst spot for a partial
+  // write, and the one a naive "set as you go" implementation would leak
+  // both a paid original and a dangling next cycle from.
+  it('leaves no orphaned state -- not even a dangling next cycle -- when a recurring mark-paid fails midway', async () => {
+    const { db, household, cuenta } = await seedPendingCuenta({
+      recurring: true,
+    })
+    const randomUUIDSpy = vi
+      .spyOn(crypto, 'randomUUID')
+      .mockImplementationOnce(() => '00000000-0000-4000-8000-000000000001')
+      .mockImplementationOnce(() => {
+        throw new Error('boom')
+      })
+
+    try {
+      await expect(
+        markCuentaPaid({
+          db,
+          householdId: household.id,
+          cuentaId: cuenta.id,
+          memberId: 'user-1',
+          authorDisplayName: 'Ada',
+          finalAmount: 480,
+          paymentDate: new Date(2026, 7, 28),
+        }),
+      ).rejects.toThrow('boom')
+    } finally {
+      // Restored even if the assertion above fails, so a leftover armed
+      // mockImplementationOnce can't bleed into the next test's setup.
+      randomUUIDSpy.mockRestore()
+    }
+
+    const stillPending = await getCuenta({
+      db,
+      householdId: household.id,
+      cuentaId: cuenta.id,
+    })
+    expect(stillPending?.status).toBe('pending')
+    expect(stillPending?.paidExpenseId).toBeNull()
+
+    const expenses = await listRecentExpenses({
+      db,
+      householdId: household.id,
+      limit: 10,
+    })
+    expect(expenses).toHaveLength(0)
+
+    const pending = await listPendingCuentas({ db, householdId: household.id })
+    expect(pending).toHaveLength(1)
+    expect(pending[0]?.id).toBe(cuenta.id)
+  })
+
   it('throws CuentaNotFoundError for a missing cuenta id', async () => {
     const { db, household } = await seedPendingCuenta()
 
@@ -1551,6 +1606,231 @@ describe('markCuentaPaid', () => {
     })
 
     expect(expense.price).toBe(480.46)
+  })
+
+  it('spawns the next cycle for a recurring cuenta: same name and category, still recurring, pending, one month later, with a fresh id', async () => {
+    const { db, household, comida, cuenta } = await seedPendingCuenta({
+      recurring: true,
+    })
+
+    const { nextCuenta } = await markCuentaPaid({
+      db,
+      householdId: household.id,
+      cuentaId: cuenta.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 480,
+      paymentDate: new Date(2026, 7, 28),
+    })
+
+    expect(nextCuenta).not.toBeNull()
+    expect(nextCuenta?.id).not.toBe(cuenta.id)
+    expect(nextCuenta?.householdId).toBe(household.id)
+    expect(nextCuenta?.categoryId).toBe(comida.id)
+    expect(nextCuenta?.name).toBe('Alquiler')
+    expect(nextCuenta?.recurring).toBe(true)
+    expect(nextCuenta?.status).toBe('pending')
+    expect(nextCuenta?.paidExpenseId).toBeNull()
+    expect(nextCuenta?.dueDate).toEqual(new Date(2026, 9, 10))
+  })
+
+  it('never carries the previous cycle expected amount over to the next cycle', async () => {
+    const { db, household, cuenta } = await seedPendingCuenta({
+      recurring: true,
+      expectedAmount: 480,
+    })
+    expect(cuenta.expectedAmount).toBe(480)
+
+    const { nextCuenta } = await markCuentaPaid({
+      db,
+      householdId: household.id,
+      cuentaId: cuenta.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 480,
+      paymentDate: new Date(2026, 7, 28),
+    })
+
+    expect(nextCuenta?.expectedAmount).toBeNull()
+  })
+
+  it('leaves the next cycle as the only pending cuenta right after a recurring mark-paid', async () => {
+    const { db, household, cuenta } = await seedPendingCuenta({
+      recurring: true,
+    })
+
+    const { nextCuenta } = await markCuentaPaid({
+      db,
+      householdId: household.id,
+      cuentaId: cuenta.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 480,
+      paymentDate: new Date(2026, 7, 28),
+    })
+
+    const pending = await listPendingCuentas({ db, householdId: household.id })
+    expect(pending).toHaveLength(1)
+    expect(pending[0]?.id).toBe(nextCuenta?.id)
+  })
+
+  // The single strongest guarantee that recurrence actually recurs: the
+  // auto-created cycle has to be marked paid successfully and spawn a third
+  // cycle of its own. A next cycle written with recurring: false would pass
+  // every other test here and only fail this one.
+  it('keeps the series going: the auto-created cycle can itself be marked paid and spawns a third cycle', async () => {
+    const { db, household, cuenta } = await seedPendingCuenta({
+      recurring: true,
+    })
+
+    const { nextCuenta: second } = await markCuentaPaid({
+      db,
+      householdId: household.id,
+      cuentaId: cuenta.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 480,
+      paymentDate: new Date(2026, 7, 28),
+    })
+    if (second === null) {
+      throw new Error('expected a second cycle')
+    }
+
+    const { nextCuenta: third } = await markCuentaPaid({
+      db,
+      householdId: household.id,
+      cuentaId: second.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 500,
+      paymentDate: new Date(2026, 7, 29),
+    })
+
+    expect(third?.dueDate).toEqual(new Date(2026, 10, 10))
+    expect(third?.recurring).toBe(true)
+    const pending = await listPendingCuentas({ db, householdId: household.id })
+    expect(pending).toHaveLength(1)
+    expect(pending[0]?.id).toBe(third?.id)
+  })
+
+  // The next cycle is derived from the stored due date, not the payment date,
+  // so paying a long-overdue bill lands the member on the next *missed*
+  // cycle rather than skipping ahead to a future one -- they mark each stale
+  // cycle paid to catch up. Pinned here so the choice is deliberate.
+  it('derives the next due date from the stored due date, not the payment date, for an overdue cuenta', async () => {
+    const { db, household, comida } = await seedPendingCuenta()
+    const overdue = await createCuenta({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Luz',
+      dueDate: new Date(2026, 1, 10),
+      expectedAmount: null,
+      recurring: true,
+    })
+
+    const { nextCuenta } = await markCuentaPaid({
+      db,
+      householdId: household.id,
+      cuentaId: overdue.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 480,
+      paymentDate: new Date(2026, 7, 28),
+    })
+
+    expect(nextCuenta?.dueDate).toEqual(new Date(2026, 2, 10))
+  })
+
+  it('clamps the next due date to the last day of a shorter target month', async () => {
+    const { db, household, comida } = await seedPendingCuenta()
+    const recurring = await createCuenta({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Internet',
+      dueDate: new Date(2026, 0, 31),
+      expectedAmount: null,
+      recurring: true,
+    })
+
+    const { nextCuenta } = await markCuentaPaid({
+      db,
+      householdId: household.id,
+      cuentaId: recurring.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 480,
+      paymentDate: new Date(2026, 7, 28),
+    })
+
+    expect(nextCuenta?.dueDate).toEqual(new Date(2026, 1, 28))
+  })
+
+  it('creates no next cycle for a non-recurring cuenta', async () => {
+    const { db, household, cuenta } = await seedPendingCuenta({
+      recurring: false,
+    })
+
+    const { nextCuenta } = await markCuentaPaid({
+      db,
+      householdId: household.id,
+      cuentaId: cuenta.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 480,
+      paymentDate: new Date(2026, 7, 28),
+    })
+
+    expect(nextCuenta).toBeNull()
+    const pending = await listPendingCuentas({ db, householdId: household.id })
+    expect(pending).toHaveLength(0)
+  })
+
+  // The recurring counterpart of the "exactly one Expense" idempotency test
+  // above: a double submit (or two members hitting Pagar at once) must not
+  // leave the household with two next cycles for the same bill, which would
+  // duplicate every following cycle too. Same caveat as that test --
+  // memoryHouseholdsDb's markCuentaPaid has no internal await, so these run
+  // sequentially rather than truly interleaved; the concurrent-write
+  // guarantee itself comes from the Firestore transaction.
+  it('spawns exactly one next cycle when a recurring cuenta is marked paid twice back-to-back', async () => {
+    const { db, household, cuenta } = await seedPendingCuenta({
+      recurring: true,
+    })
+
+    const outcomes = await Promise.allSettled([
+      markCuentaPaid({
+        db,
+        householdId: household.id,
+        cuentaId: cuenta.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        finalAmount: 480,
+        paymentDate: new Date(2026, 7, 28),
+      }),
+      markCuentaPaid({
+        db,
+        householdId: household.id,
+        cuentaId: cuenta.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        finalAmount: 480,
+        paymentDate: new Date(2026, 7, 28),
+      }),
+    ])
+
+    const rejected = outcomes.filter(
+      (outcome): outcome is PromiseRejectedResult =>
+        outcome.status === 'rejected',
+    )
+    expect(rejected).toHaveLength(1)
+    expect(rejected[0]?.reason).toBeInstanceOf(CuentaAlreadyPaidError)
+
+    const pending = await listPendingCuentas({ db, householdId: household.id })
+    expect(pending).toHaveLength(1)
+    expect(pending[0]?.id).not.toBe(cuenta.id)
+    expect(pending[0]?.dueDate).toEqual(new Date(2026, 9, 10))
   })
 
   it('denies a non-member', async () => {

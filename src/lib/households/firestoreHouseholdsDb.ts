@@ -24,6 +24,7 @@ import {
   CuentaAlreadyPaidError,
   CuentaNotFoundError,
 } from '@/lib/cuentas/cuentas'
+import { nextCycleDueDate } from '@/lib/cuentas/recurrence'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import {
   categoryToDocument,
@@ -712,6 +713,13 @@ export function createFirestoreHouseholdsDb(
           const memberId = await awaitAuthenticatedUserId(firestore)
           const cuentaRef = doc(firestore, 'cuentas', input.cuentaId)
           const expenseRef = doc(collection(firestore, 'expenses'))
+          // Hoisted out of the transaction callback deliberately: the
+          // callback is re-run on contention, and a ref minted inside it
+          // would take a different id on each attempt, so the id written
+          // could drift from the one returned to the caller. This only mints
+          // a client-side id -- nothing is written -- so leaving it unused on
+          // the non-recurring path creates no orphan document.
+          const nextCuentaRef = doc(collection(firestore, 'cuentas'))
           const now = Timestamp.now()
           const createdAt = now.toDate()
 
@@ -751,12 +759,52 @@ export function createFirestoreHouseholdsDb(
               paid_expense_id: expenseRef.id,
             })
 
+            // A recurring cuenta spawns its next cycle in this same
+            // transaction, so all three writes land together or not at all.
+            // The expected amount is deliberately blanked rather than copied
+            // from the cycle just paid.
+            const nextDueDate = current.recurring
+              ? nextCycleDueDate(current.dueDate)
+              : null
+            if (nextDueDate !== null) {
+              tx.set(nextCuentaRef, {
+                ...cuentaToDocument({
+                  householdId: input.householdId,
+                  categoryId: current.categoryId,
+                  name: current.name,
+                  dueDate: nextDueDate,
+                  expectedAmount: null,
+                  recurring: true,
+                  status: 'pending',
+                  paidExpenseId: null,
+                  createdAt,
+                }),
+                due_date: toFirestoreCuentaDate(nextDueDate),
+                created_at: now,
+              })
+            }
+
             return {
               cuenta: {
                 ...current,
                 status: 'paid' as const,
                 paidExpenseId: expenseRef.id,
               },
+              nextCuenta:
+                nextDueDate === null
+                  ? null
+                  : {
+                      id: nextCuentaRef.id,
+                      householdId: input.householdId,
+                      categoryId: current.categoryId,
+                      name: current.name,
+                      dueDate: nextDueDate,
+                      expectedAmount: null,
+                      recurring: true,
+                      status: 'pending' as const,
+                      paidExpenseId: null,
+                      createdAt,
+                    },
               expense: {
                 id: expenseRef.id,
                 householdId: input.householdId,
