@@ -141,6 +141,28 @@ service cloud.firestore {
       return expenseDate < request.time + duration.value(1, 'd');
     }
 
+    // status must be 'pending' on create -- this is what blocks a client
+    // from creating a Cuenta that is already marked paid. Editing, deleting,
+    // and marking a cuenta paid are handled by later tickets in this feature.
+    function isValidCuenta(data) {
+      return data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'status', 'paid_expense_id', 'created_at'])
+        && data.household_id is string
+        && data.household_id.size() > 0
+        && data.category_id is string
+        && data.category_id.size() > 0
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.matches('.*\\S.*')
+        && data.due_date is timestamp
+        && (data.expected_amount == null || (data.expected_amount is number && data.expected_amount > 0))
+        && data.recurring is bool
+        && data.status == 'pending'
+        && data.paid_expense_id == null
+        && data.created_at is timestamp
+        && exists(/databases/$(database)/documents/categories/$(data.category_id))
+        && get(/databases/$(database)/documents/categories/$(data.category_id)).data.household_id == data.household_id;
+    }
+
     match /households/{householdId} {
       allow read: if isMemberOf(householdId);
       // Create must land in the same batch as the caller's membership row so
@@ -222,6 +244,13 @@ service cloud.firestore {
       allow update: if isMemberOf(resource.data.household_id)
         && isValidExpenseUpdate();
       allow delete: if isMemberOf(resource.data.household_id);
+    }
+
+    match /cuentas/{cuentaId} {
+      allow read: if isMemberOf(resource.data.household_id);
+      allow create: if isMemberOf(request.resource.data.household_id)
+        && isValidCuenta(request.resource.data);
+      allow update, delete: if false;
     }
   }
 }

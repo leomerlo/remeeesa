@@ -199,6 +199,49 @@ describe('firestore.rules expenses', () => {
   })
 })
 
+describe('firestore.rules cuentas', () => {
+  it('lets only household members read cuentas', () => {
+    expect(rules).toMatch(
+      /match \/cuentas\/\{cuentaId\}[\s\S]*allow read: if isMemberOf\(resource\.data\.household_id\);/,
+    )
+  })
+
+  it('requires the exact field set and a category belonging to the same household', () => {
+    expect(rules).toContain('function isValidCuenta(data)')
+    expect(rules).toContain(
+      "data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'status', 'paid_expense_id', 'created_at'])",
+    )
+    expect(rules).toContain('data.due_date is timestamp')
+    expect(rules).toContain(
+      'data.expected_amount == null || (data.expected_amount is number && data.expected_amount > 0)',
+    )
+    expect(rules).toContain('data.recurring is bool')
+    expect(rules).toContain(
+      'exists(/databases/$(database)/documents/categories/$(data.category_id))',
+    )
+    expect(rules).toContain(
+      'get(/databases/$(database)/documents/categories/$(data.category_id)).data.household_id == data.household_id',
+    )
+  })
+
+  it('blocks creating a cuenta with any status other than pending', () => {
+    expect(rules).toContain("data.status == 'pending'")
+  })
+
+  it('blocks creating a cuenta with a non-null paid_expense_id', () => {
+    expect(rules).toContain('data.paid_expense_id == null')
+  })
+
+  it('lets members create cuentas and closes update and delete', () => {
+    expect(rules).toMatch(
+      /match \/cuentas\/\{cuentaId\}[\s\S]*allow create: if isMemberOf\(request\.resource\.data\.household_id\)\s*&& isValidCuenta\(request\.resource\.data\);/,
+    )
+    expect(rules).toMatch(
+      /match \/cuentas\/\{cuentaId\}[\s\S]*allow update, delete: if false;/,
+    )
+  })
+})
+
 describe('listRecentExpenses adapter', () => {
   it('scopes to the household, orders newest expense_date first with created_at as tiebreaker, and applies the caller limit', () => {
     expect(adapterSource).toMatch(

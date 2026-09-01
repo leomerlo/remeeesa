@@ -15,6 +15,11 @@ import {
 } from 'firebase/firestore'
 import type { Firestore } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
+import {
+  cuentaToDocument,
+  parseCuentaDocument,
+  toFirestoreCuentaDate,
+} from '@/lib/cuentas/converters'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import {
   categoryToDocument,
@@ -551,6 +556,77 @@ export function createFirestoreHouseholdsDb(
           throw new ExpenseNotFoundError()
         }
         await deleteDoc(expenseRef)
+      })
+    },
+    async createCuenta(input) {
+      return withHouseholdAccess(
+        'createCuenta',
+        async () => {
+          const cuentaRef = doc(collection(firestore, 'cuentas'))
+          const now = Timestamp.now()
+          const createdAt = now.toDate()
+          await setDoc(cuentaRef, {
+            ...cuentaToDocument({
+              householdId: input.householdId,
+              categoryId: input.categoryId,
+              name: input.name,
+              dueDate: input.dueDate,
+              expectedAmount: input.expectedAmount,
+              recurring: false,
+              status: 'pending',
+              paidExpenseId: null,
+              createdAt,
+            }),
+            due_date: toFirestoreCuentaDate(input.dueDate),
+            created_at: now,
+          })
+          return {
+            id: cuentaRef.id,
+            householdId: input.householdId,
+            categoryId: input.categoryId,
+            name: input.name,
+            dueDate: input.dueDate,
+            expectedAmount: input.expectedAmount,
+            recurring: false,
+            status: 'pending',
+            paidExpenseId: null,
+            createdAt,
+          }
+        },
+        { householdId: input.householdId, categoryId: input.categoryId },
+      )
+    },
+    async getCuenta(input) {
+      return withHouseholdAccess('getCuenta', async () => {
+        const cuentaRef = doc(firestore, 'cuentas', input.cuentaId)
+        const existing = await getDoc(cuentaRef)
+        if (
+          !existing.exists() ||
+          existing.data().household_id !== input.householdId
+        ) {
+          return null
+        }
+        return parseCuentaDocument({
+          id: existing.id,
+          data: existing.data(),
+        })
+      })
+    },
+    async listPendingCuentas(input) {
+      return withHouseholdAccess('listPendingCuentas', async () => {
+        const cuentasQuery = query(
+          collection(firestore, 'cuentas'),
+          where('household_id', '==', input.householdId),
+          where('status', '==', 'pending'),
+          orderBy('due_date', 'asc'),
+        )
+        const snap = await getDocs(cuentasQuery)
+        return snap.docs.map((cuentaDoc) =>
+          parseCuentaDocument({
+            id: cuentaDoc.id,
+            data: cuentaDoc.data(),
+          }),
+        )
       })
     },
   }
