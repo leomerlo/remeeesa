@@ -6,34 +6,22 @@ import {
   deleteExpense,
   ExpenseNotFoundError,
   listCategories,
-  listExpensesInMonth,
+  listRecentExpenses,
 } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import type { Expense } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
 import { EmptyExpensesIllustration } from './EmptyExpensesIllustration'
-import { expenseListQueryKey, expensesInMonthQueryKey } from './queryKeys'
+import { expensesQueryKey, recentExpensesQueryKey } from './queryKeys'
 
-export type ExpenseListProps = {
+export type RecentExpensesListProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly onEditExpense?: (expense: Expense, categoryName: string) => void
 }
 
 const EXPENSE_GONE_MESSAGE = 'Este gasto ya no existe'
-
-function calendarMonthRange(input: {
-  readonly year: number
-  readonly month: number
-}): {
-  readonly monthStart: Date
-  readonly monthEnd: Date
-} {
-  return {
-    monthStart: new Date(input.year, input.month, 1),
-    monthEnd: new Date(input.year, input.month + 1, 0, 23, 59, 59, 999),
-  }
-}
+const RECENT_EXPENSES_LIMIT = 10
 
 function formatExpenseDate(date: Date): string {
   return date.toLocaleDateString('es-AR', {
@@ -92,36 +80,50 @@ function DeleteExpenseDialog(input: {
   )
 }
 
-export function ExpenseList({
+// All-time recent-movements list ("Últimos movimientos" on Home). This is
+// currently the only place in the app to edit/delete an expense --
+// HistoricoPage is a bare placeholder -- so it deliberately keeps the
+// pill-button edit/delete affordance from the month-scoped list it
+// replaces, even though the approved comp shows this section as plain
+// (buttonless) cards. Dropping the buttons here would remove editing from
+// the app entirely until Histórico is built for real.
+export function RecentExpensesList({
   db,
   householdId,
   onEditExpense,
-}: ExpenseListProps): ReactElement {
+}: RecentExpensesListProps): ReactElement {
   const queryClient = useQueryClient()
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth()
-  const expenseListKey = expenseListQueryKey({ householdId, year, month })
-  const expensesInMonthKey = expensesInMonthQueryKey({ householdId })
+  const recentExpensesKey = recentExpensesQueryKey({
+    householdId,
+    limit: RECENT_EXPENSES_LIMIT,
+  })
   const [confirmDeleteExpense, setConfirmDeleteExpense] =
     useState<Expense | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const expensesQuery = useQuery({
-    queryKey: expenseListKey,
+    queryKey: recentExpensesKey,
     queryFn: async () => {
-      const { monthStart, monthEnd } = calendarMonthRange({ year, month })
       const [expenses, categories] = await Promise.all([
-        listExpensesInMonth({ db, householdId, monthStart, monthEnd }),
+        listRecentExpenses({
+          db,
+          householdId,
+          limit: RECENT_EXPENSES_LIMIT,
+        }),
         listCategories({ db, householdId }),
       ])
       return { expenses, categories }
     },
   })
 
+  // Invalidates the whole `expenses` prefix, not just this list's own leaf
+  // key -- deleting an expense here must also refresh the month-scoped
+  // query RemainingBudgetDisplay reads, since the two share the same
+  // expenses entity for this household.
   async function invalidateExpenseQueries(): Promise<void> {
-    await queryClient.invalidateQueries({ queryKey: expenseListKey })
-    await queryClient.invalidateQueries({ queryKey: expensesInMonthKey })
+    await queryClient.invalidateQueries({
+      queryKey: expensesQueryKey({ householdId }),
+    })
   }
 
   const deleteMutation = useMutation({
@@ -181,7 +183,7 @@ export function ExpenseList({
         ) : null}
         <EmptyExpensesIllustration className="mx-auto h-32 w-40" />
         <p role="status" className="text-sm font-medium">
-          No hay gastos este mes
+          Todavía no hay gastos
         </p>
       </>
     )
@@ -203,7 +205,7 @@ export function ExpenseList({
         </p>
       ) : null}
       <ul
-        aria-label="Gastos de este mes"
+        aria-label="Últimos movimientos"
         className="flex w-full flex-col gap-8 text-sm"
       >
         {expenses.map((expense) => {

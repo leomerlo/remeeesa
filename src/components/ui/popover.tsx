@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 // Thin wrapper, same trim convention as button.tsx/label.tsx: strip nothing
 // shadcn-specific here since the primitive has no invalid/destructive state
 // to remove. `bg-background`/`border-border` and `rounded-2xl` reuse the same
-// tokens DeleteExpenseDialog (ExpenseList.tsx) already uses for a floating
+// tokens DeleteExpenseDialog (RecentExpensesList.tsx) already uses for a floating
 // panel — this is a container, not a control, so it gets the 2xl radius, not
 // the pill.
 function Popover({ ...props }: ComponentProps<typeof PopoverPrimitive.Root>) {

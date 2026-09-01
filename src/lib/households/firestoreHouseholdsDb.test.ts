@@ -199,6 +199,14 @@ describe('firestore.rules expenses', () => {
   })
 })
 
+describe('listRecentExpenses adapter', () => {
+  it('scopes to the household, orders newest expense_date first with created_at as tiebreaker, and applies the caller limit', () => {
+    expect(adapterSource).toMatch(
+      /async listRecentExpenses\(input\) \{[\s\S]*?where\('household_id', '==', input\.householdId\),[\s\S]*?orderBy\('expense_date', 'desc'\),[\s\S]*?orderBy\('created_at', 'desc'\),[\s\S]*?limit\(input\.limit\),[\s\S]*?\}/,
+    )
+  })
+})
+
 describe('createExpense adapter', () => {
   it('waits for auth before writing so Firestore sees request.auth', () => {
     expect(adapterSource).toMatch(

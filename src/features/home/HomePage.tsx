@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
 import {
   AddExpenseSheet,
-  ExpenseList,
+  RecentExpensesList,
   RemainingBudgetDisplay,
 } from '@/features/expenses'
 import type { EditExpenseTarget } from '@/features/expenses/AddExpenseForm'
@@ -17,6 +17,8 @@ import {
   getMembership,
 } from '@/lib/households'
 import type { Household, HouseholdMember, HouseholdsDb } from '@/lib/households'
+import { CategoryMiniSummary } from './CategoryMiniSummary'
+import { PersonMiniSummary } from './PersonMiniSummary'
 
 export type HomePageProps = {
   readonly currentUserId?: string | null
@@ -184,19 +186,24 @@ export function HomePage({
     <div className="flex w-full flex-col items-center gap-8">
       <p className="text-sm font-medium">{household?.name ?? 'Hogar'}</p>
       <RemainingBudgetDisplay db={db} householdId={membership.householdId} />
-      <AddExpenseSheet
-        open={isAddExpenseSheetOpen}
-        onOpenChange={setIsAddExpenseSheetOpen}
-        db={db}
-        householdId={membership.householdId}
-        memberId={currentUserId}
-        authorDisplayName={authorDisplayName}
-        editExpense={editExpense}
-        onEditFinished={() => {
-          setEditExpense(null)
-        }}
-      />
-      <ExpenseList
+      {/* A plain flex row, not a two-child layout baked around exactly one
+          button -- leaves room for a future "Nueva cuenta" action to join
+          "Agregar gasto" here without restructuring. */}
+      <div className="flex w-full justify-center gap-4">
+        <AddExpenseSheet
+          open={isAddExpenseSheetOpen}
+          onOpenChange={setIsAddExpenseSheetOpen}
+          db={db}
+          householdId={membership.householdId}
+          memberId={currentUserId}
+          authorDisplayName={authorDisplayName}
+          editExpense={editExpense}
+          onEditFinished={() => {
+            setEditExpense(null)
+          }}
+        />
+      </div>
+      <RecentExpensesList
         db={db}
         householdId={membership.householdId}
         onEditExpense={(expense, categoryName) => {
@@ -210,6 +217,8 @@ export function HomePage({
           })
         }}
       />
+      <CategoryMiniSummary db={db} householdId={membership.householdId} />
+      <PersonMiniSummary db={db} householdId={membership.householdId} />
     </div>
   )
 }

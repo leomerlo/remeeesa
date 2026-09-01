@@ -79,6 +79,10 @@ export type HouseholdsDb = {
     readonly monthStart: Date
     readonly monthEnd: Date
   }): Promise<readonly Expense[]>
+  listRecentExpenses(input: {
+    readonly householdId: string
+    readonly limit: number
+  }): Promise<readonly Expense[]>
   getExpense(input: {
     readonly householdId: string
     readonly expenseId: string

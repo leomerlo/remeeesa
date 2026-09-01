@@ -73,6 +73,17 @@ export async function listExpensesInMonth(input: {
   })
 }
 
+export async function listRecentExpenses(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly limit: number
+}): Promise<readonly Expense[]> {
+  return input.db.listRecentExpenses({
+    householdId: input.householdId,
+    limit: input.limit,
+  })
+}
+
 export async function updateExpense(input: {
   readonly db: HouseholdsDb
   readonly householdId: string

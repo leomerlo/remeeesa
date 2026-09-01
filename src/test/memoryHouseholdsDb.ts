@@ -313,6 +313,24 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       })
       return expenses
     },
+    async listRecentExpenses(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const expenses: Expense[] = []
+      for (const expense of state.expenses.values()) {
+        if (expense.householdId === input.householdId) {
+          expenses.push(expense)
+        }
+      }
+      expenses.sort((left, right) => {
+        const dateDiff =
+          right.expenseDate.getTime() - left.expenseDate.getTime()
+        if (dateDiff !== 0) {
+          return dateDiff
+        }
+        return right.createdAt.getTime() - left.createdAt.getTime()
+      })
+      return expenses.slice(0, input.limit)
+    },
     async getExpense(input) {
       assertMemberOf(state, userId, input.householdId)
       const expense = state.expenses.get(input.expenseId)

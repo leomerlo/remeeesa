@@ -17,6 +17,28 @@ export function computeRemainingBudget(
   return monthlyBudget - sum
 }
 
+// A 0 (or negative) monthlyBudget has nothing meaningful to divide by, so
+// it's treated as 0% used with no spend and 100% used the moment there is
+// any spend, rather than dividing by zero into NaN/Infinity. Any result is
+// clamped to [0, 100] and rounded to the nearest whole percent -- spending
+// past the budget reports 100%, not e.g. 150%, since a progress bar has
+// nowhere to put the overflow (computeRemainingBudget already surfaces the
+// exact over-budget amount as a negative remaining).
+export function computePercentUsed(
+  monthlyBudget: number,
+  expenses: readonly { price: number }[],
+): number {
+  let spent = 0
+  for (const expense of expenses) {
+    spent += expense.price
+  }
+  if (monthlyBudget <= 0) {
+    return spent > 0 ? 100 : 0
+  }
+  const percent = Math.round((spent / monthlyBudget) * 100)
+  return Math.min(100, Math.max(0, percent))
+}
+
 export function currentMonthRange(now: Date = new Date()): {
   monthStart: Date
   monthEnd: Date
