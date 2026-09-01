@@ -1,5 +1,6 @@
-// Used now only for invalidation after create -- there's no reader of this
-// key yet (the pending-Cuentas list is a later ticket, #75).
+// Shared between AddCuentaForm's post-create invalidation and
+// PendingCuentasList's query -- creating a Cuenta refreshes the list
+// automatically through this key.
 export function cuentasQueryKey(input: {
   readonly householdId: string
 }): readonly ['cuentas', string] {

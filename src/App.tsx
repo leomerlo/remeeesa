@@ -6,6 +6,7 @@ import { JoinHouseholdPage } from '@/features/join'
 import { AppShell } from '@/features/navigation'
 import { HistoricoPage } from '@/features/historico'
 import { CategoriasPage } from '@/features/categorias'
+import { CuentasPage } from '@/features/cuentas'
 import { HouseholdDraftProvider } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
 import type { HouseholdsDb } from '@/lib/households'
@@ -46,6 +47,15 @@ export function AppRoutes({
             />
             <Route path="/historico" element={<HistoricoPage />} />
             <Route path="/categorias" element={<CategoriasPage />} />
+            <Route
+              path="/cuentas"
+              element={
+                <CuentasPage
+                  currentUserId={currentUserId}
+                  householdsDb={householdsDb}
+                />
+              }
+            />
             <Route
               path="/household"
               element={

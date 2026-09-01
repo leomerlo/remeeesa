@@ -32,3 +32,5 @@ export {
   updateHouseholdBudget,
 } from './households'
 export { parseHouseholdName, parseMonthlyBudget } from './validate'
+export { useHouseholdMembership } from './useHouseholdMembership'
+export type { UseHouseholdMembershipResult } from './useHouseholdMembership'
