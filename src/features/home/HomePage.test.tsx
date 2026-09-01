@@ -55,9 +55,6 @@ describe('HomePage', () => {
 
     expect(screen.getByLabelText('Nombre del hogar')).toBeInTheDocument()
     expect(
-      screen.queryByRole('link', { name: 'Edit household' }),
-    ).not.toBeInTheDocument()
-    expect(
       screen.queryByRole('status', { name: /presupuesto restante/i }),
     ).not.toBeInTheDocument()
     expect(
@@ -71,9 +68,6 @@ describe('HomePage', () => {
     renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
 
     expect(await screen.findByLabelText('Nombre del hogar')).toBeInTheDocument()
-    expect(
-      screen.queryByRole('link', { name: 'Edit household' }),
-    ).not.toBeInTheDocument()
     expect(
       screen.queryByRole('status', { name: /presupuesto restante/i }),
     ).not.toBeInTheDocument()
@@ -98,14 +92,13 @@ describe('HomePage', () => {
 
     expect(await screen.findByText('Casa Verde')).toBeInTheDocument()
     expect(
-      await screen.findByRole('status', { name: /presupuesto restante \$100/i }),
+      await screen.findByRole('status', {
+        name: /presupuesto restante \$100/i,
+      }),
     ).toHaveTextContent('$100')
     expect(
       await screen.findByText('No hay gastos este mes'),
     ).toBeInTheDocument()
-    expect(
-      screen.queryByRole('link', { name: 'Edit household' }),
-    ).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Nombre del hogar')).not.toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Generar link de invitación' }),
@@ -157,11 +150,10 @@ describe('HomePage', () => {
 
     expect(await screen.findByText('Casa Verde')).toBeInTheDocument()
     expect(
-      await screen.findByRole('status', { name: /presupuesto restante \$100/i }),
+      await screen.findByRole('status', {
+        name: /presupuesto restante \$100/i,
+      }),
     ).toHaveTextContent('$100')
-    expect(
-      screen.queryByRole('link', { name: 'Edit household' }),
-    ).not.toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'Agregar gasto' }),
     ).toBeInTheDocument()
@@ -187,7 +179,9 @@ describe('HomePage', () => {
       />,
     )
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Agregar gasto' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Agregar gasto' }),
+    )
     fireEvent.change(await screen.findByLabelText('Nombre'), {
       target: { value: 'Pizza' },
     })
@@ -233,13 +227,17 @@ describe('HomePage', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: /presupuesto restante \$100/i }),
+      await screen.findByRole('status', {
+        name: /presupuesto restante \$100/i,
+      }),
     ).toHaveTextContent('$100')
     expect(
       await screen.findByText('No hay gastos este mes'),
     ).toBeInTheDocument()
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Agregar gasto' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Agregar gasto' }),
+    )
     fireEvent.change(await screen.findByLabelText('Nombre'), {
       target: { value: 'Pizza' },
     })
@@ -276,7 +274,9 @@ describe('HomePage', () => {
 
     renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Agregar gasto' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Agregar gasto' }),
+    )
     fireEvent.change(await screen.findByLabelText('Nombre'), {
       target: { value: 'Pizza' },
     })

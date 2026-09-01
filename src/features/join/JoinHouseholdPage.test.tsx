@@ -89,9 +89,6 @@ describe('JoinHouseholdPage', () => {
     expect(
       screen.queryByRole('button', { name: 'Continuar con Google' }),
     ).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: 'Join household' }),
-    ).not.toBeInTheDocument()
 
     await expectJoinedStatus()
 
@@ -271,9 +268,6 @@ describe('JoinHouseholdPage', () => {
     expect(
       screen.getByRole('button', { name: 'Continuar con Google' }),
     ).toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: 'Join household' }),
-    ).not.toBeInTheDocument()
     await expect(
       listHouseholdMembers({ db: ownerDb, householdId: household.id }),
     ).resolves.toEqual([expect.objectContaining({ userId: 'user-1' })])
