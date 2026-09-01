@@ -85,7 +85,7 @@ export function EditHouseholdPage({
 
   if (currentUserId === undefined) {
     return (
-      <div className="bg-muted w-full rounded-3xl p-8">
+      <div className="bg-card shadow-resting w-full rounded-3xl p-8">
         <p role="status" className="text-sm font-medium">
           Cargando…
         </p>
@@ -99,7 +99,7 @@ export function EditHouseholdPage({
 
   if (membership === undefined) {
     return (
-      <div className="bg-muted w-full rounded-3xl p-8">
+      <div className="bg-card shadow-resting w-full rounded-3xl p-8">
         <p role="status" className="text-sm font-medium">
           Cargando…
         </p>
@@ -112,7 +112,7 @@ export function EditHouseholdPage({
   }
 
   return (
-    <div className="bg-muted flex w-full flex-col items-center gap-8 rounded-3xl p-8">
+    <div className="bg-card shadow-resting flex w-full flex-col items-center gap-8 rounded-3xl p-8">
       <Button variant="ghost" asChild className="self-start">
         <Link to="/">Volver</Link>
       </Button>
