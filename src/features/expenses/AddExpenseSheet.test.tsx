@@ -487,6 +487,66 @@ describe('AddExpenseSheet', () => {
     expect(listed).toEqual([expect.objectContaining({ name: 'Pasta' })])
   })
 
+  it('discards unsaved edit changes and closes the sheet when Cancel edit is clicked', async () => {
+    const { db, householdId } = await seedHousehold()
+    const categories = await listCategories({ db, householdId })
+    const comida = categories.find((category) => category.name === 'Comida')
+    if (comida === undefined) {
+      throw new Error('expected Comida category')
+    }
+    const expense = await createExpense({
+      db,
+      householdId,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Pizza',
+      price: 10,
+      comments: 'Friday dinner',
+      expenseDate: currentMonthDate(15),
+    })
+    const editExpense: EditExpenseTarget = {
+      expenseId: expense.id,
+      name: 'Pizza',
+      price: 10,
+      categoryName: 'Comida',
+      comments: 'Friday dinner',
+      expenseDate: currentMonthDate(15),
+    }
+
+    renderWithProviders(
+      <EditAddExpenseSheetHarness
+        db={db}
+        householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
+        initialEditExpense={editExpense}
+      />,
+    )
+
+    fireEvent.change(await screen.findByLabelText('Name'), {
+      target: { value: 'Unsaved change' },
+    })
+    // "Cancel edit" calls onEditFinished directly rather than going through
+    // the Sheet's own onOpenChange -- confirm it still closes the now-shared
+    // sheet (not just clearing form state) and discards the draft.
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel edit' }))
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+    })
+    expect(
+      document.querySelector('[data-slot="sheet-content"]'),
+    ).not.toBeInTheDocument()
+
+    const listed = await listExpensesInMonth({
+      db,
+      householdId,
+      ...currentMonthRange(),
+    })
+    expect(listed).toEqual([expect.objectContaining({ name: 'Pizza' })])
+  })
+
   it('discards unsaved edit changes immediately on dismiss, with no confirmation prompt', async () => {
     const { db, householdId } = await seedHousehold()
     const categories = await listCategories({ db, householdId })
