@@ -57,8 +57,15 @@ export function RemainingBudgetDisplay({
 
   return (
     <div className="from-primary to-[var(--surface-action-gradient-end)] relative flex w-full flex-col gap-6 overflow-hidden rounded-3xl bg-gradient-to-br p-6">
-      <PiggyBankIllustration className="pointer-events-none absolute -top-2 right-2 h-24 w-28" />
-      <div className="flex flex-col gap-2 pr-20">
+      {/* Sized and positioned so it pokes out over the top of the card
+          instead of sitting beside the text -- its bottom edge (-top-10 +
+          h-16 = card-Y 24px) lands right where the label+amount block
+          starts (card padding p-6 = 24px), so it no longer collides with
+          "Presupuesto restante" the way the larger, lower-positioned
+          version did. pr-16 on the text block still reserves clearance for
+          the sliver of it that overlaps the card's top padding row. */}
+      <PiggyBankIllustration className="pointer-events-none absolute -top-10 right-2 h-16 w-20" />
+      <div className="flex flex-col gap-2 pr-16">
         <span className="text-primary-foreground text-body font-medium [text-shadow:0_1px_3px_rgba(0,0,0,0.35)]">
           Presupuesto restante
         </span>

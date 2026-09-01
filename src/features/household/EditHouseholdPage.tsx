@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
 import { Link, Navigate } from 'react-router-dom'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { LogoutButton } from '@/features/auth'
 import { InviteLinkPanel } from '@/features/invite'
@@ -113,9 +114,14 @@ export function EditHouseholdPage({
 
   return (
     <div className="flex w-full flex-col gap-6">
-      <Button variant="ghost" asChild className="self-start">
-        <Link to="/">Volver</Link>
-      </Button>
+      <PageHeader
+        title="Ajustes"
+        leading={
+          <Button variant="ghost" asChild className="self-start">
+            <Link to="/">Volver</Link>
+          </Button>
+        }
+      />
       <div className="bg-card shadow-resting flex w-full flex-col items-center gap-8 rounded-3xl p-6">
         <EditHouseholdForm db={db} householdId={membership.householdId} />
       </div>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
 import { Settings, Wallet } from 'lucide-react'
+import { PageHeader } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import {
   AddExpenseSheet,
@@ -187,16 +188,16 @@ export function HomePage({
 
   return (
     <div className="flex w-full flex-col items-center gap-8">
-      <div className="flex w-full items-center justify-between">
-        <h1 className="text-title font-semibold">
-          {household?.name ?? 'Hogar'}
-        </h1>
-        <Button variant="ghost" size="icon" asChild aria-label="Ajustes">
-          <Link to="/household">
-            <Settings aria-hidden="true" />
-          </Link>
-        </Button>
-      </div>
+      <PageHeader
+        title={household?.name ?? 'Hogar'}
+        action={
+          <Button variant="ghost" size="icon" asChild aria-label="Ajustes">
+            <Link to="/household">
+              <Settings aria-hidden="true" />
+            </Link>
+          </Button>
+        }
+      />
       <RemainingBudgetDisplay db={db} householdId={membership.householdId} />
       <div className="flex w-full gap-3">
         <AddExpenseSheet

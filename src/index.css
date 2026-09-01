@@ -118,6 +118,21 @@
   --color-orange-900: #542d0b;
   --color-orange-950: #391f08;
 
+  /* Color: pink (piggy-bank illustration), seed #F472B6 -- the color of the
+     real 3D piggy-bank reference photo the Home hero comp was approved
+     against, anchor step 400 */
+  --color-pink-50: #fcf0f6;
+  --color-pink-100: #f6d7e7;
+  --color-pink-200: #f8a2cf;
+  --color-pink-300: #f474b7;
+  --color-pink-400: #f472b6;
+  --color-pink-500: #e0127e;
+  --color-pink-600: #bf0f6b;
+  --color-pink-700: #9e0c59;
+  --color-pink-800: #7d0a46;
+  --color-pink-900: #580b33;
+  --color-pink-950: #3d0823;
+
   /* Radius: 4px-grid steps for the moderate Container radius track, aliased
      as --radius-2xl/--radius-3xl in @theme inline below. Independent steps,
      not a calc() derivation from one root value. */

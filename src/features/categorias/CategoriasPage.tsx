@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react'
+import { PageHeader } from '@/components/PageHeader'
 import { EmptyExpensesIllustration } from '@/features/expenses/EmptyExpensesIllustration'
 
 // Placeholder until the real Categorías feature (breakdown + management,
@@ -9,7 +10,7 @@ import { EmptyExpensesIllustration } from '@/features/expenses/EmptyExpensesIllu
 export function CategoriasPage(): ReactElement {
   return (
     <div className="flex w-full flex-col items-center gap-8">
-      <h1 className="text-title w-full font-semibold">Categorías</h1>
+      <PageHeader title="Categorías" />
       <EmptyExpensesIllustration className="mx-auto h-32 w-40" />
       <p role="status" className="text-sm font-medium">
         Próximamente
