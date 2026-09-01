@@ -1,5 +1,19 @@
 import type { ReactElement } from 'react'
+import { EmptyExpensesIllustration } from '@/features/expenses/EmptyExpensesIllustration'
 
+// Placeholder until the real Histórico feature (grouped by month/year,
+// story docs/stories/historico-de-movimientos.md) is built -- gets the same
+// page chrome and empty-state illustration as the rest of the app instead
+// of a bare, unstyled heading, without inventing functionality that isn't
+// there yet.
 export function HistoricoPage(): ReactElement {
-  return <h1 className="text-title">Histórico</h1>
+  return (
+    <div className="flex w-full flex-col items-center gap-8">
+      <h1 className="text-title w-full font-semibold">Histórico</h1>
+      <EmptyExpensesIllustration className="mx-auto h-32 w-40" />
+      <p role="status" className="text-sm font-medium">
+        Próximamente
+      </p>
+    </div>
+  )
 }

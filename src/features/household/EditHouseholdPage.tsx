@@ -112,18 +112,28 @@ export function EditHouseholdPage({
   }
 
   return (
-    <div className="bg-card shadow-resting flex w-full flex-col items-center gap-8 rounded-3xl p-8">
+    <div className="flex w-full flex-col gap-6">
       <Button variant="ghost" asChild className="self-start">
         <Link to="/">Volver</Link>
       </Button>
-      <EditHouseholdForm db={db} householdId={membership.householdId} />
-      <MemberList
-        db={db}
-        householdId={membership.householdId}
-        currentUserId={currentUserId}
-      />
-      <InviteLinkPanel db={db} householdId={membership.householdId} />
-      {usesLiveSession ? <LogoutButton /> : null}
+      <div className="bg-card shadow-resting flex w-full flex-col items-center gap-8 rounded-3xl p-6">
+        <EditHouseholdForm db={db} householdId={membership.householdId} />
+      </div>
+      <div className="bg-card shadow-resting w-full rounded-3xl p-6">
+        <MemberList
+          db={db}
+          householdId={membership.householdId}
+          currentUserId={currentUserId}
+        />
+      </div>
+      <div className="bg-card shadow-resting w-full rounded-3xl p-6">
+        <InviteLinkPanel db={db} householdId={membership.householdId} />
+      </div>
+      {usesLiveSession ? (
+        <div className="flex w-full justify-center">
+          <LogoutButton />
+        </div>
+      ) : null}
     </div>
   )
 }
