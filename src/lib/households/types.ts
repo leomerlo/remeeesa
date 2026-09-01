@@ -116,4 +116,17 @@ export type HouseholdsDb = {
   listPendingCuentas(input: {
     readonly householdId: string
   }): Promise<readonly Cuenta[]>
+  updateCuenta(input: {
+    readonly householdId: string
+    readonly cuentaId: string
+    readonly categoryId: string
+    readonly name: string
+    readonly dueDate: Date
+    readonly expectedAmount: number | null
+    readonly recurring: boolean
+  }): Promise<Cuenta>
+  deleteCuenta(input: {
+    readonly householdId: string
+    readonly cuentaId: string
+  }): Promise<void>
 }

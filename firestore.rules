@@ -163,6 +163,29 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/categories/$(data.category_id)).data.household_id == data.household_id;
     }
 
+    // Editing is only allowed while the cuenta is still pending -- once paid,
+    // it is frozen at the rules level (mirrors isValidExpenseUpdate's shape,
+    // adapted to the cuenta field set). A future category-merge feature may
+    // need a category-only update allowed regardless of status; that is not
+    // implemented here.
+    function isValidCuentaUpdate() {
+      return resource.data.status == 'pending'
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name', 'category_id', 'due_date', 'expected_amount', 'recurring'])
+        && !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['household_id', 'status', 'paid_expense_id', 'created_at'])
+        && request.resource.data.household_id == resource.data.household_id
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.matches('.*\\S.*')
+        && request.resource.data.due_date is timestamp
+        && (request.resource.data.expected_amount == null
+          || (request.resource.data.expected_amount is number && request.resource.data.expected_amount > 0))
+        && request.resource.data.recurring is bool
+        && exists(/databases/$(database)/documents/categories/$(request.resource.data.category_id))
+        && get(/databases/$(database)/documents/categories/$(request.resource.data.category_id)).data.household_id == resource.data.household_id;
+    }
+
     match /households/{householdId} {
       allow read: if isMemberOf(householdId);
       // Create must land in the same batch as the caller's membership row so
@@ -250,7 +273,10 @@ service cloud.firestore {
       allow read: if isMemberOf(resource.data.household_id);
       allow create: if isMemberOf(request.resource.data.household_id)
         && isValidCuenta(request.resource.data);
-      allow update, delete: if false;
+      allow update: if isMemberOf(resource.data.household_id)
+        && isValidCuentaUpdate();
+      allow delete: if isMemberOf(resource.data.household_id)
+        && resource.data.status == 'pending';
     }
   }
 }

@@ -1,3 +1,4 @@
+import { CuentaAlreadyPaidError, CuentaNotFoundError } from '@/lib/cuentas/cuentas'
 import type { Cuenta } from '@/lib/cuentas/types'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
@@ -423,6 +424,50 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         (left, right) => left.dueDate.getTime() - right.dueDate.getTime(),
       )
       return cuentas
+    },
+    async updateCuenta(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const existing = state.cuentas.get(input.cuentaId)
+      if (existing === undefined || existing.householdId !== input.householdId) {
+        throw new CuentaNotFoundError()
+      }
+      // Mirrors firestore.rules' isValidCuentaUpdate() requiring
+      // resource.data.status == 'pending' -- keeps this fixture faithful to
+      // the real rule even though the domain layer's own pre-check already
+      // covers the sequential case today.
+      if (existing.status !== 'pending') {
+        throw new CuentaAlreadyPaidError()
+      }
+      const category = state.categories.get(input.categoryId)
+      if (
+        category === undefined ||
+        category.householdId !== input.householdId
+      ) {
+        throw new Error('Category not found')
+      }
+      const updated: Cuenta = {
+        ...existing,
+        categoryId: input.categoryId,
+        name: input.name,
+        dueDate: input.dueDate,
+        expectedAmount: input.expectedAmount,
+        recurring: input.recurring,
+      }
+      state.cuentas.set(input.cuentaId, updated)
+      return updated
+    },
+    async deleteCuenta(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const existing = state.cuentas.get(input.cuentaId)
+      if (existing === undefined || existing.householdId !== input.householdId) {
+        throw new CuentaNotFoundError()
+      }
+      // Mirrors firestore.rules' delete rule requiring
+      // resource.data.status == 'pending'.
+      if (existing.status !== 'pending') {
+        throw new CuentaAlreadyPaidError()
+      }
+      state.cuentas.delete(input.cuentaId)
     },
   }
 }

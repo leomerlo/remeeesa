@@ -50,6 +50,8 @@ const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
   createCuenta: 'agregar la cuenta',
   getCuenta: 'cargar la cuenta',
   listPendingCuentas: 'cargar las cuentas',
+  updateCuenta: 'guardar la cuenta',
+  deleteCuenta: 'eliminar la cuenta',
 }
 
 export class FirestoreDeniedError extends Error {

@@ -1,5 +1,13 @@
 export type { Cuenta, CuentaStatus } from './types'
-export { createCuenta, getCuenta, listPendingCuentas } from './cuentas'
+export {
+  createCuenta,
+  CuentaAlreadyPaidError,
+  CuentaNotFoundError,
+  deleteCuenta,
+  getCuenta,
+  listPendingCuentas,
+  updateCuenta,
+} from './cuentas'
 export {
   parseCuentaDueDate,
   parseCuentaName,
