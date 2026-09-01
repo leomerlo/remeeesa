@@ -30,6 +30,15 @@ function formatExpenseDate(date: Date): string {
   })
 }
 
+// Editar/Eliminar collapse into a single 44x44 kebab-menu trigger
+// (RecentExpensesList.tsx) -- open it before either action button is
+// reachable by role/name.
+async function openRowMenu(name: string): Promise<void> {
+  fireEvent.click(
+    await screen.findByRole('button', { name: `Más acciones para ${name}` }),
+  )
+}
+
 describe('RecentExpensesList', () => {
   it('shows an empty state when the household has no expenses at all', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
@@ -116,12 +125,12 @@ describe('RecentExpensesList', () => {
       const rows = await screen.findAllByRole('listitem')
       expect(rows).toHaveLength(2)
       expect(rows[0]).toHaveTextContent('Taxi')
-      expect(rows[0]).toHaveTextContent('8.25')
+      expect(rows[0]).toHaveTextContent('$8,25')
       expect(rows[0]).toHaveTextContent('Transporte')
       expect(rows[0]).toHaveTextContent(formatExpenseDate(laterDate))
       expect(rows[0]).toHaveTextContent('Bob')
       expect(rows[1]).toHaveTextContent('Pizza')
-      expect(rows[1]).toHaveTextContent('12.50')
+      expect(rows[1]).toHaveTextContent('$12,50')
       expect(rows[1]).toHaveTextContent('Comida')
       expect(rows[1]).toHaveTextContent(formatExpenseDate(earlierDate))
       expect(rows[1]).toHaveTextContent('Ada')
@@ -165,9 +174,7 @@ describe('RecentExpensesList', () => {
     )
 
     expect(await screen.findByText('Old rent')).toBeInTheDocument()
-    expect(
-      screen.queryByText('Todavía no hay gastos'),
-    ).not.toBeInTheDocument()
+    expect(screen.queryByText('Todavía no hay gastos')).not.toBeInTheDocument()
   })
 
   it('caps the list at the 10 most recent expenses', async () => {
@@ -290,8 +297,11 @@ describe('RecentExpensesList', () => {
     )
 
     const row = await screen.findByRole('listitem')
+    fireEvent.click(
+      within(row).getByRole('button', { name: 'Más acciones para Pizza' }),
+    )
     expect(
-      within(row).getByRole('button', { name: 'Eliminar Pizza' }),
+      await screen.findByRole('button', { name: 'Eliminar Pizza' }),
     ).toBeInTheDocument()
   })
 
@@ -326,7 +336,10 @@ describe('RecentExpensesList', () => {
       <RecentExpensesList db={db} householdId={household.id} />,
     )
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Eliminar Pizza' }))
+    await openRowMenu('Pizza')
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Eliminar Pizza' }),
+    )
 
     const dialog = screen.getByRole('alertdialog')
     expect(dialog).toHaveAccessibleName('¿Eliminar el gasto?')
@@ -380,10 +393,13 @@ describe('RecentExpensesList', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Presupuesto restante $70' }),
-    ).toHaveTextContent('$70')
+      await screen.findByRole('status', {
+        name: 'Presupuesto restante $70,00',
+      }),
+    ).toHaveTextContent('$70,00')
     expect(screen.getByRole('listitem')).toHaveTextContent('Pizza')
 
+    await openRowMenu('Pizza')
     fireEvent.click(screen.getByRole('button', { name: 'Eliminar Pizza' }))
     fireEvent.click(
       within(screen.getByRole('alertdialog')).getByRole('button', {
@@ -394,12 +410,10 @@ describe('RecentExpensesList', () => {
     await waitFor(() => {
       expect(screen.queryByRole('listitem')).not.toBeInTheDocument()
     })
+    expect(await screen.findByText('Todavía no hay gastos')).toBeInTheDocument()
     expect(
-      await screen.findByText('Todavía no hay gastos'),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('status', { name: 'Presupuesto restante $100' }),
-    ).toHaveTextContent('$100')
+      screen.getByRole('status', { name: 'Presupuesto restante $100,00' }),
+    ).toHaveTextContent('$100,00')
   })
 
   it('shows a stale-error message and refetches when the expense was already deleted elsewhere', async () => {
@@ -455,6 +469,7 @@ describe('RecentExpensesList', () => {
       expenseId: expense.id,
     })
 
+    await openRowMenu('Pizza')
     fireEvent.click(screen.getByRole('button', { name: 'Eliminar Pizza' }))
     fireEvent.click(
       within(screen.getByRole('alertdialog')).getByRole('button', {
@@ -470,9 +485,7 @@ describe('RecentExpensesList', () => {
     await waitFor(() => {
       expect(screen.queryByRole('listitem')).not.toBeInTheDocument()
     })
-    expect(
-      await screen.findByText('Todavía no hay gastos'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Todavía no hay gastos')).toBeInTheDocument()
   })
 
   it('removes only the deleted expense when other rows remain', async () => {
@@ -523,6 +536,7 @@ describe('RecentExpensesList', () => {
 
     expect(await screen.findAllByRole('listitem')).toHaveLength(2)
 
+    await openRowMenu('Pizza')
     fireEvent.click(screen.getByRole('button', { name: 'Eliminar Pizza' }))
     fireEvent.click(
       within(screen.getByRole('alertdialog')).getByRole('button', {

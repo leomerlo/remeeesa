@@ -39,9 +39,12 @@ describe('expense query keys', () => {
   })
 
   it('nests the recent-expenses key under the expenses prefix', () => {
-    expect(
-      recentExpensesQueryKey({ householdId: 'hh-1', limit: 10 }),
-    ).toEqual(['expenses', 'hh-1', 'recent', 10])
+    expect(recentExpensesQueryKey({ householdId: 'hh-1', limit: 10 })).toEqual([
+      'expenses',
+      'hh-1',
+      'recent',
+      10,
+    ])
   })
 })
 
@@ -79,8 +82,10 @@ describe('expenses prefix invalidation', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Presupuesto restante $100' }),
-    ).toHaveTextContent('$100')
+      await screen.findByRole('status', {
+        name: 'Presupuesto restante $100,00',
+      }),
+    ).toHaveTextContent('$100,00')
     expect(await screen.findByText('Todavía no hay gastos')).toBeInTheDocument()
 
     fireEvent.change(await screen.findByLabelText('Nombre'), {
@@ -98,13 +103,11 @@ describe('expenses prefix invalidation', () => {
     // new expense once the shared prefix invalidates.
     await waitFor(() => {
       expect(
-        screen.getByRole('status', { name: 'Presupuesto restante $90' }),
-      ).toHaveTextContent('$90')
+        screen.getByRole('status', { name: 'Presupuesto restante $90,00' }),
+      ).toHaveTextContent('$90,00')
     })
     expect(await screen.findByText('Pizza')).toBeInTheDocument()
-    expect(
-      screen.queryByText('Todavía no hay gastos'),
-    ).not.toBeInTheDocument()
+    expect(screen.queryByText('Todavía no hay gastos')).not.toBeInTheDocument()
   })
 
   // RecentExpensesList's delete mutation invalidates only expensesQueryKey,
@@ -159,14 +162,18 @@ describe('expenses prefix invalidation', () => {
     await screen.findByRole('listitem')
     await waitFor(() => {
       expect(
-        queryClient.getQueryState(categoriesQueryKey({ householdId: household.id }))
-          ?.dataUpdatedAt,
+        queryClient.getQueryState(
+          categoriesQueryKey({ householdId: household.id }),
+        )?.dataUpdatedAt,
       ).toBeGreaterThan(0)
     })
     const categoriesUpdatedAtBefore = queryClient.getQueryState(
       categoriesQueryKey({ householdId: household.id }),
     )?.dataUpdatedAt
 
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Más acciones para Pizza' }),
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Eliminar Pizza' }))
     fireEvent.click(
       within(screen.getByRole('alertdialog')).getByRole('button', {
@@ -178,8 +185,9 @@ describe('expenses prefix invalidation', () => {
       expect(screen.queryByRole('listitem')).not.toBeInTheDocument()
     })
     expect(
-      queryClient.getQueryState(categoriesQueryKey({ householdId: household.id }))
-        ?.dataUpdatedAt,
+      queryClient.getQueryState(
+        categoriesQueryKey({ householdId: household.id }),
+      )?.dataUpdatedAt,
     ).toBe(categoriesUpdatedAtBefore)
   })
 })

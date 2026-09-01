@@ -1,10 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { MoreVertical, Pencil, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
   deleteExpense,
   ExpenseNotFoundError,
+  formatCurrency,
   listCategories,
   listRecentExpenses,
 } from '@/lib/expenses'
@@ -29,10 +36,6 @@ function formatExpenseDate(date: Date): string {
     month: 'short',
     day: 'numeric',
   })
-}
-
-function formatExpensePrice(price: number): string {
-  return price.toFixed(2)
 }
 
 function DeleteExpenseDialog(input: {
@@ -82,11 +85,11 @@ function DeleteExpenseDialog(input: {
 
 // All-time recent-movements list ("Últimos movimientos" on Home). This is
 // currently the only place in the app to edit/delete an expense --
-// HistoricoPage is a bare placeholder -- so it deliberately keeps the
-// pill-button edit/delete affordance from the month-scoped list it
-// replaces, even though the approved comp shows this section as plain
-// (buttonless) cards. Dropping the buttons here would remove editing from
-// the app entirely until Histórico is built for real.
+// HistoricoPage is a bare placeholder -- so editing can't be dropped
+// outright. To still match the comp's plain, buttonless-looking cards, the
+// two full-width Editar/Eliminar pills collapse into a single 44x44
+// kebab-menu trigger (PopoverContent below) that reveals both actions --
+// same functionality, none of the visual weight.
 export function RecentExpensesList({
   db,
   householdId,
@@ -238,7 +241,7 @@ export function RecentExpensesList({
                       {expense.name}
                     </span>
                     <span className="font-display text-lg text-foreground">
-                      {formatExpensePrice(expense.price)}
+                      {formatCurrency(expense.price)}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-x-1.5 text-xs text-muted-foreground">
@@ -250,31 +253,50 @@ export function RecentExpensesList({
                   </div>
                 </div>
                 {isConfirmingDelete ? null : (
-                  <div className="flex shrink-0 gap-2">
-                    {onEditExpense !== undefined ? (
+                  <Popover>
+                    <PopoverTrigger asChild>
                       <Button
                         type="button"
-                        variant="outline"
-                        aria-label={`Editar ${expense.name}`}
-                        onClick={() => {
-                          onEditExpense(expense, category?.name ?? '')
-                        }}
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0 text-muted-foreground"
+                        aria-label={`Más acciones para ${expense.name}`}
                       >
-                        Editar
+                        <MoreVertical aria-hidden="true" />
                       </Button>
-                    ) : null}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      aria-label={`Eliminar ${expense.name}`}
-                      onClick={() => {
-                        setDeleteError(null)
-                        setConfirmDeleteExpense(expense)
-                      }}
-                    >
-                      Eliminar
-                    </Button>
-                  </div>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-44">
+                      <div className="flex flex-col">
+                        {onEditExpense !== undefined ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="w-full justify-start gap-2 rounded-xl"
+                            aria-label={`Editar ${expense.name}`}
+                            onClick={() => {
+                              onEditExpense(expense, category?.name ?? '')
+                            }}
+                          >
+                            <Pencil aria-hidden="true" />
+                            Editar
+                          </Button>
+                        ) : null}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="w-full justify-start gap-2 rounded-xl text-error hover:text-error"
+                          aria-label={`Eliminar ${expense.name}`}
+                          onClick={() => {
+                            setDeleteError(null)
+                            setConfirmDeleteExpense(expense)
+                          }}
+                        >
+                          <Trash2 aria-hidden="true" />
+                          Eliminar
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
                 )}
               </div>
               {isConfirmingDelete ? (

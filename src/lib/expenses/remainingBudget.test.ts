@@ -4,19 +4,38 @@ import {
   computeRemainingBudget,
   currentMonthRange,
   formatBudgetAmount,
+  formatCurrency,
 } from './remainingBudget'
+
+describe('formatCurrency', () => {
+  it('always shows two decimals, es-AR style (comma decimal separator)', () => {
+    expect(formatCurrency(100)).toBe('$100,00')
+  })
+
+  it('inserts a period as the thousands separator', () => {
+    expect(formatCurrency(224300)).toBe('$224.300,00')
+  })
+
+  it('rounds to two decimals', () => {
+    expect(formatCurrency(99.5)).toBe('$99,50')
+  })
+})
 
 describe('formatBudgetAmount', () => {
   it('prefixes whole amounts with a dollar sign', () => {
-    expect(formatBudgetAmount(100)).toBe('$100')
+    expect(formatBudgetAmount(100)).toBe('$100,00')
   })
 
   it('formats negative remaining as -$amount', () => {
-    expect(formatBudgetAmount(-50)).toBe('-$50')
+    expect(formatBudgetAmount(-50)).toBe('-$50,00')
   })
 
   it('keeps two decimals when needed', () => {
-    expect(formatBudgetAmount(99.5)).toBe('$99.50')
+    expect(formatBudgetAmount(99.5)).toBe('$99,50')
+  })
+
+  it('formats a large negative remaining with a thousands separator', () => {
+    expect(formatBudgetAmount(-224300)).toBe('-$224.300,00')
   })
 })
 

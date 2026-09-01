@@ -95,10 +95,8 @@ describe('HomePage', () => {
       await screen.findByRole('status', {
         name: /presupuesto restante \$100/i,
       }),
-    ).toHaveTextContent('$100')
-    expect(
-      await screen.findByText('Todavía no hay gastos'),
-    ).toBeInTheDocument()
+    ).toHaveTextContent('$100,00')
+    expect(await screen.findByText('Todavía no hay gastos')).toBeInTheDocument()
     expect(
       screen.getByRole('progressbar', { name: '% usado' }),
     ).toHaveAttribute('aria-valuenow', '0')
@@ -115,9 +113,9 @@ describe('HomePage', () => {
     expect(
       screen.getByRole('heading', { name: 'Integrantes' }),
     ).toBeInTheDocument()
-    expect(
-      screen.getAllByText('Todavía no hay gastos este mes'),
-    ).toHaveLength(2)
+    expect(screen.getAllByText('Todavía no hay gastos este mes')).toHaveLength(
+      2,
+    )
     expect(
       screen.queryByRole('button', { name: 'Nueva cuenta' }),
     ).not.toBeInTheDocument()
@@ -169,7 +167,7 @@ describe('HomePage', () => {
       await screen.findByRole('status', {
         name: /presupuesto restante \$100/i,
       }),
-    ).toHaveTextContent('$100')
+    ).toHaveTextContent('$100,00')
     expect(
       screen.getByRole('button', { name: 'Agregar gasto' }),
     ).toBeInTheDocument()
@@ -246,10 +244,8 @@ describe('HomePage', () => {
       await screen.findByRole('status', {
         name: /presupuesto restante \$100/i,
       }),
-    ).toHaveTextContent('$100')
-    expect(
-      await screen.findByText('Todavía no hay gastos'),
-    ).toBeInTheDocument()
+    ).toHaveTextContent('$100,00')
+    expect(await screen.findByText('Todavía no hay gastos')).toBeInTheDocument()
 
     fireEvent.click(
       await screen.findByRole('button', { name: 'Agregar gasto' }),
@@ -276,7 +272,7 @@ describe('HomePage', () => {
     expect(await screen.findByText('Pizza')).toBeInTheDocument()
     expect(
       await screen.findByRole('status', { name: /presupuesto restante \$90/i }),
-    ).toHaveTextContent('$90')
+    ).toHaveTextContent('$90,00')
     await waitFor(() => {
       expect(
         screen.getByRole('progressbar', { name: '% usado' }),

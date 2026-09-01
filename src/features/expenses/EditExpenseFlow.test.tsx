@@ -52,6 +52,15 @@ function currentMonthDate(day: number): Date {
   )
 }
 
+// Editar/Eliminar collapse into a single 44x44 kebab-menu trigger
+// (RecentExpensesList.tsx) -- open it before either action button is
+// reachable by role/name.
+async function openRowMenu(name: string): Promise<void> {
+  fireEvent.click(
+    await screen.findByRole('button', { name: `Más acciones para ${name}` }),
+  )
+}
+
 function EditExpenseHarness(props: {
   readonly db: HouseholdsDb
   readonly householdId: string
@@ -145,6 +154,7 @@ describe('EditExpenseFlow', () => {
       />,
     )
 
+    await openRowMenu('Pizza')
     fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
 
     expect(screen.getByLabelText('Nombre')).toHaveValue('Pizza')
@@ -183,7 +193,8 @@ describe('EditExpenseFlow', () => {
       />,
     )
 
-    expect(await screen.findByText('$90')).toBeInTheDocument()
+    expect(await screen.findByText('$90,00')).toBeInTheDocument()
+    await openRowMenu('Pizza')
     fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
     fireEvent.change(screen.getByLabelText('Nombre'), {
       target: { value: 'Pasta' },
@@ -196,7 +207,7 @@ describe('EditExpenseFlow', () => {
     await waitFor(() => {
       expect(screen.getByText('Pasta')).toBeInTheDocument()
       expect(screen.queryByText('Pizza')).not.toBeInTheDocument()
-      expect(screen.getByText('$75')).toBeInTheDocument()
+      expect(screen.getByText('$75,00')).toBeInTheDocument()
     })
     expect(
       screen.queryByRole('button', { name: 'Guardar cambios' }),
@@ -247,6 +258,7 @@ describe('EditExpenseFlow', () => {
     const today = new Date()
     const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 15)
 
+    await openRowMenu('Pizza')
     fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
     fireEvent.change(screen.getByLabelText('Fecha'), {
       target: { value: localDateInputValue(lastMonth) },
@@ -288,6 +300,7 @@ describe('EditExpenseFlow', () => {
       />,
     )
 
+    await openRowMenu('Pizza')
     fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
     await deleteExpense({
       db: store.asUser('user-2'),
@@ -337,6 +350,7 @@ describe('EditExpenseFlow', () => {
       />,
     )
 
+    await openRowMenu('Pizza')
     fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
     fireEvent.change(screen.getByLabelText('Nombre'), {
       target: { value: 'Shared edit' },

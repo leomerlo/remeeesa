@@ -14,6 +14,7 @@ export {
   computeRemainingBudget,
   currentMonthRange,
   formatBudgetAmount,
+  formatCurrency,
   isDateInCurrentMonth,
 } from './remainingBudget'
 export { summarizeByCategory, summarizeByPerson } from './summaries'
