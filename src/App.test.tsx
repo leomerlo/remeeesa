@@ -156,6 +156,37 @@ describe('App', () => {
     },
   )
 
+  it('renders /cuentas for a signed-in member with a household, unlinked from the nav', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderWithProviders(
+      <MemoryRouter initialEntries={['/cuentas']}>
+        <AppRoutes currentUserId="user-1" householdsDb={db} />
+      </MemoryRouter>,
+    )
+
+    expect(
+      await screen.findByRole('heading', { name: 'Cuentas' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Nueva cuenta' }),
+    ).toBeInTheDocument()
+
+    // /cuentas is intentionally unlinked from Home in this ticket -- the nav
+    // must not grow a 5th entry pointing at it.
+    const nav = await screen.findByRole('navigation')
+    expect(within(nav).getAllByRole('link')).toHaveLength(4)
+    expect(
+      within(nav).queryByRole('link', { name: /cuentas/i }),
+    ).not.toBeInTheDocument()
+  })
+
   it('shows the nav and marks Histórico active when navigating there directly', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     await createHouseholdWithMembership({
