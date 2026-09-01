@@ -7,9 +7,12 @@ export type OnboardingIllustrationProps = {
 
 // Decorative piggy-bank motif for the household-creation step. Hand-authored
 // inline SVG (no illustration asset pipeline exists in this repo) using the
-// wallet palette's primary purple -> lavender-pink gradient, a soft highlight
-// ellipse, a drop-shadow filter, and floating accent coins for a semi-3D,
-// flat-illustration-with-depth look consistent with RemainingBudgetDisplay.
+// pink piggy-bank scale (see index.css) that matches the real 3D reference
+// photo the Home hero comp was approved against, a soft highlight ellipse, a
+// drop-shadow filter, and floating accent coins for a semi-3D,
+// flat-illustration-with-depth look. Same mascot, same color, as
+// PiggyBankIllustration (RemainingBudgetDisplay.tsx) -- one consistent
+// character across Home and the auth flow, not two differently-colored pigs.
 export function OnboardingIllustration({
   className,
 }: OnboardingIllustrationProps): ReactElement {
@@ -28,8 +31,8 @@ export function OnboardingIllustration({
     >
       <defs>
         <linearGradient id={bodyGradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="var(--color-purple-400)" />
-          <stop offset="100%" stopColor="var(--color-purple-200)" />
+          <stop offset="0%" stopColor="var(--color-pink-400)" />
+          <stop offset="100%" stopColor="var(--color-pink-200)" />
         </linearGradient>
         <linearGradient id={coinGradientId} x1="0%" y1="0%" x2="100%" y2="100%">
           <stop offset="0%" stopColor="var(--color-yellow-300)" />
@@ -50,7 +53,7 @@ export function OnboardingIllustration({
             dx="0"
             dy="6"
             stdDeviation="6"
-            floodColor="var(--color-purple-900)"
+            floodColor="var(--color-pink-900)"
             floodOpacity="0.22"
           />
         </filter>
@@ -58,8 +61,22 @@ export function OnboardingIllustration({
 
       <g filter={`url(#${shadowFilterId})`}>
         {/* Legs */}
-        <rect x="55" y="122" width="12" height="16" rx="4" fill="var(--color-purple-300)" />
-        <rect x="133" y="122" width="12" height="16" rx="4" fill="var(--color-purple-300)" />
+        <rect
+          x="55"
+          y="122"
+          width="12"
+          height="16"
+          rx="4"
+          fill="var(--color-pink-300)"
+        />
+        <rect
+          x="133"
+          y="122"
+          width="12"
+          height="16"
+          rx="4"
+          fill="var(--color-pink-300)"
+        />
 
         {/* Body */}
         <ellipse
@@ -71,23 +88,36 @@ export function OnboardingIllustration({
         />
 
         {/* Snout */}
-        <ellipse cx="158" cy="92" rx="16" ry="13" fill="var(--color-purple-300)" />
-        <circle cx="153" cy="92" r="2.5" fill="var(--color-purple-500)" />
-        <circle cx="163" cy="92" r="2.5" fill="var(--color-purple-500)" />
+        <ellipse
+          cx="158"
+          cy="92"
+          rx="16"
+          ry="13"
+          fill="var(--color-pink-300)"
+        />
+        <circle cx="153" cy="92" r="2.5" fill="var(--color-pink-500)" />
+        <circle cx="163" cy="92" r="2.5" fill="var(--color-pink-500)" />
 
         {/* Ear */}
-        <path d="M55 48 L70 30 L78 55 Z" fill="var(--color-purple-300)" />
+        <path d="M55 48 L70 30 L78 55 Z" fill="var(--color-pink-300)" />
 
         {/* Eye */}
-        <circle cx="118" cy="78" r="4" fill="var(--color-purple-900)" />
+        <circle cx="118" cy="78" r="4" fill="var(--color-pink-900)" />
 
         {/* Coin slot */}
-        <rect x="88" y="46" width="26" height="6" rx="3" fill="var(--color-purple-500)" />
+        <rect
+          x="88"
+          y="46"
+          width="26"
+          height="6"
+          rx="3"
+          fill="var(--color-pink-500)"
+        />
 
         {/* Tail */}
         <path
           d="M35 78 C24 74, 24 62, 33 60"
-          stroke="var(--color-purple-300)"
+          stroke="var(--color-pink-300)"
           strokeWidth="4"
           strokeLinecap="round"
           fill="none"

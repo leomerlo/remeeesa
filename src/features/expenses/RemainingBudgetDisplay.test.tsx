@@ -35,8 +35,10 @@ describe('RemainingBudgetDisplay', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Cargando…')
 
     expect(
-      await screen.findByRole('status', { name: 'Presupuesto restante $100' }),
-    ).toHaveTextContent('$100')
+      await screen.findByRole('status', {
+        name: 'Presupuesto restante $100,00',
+      }),
+    ).toHaveTextContent('$100,00')
   })
 
   it('shows the monthly budget when there are no expenses this month', async () => {
@@ -47,8 +49,10 @@ describe('RemainingBudgetDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Presupuesto restante $100' }),
-    ).toHaveTextContent('$100')
+      await screen.findByRole('status', {
+        name: 'Presupuesto restante $100,00',
+      }),
+    ).toHaveTextContent('$100,00')
     expect(screen.getByText('Presupuesto restante')).toBeInTheDocument()
   })
 
@@ -59,7 +63,7 @@ describe('RemainingBudgetDisplay', () => {
       <RemainingBudgetDisplay db={db} householdId={household.id} />,
     )
 
-    await screen.findByRole('status', { name: 'Presupuesto restante $100' })
+    await screen.findByRole('status', { name: 'Presupuesto restante $100,00' })
     const progressbar = screen.getByRole('progressbar', {
       name: '% usado',
     })
@@ -87,7 +91,7 @@ describe('RemainingBudgetDisplay', () => {
       <RemainingBudgetDisplay db={db} householdId={household.id} />,
     )
 
-    await screen.findByRole('status', { name: 'Presupuesto restante $60' })
+    await screen.findByRole('status', { name: 'Presupuesto restante $60,00' })
     expect(
       screen.getByRole('progressbar', { name: '% usado' }),
     ).toHaveAttribute('aria-valuenow', '40')
@@ -111,7 +115,7 @@ describe('RemainingBudgetDisplay', () => {
       <RemainingBudgetDisplay db={db} householdId={household.id} />,
     )
 
-    await screen.findByRole('status', { name: 'Presupuesto restante -$50' })
+    await screen.findByRole('status', { name: 'Presupuesto restante -$50,00' })
     expect(
       screen.getByRole('progressbar', { name: '% usado' }),
     ).toHaveAttribute('aria-valuenow', '100')
@@ -136,8 +140,10 @@ describe('RemainingBudgetDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Presupuesto restante $70' }),
-    ).toHaveTextContent('$70')
+      await screen.findByRole('status', {
+        name: 'Presupuesto restante $70,00',
+      }),
+    ).toHaveTextContent('$70,00')
   })
 
   it('ignores expenses from other months', async () => {
@@ -171,8 +177,10 @@ describe('RemainingBudgetDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Presupuesto restante $75' }),
-    ).toHaveTextContent('$75')
+      await screen.findByRole('status', {
+        name: 'Presupuesto restante $75,00',
+      }),
+    ).toHaveTextContent('$75,00')
   })
 
   it('updates to a negative remaining after an over-budget expense is created', async () => {
@@ -187,8 +195,10 @@ describe('RemainingBudgetDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Presupuesto restante $100' }),
-    ).toHaveTextContent('$100')
+      await screen.findByRole('status', {
+        name: 'Presupuesto restante $100,00',
+      }),
+    ).toHaveTextContent('$100,00')
     expect(screen.getByText('Presupuesto restante')).toBeInTheDocument()
 
     await createExpense({
@@ -208,8 +218,8 @@ describe('RemainingBudgetDisplay', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('status', { name: 'Presupuesto restante -$50' }),
-      ).toHaveTextContent('-$50')
+        screen.getByRole('status', { name: 'Presupuesto restante -$50,00' }),
+      ).toHaveTextContent('-$50,00')
     })
   })
 })

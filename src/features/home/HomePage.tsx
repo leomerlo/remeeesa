@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
+import { Wallet } from 'lucide-react'
+import { PageHeader } from '@/components/PageHeader'
+import { Button } from '@/components/ui/button'
 import {
   AddExpenseSheet,
   RecentExpensesList,
@@ -184,12 +187,12 @@ export function HomePage({
 
   return (
     <div className="flex w-full flex-col items-center gap-8">
-      <p className="text-sm font-medium">{household?.name ?? 'Hogar'}</p>
+      {/* No settings shortcut here: Ajustes is already one tap away in the
+          bottom nav, so a second icon-link to the same destination is
+          redundant. */}
+      <PageHeader title={household?.name ?? 'Hogar'} />
       <RemainingBudgetDisplay db={db} householdId={membership.householdId} />
-      {/* A plain flex row, not a two-child layout baked around exactly one
-          button -- leaves room for a future "Nueva cuenta" action to join
-          "Agregar gasto" here without restructuring. */}
-      <div className="flex w-full justify-center gap-4">
+      <div className="flex w-full gap-3">
         <AddExpenseSheet
           open={isAddExpenseSheetOpen}
           onOpenChange={setIsAddExpenseSheetOpen}
@@ -202,21 +205,41 @@ export function HomePage({
             setEditExpense(null)
           }}
         />
+        {editExpense === null ? (
+          // Cuentas (bill-tracking, ADR-0004) isn't built yet -- issue #72
+          // -- so this stays visible but inert rather than pretending the
+          // feature exists. Remove `disabled` once #72 ships.
+          <Button
+            type="button"
+            variant="outline"
+            disabled
+            className="flex-1 gap-1.5"
+            title="Próximamente"
+          >
+            <Wallet aria-hidden="true" />
+            Nueva cuenta
+          </Button>
+        ) : null}
       </div>
-      <RecentExpensesList
-        db={db}
-        householdId={membership.householdId}
-        onEditExpense={(expense, categoryName) => {
-          setEditExpense({
-            expenseId: expense.id,
-            name: expense.name,
-            price: expense.price,
-            categoryName,
-            comments: expense.comments,
-            expenseDate: expense.expenseDate,
-          })
-        }}
-      />
+      <div className="flex w-full flex-col gap-3">
+        <h2 className="text-title font-semibold self-start">
+          Últimos movimientos
+        </h2>
+        <RecentExpensesList
+          db={db}
+          householdId={membership.householdId}
+          onEditExpense={(expense, categoryName) => {
+            setEditExpense({
+              expenseId: expense.id,
+              name: expense.name,
+              price: expense.price,
+              categoryName,
+              comments: expense.comments,
+              expenseDate: expense.expenseDate,
+            })
+          }}
+        />
+      </div>
       <CategoryMiniSummary db={db} householdId={membership.householdId} />
       <PersonMiniSummary db={db} householdId={membership.householdId} />
     </div>

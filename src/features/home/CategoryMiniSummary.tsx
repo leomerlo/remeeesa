@@ -1,9 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
-import { categoriesQueryKey, expensesInMonthQueryKey } from '@/features/expenses'
+import {
+  categoriesQueryKey,
+  expensesInMonthQueryKey,
+} from '@/features/expenses'
 import {
   currentMonthRange,
+  formatCurrency,
   listCategories,
   listExpensesInMonth,
   summarizeByCategory,
@@ -16,10 +20,6 @@ export type CategoryMiniSummaryProps = {
 }
 
 const TOP_CATEGORY_COUNT = 5
-
-function formatAmount(amount: number): string {
-  return amount.toFixed(2)
-}
 
 // Home-only mini-summary. Runs its own independent useQuery on the same
 // expensesInMonthQueryKey/categoriesQueryKey cache entries
@@ -86,7 +86,7 @@ export function CategoryMiniSummary({
                 <span className="truncate text-foreground">{entry.name}</span>
               </span>
               <span className="shrink-0 font-medium text-foreground">
-                {formatAmount(entry.total)}
+                {formatCurrency(entry.total)}
               </span>
             </li>
           ))}

@@ -56,18 +56,29 @@ export function RemainingBudgetDisplay({
   const percentUsed = computePercentUsed(household.monthlyBudget, expenses)
 
   return (
-    <div className="from-primary to-[var(--surface-action-gradient-end)] flex w-full flex-col items-center gap-4 rounded-3xl bg-gradient-to-br p-8">
-      <PiggyBankIllustration className="h-24 w-28" />
-      <span className="text-primary-foreground text-body font-medium [text-shadow:0_1px_3px_rgba(0,0,0,0.35)]">
-        Presupuesto restante
-      </span>
-      <p
-        role="status"
-        aria-label={`Presupuesto restante ${formattedRemaining}`}
-        className="text-primary-foreground font-display text-display tracking-tight [text-shadow:0_1px_4px_rgba(0,0,0,0.35)]"
-      >
-        {formattedRemaining}
-      </p>
+    <div className="from-primary to-[var(--surface-action-gradient-end)] relative flex w-full flex-col gap-6 rounded-3xl bg-gradient-to-br p-6">
+      {/* No overflow-hidden on this card: it was clipping the illustration's
+          top half wherever it poked above the card edge (the only thing
+          overflow-hidden was actually protecting -- the gradient background
+          already clips to its own border-radius with no help needed, and
+          nothing else here escapes the card bounds). Floating fully visible
+          above the card, per the approved comp, needs the opposite of what
+          was there. Positioned so its bottom edge lands right where the
+          label+amount block starts (card padding p-6 = 24px), clearing
+          "Presupuesto restante" without relying on clipping. */}
+      <PiggyBankIllustration className="pointer-events-none absolute -top-10 right-2 h-16 w-20" />
+      <div className="flex flex-col gap-2 pr-16">
+        <span className="text-primary-foreground text-body font-medium [text-shadow:0_1px_3px_rgba(0,0,0,0.35)]">
+          Presupuesto restante
+        </span>
+        <p
+          role="status"
+          aria-label={`Presupuesto restante ${formattedRemaining}`}
+          className="text-primary-foreground font-display text-display tracking-tight [text-shadow:0_1px_4px_rgba(0,0,0,0.35)]"
+        >
+          {formattedRemaining}
+        </p>
+      </div>
       <div className="flex w-full flex-col gap-1">
         <div
           role="progressbar"

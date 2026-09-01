@@ -98,7 +98,7 @@ describe('AddExpenseSheet', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('bypasses the sheet entirely and renders the edit form inline when editing, even if open is true', async () => {
+  it('opens editing through the same sheet used for adding, even if open is false', async () => {
     const { db, householdId } = await seedHousehold()
     const editExpense: EditExpenseTarget = {
       expenseId: 'expense-1',
@@ -111,7 +111,7 @@ describe('AddExpenseSheet', () => {
 
     renderWithProviders(
       <AddExpenseSheet
-        open={true}
+        open={false}
         onOpenChange={() => {}}
         db={db}
         householdId={householdId}
@@ -122,22 +122,20 @@ describe('AddExpenseSheet', () => {
       />,
     )
 
-    // The inline edit form is visible immediately -- no trigger click needed.
+    // The edit form is visible immediately -- no trigger click needed --
+    // inside the same Sheet chrome the add flow uses, titled for editing.
     expect(await screen.findByLabelText('Nombre')).toHaveValue('Pizza')
     expect(
       screen.getByRole('button', { name: 'Guardar cambios' }),
     ).toBeInTheDocument()
+    const sheetContent = document.querySelector('[data-slot="sheet-content"]')
+    expect(sheetContent).not.toBeNull()
+    expect(sheetContent).toHaveTextContent('Editar gasto')
 
-    // No sheet chrome and no "Add expense" trigger: the two flows never
-    // coexist on screen, so there's no name collision with the trigger.
+    // No "Add expense" trigger while the sheet is open editing: the two
+    // flows never coexist on screen, so there's no name collision.
     expect(
       screen.queryByRole('button', { name: 'Agregar gasto' }),
-    ).not.toBeInTheDocument()
-    expect(
-      document.querySelector('[data-slot="sheet-content"]'),
-    ).not.toBeInTheDocument()
-    expect(
-      document.querySelector('[data-slot="sheet-overlay"]'),
     ).not.toBeInTheDocument()
   })
 
@@ -196,6 +194,39 @@ describe('AddExpenseSheet', () => {
       ...currentMonthRange(),
     })
     expect(listed).toEqual([expect.objectContaining({ name: 'Pasta' })])
+  })
+
+  it('calls onEditFinished when the edit sheet is dismissed without saving', async () => {
+    const { db, householdId } = await seedHousehold()
+    const onEditFinished = vi.fn()
+    const editExpense: EditExpenseTarget = {
+      expenseId: 'expense-1',
+      name: 'Pizza',
+      price: 12.5,
+      categoryName: 'Comida',
+      comments: 'Friday dinner',
+      expenseDate: currentMonthDate(15),
+    }
+
+    renderWithProviders(
+      <AddExpenseSheet
+        open={false}
+        onOpenChange={() => {}}
+        db={db}
+        householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
+        editExpense={editExpense}
+        onEditFinished={onEditFinished}
+      />,
+    )
+
+    await screen.findByLabelText('Nombre')
+    fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
+
+    await waitFor(() => {
+      expect(onEditFinished).toHaveBeenCalledTimes(1)
+    })
   })
 
   it('restores focus to the trigger button after the sheet closes', async () => {
