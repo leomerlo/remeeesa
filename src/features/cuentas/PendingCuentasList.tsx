@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
+import { Button } from '@/components/ui/button'
 import { listPendingCuentas } from '@/lib/cuentas'
 import type { Cuenta } from '@/lib/cuentas'
 import { formatBudgetAmount, listCategories } from '@/lib/expenses'
@@ -12,12 +13,14 @@ export type PendingCuentasListProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly onEditCuenta?: (cuenta: Cuenta, categoryName: string) => void
+  readonly onMarkPaid?: (cuenta: Cuenta) => void
 }
 
 export function PendingCuentasList({
   db,
   householdId,
   onEditCuenta,
+  onMarkPaid,
 }: PendingCuentasListProps): ReactElement {
   const cuentasQuery = useQuery({
     queryKey: cuentasQueryKey({ householdId }),
@@ -101,24 +104,50 @@ export function PendingCuentasList({
           </>
         )
 
-        return (
-          <li key={cuenta.id}>
-            {onEditCuenta !== undefined ? (
-              <button
-                type="button"
-                className="bg-card shadow-resting flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
-                aria-label={`Editar ${cuenta.name}`}
-                onClick={() => {
-                  onEditCuenta(cuenta, category?.name ?? '')
-                }}
-              >
-                {rowContent}
-              </button>
-            ) : (
+        if (onEditCuenta === undefined && onMarkPaid === undefined) {
+          return (
+            <li key={cuenta.id}>
               <div className="bg-card shadow-resting flex items-center gap-3 rounded-2xl p-4">
                 {rowContent}
               </div>
-            )}
+            </li>
+          )
+        }
+
+        return (
+          <li key={cuenta.id}>
+            <div className="bg-card shadow-resting flex items-center gap-3 rounded-2xl p-4">
+              {onEditCuenta !== undefined ? (
+                <button
+                  type="button"
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left transition-transform active:scale-[0.98]"
+                  aria-label={`Editar ${cuenta.name}`}
+                  onClick={() => {
+                    onEditCuenta(cuenta, category?.name ?? '')
+                  }}
+                >
+                  {rowContent}
+                </button>
+              ) : (
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  {rowContent}
+                </div>
+              )}
+              {onMarkPaid !== undefined ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0"
+                  aria-label={`Marcar pagada ${cuenta.name}`}
+                  onClick={() => {
+                    onMarkPaid(cuenta)
+                  }}
+                >
+                  Pagar
+                </Button>
+              ) : null}
+            </div>
           </li>
         )
       })}

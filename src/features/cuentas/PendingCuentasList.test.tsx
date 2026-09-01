@@ -368,4 +368,135 @@ describe('PendingCuentasList', () => {
     expect(onEditCuenta).toHaveBeenCalledTimes(1)
     expect(onEditCuenta).toHaveBeenCalledWith(cuenta, 'Comida')
   })
+
+  it('renders a "Pagar" control per row and calls onMarkPaid with the cuenta when clicked, not onEditCuenta', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const comidaId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Comida',
+    })
+    const cuenta = await createCuenta({
+      db,
+      householdId: household.id,
+      categoryId: comidaId,
+      name: 'Alquiler',
+      dueDate: new Date(2026, 8, 10),
+      expectedAmount: 500,
+    })
+    const onEditCuenta = vi.fn()
+    const onMarkPaid = vi.fn()
+
+    renderWithProviders(
+      <PendingCuentasList
+        db={db}
+        householdId={household.id}
+        onEditCuenta={onEditCuenta}
+        onMarkPaid={onMarkPaid}
+      />,
+    )
+
+    const payButton = await screen.findByRole('button', {
+      name: 'Marcar pagada Alquiler',
+    })
+    fireEvent.click(payButton)
+
+    expect(onMarkPaid).toHaveBeenCalledTimes(1)
+    expect(onMarkPaid).toHaveBeenCalledWith(cuenta)
+    expect(onEditCuenta).not.toHaveBeenCalled()
+  })
+
+  it('still calls onEditCuenta when the row body is tapped, unaffected by the added Pagar button', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const comidaId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Comida',
+    })
+    const cuenta = await createCuenta({
+      db,
+      householdId: household.id,
+      categoryId: comidaId,
+      name: 'Alquiler',
+      dueDate: new Date(2026, 8, 10),
+      expectedAmount: 500,
+    })
+    const onEditCuenta = vi.fn()
+    const onMarkPaid = vi.fn()
+
+    renderWithProviders(
+      <PendingCuentasList
+        db={db}
+        householdId={household.id}
+        onEditCuenta={onEditCuenta}
+        onMarkPaid={onMarkPaid}
+      />,
+    )
+
+    const editButton = await screen.findByRole('button', {
+      name: 'Editar Alquiler',
+    })
+    fireEvent.click(editButton)
+
+    expect(onEditCuenta).toHaveBeenCalledTimes(1)
+    expect(onEditCuenta).toHaveBeenCalledWith(cuenta, 'Comida')
+    expect(onMarkPaid).not.toHaveBeenCalled()
+  })
+
+  it('renders the row body as a plain div (not a button) when onMarkPaid is supplied without onEditCuenta, and the Pagar control still works', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const comidaId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Comida',
+    })
+    const cuenta = await createCuenta({
+      db,
+      householdId: household.id,
+      categoryId: comidaId,
+      name: 'Alquiler',
+      dueDate: new Date(2026, 8, 10),
+      expectedAmount: 500,
+    })
+    const onMarkPaid = vi.fn()
+
+    renderWithProviders(
+      <PendingCuentasList
+        db={db}
+        householdId={household.id}
+        onMarkPaid={onMarkPaid}
+      />,
+    )
+
+    expect(await screen.findByText('Alquiler')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Editar Alquiler' }),
+    ).not.toBeInTheDocument()
+
+    const payButton = screen.getByRole('button', {
+      name: 'Marcar pagada Alquiler',
+    })
+    fireEvent.click(payButton)
+
+    expect(onMarkPaid).toHaveBeenCalledTimes(1)
+    expect(onMarkPaid).toHaveBeenCalledWith(cuenta)
+  })
 })
