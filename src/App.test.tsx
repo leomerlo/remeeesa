@@ -39,9 +39,7 @@ describe('App', () => {
     expect(
       screen.getByRole('button', { name: 'Crear cuenta' }),
     ).toBeInTheDocument()
-    expect(
-      screen.queryByLabelText('Nombre del hogar'),
-    ).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Nombre del hogar')).not.toBeInTheDocument()
   })
 
   it('renders household editing at /household', async () => {
@@ -59,9 +57,9 @@ describe('App', () => {
       </MemoryRouter>,
     )
 
-    expect(
-      screen.getByRole('heading', { name: 'remeeesa' }),
-    ).toBeInTheDocument()
+    // No "remeeesa" wordmark here -- that hero belongs to the unauthenticated
+    // sign-up/log-in/join flow (AuthHero), not an authenticated screen like
+    // Ajustes.
     await waitFor(() => {
       expect(screen.getByLabelText('Nombre del hogar')).toHaveValue(
         'Casa Verde',
@@ -93,9 +91,10 @@ describe('App', () => {
 
     const nav = await screen.findByRole('navigation')
     expect(within(nav).getAllByRole('link')).toHaveLength(4)
-    expect(
-      within(nav).getByRole('link', { name: /inicio/i }),
-    ).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).getByRole('link', { name: /inicio/i })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
 
     fireEvent.click(within(nav).getByRole('link', { name: /ajustes/i }))
 

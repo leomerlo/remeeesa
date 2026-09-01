@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
+import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { listHouseholdMembers } from '@/lib/households'
 import type { HouseholdMember, HouseholdsDb } from '@/lib/households'
 
@@ -56,18 +57,34 @@ export function MemberList({
 
   return (
     <section
-      className="flex w-full flex-col gap-2"
+      className="flex w-full flex-col gap-3"
       aria-labelledby="participants-heading"
     >
-      <h2 id="participants-heading" className="text-sm font-medium">
+      <h2 id="participants-heading" className="text-title font-semibold">
         Integrantes
       </h2>
-      <ul className="flex flex-col gap-1">
-        {ordered.map((member) => (
-          <li key={member.userId} className="text-sm">
-            {memberLabel({ member, currentUserId })}
-          </li>
-        ))}
+      <ul className="flex flex-col gap-3">
+        {ordered.map((member) => {
+          const label = memberLabel({ member, currentUserId })
+          // Reuses the category-color hash (any string in, one of the
+          // palette's 8 hues out) for a per-member avatar tint -- there's
+          // no member-specific color concept, just the same "give this
+          // string a consistent color" need categories already solved.
+          const avatarColor = colorForCategoryName(member.userId)
+
+          return (
+            <li key={member.userId} className="flex items-center gap-3 text-sm">
+              <span
+                aria-hidden="true"
+                className="flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+                style={{ backgroundColor: avatarColor }}
+              >
+                {label.charAt(0).toUpperCase()}
+              </span>
+              <span className="text-foreground font-medium">{label}</span>
+            </li>
+          )
+        })}
       </ul>
     </section>
   )

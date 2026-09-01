@@ -1,9 +1,19 @@
+// Argentine peso formatting: thousands separator "." and decimal "," (e.g.
+// $224.300,00), always 2 decimals to match parseExpensePrice's stored
+// precision -- no built-in Intl currency style here, since 'ARS' inserts a
+// "$ " with a space that doesn't match how the app's own reference and
+// every Argentine app actually renders amounts.
+const ARS_NUMBER_FORMAT = new Intl.NumberFormat('es-AR', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+export function formatCurrency(amount: number): string {
+  return `$${ARS_NUMBER_FORMAT.format(Math.abs(amount))}`
+}
+
 export function formatBudgetAmount(amount: number): string {
-  const absolute = Math.abs(amount)
-  const digits = Number.isInteger(absolute)
-    ? String(absolute)
-    : absolute.toFixed(2)
-  return amount < 0 ? `-$${digits}` : `$${digits}`
+  return amount < 0 ? `-${formatCurrency(amount)}` : formatCurrency(amount)
 }
 
 export function computeRemainingBudget(

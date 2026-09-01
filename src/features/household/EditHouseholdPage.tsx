@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
-import { Link, Navigate } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
+import { Navigate } from 'react-router-dom'
+import { PageHeader } from '@/components/PageHeader'
 import { LogoutButton } from '@/features/auth'
 import { InviteLinkPanel } from '@/features/invite'
 import { useFirebase } from '@/lib/firebaseContext'
@@ -85,7 +85,7 @@ export function EditHouseholdPage({
 
   if (currentUserId === undefined) {
     return (
-      <div className="bg-muted w-full rounded-3xl p-8">
+      <div className="bg-card shadow-resting w-full rounded-3xl p-8">
         <p role="status" className="text-sm font-medium">
           Cargando…
         </p>
@@ -99,7 +99,7 @@ export function EditHouseholdPage({
 
   if (membership === undefined) {
     return (
-      <div className="bg-muted w-full rounded-3xl p-8">
+      <div className="bg-card shadow-resting w-full rounded-3xl p-8">
         <p role="status" className="text-sm font-medium">
           Cargando…
         </p>
@@ -112,18 +112,29 @@ export function EditHouseholdPage({
   }
 
   return (
-    <div className="bg-muted flex w-full flex-col items-center gap-8 rounded-3xl p-8">
-      <Button variant="ghost" asChild className="self-start">
-        <Link to="/">Volver</Link>
-      </Button>
-      <EditHouseholdForm db={db} householdId={membership.householdId} />
-      <MemberList
-        db={db}
-        householdId={membership.householdId}
-        currentUserId={currentUserId}
-      />
-      <InviteLinkPanel db={db} householdId={membership.householdId} />
-      {usesLiveSession ? <LogoutButton /> : null}
+    <div className="flex w-full flex-col gap-6">
+      {/* No "Volver" back-link: Ajustes is a primary bottom-nav destination
+          like Home/Histórico/Categorías, not a drill-down sub-page -- the
+          nav already gets you back in one tap. */}
+      <PageHeader title="Ajustes" />
+      <div className="bg-card shadow-resting flex w-full flex-col items-center gap-8 rounded-3xl p-6">
+        <EditHouseholdForm db={db} householdId={membership.householdId} />
+      </div>
+      <div className="bg-card shadow-resting w-full rounded-3xl p-6">
+        <MemberList
+          db={db}
+          householdId={membership.householdId}
+          currentUserId={currentUserId}
+        />
+      </div>
+      <div className="bg-card shadow-resting w-full rounded-3xl p-6">
+        <InviteLinkPanel db={db} householdId={membership.householdId} />
+      </div>
+      {usesLiveSession ? (
+        <div className="flex w-full justify-center">
+          <LogoutButton />
+        </div>
+      ) : null}
     </div>
   )
 }

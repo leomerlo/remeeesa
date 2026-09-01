@@ -4,6 +4,7 @@ import type { ReactElement } from 'react'
 import { expensesInMonthQueryKey } from '@/features/expenses'
 import {
   currentMonthRange,
+  formatCurrency,
   listExpensesInMonth,
   summarizeByPerson,
 } from '@/lib/expenses'
@@ -12,10 +13,6 @@ import type { HouseholdsDb } from '@/lib/households'
 export type PersonMiniSummaryProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
-}
-
-function formatAmount(amount: number): string {
-  return amount.toFixed(2)
 }
 
 // Home-only mini-summary. Runs its own independent useQuery on the same
@@ -69,7 +66,7 @@ export function PersonMiniSummary({
                 {entry.authorDisplayName}
               </span>
               <span className="shrink-0 font-medium text-foreground">
-                {formatAmount(entry.total)}
+                {formatCurrency(entry.total)}
               </span>
             </li>
           ))}

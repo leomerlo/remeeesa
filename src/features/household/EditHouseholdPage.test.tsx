@@ -78,7 +78,9 @@ describe('EditHouseholdPage', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Cargando…')
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue('Casa Verde')
+      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue(
+        'Casa Verde',
+      )
     })
   })
 
@@ -98,7 +100,9 @@ describe('EditHouseholdPage', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue('Casa Verde')
+      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue(
+        'Casa Verde',
+      )
     })
     expect(screen.getByLabelText('Presupuesto mensual')).toHaveValue('100')
     expect(
@@ -108,10 +112,7 @@ describe('EditHouseholdPage', () => {
     expect(
       screen.getByRole('button', { name: 'Generar link de invitación' }),
     ).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Volver' })).toHaveAttribute(
-      'href',
-      '/',
-    )
+    expect(screen.getByRole('heading', { name: 'Ajustes' })).toBeInTheDocument()
   })
 
   it('saves a renamed household', async () => {
@@ -128,7 +129,9 @@ describe('EditHouseholdPage', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue('Casa Verde')
+      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue(
+        'Casa Verde',
+      )
       expect(screen.getByLabelText('Presupuesto mensual')).toHaveValue('100')
     })
     fireEvent.change(screen.getByLabelText('Nombre del hogar'), {
@@ -165,7 +168,9 @@ describe('EditHouseholdPage', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue('Casa Verde')
+      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue(
+        'Casa Verde',
+      )
     })
     expect(
       screen.queryByRole('button', { name: 'Cerrar sesión' }),
@@ -187,7 +192,9 @@ describe('EditHouseholdPage', () => {
     renderEditPage(<EditHouseholdPage householdsDb={db} />, { client })
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue('Casa Verde')
+      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue(
+        'Casa Verde',
+      )
     })
     fireEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
 

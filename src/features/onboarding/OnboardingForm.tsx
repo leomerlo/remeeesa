@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { HouseholdsDb } from '@/lib/households'
+import { AuthHero } from './AuthHero'
 import { parseHouseholdDraft } from './householdDraft'
 import { useHouseholdDraft } from './HouseholdDraftContext'
-import { OnboardingIllustration } from './OnboardingIllustration'
 import { hasReturningUser } from './returningUserStorage'
 import { SignupForm } from './SignupForm'
 import type { SignupAuth } from './signupAuth'
@@ -89,71 +89,74 @@ export function OnboardingForm({
   }
 
   return (
-    <form
-      className="flex w-full flex-col items-center gap-8"
-      onSubmit={onSubmit}
-    >
-      <OnboardingIllustration className="h-32 w-40" />
-
-      <div className="flex w-full flex-col gap-2">
-        <Label
-          htmlFor="household-name"
-          className="text-muted-foreground font-medium"
-        >
-          Nombre del hogar
-        </Label>
-        <Input
-          id="household-name"
-          name="household-name"
-          value={name}
-          onChange={(event) => {
-            setName(event.target.value)
-          }}
-          autoComplete="organization"
-        />
-      </div>
-
-      <div className="flex w-full flex-col items-center gap-2">
-        <Label
-          htmlFor="monthly-budget"
-          className="text-muted-foreground font-medium"
-        >
-          Presupuesto mensual
-        </Label>
-        <Input
-          id="monthly-budget"
-          name="monthly-budget"
-          value={monthlyBudget}
-          onChange={(event) => {
-            setMonthlyBudget(event.target.value)
-          }}
-          inputMode="decimal"
-          autoComplete="off"
-          placeholder="0"
-          className="h-auto border-0 px-0 text-center font-display text-5xl tracking-tight md:text-5xl"
-        />
-        <p className="text-muted-foreground text-sm">
-          Cuánto podés gastar por mes
-        </p>
-      </div>
-
-      {error !== null ? (
-        <p role="alert" className="text-sm font-medium">
-          {error}
-        </p>
-      ) : null}
-
-      <Button type="submit">Continuar</Button>
-
-      <Button
-        type="button"
-        variant="ghost"
-        onClick={() => {
-          setStep('login')
-        }}
+    <div className="flex w-full flex-col items-center gap-8">
+      <AuthHero />
+      <form
+        className="bg-card shadow-resting flex w-full flex-col items-center gap-8 rounded-3xl p-6"
+        onSubmit={onSubmit}
       >
-        Ya tengo una cuenta
-      </Button>
-    </form>
+        <div className="flex w-full flex-col gap-2">
+          <Label
+            htmlFor="household-name"
+            className="text-muted-foreground font-medium"
+          >
+            Nombre del hogar
+          </Label>
+          <Input
+            id="household-name"
+            name="household-name"
+            value={name}
+            onChange={(event) => {
+              setName(event.target.value)
+            }}
+            autoComplete="organization"
+          />
+        </div>
+
+        <div className="flex w-full flex-col items-center gap-2">
+          <Label
+            htmlFor="monthly-budget"
+            className="text-muted-foreground font-medium"
+          >
+            Presupuesto mensual
+          </Label>
+          <Input
+            id="monthly-budget"
+            name="monthly-budget"
+            value={monthlyBudget}
+            onChange={(event) => {
+              setMonthlyBudget(event.target.value)
+            }}
+            inputMode="decimal"
+            autoComplete="off"
+            placeholder="0"
+            className="h-auto border-0 px-0 text-center font-display text-5xl tracking-tight md:text-5xl"
+          />
+          <p className="text-muted-foreground text-sm">
+            Cuánto podés gastar por mes
+          </p>
+        </div>
+
+        {error !== null ? (
+          <p role="alert" className="text-sm font-medium">
+            {error}
+          </p>
+        ) : null}
+
+        <Button type="submit" className="w-full">
+          Continuar
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => {
+            setStep('login')
+          }}
+        >
+          Ya tengo una cuenta
+        </Button>
+      </form>
+    </div>
   )
 }

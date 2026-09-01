@@ -4,6 +4,7 @@ import type { FormEvent, ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { formatCurrency } from '@/lib/expenses'
 import {
   getHousehold,
   parseHouseholdName,
@@ -93,19 +94,24 @@ export function EditHouseholdForm({
         />
       </div>
 
-      {household !== undefined ? (
-        <p role="status" className="font-display text-5xl tracking-tight">
-          {household.monthlyBudget}
-        </p>
-      ) : null}
-
       <div className="flex w-full flex-col gap-2">
-        <Label
-          htmlFor="monthly-budget"
-          className="text-muted-foreground font-medium"
-        >
-          Presupuesto mensual
-        </Label>
+        <div className="flex items-baseline justify-between gap-2">
+          <Label
+            htmlFor="monthly-budget"
+            className="text-muted-foreground font-medium"
+          >
+            Presupuesto mensual
+          </Label>
+          {household !== undefined ? (
+            // The confirmed, saved amount -- separate from `amount` above,
+            // which tracks the in-progress draft. Lets a rejected
+            // submission (e.g. a negative budget) visibly leave the real
+            // value unchanged instead of just clearing an error message.
+            <p role="status" className="text-muted-foreground text-xs">
+              Actual: {formatCurrency(household.monthlyBudget)}
+            </p>
+          ) : null}
+        </div>
         <Input
           id="monthly-budget"
           name="monthly-budget"
@@ -124,7 +130,9 @@ export function EditHouseholdForm({
         </p>
       ) : null}
 
-      <Button type="submit">Guardar</Button>
+      <Button type="submit" className="w-full">
+        Guardar
+      </Button>
     </form>
   )
 }

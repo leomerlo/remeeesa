@@ -38,7 +38,9 @@ describe('PersonMiniSummary', () => {
       expenseDate: new Date(),
     })
 
-    renderWithProviders(<PersonMiniSummary db={db} householdId={household.id} />)
+    renderWithProviders(
+      <PersonMiniSummary db={db} householdId={household.id} />,
+    )
 
     expect(screen.getByRole('status')).toHaveTextContent('Cargando…')
     await screen.findByRole('list', { name: 'Gastos por persona' })
@@ -47,7 +49,9 @@ describe('PersonMiniSummary', () => {
   it('shows an empty state when there are no expenses this month', async () => {
     const { db, household } = await seedHousehold()
 
-    renderWithProviders(<PersonMiniSummary db={db} householdId={household.id} />)
+    renderWithProviders(
+      <PersonMiniSummary db={db} householdId={household.id} />,
+    )
 
     expect(
       await screen.findByText('Todavía no hay gastos este mes'),
@@ -80,15 +84,17 @@ describe('PersonMiniSummary', () => {
       expenseDate: new Date(),
     })
 
-    renderWithProviders(<PersonMiniSummary db={db} householdId={household.id} />)
+    renderWithProviders(
+      <PersonMiniSummary db={db} householdId={household.id} />,
+    )
 
     const list = await screen.findByRole('list', { name: 'Gastos por persona' })
     const items = within(list).getAllByRole('listitem')
     expect(items).toHaveLength(2)
     expect(items[0]).toHaveTextContent('Bob')
-    expect(items[0]).toHaveTextContent('25.00')
+    expect(items[0]).toHaveTextContent('$25,00')
     expect(items[1]).toHaveTextContent('Ada')
-    expect(items[1]).toHaveTextContent('10.00')
+    expect(items[1]).toHaveTextContent('$10,00')
   })
 
   // PersonMiniSummary has no isError branch (unlike RecentExpensesList) --

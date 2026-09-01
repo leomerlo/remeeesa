@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
+import { PageHeader } from '@/components/PageHeader'
 import {
   AddExpenseSheet,
   RecentExpensesList,
@@ -186,9 +187,12 @@ export function HomePage({
 
   return (
     <div className="flex w-full flex-col items-center gap-8">
-      <p className="text-sm font-medium">{household?.name ?? 'Hogar'}</p>
+      {/* No settings shortcut here: Ajustes is already one tap away in the
+          bottom nav, so a second icon-link to the same destination is
+          redundant. */}
+      <PageHeader title={household?.name ?? 'Hogar'} />
       <RemainingBudgetDisplay db={db} householdId={membership.householdId} />
-      <div className="flex w-full justify-center gap-4">
+      <div className="flex w-full gap-3">
         <AddExpenseSheet
           open={isAddExpenseSheetOpen}
           onOpenChange={setIsAddExpenseSheetOpen}
@@ -201,27 +205,34 @@ export function HomePage({
             setEditExpense(null)
           }}
         />
-        <AddCuentaSheet
-          open={isAddCuentaSheetOpen}
-          onOpenChange={setIsAddCuentaSheetOpen}
+        {editExpense === null ? (
+          <AddCuentaSheet
+            open={isAddCuentaSheetOpen}
+            onOpenChange={setIsAddCuentaSheetOpen}
+            db={db}
+            householdId={membership.householdId}
+          />
+        ) : null}
+      </div>
+      <div className="flex w-full flex-col gap-3">
+        <h2 className="text-title font-semibold self-start">
+          Últimos movimientos
+        </h2>
+        <RecentExpensesList
           db={db}
           householdId={membership.householdId}
+          onEditExpense={(expense, categoryName) => {
+            setEditExpense({
+              expenseId: expense.id,
+              name: expense.name,
+              price: expense.price,
+              categoryName,
+              comments: expense.comments,
+              expenseDate: expense.expenseDate,
+            })
+          }}
         />
       </div>
-      <RecentExpensesList
-        db={db}
-        householdId={membership.householdId}
-        onEditExpense={(expense, categoryName) => {
-          setEditExpense({
-            expenseId: expense.id,
-            name: expense.name,
-            price: expense.price,
-            categoryName,
-            comments: expense.comments,
-            expenseDate: expense.expenseDate,
-          })
-        }}
-      />
       <CategoryMiniSummary db={db} householdId={membership.householdId} />
       <PersonMiniSummary db={db} householdId={membership.householdId} />
     </div>

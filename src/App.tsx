@@ -24,8 +24,13 @@ export function AppRoutes({
 }: AppProps): ReactElement {
   return (
     <HouseholdDraftProvider>
-      <main className="mx-auto flex min-h-svh w-full max-w-sm flex-col items-center justify-center gap-8 px-6">
-        <h1 className="font-display text-2xl tracking-tight">remeeesa</h1>
+      {/* justify-start (Tailwind's flex default), not justify-center: every
+          screen -- including short ones like the Histórico/Categorías
+          placeholders -- reads as content starting from the top, not
+          vertically centered with a dead gap above it. Tall screens (Home,
+          the auth flow) already overflow past one viewport, where centering
+          would have had no visible effect anyway. */}
+      <main className="mx-auto flex min-h-svh w-full max-w-md flex-col items-center gap-8 px-6 pt-12 sm:max-w-lg sm:px-8">
         <Routes>
           <Route
             element={
