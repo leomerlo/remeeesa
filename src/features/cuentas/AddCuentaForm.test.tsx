@@ -323,6 +323,78 @@ describe('AddCuentaForm', () => {
     })
   })
 
+  it('shows which Firestore operation was denied when saving the category', async () => {
+    const base = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: base,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const db: HouseholdsDb = {
+      ...base,
+      findOrCreateCategory: async () => {
+        throw new FirestoreDeniedError({
+          operation: 'findOrCreateCategory',
+          code: 'permission-denied',
+          detail: 'Missing or insufficient permissions.',
+        })
+      },
+    }
+    renderWithProviders(
+      <AddCuentaSheetHarness db={db} householdId={household.id} />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Nueva cuenta' }))
+    await screen.findByLabelText('Nombre')
+
+    fillCuenta({
+      name: 'Alquiler',
+      category: 'Servicios',
+      dueDate: '2026-09-10',
+    })
+    submitCuenta()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No se pudo guardar la categoría. Volvé a intentar.',
+    )
+  })
+
+  it('shows which Firestore operation was denied when adding the cuenta', async () => {
+    const base = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: base,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const db: HouseholdsDb = {
+      ...base,
+      createCuenta: async () => {
+        throw new FirestoreDeniedError({
+          operation: 'createCuenta',
+          code: 'permission-denied',
+          detail: 'Missing or insufficient permissions.',
+        })
+      },
+    }
+    renderWithProviders(
+      <AddCuentaSheetHarness db={db} householdId={household.id} />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Nueva cuenta' }))
+    await screen.findByLabelText('Nombre')
+
+    fillCuenta({
+      name: 'Alquiler',
+      category: 'Servicios',
+      dueDate: '2026-09-10',
+    })
+    submitCuenta()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No se pudo agregar la cuenta. Volvé a intentar.',
+    )
+  })
+
   it('shows which Firestore operation failed when categories cannot load', async () => {
     const base = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({

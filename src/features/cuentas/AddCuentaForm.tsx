@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { CategoryCombobox } from '@/features/expenses/CategoryCombobox'
-import { categoriesQueryKey } from '@/features/expenses/queryKeys'
+import { categoriesQueryKey, CategoryCombobox } from '@/features/expenses'
 import {
   createCuenta,
   parseCuentaDueDate,

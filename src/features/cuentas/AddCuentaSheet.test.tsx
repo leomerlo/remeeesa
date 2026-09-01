@@ -163,7 +163,7 @@ describe('AddCuentaSheet', () => {
     expect(screen.getByRole('button', { name: 'Nueva cuenta' })).toHaveFocus()
   })
 
-  it('blocks dismissal while a submit is in flight', async () => {
+  it('keeps the sheet open while a submit is in flight, so a failure that arrives after a dismiss attempt is still shown', async () => {
     const base = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db: base,
@@ -190,10 +190,22 @@ describe('AddCuentaSheet', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Agregar cuenta' }))
 
+    // The mutation is still pending: an Escape dismiss attempt must be a
+    // no-op rather than unmounting the form out from under it.
     fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
     expect(screen.getByLabelText('Nombre')).toBeInTheDocument()
 
-    create.reject(new Error('never resolves in this test'))
-    await screen.findByRole('alert')
+    create.reject(new Error('Network blip'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Network blip')
+    // Still open and showing the failed draft -- nothing was silently lost.
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Alquiler')
+
+    // Once the mutation has settled, the dismiss guard must release: a
+    // second Escape now closes the sheet as normal.
+    fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
+    })
   })
 })
