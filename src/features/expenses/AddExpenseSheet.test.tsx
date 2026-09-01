@@ -312,6 +312,63 @@ describe('AddExpenseSheet', () => {
     expect(listed).toEqual([expect.objectContaining({ name: 'Pizza' })])
   })
 
+  it('discards unsaved edit changes when the sheet close control is clicked', async () => {
+    const { db, householdId } = await seedHousehold()
+    const categories = await listCategories({ db, householdId })
+    const comida = categories.find((category) => category.name === 'Comida')
+    if (comida === undefined) {
+      throw new Error('expected Comida category')
+    }
+    const expense = await createExpense({
+      db,
+      householdId,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Pizza',
+      price: 10,
+      comments: 'Friday dinner',
+      expenseDate: currentMonthDate(15),
+    })
+    const editExpense: EditExpenseTarget = {
+      expenseId: expense.id,
+      name: 'Pizza',
+      price: 10,
+      categoryName: 'Comida',
+      comments: 'Friday dinner',
+      expenseDate: currentMonthDate(15),
+    }
+
+    renderWithProviders(
+      <EditAddExpenseSheetHarness
+        db={db}
+        householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
+        initialEditExpense={editExpense}
+      />,
+    )
+
+    fireEvent.change(await screen.findByLabelText('Name'), {
+      target: { value: 'Unsaved change' },
+    })
+
+    const closeControl = document.querySelector('[data-slot="sheet-close"]')
+    expect(closeControl).not.toBeNull()
+    fireEvent.click(closeControl as Element)
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+    })
+
+    const listed = await listExpensesInMonth({
+      db,
+      householdId,
+      ...currentMonthRange(),
+    })
+    expect(listed).toEqual([expect.objectContaining({ name: 'Pizza' })])
+  })
+
   it('switching editExpense directly to a different expense resets the fields, discarding the prior unsaved draft', async () => {
     const { db, householdId } = await seedHousehold()
     const first: EditExpenseTarget = {

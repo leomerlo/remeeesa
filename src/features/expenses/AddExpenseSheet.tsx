@@ -43,10 +43,12 @@ export function AddExpenseSheet({
   }, [open])
 
   const isEditing = editExpense !== null
-  // Add-mode and edit-mode can never coexist: the Sheet's overlay blocks the
-  // underlying ExpenseList's Edit buttons while add-mode is open, so
-  // `editExpense !== null` is sufficient as edit-mode's own open signal, ORed
-  // with the existing `open` prop for add-mode.
+  // `editExpense !== null` is edit-mode's own open signal, ORed with the
+  // existing `open` prop for add-mode. The current caller (HomePage) never
+  // sets both at once -- its Sheet overlay blocks the underlying
+  // ExpenseList's Edit buttons while add-mode is open -- but that's a
+  // guarantee this component leans on rather than enforces itself; if a
+  // future caller can trigger both, edit-mode takes priority below.
   const sheetOpen = open || isEditing
 
   function handleOpenChange(next: boolean): void {
@@ -84,28 +86,21 @@ export function AddExpenseSheet({
         onOpenChange={handleOpenChange}
         title={isEditing ? 'Edit expense' : 'Add expense'}
       >
-        {isEditing ? (
-          <AddExpenseForm
-            db={db}
-            householdId={householdId}
-            memberId={memberId}
-            authorDisplayName={authorDisplayName}
-            editExpense={editExpense}
-            onEditFinished={onEditFinished}
-            onPendingChange={setIsSubmitting}
-          />
-        ) : (
-          <AddExpenseForm
-            db={db}
-            householdId={householdId}
-            memberId={memberId}
-            authorDisplayName={authorDisplayName}
-            onAdded={() => {
-              onOpenChange(false)
-            }}
-            onPendingChange={setIsSubmitting}
-          />
-        )}
+        {/* AddExpenseForm itself branches on editExpense (null in add-mode,
+            set in edit-mode) to decide which of onAdded/onEditFinished to
+            call on success, so both can be wired unconditionally here. */}
+        <AddExpenseForm
+          db={db}
+          householdId={householdId}
+          memberId={memberId}
+          authorDisplayName={authorDisplayName}
+          editExpense={editExpense}
+          onEditFinished={onEditFinished}
+          onAdded={() => {
+            onOpenChange(false)
+          }}
+          onPendingChange={setIsSubmitting}
+        />
       </Sheet>
     </>
   )
