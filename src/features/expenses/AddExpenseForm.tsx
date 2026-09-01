@@ -135,7 +135,7 @@ function loadErrorMessage(error: unknown): string | null {
   if (error instanceof Error) {
     return error.message
   }
-  return 'No se pudieron cargar las categorías'
+  return 'No se pudo cargar las categorías'
 }
 
 type ExpenseFormBodyProps = {

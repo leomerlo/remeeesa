@@ -158,7 +158,7 @@ export function ExpenseList({
     const message =
       expensesQuery.error instanceof Error
         ? expensesQuery.error.message
-        : 'No se pudieron cargar los gastos'
+        : 'No se pudo cargar los gastos'
     return (
       <p role="alert" className="text-sm font-medium">
         {message}

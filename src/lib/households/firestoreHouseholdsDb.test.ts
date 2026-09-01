@@ -17,7 +17,7 @@ describe('mapHouseholdFirestoreError', () => {
         { code: 'permission-denied' },
         'createExpense',
       ),
-    ).toThrow('No se pudo agregar el gasto: permission-denied')
+    ).toThrow('No se pudo agregar el gasto. Volvé a intentar.')
   })
 
   it('includes the Firebase message when permission-denied has one', () => {
@@ -29,7 +29,7 @@ describe('mapHouseholdFirestoreError', () => {
         },
         'findOrCreateCategory',
       ),
-    ).toThrow('No se pudo guardar la categoría: Missing or insufficient permissions.')
+    ).toThrow('No se pudo guardar la categoría. Volvé a intentar.')
   })
 
   it('rethrows firestore/permission-denied as FirestoreDeniedError', () => {
@@ -38,7 +38,7 @@ describe('mapHouseholdFirestoreError', () => {
         { code: 'firestore/permission-denied' },
         'listCategories',
       ),
-    ).toThrow('No se pudo cargar las categorías: firestore/permission-denied')
+    ).toThrow('No se pudo cargar las categorías. Volvé a intentar.')
   })
 
   it('rethrows other errors unchanged', () => {
@@ -132,9 +132,7 @@ describe('firestore.rules categories', () => {
     expect(rules).toContain(
       "data.keys().hasOnly(['household_id', 'name', 'color', 'created_at'])",
     )
-    expect(rules).toContain(
-      "data.color.matches('^#[0-9a-fA-F]{6}$')",
-    )
+    expect(rules).toContain("data.color.matches('^#[0-9a-fA-F]{6}$')")
     expect(rules).toContain('function canWriteCategoryFor(householdId)')
     expect(rules).toContain(
       'allow create: if isValidCategory(request.resource.data)',
