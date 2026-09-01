@@ -49,6 +49,42 @@ function EditAddExpenseSheetHarness(
   )
 }
 
+// Lets a test switch which expense is being edited (a direct editExpense
+// prop change, e.g. `formKey` remount behavior) without ever closing the
+// sheet in between -- something driving the sheet through open/close alone
+// can't exercise.
+function SwitchEditExpenseHarness(
+  props: Omit<
+    AddExpenseSheetProps,
+    'open' | 'onOpenChange' | 'editExpense' | 'onEditFinished'
+  > & {
+    readonly first: EditExpenseTarget
+    readonly second: EditExpenseTarget
+  },
+): ReactElement {
+  const { first, second, ...rest } = props
+  const [editExpense, setEditExpense] = useState<EditExpenseTarget>(first)
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setEditExpense(second)
+        }}
+      >
+        Switch to other expense
+      </button>
+      <AddExpenseSheet
+        open={false}
+        onOpenChange={() => {}}
+        editExpense={editExpense}
+        onEditFinished={() => {}}
+        {...rest}
+      />
+    </>
+  )
+}
+
 function deferred<T>(): {
   readonly promise: Promise<T>
   readonly resolve: (value: T) => void
@@ -169,6 +205,167 @@ describe('AddExpenseSheet', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('lets editing win when open and editExpense are both true, hiding the trigger and routing dismiss through onEditFinished rather than onOpenChange', async () => {
+    const { db, householdId } = await seedHousehold()
+    const editExpense: EditExpenseTarget = {
+      expenseId: 'expense-1',
+      name: 'Pizza',
+      price: 12.5,
+      categoryName: 'Comida',
+      comments: 'Friday dinner',
+      expenseDate: currentMonthDate(15),
+    }
+    const onOpenChange = vi.fn()
+    const onEditFinished = vi.fn()
+
+    renderWithProviders(
+      <AddExpenseSheet
+        open={true}
+        onOpenChange={onOpenChange}
+        db={db}
+        householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
+        editExpense={editExpense}
+        onEditFinished={onEditFinished}
+      />,
+    )
+
+    // Edit-mode wins: the edit form (not the add form) renders, and the
+    // trigger stays hidden even though `open` is also true.
+    expect(await screen.findByLabelText('Name')).toHaveValue('Pizza')
+    expect(
+      screen.getByRole('button', { name: 'Save changes' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Add expense' }),
+    ).not.toBeInTheDocument()
+
+    fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
+
+    await waitFor(() => {
+      expect(onEditFinished).toHaveBeenCalledTimes(1)
+    })
+    // Dismissing while editing must never fall through to add-mode's own
+    // callback, even though `open` (add-mode's own signal) is also true.
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  it('discards unsaved edit changes on an outside click, the same as Escape', async () => {
+    const { db, householdId } = await seedHousehold()
+    const categories = await listCategories({ db, householdId })
+    const comida = categories.find((category) => category.name === 'Comida')
+    if (comida === undefined) {
+      throw new Error('expected Comida category')
+    }
+    const expense = await createExpense({
+      db,
+      householdId,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Pizza',
+      price: 10,
+      comments: 'Friday dinner',
+      expenseDate: currentMonthDate(15),
+    })
+    const editExpense: EditExpenseTarget = {
+      expenseId: expense.id,
+      name: 'Pizza',
+      price: 10,
+      categoryName: 'Comida',
+      comments: 'Friday dinner',
+      expenseDate: currentMonthDate(15),
+    }
+
+    renderWithProviders(
+      <EditAddExpenseSheetHarness
+        db={db}
+        householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
+        initialEditExpense={editExpense}
+      />,
+    )
+
+    fireEvent.change(await screen.findByLabelText('Name'), {
+      target: { value: 'Unsaved change' },
+    })
+
+    // Radix's outside-pointer-down listener attaches after a 0ms timeout, to
+    // avoid reacting to the same click that opened the dialog.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const overlay = document.querySelector('[data-slot="sheet-overlay"]')
+    expect(overlay).not.toBeNull()
+    fireEvent.pointerDown(overlay as Element)
+    fireEvent.click(overlay as Element)
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+    })
+
+    const listed = await listExpensesInMonth({
+      db,
+      householdId,
+      ...currentMonthRange(),
+    })
+    expect(listed).toEqual([expect.objectContaining({ name: 'Pizza' })])
+  })
+
+  it('switching editExpense directly to a different expense resets the fields, discarding the prior unsaved draft', async () => {
+    const { db, householdId } = await seedHousehold()
+    const first: EditExpenseTarget = {
+      expenseId: 'expense-1',
+      name: 'Pizza',
+      price: 10,
+      categoryName: 'Comida',
+      comments: 'Friday dinner',
+      expenseDate: currentMonthDate(15),
+    }
+    const second: EditExpenseTarget = {
+      expenseId: 'expense-2',
+      name: 'Movie tickets',
+      price: 25,
+      categoryName: 'Servicios',
+      comments: 'Weekend',
+      expenseDate: currentMonthDate(10),
+    }
+
+    renderWithProviders(
+      <SwitchEditExpenseHarness
+        db={db}
+        householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
+        first={first}
+        second={second}
+      />,
+    )
+
+    expect(await screen.findByLabelText('Name')).toHaveValue('Pizza')
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'Unsaved edit of first expense' },
+    })
+
+    // The switch button lives outside the Sheet's Dialog.Content portal, so
+    // Radix marks it aria-hidden while the dialog is open (correct
+    // behavior for real inert background content) -- opt into querying it
+    // anyway, the same as clicking it would still work for a sighted user.
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Switch to other expense',
+        hidden: true,
+      }),
+    )
+
+    // The remount (via `formKey`) must show the second expense's own data --
+    // not the first expense's unsaved draft, and not a merge of the two.
+    expect(screen.getByLabelText('Name')).toHaveValue('Movie tickets')
+    expect(screen.getByLabelText('Price')).toHaveValue('25')
+    expect(screen.getByLabelText('Category')).toHaveValue('Servicios')
+    expect(screen.getByLabelText('Comments')).toHaveValue('Weekend')
+  })
+
   it('calls onEditFinished after a successful save routed through the sheet component', async () => {
     const { db, householdId } = await seedHousehold()
     const categories = await listCategories({ db, householdId })
@@ -188,6 +385,7 @@ describe('AddExpenseSheet', () => {
       expenseDate: currentMonthDate(15),
     })
     const onEditFinished = vi.fn()
+    const onOpenChange = vi.fn()
     const editExpense: EditExpenseTarget = {
       expenseId: expense.id,
       name: 'Pizza',
@@ -200,7 +398,7 @@ describe('AddExpenseSheet', () => {
     renderWithProviders(
       <AddExpenseSheet
         open={false}
-        onOpenChange={() => {}}
+        onOpenChange={onOpenChange}
         db={db}
         householdId={householdId}
         memberId="user-1"
@@ -221,6 +419,9 @@ describe('AddExpenseSheet', () => {
     await waitFor(() => {
       expect(onEditFinished).toHaveBeenCalledTimes(1)
     })
+    // A successful edit save must never fall through to add-mode's own
+    // onOpenChange(false) callback -- the two flows have separate exits.
+    expect(onOpenChange).not.toHaveBeenCalled()
     const listed = await listExpensesInMonth({
       db,
       householdId,
