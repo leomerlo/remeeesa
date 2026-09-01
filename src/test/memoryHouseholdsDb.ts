@@ -437,6 +437,7 @@ export function createMemoryHouseholdsDb(): {
     readonly userId: string
     readonly householdId: string
   }): void
+  seedCuenta(cuenta: Cuenta): void
 } {
   const state: MemoryState = {
     households: new Map(),
@@ -468,6 +469,12 @@ export function createMemoryHouseholdsDb(): {
         householdId: input.householdId,
         joinedAt: new Date(),
       })
+    },
+    // Test-only escape hatch: createCuenta always writes status 'pending',
+    // so this is the only way to get a 'paid' cuenta into the store to
+    // verify listPendingCuentas filters it out.
+    seedCuenta(cuenta) {
+      state.cuentas.set(cuenta.id, cuenta)
     },
   }
 }

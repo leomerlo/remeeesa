@@ -219,6 +219,43 @@ describe('createCuenta', () => {
     ).rejects.toThrow(HouseholdAccessDeniedError)
   })
 
+  it('rejects a category that belongs to another household', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const other = await createHouseholdWithMembership({
+      db: store.asUser('user-2'),
+      userId: 'user-2',
+      name: 'Casa Azul',
+      monthlyBudget: 200,
+    })
+    const otherCategories = await listCategories({
+      db: store.asUser('user-2'),
+      householdId: other.id,
+    })
+    const otherComida = otherCategories[0]
+    expect(otherComida).toBeDefined()
+    if (otherComida === undefined) {
+      throw new Error('expected a seeded category')
+    }
+
+    await expect(
+      createCuenta({
+        db: ownerDb,
+        householdId: household.id,
+        categoryId: otherComida.id,
+        name: 'Alquiler',
+        dueDate: new Date(2026, 8, 10),
+        expectedAmount: null,
+      }),
+    ).rejects.toThrow('Category not found')
+  })
+
   it('accepts a category resolved through findOrCreateCategory', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -390,6 +427,47 @@ describe('listPendingCuentas', () => {
     const listed = await listPendingCuentas({ db, householdId: household.id })
 
     expect(listed.map((cuenta) => cuenta.id)).toEqual([earlier.id, later.id])
+  })
+
+  it('excludes paid cuentas', async () => {
+    const store = createMemoryHouseholdsDb()
+    const db = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories[0]
+    expect(comida).toBeDefined()
+    if (comida === undefined) {
+      throw new Error('expected a seeded category')
+    }
+    const pending = await createCuenta({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Still pending',
+      dueDate: new Date(2026, 8, 5),
+      expectedAmount: null,
+    })
+    store.seedCuenta({
+      id: 'paid-1',
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Already paid',
+      dueDate: new Date(2026, 8, 1),
+      expectedAmount: 300,
+      recurring: false,
+      status: 'paid',
+      paidExpenseId: 'expense-1',
+      createdAt: new Date(),
+    })
+
+    const listed = await listPendingCuentas({ db, householdId: household.id })
+
+    expect(listed.map((cuenta) => cuenta.id)).toEqual([pending.id])
   })
 
   it('returns an empty list for a household with no cuentas', async () => {

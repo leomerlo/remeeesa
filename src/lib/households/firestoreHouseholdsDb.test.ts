@@ -224,6 +224,21 @@ describe('firestore.rules cuentas', () => {
     )
   })
 
+  it('requires household_id and category_id to be non-empty strings', () => {
+    expect(rules).toMatch(
+      /function isValidCuenta\(data\) \{[\s\S]*?data\.household_id is string[\s\S]*?data\.household_id\.size\(\) > 0/,
+    )
+    expect(rules).toMatch(
+      /function isValidCuenta\(data\) \{[\s\S]*?data\.category_id is string[\s\S]*?data\.category_id\.size\(\) > 0/,
+    )
+  })
+
+  it('requires a non-blank name', () => {
+    expect(rules).toMatch(
+      /function isValidCuenta\(data\) \{[\s\S]*?data\.name is string[\s\S]*?data\.name\.size\(\) > 0[\s\S]*?data\.name\.matches\('\.\*\\\\S\.\*'\)/,
+    )
+  })
+
   it('blocks creating a cuenta with any status other than pending', () => {
     expect(rules).toContain("data.status == 'pending'")
   })

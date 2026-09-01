@@ -168,6 +168,146 @@ describe('parseCuentaDocument', () => {
       }),
     ).toThrow('paid_expense_id must be a string or null')
   })
+
+  it('rejects an empty document id', () => {
+    expect(() =>
+      parseCuentaDocument({
+        id: '   ',
+        data: {
+          household_id: 'h1',
+          category_id: 'c1',
+          name: 'Alquiler',
+          due_date: new Date('2026-09-10T12:00:00.000Z'),
+          expected_amount: null,
+          recurring: false,
+          status: 'pending',
+          paid_expense_id: null,
+          created_at: new Date('2026-08-31T12:00:00.000Z'),
+        },
+      }),
+    ).toThrow('Cuenta id must be non-empty')
+  })
+
+  it('rejects a document that is not an object', () => {
+    for (const data of [null, 'not-an-object', 42, ['a', 'b']]) {
+      expect(() => parseCuentaDocument({ id: 'q1', data })).toThrow(
+        'Cuenta document must be an object',
+      )
+    }
+  })
+
+  it('rejects a missing or non-string household_id', () => {
+    expect(() =>
+      parseCuentaDocument({
+        id: 'q1',
+        data: {
+          category_id: 'c1',
+          name: 'Alquiler',
+          due_date: new Date('2026-09-10T12:00:00.000Z'),
+          expected_amount: null,
+          recurring: false,
+          status: 'pending',
+          paid_expense_id: null,
+          created_at: new Date('2026-08-31T12:00:00.000Z'),
+        },
+      }),
+    ).toThrow('household_id must be a non-empty string')
+  })
+
+  it('rejects a missing or non-string category_id', () => {
+    expect(() =>
+      parseCuentaDocument({
+        id: 'q1',
+        data: {
+          household_id: 'h1',
+          category_id: 42,
+          name: 'Alquiler',
+          due_date: new Date('2026-09-10T12:00:00.000Z'),
+          expected_amount: null,
+          recurring: false,
+          status: 'pending',
+          paid_expense_id: null,
+          created_at: new Date('2026-08-31T12:00:00.000Z'),
+        },
+      }),
+    ).toThrow('category_id must be a non-empty string')
+  })
+
+  it('rejects a non-string name', () => {
+    expect(() =>
+      parseCuentaDocument({
+        id: 'q1',
+        data: {
+          household_id: 'h1',
+          category_id: 'c1',
+          name: 42,
+          due_date: new Date('2026-09-10T12:00:00.000Z'),
+          expected_amount: null,
+          recurring: false,
+          status: 'pending',
+          paid_expense_id: null,
+          created_at: new Date('2026-08-31T12:00:00.000Z'),
+        },
+      }),
+    ).toThrow('Cuenta name must be a string')
+  })
+
+  it('rejects a due_date that is neither a Date nor a Firestore timestamp', () => {
+    expect(() =>
+      parseCuentaDocument({
+        id: 'q1',
+        data: {
+          household_id: 'h1',
+          category_id: 'c1',
+          name: 'Alquiler',
+          due_date: '2026-09-10',
+          expected_amount: null,
+          recurring: false,
+          status: 'pending',
+          paid_expense_id: null,
+          created_at: new Date('2026-08-31T12:00:00.000Z'),
+        },
+      }),
+    ).toThrow('due_date must be a timestamp')
+  })
+
+  it('rejects an invalid Date instance for due_date', () => {
+    expect(() =>
+      parseCuentaDocument({
+        id: 'q1',
+        data: {
+          household_id: 'h1',
+          category_id: 'c1',
+          name: 'Alquiler',
+          due_date: new Date(Number.NaN),
+          expected_amount: null,
+          recurring: false,
+          status: 'pending',
+          paid_expense_id: null,
+          created_at: new Date('2026-08-31T12:00:00.000Z'),
+        },
+      }),
+    ).toThrow('due_date must be a timestamp')
+  })
+
+  it('rejects a missing or invalid created_at', () => {
+    expect(() =>
+      parseCuentaDocument({
+        id: 'q1',
+        data: {
+          household_id: 'h1',
+          category_id: 'c1',
+          name: 'Alquiler',
+          due_date: new Date('2026-09-10T12:00:00.000Z'),
+          expected_amount: null,
+          recurring: false,
+          status: 'pending',
+          paid_expense_id: null,
+          created_at: 'not-a-timestamp',
+        },
+      }),
+    ).toThrow('created_at must be a timestamp')
+  })
 })
 
 describe('cuentaToDocument', () => {
