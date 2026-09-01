@@ -3,7 +3,10 @@ import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
 import { listCategories } from '@/lib/expenses'
-import { createHouseholdWithMembership } from '@/lib/households'
+import {
+  createHouseholdWithMembership,
+  FirestoreDeniedError,
+} from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { listPendingCuentas } from '@/lib/cuentas'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
@@ -154,6 +157,16 @@ describe('AddCuentaForm', () => {
     expect(await listPendingCuentas({ db, householdId })).toEqual([])
   })
 
+  it('rejects an empty due date', async () => {
+    const { db, householdId } = await renderForm()
+
+    fillCuenta({ name: 'Alquiler', category: 'Comida', dueDate: '' })
+    submitCuenta()
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/fecha/i)
+    expect(await listPendingCuentas({ db, householdId })).toEqual([])
+  })
+
   it('accepts a due date in the past with no validation error, unlike the expense form', async () => {
     const { db, householdId } = await renderForm()
 
@@ -198,6 +211,29 @@ describe('AddCuentaForm', () => {
         expect.objectContaining({ name: 'Luz', expectedAmount: null }),
       ])
     })
+  })
+
+  it('rejects a negative, zero, or non-numeric expected amount when one is provided', async () => {
+    const { db, householdId } = await renderForm()
+
+    fillCuenta({
+      name: 'Alquiler',
+      category: 'Comida',
+      dueDate: '2026-09-10',
+      expectedAmount: '-1',
+    })
+    submitCuenta()
+    expect(screen.getByRole('alert')).toHaveTextContent(/monto/i)
+
+    fillCuenta({ expectedAmount: '0' })
+    submitCuenta()
+    expect(screen.getByRole('alert')).toHaveTextContent(/monto/i)
+
+    fillCuenta({ expectedAmount: 'abc' })
+    submitCuenta()
+    expect(screen.getByRole('alert')).toHaveTextContent(/monto/i)
+
+    expect(await listPendingCuentas({ db, householdId })).toEqual([])
   })
 
   it('creates a new category from free text, reusing the same pick-or-create behavior as the Expense form', async () => {
@@ -354,5 +390,34 @@ describe('AddCuentaForm', () => {
     await waitFor(() => {
       expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
+  })
+
+  it('shows which Firestore operation failed when categories cannot load', async () => {
+    const base = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: base,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const db: HouseholdsDb = {
+      ...base,
+      listCategories: async () => {
+        throw new FirestoreDeniedError({
+          operation: 'listCategories',
+          code: 'permission-denied',
+          detail: 'Missing or insufficient permissions.',
+        })
+      },
+    }
+
+    renderWithProviders(
+      <AddCuentaSheetHarness db={db} householdId={household.id} />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Nueva cuenta' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No se pudo cargar las categorías. Volvé a intentar.',
+    )
   })
 })
