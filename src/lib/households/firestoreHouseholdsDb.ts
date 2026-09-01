@@ -180,7 +180,7 @@ export function createFirestoreHouseholdsDb(
       return withHouseholdAccess('getHousehold', async () => {
         const snap = await getDoc(doc(firestore, 'households', householdId))
         if (!snap.exists()) {
-          throw new Error('Household not found')
+          throw new Error('No se encontró el hogar')
         }
         return parseHouseholdDocument({ id: snap.id, data: snap.data() })
       })
@@ -217,7 +217,7 @@ export function createFirestoreHouseholdsDb(
         const householdRef = doc(firestore, 'households', input.householdId)
         const snap = await getDoc(householdRef)
         if (!snap.exists()) {
-          throw new Error('Household not found')
+          throw new Error('No se encontró el hogar')
         }
         const current = parseHouseholdDocument({
           id: snap.id,
@@ -232,7 +232,7 @@ export function createFirestoreHouseholdsDb(
         const householdRef = doc(firestore, 'households', input.householdId)
         const snap = await getDoc(householdRef)
         if (!snap.exists()) {
-          throw new Error('Household not found')
+          throw new Error('No se encontró el hogar')
         }
         const current = parseHouseholdDocument({
           id: snap.id,

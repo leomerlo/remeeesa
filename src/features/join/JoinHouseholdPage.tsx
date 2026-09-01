@@ -16,9 +16,9 @@ import type { HouseholdsDb } from '@/lib/households'
 
 function messageForJoinError(error: unknown): string {
   if (error instanceof AlreadyInHouseholdError) {
-    return 'Leave your current household first'
+    return 'Primero salí de tu hogar actual'
   }
-  return 'Could not join household'
+  return 'No se pudo unir al hogar'
 }
 
 export type JoinHouseholdPageProps = {
@@ -85,7 +85,7 @@ export function JoinHouseholdPage({
     authenticate: () => Promise<{ readonly userId: string }>,
   ): Promise<void> {
     if (token === undefined) {
-      setError('Could not join household')
+      setError('No se pudo unir al hogar')
       return
     }
     setError(null)
@@ -96,7 +96,7 @@ export function JoinHouseholdPage({
         const signedIn = await authenticate()
         userId = signedIn.userId
       } catch {
-        setError('Could not create account')
+        setError('No se pudo crear la cuenta')
         return
       }
 
@@ -119,7 +119,7 @@ export function JoinHouseholdPage({
   if (joined) {
     return (
       <p role="status" className="text-sm font-medium">
-        Joined household
+        Te uniste al hogar
       </p>
     )
   }
@@ -134,7 +134,7 @@ export function JoinHouseholdPage({
     }
     return (
       <p role="status" className="text-sm font-medium">
-        Joining…
+        Uniéndote…
       </p>
     )
   }
@@ -166,7 +166,7 @@ export function JoinHouseholdPage({
             htmlFor="signup-password"
             className="text-muted-foreground font-medium"
           >
-            Password
+            Contraseña
           </Label>
           <Input
             id="signup-password"
@@ -187,7 +187,7 @@ export function JoinHouseholdPage({
         ) : null}
 
         <Button type="submit" disabled={pending}>
-          Create account
+          Crear cuenta
         </Button>
       </form>
 
@@ -199,7 +199,7 @@ export function JoinHouseholdPage({
           void joinAfterAuth(() => auth.signUpWithGoogle())
         }}
       >
-        Continue with Google
+        Continuar con Google
       </Button>
     </div>
   )

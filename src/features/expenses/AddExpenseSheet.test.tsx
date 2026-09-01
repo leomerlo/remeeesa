@@ -90,9 +90,9 @@ describe('AddExpenseSheet', () => {
     )
 
     expect(
-      screen.getByRole('button', { name: 'Add expense' }),
+      screen.getByRole('button', { name: 'Agregar gasto' }),
     ).toBeInTheDocument()
-    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     expect(
       document.querySelector('[data-slot="sheet-content"]'),
     ).not.toBeInTheDocument()
@@ -123,15 +123,15 @@ describe('AddExpenseSheet', () => {
     )
 
     // The inline edit form is visible immediately -- no trigger click needed.
-    expect(await screen.findByLabelText('Name')).toHaveValue('Pizza')
+    expect(await screen.findByLabelText('Nombre')).toHaveValue('Pizza')
     expect(
-      screen.getByRole('button', { name: 'Save changes' }),
+      screen.getByRole('button', { name: 'Guardar cambios' }),
     ).toBeInTheDocument()
 
     // No sheet chrome and no "Add expense" trigger: the two flows never
     // coexist on screen, so there's no name collision with the trigger.
     expect(
-      screen.queryByRole('button', { name: 'Add expense' }),
+      screen.queryByRole('button', { name: 'Agregar gasto' }),
     ).not.toBeInTheDocument()
     expect(
       document.querySelector('[data-slot="sheet-content"]'),
@@ -182,10 +182,10 @@ describe('AddExpenseSheet', () => {
       />,
     )
 
-    fireEvent.change(await screen.findByLabelText('Name'), {
+    fireEvent.change(await screen.findByLabelText('Nombre'), {
       target: { value: 'Pasta' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     await waitFor(() => {
       expect(onEditFinished).toHaveBeenCalledTimes(1)
@@ -210,20 +210,20 @@ describe('AddExpenseSheet', () => {
       />,
     )
 
-    const trigger = screen.getByRole('button', { name: 'Add expense' })
+    const trigger = screen.getByRole('button', { name: 'Agregar gasto' })
     trigger.focus()
     expect(trigger).toHaveFocus()
 
     fireEvent.click(trigger)
-    await screen.findByLabelText('Name')
+    await screen.findByLabelText('Nombre')
     expect(trigger).not.toBeInTheDocument()
 
     fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
 
     await waitFor(() => {
-      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
-    expect(screen.getByRole('button', { name: 'Add expense' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Agregar gasto' })).toHaveFocus()
   })
 
   it('keeps the sheet open while a submit is in flight, so a failure that arrives after a dismiss attempt is still shown', async () => {
@@ -249,34 +249,34 @@ describe('AddExpenseSheet', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
-    fireEvent.change(await screen.findByLabelText('Name'), {
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
+    fireEvent.change(await screen.findByLabelText('Nombre'), {
       target: { value: 'Pizza' },
     })
-    fireEvent.change(screen.getByLabelText('Price'), {
+    fireEvent.change(screen.getByLabelText('Precio'), {
       target: { value: '10' },
     })
-    fireEvent.change(screen.getByRole('combobox', { name: 'Category' }), {
+    fireEvent.change(screen.getByRole('combobox', { name: 'Categoría' }), {
       target: { value: 'Comida' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
 
     // The mutation is still pending: an Escape dismiss attempt must be a
     // no-op rather than unmounting the form out from under it.
     fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
-    expect(screen.getByLabelText('Name')).toBeInTheDocument()
+    expect(screen.getByLabelText('Nombre')).toBeInTheDocument()
 
     create.reject(new Error('Network blip'))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Network blip')
     // Still open and showing the failed draft -- nothing was silently lost.
-    expect(screen.getByLabelText('Name')).toHaveValue('Pizza')
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Pizza')
 
     // Once the mutation has settled, the dismiss guard must release: a
     // second Escape now closes the sheet as normal.
     fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
     await waitFor(() => {
-      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
   })
 })

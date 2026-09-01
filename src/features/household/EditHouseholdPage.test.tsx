@@ -59,7 +59,7 @@ describe('EditHouseholdPage', () => {
       { client },
     )
 
-    expect(screen.getByRole('status')).toHaveTextContent('Loading…')
+    expect(screen.getByRole('status')).toHaveTextContent('Cargando…')
   })
 
   it('shows a loading status before membership resolves', async () => {
@@ -75,10 +75,10 @@ describe('EditHouseholdPage', () => {
       <EditHouseholdPage currentUserId="user-1" householdsDb={db} />,
     )
 
-    expect(screen.getByRole('status')).toHaveTextContent('Loading…')
+    expect(screen.getByRole('status')).toHaveTextContent('Cargando…')
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Household name')).toHaveValue('Casa Verde')
+      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue('Casa Verde')
     })
   })
 
@@ -98,17 +98,17 @@ describe('EditHouseholdPage', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Household name')).toHaveValue('Casa Verde')
+      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue('Casa Verde')
     })
-    expect(screen.getByLabelText('Monthly budget')).toHaveValue('100')
+    expect(screen.getByLabelText('Presupuesto mensual')).toHaveValue('100')
     expect(
-      await screen.findByRole('heading', { name: 'Participants' }),
+      await screen.findByRole('heading', { name: 'Integrantes' }),
     ).toBeInTheDocument()
-    expect(await screen.findByText('You')).toBeInTheDocument()
+    expect(await screen.findByText('Vos')).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Generate invite link' }),
+      screen.getByRole('button', { name: 'Generar link de invitación' }),
     ).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Volver' })).toHaveAttribute(
       'href',
       '/',
     )
@@ -128,16 +128,16 @@ describe('EditHouseholdPage', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Household name')).toHaveValue('Casa Verde')
-      expect(screen.getByLabelText('Monthly budget')).toHaveValue('100')
+      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue('Casa Verde')
+      expect(screen.getByLabelText('Presupuesto mensual')).toHaveValue('100')
     })
-    fireEvent.change(screen.getByLabelText('Household name'), {
+    fireEvent.change(screen.getByLabelText('Nombre del hogar'), {
       target: { value: 'Casa Azul' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Household name')).toHaveValue('Casa Azul')
+      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue('Casa Azul')
     })
   })
 
@@ -165,10 +165,10 @@ describe('EditHouseholdPage', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Household name')).toHaveValue('Casa Verde')
+      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue('Casa Verde')
     })
     expect(
-      screen.queryByRole('button', { name: 'Log out' }),
+      screen.queryByRole('button', { name: 'Cerrar sesión' }),
     ).not.toBeInTheDocument()
   })
 
@@ -187,9 +187,9 @@ describe('EditHouseholdPage', () => {
     renderEditPage(<EditHouseholdPage householdsDb={db} />, { client })
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Household name')).toHaveValue('Casa Verde')
+      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue('Casa Verde')
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Log out' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
 
     expect(await screen.findByText('Home')).toBeInTheDocument()
   })

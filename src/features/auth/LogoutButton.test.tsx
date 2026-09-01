@@ -15,7 +15,7 @@ describe('LogoutButton', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Log out' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
 
     await waitFor(() => {
       expect(signOutSession).toHaveBeenCalledOnce()

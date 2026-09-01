@@ -20,7 +20,7 @@ export type ExpenseListProps = {
   readonly onEditExpense?: (expense: Expense, categoryName: string) => void
 }
 
-const EXPENSE_GONE_MESSAGE = 'This expense no longer exists'
+const EXPENSE_GONE_MESSAGE = 'Este gasto ya no existe'
 
 function calendarMonthRange(input: {
   readonly year: number
@@ -36,7 +36,7 @@ function calendarMonthRange(input: {
 }
 
 function formatExpenseDate(date: Date): string {
-  return date.toLocaleDateString('en-US', {
+  return date.toLocaleDateString('es-AR', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -65,7 +65,7 @@ function DeleteExpenseDialog(input: {
     >
       <div className="flex flex-col gap-1">
         <p id={titleId} className="text-sm font-medium">
-          Delete expense?
+          ¿Eliminar el gasto?
         </p>
         <p id={descriptionId} className="text-sm">
           {input.expense.name}
@@ -78,14 +78,14 @@ function DeleteExpenseDialog(input: {
           disabled={input.isPending}
           onClick={input.onCancel}
         >
-          Cancel
+          Cancelar
         </Button>
         <Button
           type="button"
           disabled={input.isPending}
           onClick={input.onConfirm}
         >
-          Delete expense
+          Eliminar gasto
         </Button>
       </div>
     </div>
@@ -141,7 +141,7 @@ export function ExpenseList({
         return
       }
       const message =
-        error instanceof Error ? error.message : 'Could not delete expense'
+        error instanceof Error ? error.message : 'No se pudo eliminar el gasto'
       setDeleteError(message)
     },
   })
@@ -149,7 +149,7 @@ export function ExpenseList({
   if (expensesQuery.isPending) {
     return (
       <p role="status" className="text-sm font-medium">
-        Loading…
+        Cargando…
       </p>
     )
   }
@@ -158,7 +158,7 @@ export function ExpenseList({
     const message =
       expensesQuery.error instanceof Error
         ? expensesQuery.error.message
-        : 'Could not load expenses'
+        : 'No se pudieron cargar los gastos'
     return (
       <p role="alert" className="text-sm font-medium">
         {message}
@@ -181,7 +181,7 @@ export function ExpenseList({
         ) : null}
         <EmptyExpensesIllustration className="mx-auto h-32 w-40" />
         <p role="status" className="text-sm font-medium">
-          No expenses this month
+          No hay gastos este mes
         </p>
       </>
     )
@@ -203,12 +203,12 @@ export function ExpenseList({
         </p>
       ) : null}
       <ul
-        aria-label="This month's expenses"
+        aria-label="Gastos de este mes"
         className="flex w-full flex-col gap-8 text-sm"
       >
         {expenses.map((expense) => {
           const category = categoryById.get(expense.categoryId)
-          const categoryName = category?.name ?? 'Unknown category'
+          const categoryName = category?.name ?? 'Categoría desconocida'
           const categoryColor =
             category?.color ?? colorForCategoryName(categoryName)
 
@@ -253,24 +253,24 @@ export function ExpenseList({
                       <Button
                         type="button"
                         variant="outline"
-                        aria-label={`Edit ${expense.name}`}
+                        aria-label={`Editar ${expense.name}`}
                         onClick={() => {
                           onEditExpense(expense, category?.name ?? '')
                         }}
                       >
-                        Edit
+                        Editar
                       </Button>
                     ) : null}
                     <Button
                       type="button"
                       variant="outline"
-                      aria-label={`Delete ${expense.name}`}
+                      aria-label={`Eliminar ${expense.name}`}
                       onClick={() => {
                         setDeleteError(null)
                         setConfirmDeleteExpense(expense)
                       }}
                     >
-                      Delete
+                      Eliminar
                     </Button>
                   </div>
                 )}

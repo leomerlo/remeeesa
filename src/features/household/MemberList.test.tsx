@@ -19,9 +19,9 @@ describe('MemberList', () => {
       <MemberList db={db} householdId={household.id} currentUserId="user-1" />,
     )
 
-    expect(await screen.findByText('You')).toBeInTheDocument()
+    expect(await screen.findByText('Vos')).toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: 'Participants' }),
+      screen.getByRole('heading', { name: 'Integrantes' }),
     ).toBeInTheDocument()
   })
 
@@ -41,12 +41,12 @@ describe('MemberList', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByText('You')).toBeInTheDocument()
-      expect(screen.getByText('Member')).toBeInTheDocument()
+      expect(screen.getByText('Vos')).toBeInTheDocument()
+      expect(screen.getByText('Miembro')).toBeInTheDocument()
     })
 
     const items = screen.getAllByRole('listitem')
-    expect(items[0]).toHaveTextContent('You')
-    expect(items[1]).toHaveTextContent('Member')
+    expect(items[0]).toHaveTextContent('Vos')
+    expect(items[1]).toHaveTextContent('Miembro')
   })
 })

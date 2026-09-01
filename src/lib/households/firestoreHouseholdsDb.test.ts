@@ -17,7 +17,7 @@ describe('mapHouseholdFirestoreError', () => {
         { code: 'permission-denied' },
         'createExpense',
       ),
-    ).toThrow('Could not add expense: permission-denied')
+    ).toThrow('No se pudo agregar el gasto: permission-denied')
   })
 
   it('includes the Firebase message when permission-denied has one', () => {
@@ -29,7 +29,7 @@ describe('mapHouseholdFirestoreError', () => {
         },
         'findOrCreateCategory',
       ),
-    ).toThrow('Could not save category: Missing or insufficient permissions.')
+    ).toThrow('No se pudo guardar la categoría: Missing or insufficient permissions.')
   })
 
   it('rethrows firestore/permission-denied as FirestoreDeniedError', () => {
@@ -38,7 +38,7 @@ describe('mapHouseholdFirestoreError', () => {
         { code: 'firestore/permission-denied' },
         'listCategories',
       ),
-    ).toThrow('Could not load categories: firestore/permission-denied')
+    ).toThrow('No se pudo cargar las categorías: firestore/permission-denied')
   })
 
   it('rethrows other errors unchanged', () => {

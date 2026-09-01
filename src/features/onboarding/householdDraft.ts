@@ -13,12 +13,12 @@ export function parseHouseholdDraft(input: {
 }): HouseholdDraftParseResult {
   const name = input.name.trim()
   if (name === '') {
-    return { ok: false, error: 'Enter a household name' }
+    return { ok: false, error: 'Ingresá un nombre para el hogar' }
   }
 
   const monthlyBudget = Number(input.monthlyBudget.trim())
   if (!Number.isFinite(monthlyBudget) || monthlyBudget <= 0) {
-    return { ok: false, error: 'Enter a monthly budget greater than 0' }
+    return { ok: false, error: 'Ingresá un presupuesto mensual mayor a 0' }
   }
 
   return {

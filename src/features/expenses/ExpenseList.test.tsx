@@ -24,7 +24,7 @@ function lastMonthDate(): Date {
 }
 
 function formatExpenseDate(date: Date): string {
-  return date.toLocaleDateString('en-US', {
+  return date.toLocaleDateString('es-AR', {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
@@ -46,7 +46,7 @@ describe('ExpenseList', () => {
     )
 
     expect(
-      await screen.findByText('No expenses this month'),
+      await screen.findByText('No hay gastos este mes'),
     ).toBeInTheDocument()
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
     expect(container.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
@@ -132,7 +132,7 @@ describe('ExpenseList', () => {
       expect(rows[1]).toHaveTextContent(formatExpenseDate(earlierDate))
       expect(rows[1]).toHaveTextContent('Ada')
       expect(
-        screen.queryByText('No expenses this month'),
+        screen.queryByText('No hay gastos este mes'),
       ).not.toBeInTheDocument()
     } finally {
       vi.useRealTimers()
@@ -213,7 +213,7 @@ describe('ExpenseList', () => {
     renderWithProviders(<ExpenseList db={db} householdId={household.id} />)
 
     expect(
-      await screen.findByText('No expenses this month'),
+      await screen.findByText('No hay gastos este mes'),
     ).toBeInTheDocument()
     expect(screen.queryByText('Old rent')).not.toBeInTheDocument()
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
@@ -300,7 +300,7 @@ describe('ExpenseList', () => {
 
     const row = await screen.findByRole('listitem')
     expect(
-      within(row).getByRole('button', { name: 'Delete Pizza' }),
+      within(row).getByRole('button', { name: 'Eliminar Pizza' }),
     ).toBeInTheDocument()
   })
 
@@ -333,13 +333,13 @@ describe('ExpenseList', () => {
 
     renderWithProviders(<ExpenseList db={db} householdId={household.id} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Delete Pizza' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Eliminar Pizza' }))
 
     const dialog = screen.getByRole('alertdialog')
-    expect(dialog).toHaveAccessibleName('Delete expense?')
+    expect(dialog).toHaveAccessibleName('¿Eliminar el gasto?')
     expect(within(dialog).getByText('Pizza')).toBeInTheDocument()
 
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
 
     await waitFor(() => {
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
@@ -387,14 +387,14 @@ describe('ExpenseList', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Remaining budget $70' }),
+      await screen.findByRole('status', { name: 'Presupuesto restante $70' }),
     ).toHaveTextContent('$70')
     expect(screen.getByRole('listitem')).toHaveTextContent('Pizza')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete Pizza' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar Pizza' }))
     fireEvent.click(
       within(screen.getByRole('alertdialog')).getByRole('button', {
-        name: 'Delete expense',
+        name: 'Eliminar gasto',
       }),
     )
 
@@ -402,10 +402,10 @@ describe('ExpenseList', () => {
       expect(screen.queryByRole('listitem')).not.toBeInTheDocument()
     })
     expect(
-      await screen.findByText('No expenses this month'),
+      await screen.findByText('No hay gastos este mes'),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('status', { name: 'Remaining budget $100' }),
+      screen.getByRole('status', { name: 'Presupuesto restante $100' }),
     ).toHaveTextContent('$100')
   })
 
@@ -462,23 +462,23 @@ describe('ExpenseList', () => {
       queryKey: expensesInMonthQueryKey({ householdId: household.id }),
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete Pizza' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar Pizza' }))
     fireEvent.click(
       within(screen.getByRole('alertdialog')).getByRole('button', {
-        name: 'Delete expense',
+        name: 'Eliminar gasto',
       }),
     )
 
     expect(
       await screen.findByRole('alert', {
-        name: 'This expense no longer exists',
+        name: 'Este gasto ya no existe',
       }),
-    ).toHaveTextContent('This expense no longer exists')
+    ).toHaveTextContent('Este gasto ya no existe')
     await waitFor(() => {
       expect(screen.queryByRole('listitem')).not.toBeInTheDocument()
     })
     expect(
-      await screen.findByText('No expenses this month'),
+      await screen.findByText('No hay gastos este mes'),
     ).toBeInTheDocument()
   })
 
@@ -528,10 +528,10 @@ describe('ExpenseList', () => {
 
     expect(await screen.findAllByRole('listitem')).toHaveLength(2)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Delete Pizza' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar Pizza' }))
     fireEvent.click(
       within(screen.getByRole('alertdialog')).getByRole('button', {
-        name: 'Delete expense',
+        name: 'Eliminar gasto',
       }),
     )
 
@@ -658,7 +658,7 @@ describe('ExpenseList', () => {
     )
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Only household members can access this household',
+      'Solo los integrantes del hogar pueden acceder a este hogar',
     )
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
   })

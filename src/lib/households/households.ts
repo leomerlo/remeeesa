@@ -10,7 +10,7 @@ export class AlreadyInHouseholdError extends Error {
   override readonly name = 'AlreadyInHouseholdError'
 
   constructor() {
-    super('User already belongs to a household')
+    super('El usuario ya pertenece a un hogar')
   }
 }
 
@@ -18,7 +18,7 @@ export class HouseholdAccessDeniedError extends Error {
   override readonly name = 'HouseholdAccessDeniedError'
 
   constructor() {
-    super('Only household members can access this household')
+    super('Solo los integrantes del hogar pueden acceder a este hogar')
   }
 }
 
@@ -26,26 +26,26 @@ export class NotSignedInError extends Error {
   override readonly name = 'NotSignedInError'
 
   constructor() {
-    super('Not signed in. Refresh the page and try again.')
+    super('No hay una sesión iniciada. Actualizá la página e intentá de nuevo.')
   }
 }
 
 const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
-  createHouseholdAndMembership: 'create household',
-  getHousehold: 'load household',
-  listMembers: 'load members',
-  getMembership: 'load membership',
-  updateMonthlyBudget: 'save budget',
-  updateHousehold: 'save household',
-  getOrCreateInvite: 'generate invite link',
-  joinHousehold: 'join household',
-  listCategories: 'load categories',
-  findOrCreateCategory: 'save category',
-  createExpense: 'add expense',
-  listExpensesInMonth: 'load expenses',
-  getExpense: 'load expense',
-  updateExpense: 'save expense',
-  deleteExpense: 'delete expense',
+  createHouseholdAndMembership: 'crear el hogar',
+  getHousehold: 'cargar el hogar',
+  listMembers: 'cargar los integrantes',
+  getMembership: 'cargar la membresía',
+  updateMonthlyBudget: 'guardar el presupuesto',
+  updateHousehold: 'guardar el hogar',
+  getOrCreateInvite: 'generar el link de invitación',
+  joinHousehold: 'unirse al hogar',
+  listCategories: 'cargar las categorías',
+  findOrCreateCategory: 'guardar la categoría',
+  createExpense: 'agregar el gasto',
+  listExpensesInMonth: 'cargar los gastos',
+  getExpense: 'cargar el gasto',
+  updateExpense: 'guardar el gasto',
+  deleteExpense: 'eliminar el gasto',
 }
 
 export class FirestoreDeniedError extends Error {
@@ -64,7 +64,7 @@ export class FirestoreDeniedError extends Error {
       input.detail !== undefined && input.detail.length > 0
         ? input.detail
         : input.code
-    super(`Could not ${action}: ${detail}`)
+    super(`No se pudo ${action}: ${detail}`)
     this.operation = input.operation
     this.code = input.code
   }
@@ -74,7 +74,7 @@ export class InviteNotFoundError extends Error {
   override readonly name = 'InviteNotFoundError'
 
   constructor() {
-    super('Invite not found')
+    super('No se encontró la invitación')
   }
 }
 

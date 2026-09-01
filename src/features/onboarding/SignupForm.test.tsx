@@ -80,10 +80,10 @@ function submitEmailSignup(): void {
   fireEvent.change(screen.getByLabelText('Email'), {
     target: { value: 'ada@example.com' },
   })
-  fireEvent.change(screen.getByLabelText('Password'), {
+  fireEvent.change(screen.getByLabelText('Contraseña'), {
     target: { value: 'secret12' },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }))
 }
 
 describe('SignupForm', () => {
@@ -96,7 +96,7 @@ describe('SignupForm', () => {
     submitEmailSignup()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Could not save household',
+      'No se pudo guardar el hogar',
     )
     expect(createHouseholdAndMembership).not.toHaveBeenCalled()
     expect(onFinished).not.toHaveBeenCalled()
@@ -130,10 +130,10 @@ describe('SignupForm', () => {
       monthlyBudget: 1500,
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Could not save household',
+      'No se pudo guardar el hogar',
     )
     expect(createHouseholdAndMembership).toHaveBeenCalledTimes(1)
     expect(onFinished).toHaveBeenCalledOnce()

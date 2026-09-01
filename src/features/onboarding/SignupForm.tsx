@@ -44,9 +44,9 @@ export function SignupForm({
   const [signedInUserId, setSignedInUserId] = useState<string | null>(null)
   const isLogin = mode === 'login'
   const authErrorMessage = isLogin
-    ? 'Could not sign in'
-    : 'Could not create account'
-  const submitLabel = isLogin ? 'Sign in' : 'Create account'
+    ? 'No se pudo iniciar sesión'
+    : 'No se pudo crear la cuenta'
+  const submitLabel = isLogin ? 'Iniciar sesión' : 'Crear cuenta'
   const passwordAutoComplete = isLogin ? 'current-password' : 'new-password'
 
   async function finishAuth(
@@ -73,7 +73,7 @@ export function SignupForm({
           onFinished?.({ householdCreated: false })
           return
         }
-        setError('Could not save household')
+        setError('No se pudo guardar el hogar')
         return
       }
 
@@ -84,13 +84,13 @@ export function SignupForm({
           draft,
         })
         if (household === null) {
-          setError('Could not save household')
+          setError('No se pudo guardar el hogar')
           return
         }
         clearDraft()
         onFinished?.({ householdCreated: true })
       } catch {
-        setError('Could not save household')
+        setError('No se pudo guardar el hogar')
       }
     } finally {
       setPending(false)
@@ -133,7 +133,7 @@ export function SignupForm({
             htmlFor="signup-password"
             className="text-muted-foreground font-medium"
           >
-            Password
+            Contraseña
           </Label>
           <Input
             id="signup-password"
@@ -168,7 +168,7 @@ export function SignupForm({
           )
         }}
       >
-        Continue with Google
+        Continuar con Google
       </Button>
 
       {!isLogin && onAlreadyHaveAccount !== undefined ? (
@@ -178,7 +178,7 @@ export function SignupForm({
           disabled={pending}
           onClick={onAlreadyHaveAccount}
         >
-          I already have an account
+          Ya tengo una cuenta
         </Button>
       ) : null}
     </div>

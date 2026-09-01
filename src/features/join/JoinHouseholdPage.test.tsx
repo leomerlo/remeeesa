@@ -58,7 +58,7 @@ function createDelayedAuth() {
 
 async function expectJoinedStatus() {
   await waitFor(() => {
-    expect(screen.getByRole('status')).toHaveTextContent('Joined household')
+    expect(screen.getByRole('status')).toHaveTextContent('Te uniste al hogar')
   })
 }
 
@@ -84,10 +84,10 @@ describe('JoinHouseholdPage', () => {
     })
 
     expect(
-      screen.queryByRole('button', { name: 'Create account' }),
+      screen.queryByRole('button', { name: 'Crear cuenta' }),
     ).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: 'Continue with Google' }),
+      screen.queryByRole('button', { name: 'Continuar con Google' }),
     ).not.toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Join household' }),
@@ -132,9 +132,9 @@ describe('JoinHouseholdPage', () => {
       { client: delayedAuth.client },
     )
 
-    expect(screen.getByRole('status')).toHaveTextContent('Joining…')
+    expect(screen.getByRole('status')).toHaveTextContent('Uniéndote…')
     expect(
-      screen.queryByRole('button', { name: 'Create account' }),
+      screen.queryByRole('button', { name: 'Crear cuenta' }),
     ).not.toBeInTheDocument()
 
     delayedAuth.emitAuth({ uid: 'user-2' })
@@ -159,15 +159,15 @@ describe('JoinHouseholdPage', () => {
       { client: delayedAuth.client },
     )
 
-    expect(screen.getByRole('status')).toHaveTextContent('Joining…')
+    expect(screen.getByRole('status')).toHaveTextContent('Uniéndote…')
     expect(
-      screen.queryByRole('button', { name: 'Create account' }),
+      screen.queryByRole('button', { name: 'Crear cuenta' }),
     ).not.toBeInTheDocument()
 
     delayedAuth.emitAuth(null)
 
     expect(
-      await screen.findByRole('button', { name: 'Create account' }),
+      await screen.findByRole('button', { name: 'Crear cuenta' }),
     ).toBeInTheDocument()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
@@ -234,7 +234,7 @@ describe('JoinHouseholdPage', () => {
     await expectJoinedStatus()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(
-      screen.queryByText('Leave your current household first'),
+      screen.queryByText('Primero salí de tu hogar actual'),
     ).not.toBeInTheDocument()
     await expect(
       listHouseholdMembers({ db: ownerDb, householdId: household.id }),
@@ -264,12 +264,12 @@ describe('JoinHouseholdPage', () => {
     })
 
     expect(screen.getByLabelText('Email')).toBeInTheDocument()
-    expect(screen.getByLabelText('Password')).toBeInTheDocument()
+    expect(screen.getByLabelText('Contraseña')).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Create account' }),
+      screen.getByRole('button', { name: 'Crear cuenta' }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Continue with Google' }),
+      screen.getByRole('button', { name: 'Continuar con Google' }),
     ).toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Join household' }),
@@ -281,10 +281,10 @@ describe('JoinHouseholdPage', () => {
     fireEvent.change(screen.getByLabelText('Email'), {
       target: { value: 'ada@example.com' },
     })
-    fireEvent.change(screen.getByLabelText('Password'), {
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
       target: { value: 'secret12' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }))
 
     await expectJoinedStatus()
     expect(signupAuth.signUpWithEmail).toHaveBeenCalledWith({
@@ -321,7 +321,7 @@ describe('JoinHouseholdPage', () => {
     })
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Continue with Google' }),
+      screen.getByRole('button', { name: 'Continuar con Google' }),
     )
 
     await expectJoinedStatus()
@@ -370,15 +370,15 @@ describe('JoinHouseholdPage', () => {
     })
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Continue with Google' }),
+      screen.getByRole('button', { name: 'Continuar con Google' }),
     )
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Leave your current household first')
-    expect(alert).not.toHaveTextContent('Could not join household')
+    expect(alert).toHaveTextContent('Primero salí de tu hogar actual')
+    expect(alert).not.toHaveTextContent('No se pudo unir al hogar')
     expect(alert).not.toHaveTextContent(invite.token)
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
-    expect(screen.queryByText('Joined household')).not.toBeInTheDocument()
+    expect(screen.queryByText('Te uniste al hogar')).not.toBeInTheDocument()
     expect(signupAuth.signUpWithGoogle).toHaveBeenCalledOnce()
     await expect(
       listHouseholdMembers({
@@ -433,28 +433,28 @@ describe('JoinHouseholdPage', () => {
     fireEvent.change(screen.getByLabelText('Email'), {
       target: { value: 'ada@example.com' },
     })
-    fireEvent.change(screen.getByLabelText('Password'), {
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
       target: { value: 'secret12' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Leave your current household first')
-    expect(alert).not.toHaveTextContent('Could not join household')
+    expect(alert).toHaveTextContent('Primero salí de tu hogar actual')
+    expect(alert).not.toHaveTextContent('No se pudo unir al hogar')
     expect(alert).not.toHaveTextContent(invite.token)
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
-    expect(screen.queryByText('Joined household')).not.toBeInTheDocument()
+    expect(screen.queryByText('Te uniste al hogar')).not.toBeInTheDocument()
     expect(signupAuth.signUpWithEmail).toHaveBeenCalledWith({
       email: 'ada@example.com',
       password: 'secret12',
     })
     expect(signupAuth.signUpWithGoogle).not.toHaveBeenCalled()
-    expect(screen.getByRole('button', { name: 'Create account' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Crear cuenta' })).toBeEnabled()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Leave your current household first',
+      'Primero salí de tu hogar actual',
     )
     expect(signupAuth.signUpWithEmail).toHaveBeenCalledTimes(2)
     await expect(
@@ -506,11 +506,11 @@ describe('JoinHouseholdPage', () => {
     })
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Leave your current household first')
-    expect(alert).not.toHaveTextContent('Could not join household')
+    expect(alert).toHaveTextContent('Primero salí de tu hogar actual')
+    expect(alert).not.toHaveTextContent('No se pudo unir al hogar')
     expect(alert).not.toHaveTextContent(invite.token)
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
-    expect(screen.queryByText('Joined household')).not.toBeInTheDocument()
+    expect(screen.queryByText('Te uniste al hogar')).not.toBeInTheDocument()
     await expect(
       listHouseholdMembers({
         db: ownerDb,
@@ -543,7 +543,7 @@ describe('JoinHouseholdPage', () => {
     })
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Could not join household')
+    expect(alert).toHaveTextContent('No se pudo unir al hogar')
     expect(alert).not.toHaveTextContent(bogusToken)
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
     await expect(
@@ -572,8 +572,8 @@ describe('JoinHouseholdPage', () => {
     })
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Could not join household')
-    expect(alert).not.toHaveTextContent('Leave your current household first')
+    expect(alert).toHaveTextContent('No se pudo unir al hogar')
+    expect(alert).not.toHaveTextContent('Primero salí de tu hogar actual')
     expect(alert).not.toHaveTextContent(bogusToken)
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
     await expect(
@@ -606,13 +606,13 @@ describe('JoinHouseholdPage', () => {
     fireEvent.change(screen.getByLabelText('Email'), {
       target: { value: 'ada@example.com' },
     })
-    fireEvent.change(screen.getByLabelText('Password'), {
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
       target: { value: 'secret12' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }))
 
     const alert = await screen.findByRole('alert')
-    expect(alert).toHaveTextContent('Could not join household')
+    expect(alert).toHaveTextContent('No se pudo unir al hogar')
     expect(alert).not.toHaveTextContent(bogusToken)
     await expect(
       listHouseholdMembers({ db: ownerDb, householdId: household.id }),
@@ -651,13 +651,13 @@ describe('JoinHouseholdPage', () => {
     fireEvent.change(screen.getByLabelText('Email'), {
       target: { value: 'ada@example.com' },
     })
-    fireEvent.change(screen.getByLabelText('Password'), {
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
       target: { value: 'secret12' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Could not create account',
+      'No se pudo crear la cuenta',
     )
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
     expect(signupAuth.signUpWithGoogle).not.toHaveBeenCalled()
@@ -696,11 +696,11 @@ describe('JoinHouseholdPage', () => {
     })
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Continue with Google' }),
+      screen.getByRole('button', { name: 'Continuar con Google' }),
     )
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Could not create account',
+      'No se pudo crear la cuenta',
     )
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
     expect(signupAuth.signUpWithEmail).not.toHaveBeenCalled()

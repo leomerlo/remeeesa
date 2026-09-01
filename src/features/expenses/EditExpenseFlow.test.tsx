@@ -145,17 +145,17 @@ describe('EditExpenseFlow', () => {
       />,
     )
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit Pizza' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
 
-    expect(screen.getByLabelText('Name')).toHaveValue('Pizza')
-    expect(screen.getByLabelText('Price')).toHaveValue('12.5')
-    expect(screen.getByLabelText('Category')).toHaveValue('Comida')
-    expect(screen.getByLabelText('Comments')).toHaveValue('Friday dinner')
-    expect(screen.getByLabelText('Date')).toHaveValue(
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Pizza')
+    expect(screen.getByLabelText('Precio')).toHaveValue('12.5')
+    expect(screen.getByLabelText('Categoría')).toHaveValue('Comida')
+    expect(screen.getByLabelText('Comentario')).toHaveValue('Friday dinner')
+    expect(screen.getByLabelText('Fecha')).toHaveValue(
       localDateInputValue(currentMonthDate(15)),
     )
     expect(
-      screen.getByRole('button', { name: 'Save changes' }),
+      screen.getByRole('button', { name: 'Guardar cambios' }),
     ).toBeInTheDocument()
   })
 
@@ -184,14 +184,14 @@ describe('EditExpenseFlow', () => {
     )
 
     expect(await screen.findByText('$90')).toBeInTheDocument()
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit Pizza' }))
-    fireEvent.change(screen.getByLabelText('Name'), {
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
+    fireEvent.change(screen.getByLabelText('Nombre'), {
       target: { value: 'Pasta' },
     })
-    fireEvent.change(screen.getByLabelText('Price'), {
+    fireEvent.change(screen.getByLabelText('Precio'), {
       target: { value: '25' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     await waitFor(() => {
       expect(screen.getByText('Pasta')).toBeInTheDocument()
@@ -199,7 +199,7 @@ describe('EditExpenseFlow', () => {
       expect(screen.getByText('$75')).toBeInTheDocument()
     })
     expect(
-      screen.queryByRole('button', { name: 'Save changes' }),
+      screen.queryByRole('button', { name: 'Guardar cambios' }),
     ).not.toBeInTheDocument()
 
     const listed = await listExpensesInMonth({
@@ -247,17 +247,17 @@ describe('EditExpenseFlow', () => {
     const today = new Date()
     const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 15)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit Pizza' }))
-    fireEvent.change(screen.getByLabelText('Date'), {
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
+    fireEvent.change(screen.getByLabelText('Fecha'), {
       target: { value: localDateInputValue(lastMonth) },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Expense date must be in the current calendar month',
+      'La fecha del gasto debe ser del mes actual',
     )
     expect(
-      screen.getByRole('button', { name: 'Save changes' }),
+      screen.getByRole('button', { name: 'Guardar cambios' }),
     ).toBeInTheDocument()
     expect(screen.getByText('Pizza')).toBeInTheDocument()
   })
@@ -288,23 +288,23 @@ describe('EditExpenseFlow', () => {
       />,
     )
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit Pizza' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
     await deleteExpense({
       db: store.asUser('user-2'),
       householdId: household.id,
       expenseId: expense.id,
     })
-    fireEvent.change(screen.getByLabelText('Name'), {
+    fireEvent.change(screen.getByLabelText('Nombre'), {
       target: { value: 'Stale edit' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'This expense no longer exists',
+      'Este gasto ya no existe',
     )
     await waitFor(() => {
       expect(screen.queryByText('Pizza')).not.toBeInTheDocument()
-      expect(screen.getByText('No expenses this month')).toBeInTheDocument()
+      expect(screen.getByText('No hay gastos este mes')).toBeInTheDocument()
     })
   })
 
@@ -337,11 +337,11 @@ describe('EditExpenseFlow', () => {
       />,
     )
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit Pizza' }))
-    fireEvent.change(screen.getByLabelText('Name'), {
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
+    fireEvent.change(screen.getByLabelText('Nombre'), {
       target: { value: 'Shared edit' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     await waitFor(() => {
       expect(screen.getByText('Shared edit')).toBeInTheDocument()
