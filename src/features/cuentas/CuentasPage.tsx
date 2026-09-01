@@ -4,6 +4,7 @@ import { Navigate } from 'react-router-dom'
 import { useHouseholdMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { AddCuentaSheet } from './AddCuentaSheet'
+import type { EditCuentaTarget } from './AddCuentaForm'
 import { PendingCuentasList } from './PendingCuentasList'
 
 export type CuentasPageProps = {
@@ -20,6 +21,7 @@ export function CuentasPage({
     householdsDb,
   })
   const [isAddCuentaSheetOpen, setIsAddCuentaSheetOpen] = useState(false)
+  const [editCuenta, setEditCuenta] = useState<EditCuentaTarget | null>(null)
 
   if (currentUserId === undefined) {
     return (
@@ -53,8 +55,25 @@ export function CuentasPage({
         onOpenChange={setIsAddCuentaSheetOpen}
         db={db}
         householdId={membership.householdId}
+        editCuenta={editCuenta}
+        onEditFinished={() => {
+          setEditCuenta(null)
+        }}
       />
-      <PendingCuentasList db={db} householdId={membership.householdId} />
+      <PendingCuentasList
+        db={db}
+        householdId={membership.householdId}
+        onEditCuenta={(cuenta, categoryName) => {
+          setEditCuenta({
+            cuentaId: cuenta.id,
+            name: cuenta.name,
+            categoryName,
+            dueDate: cuenta.dueDate,
+            expectedAmount: cuenta.expectedAmount,
+            recurring: cuenta.recurring,
+          })
+        }}
+      />
     </div>
   )
 }

@@ -247,12 +247,38 @@ describe('firestore.rules cuentas', () => {
     expect(rules).toContain('data.paid_expense_id == null')
   })
 
-  it('lets members create cuentas and closes update and delete', () => {
+  it('lets members create cuentas', () => {
     expect(rules).toMatch(
       /match \/cuentas\/\{cuentaId\}[\s\S]*allow create: if isMemberOf\(request\.resource\.data\.household_id\)\s*&& isValidCuenta\(request\.resource\.data\);/,
     )
+  })
+
+  it('lets members update a still-pending cuenta, restricted to the editable fields', () => {
+    expect(rules).toContain('function isValidCuentaUpdate()')
+    expect(rules).toContain("resource.data.status == 'pending'")
     expect(rules).toMatch(
-      /match \/cuentas\/\{cuentaId\}[\s\S]*allow update, delete: if false;/,
+      /function isValidCuentaUpdate\(\) \{[\s\S]*?request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasOnly\(\['name', 'category_id', 'due_date', 'expected_amount', 'recurring'\]\)/,
+    )
+    expect(rules).toMatch(
+      /function isValidCuentaUpdate\(\) \{[\s\S]*?!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'status', 'paid_expense_id', 'created_at'\]\)/,
+    )
+    expect(rules).toMatch(
+      /match \/cuentas\/\{cuentaId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& isValidCuentaUpdate\(\);/,
+    )
+  })
+
+  it('re-validates the updated category against the same household on update', () => {
+    expect(rules).toMatch(
+      /function isValidCuentaUpdate\(\) \{[\s\S]*?exists\(\/databases\/\$\(database\)\/documents\/categories\/\$\(request\.resource\.data\.category_id\)\)/,
+    )
+    expect(rules).toMatch(
+      /function isValidCuentaUpdate\(\) \{[\s\S]*?get\(\/databases\/\$\(database\)\/documents\/categories\/\$\(request\.resource\.data\.category_id\)\)\.data\.household_id == resource\.data\.household_id/,
+    )
+  })
+
+  it('lets members delete a still-pending cuenta only', () => {
+    expect(rules).toMatch(
+      /match \/cuentas\/\{cuentaId\}[\s\S]*allow delete: if isMemberOf\(resource\.data\.household_id\)\s*&& resource\.data\.status == 'pending';/,
     )
   })
 })
@@ -282,5 +308,21 @@ describe('createExpense adapter', () => {
 
   it('treats a missing Firebase user as not signed in instead of a membership denial', () => {
     expect(adapterSource).toContain('throw new NotSignedInError()')
+  })
+})
+
+describe('updateCuenta/deleteCuenta adapter', () => {
+  // The domain layer's own getPendingCuentaOrThrow always pre-checks status
+  // before either adapter method runs, so this re-check is otherwise never
+  // exercised by any test that goes through the domain wrapper -- assert it
+  // exists in the compiled adapter source directly, same convention as the
+  // other adapter-source checks in this file.
+  it('re-checks status against a fresh read before writing, throwing CuentaAlreadyPaidError', () => {
+    expect(adapterSource).toMatch(
+      /async updateCuenta\(input\) \{[\s\S]*?if \(current\.status !== 'pending'\) \{[\s\S]*?throw new CuentaAlreadyPaidError\(\)/,
+    )
+    expect(adapterSource).toMatch(
+      /async deleteCuenta\(input\) \{[\s\S]*?status !== 'pending'[\s\S]*?throw new CuentaAlreadyPaidError\(\)/,
+    )
   })
 })

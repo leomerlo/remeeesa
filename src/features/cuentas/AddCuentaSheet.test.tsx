@@ -2,12 +2,14 @@ import { QueryClient, useQuery } from '@tanstack/react-query'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
-import { describe, expect, it } from 'vitest'
-import { listPendingCuentas } from '@/lib/cuentas'
+import { describe, expect, it, vi } from 'vitest'
+import { createCuenta, listPendingCuentas } from '@/lib/cuentas'
+import { listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
+import type { EditCuentaTarget } from './AddCuentaForm'
 import { AddCuentaSheet } from './AddCuentaSheet'
 import type { AddCuentaSheetProps } from './AddCuentaSheet'
 import { cuentasQueryKey } from './queryKeys'
@@ -206,6 +208,126 @@ describe('AddCuentaSheet', () => {
     fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
     await waitFor(() => {
       expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
+    })
+  })
+
+  it('opens editing through the same sheet used for adding, even if open is false', async () => {
+    const { db, householdId } = await seedHousehold()
+    const editCuenta: EditCuentaTarget = {
+      cuentaId: 'cuenta-1',
+      name: 'Alquiler',
+      categoryName: 'Servicios',
+      dueDate: new Date(2026, 8, 10),
+      expectedAmount: 500,
+      recurring: false,
+    }
+
+    renderWithProviders(
+      <AddCuentaSheet
+        open={false}
+        onOpenChange={() => {}}
+        db={db}
+        householdId={householdId}
+        editCuenta={editCuenta}
+        onEditFinished={() => {}}
+      />,
+    )
+
+    // The edit form is visible immediately -- no trigger click needed --
+    // inside the same Sheet chrome the add flow uses, titled for editing.
+    expect(await screen.findByLabelText('Nombre')).toHaveValue('Alquiler')
+    expect(
+      screen.getByRole('button', { name: 'Guardar cambios' }),
+    ).toBeInTheDocument()
+    const sheetContent = document.querySelector('[data-slot="sheet-content"]')
+    expect(sheetContent).not.toBeNull()
+    expect(sheetContent).toHaveTextContent('Editar cuenta')
+
+    // No "Nueva cuenta" trigger while the sheet is open editing: the two
+    // flows never coexist on screen, so there's no name collision.
+    expect(
+      screen.queryByRole('button', { name: 'Nueva cuenta' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('calls onEditFinished after a successful save routed through the sheet component', async () => {
+    const { db, householdId } = await seedHousehold()
+    const categories = await listCategories({ db, householdId })
+    const comida = categories.find((category) => category.name === 'Comida')
+    if (comida === undefined) {
+      throw new Error('expected Comida category')
+    }
+    const cuenta = await createCuenta({
+      db,
+      householdId,
+      categoryId: comida.id,
+      name: 'Alquiler',
+      dueDate: new Date(2026, 8, 10),
+      expectedAmount: 500,
+    })
+    const onEditFinished = vi.fn()
+    const editCuenta: EditCuentaTarget = {
+      cuentaId: cuenta.id,
+      name: 'Alquiler',
+      categoryName: 'Comida',
+      dueDate: new Date(2026, 8, 10),
+      expectedAmount: 500,
+      recurring: false,
+    }
+
+    renderWithProviders(
+      <AddCuentaSheet
+        open={false}
+        onOpenChange={() => {}}
+        db={db}
+        householdId={householdId}
+        editCuenta={editCuenta}
+        onEditFinished={onEditFinished}
+      />,
+    )
+
+    fireEvent.change(await screen.findByLabelText('Nombre'), {
+      target: { value: 'Alquiler nuevo' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    await waitFor(() => {
+      expect(onEditFinished).toHaveBeenCalledTimes(1)
+    })
+    const listed = await listPendingCuentas({ db, householdId })
+    expect(listed).toEqual([
+      expect.objectContaining({ name: 'Alquiler nuevo' }),
+    ])
+  })
+
+  it('calls onEditFinished when the edit sheet is dismissed without saving', async () => {
+    const { db, householdId } = await seedHousehold()
+    const onEditFinished = vi.fn()
+    const editCuenta: EditCuentaTarget = {
+      cuentaId: 'cuenta-1',
+      name: 'Alquiler',
+      categoryName: 'Servicios',
+      dueDate: new Date(2026, 8, 10),
+      expectedAmount: 500,
+      recurring: false,
+    }
+
+    renderWithProviders(
+      <AddCuentaSheet
+        open={false}
+        onOpenChange={() => {}}
+        db={db}
+        householdId={householdId}
+        editCuenta={editCuenta}
+        onEditFinished={onEditFinished}
+      />,
+    )
+
+    await screen.findByLabelText('Nombre')
+    fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
+
+    await waitFor(() => {
+      expect(onEditFinished).toHaveBeenCalledTimes(1)
     })
   })
 })

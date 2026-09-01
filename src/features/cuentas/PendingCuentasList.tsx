@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
 import { listPendingCuentas } from '@/lib/cuentas'
+import type { Cuenta } from '@/lib/cuentas'
 import { formatBudgetAmount, listCategories } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { formatShortDate } from '@/lib/format'
@@ -10,11 +11,13 @@ import { cuentasQueryKey } from './queryKeys'
 export type PendingCuentasListProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
+  readonly onEditCuenta?: (cuenta: Cuenta, categoryName: string) => void
 }
 
 export function PendingCuentasList({
   db,
   householdId,
+  onEditCuenta,
 }: PendingCuentasListProps): ReactElement {
   const cuentasQuery = useQuery({
     queryKey: cuentasQueryKey({ householdId }),
@@ -71,11 +74,8 @@ export function PendingCuentasList({
         const categoryColor =
           category?.color ?? colorForCategoryName(categoryName)
 
-        return (
-          <li
-            key={cuenta.id}
-            className="bg-card shadow-resting flex items-center gap-3 rounded-2xl p-4"
-          >
+        const rowContent = (
+          <>
             <span
               aria-hidden="true"
               className="size-10 shrink-0 rounded-full"
@@ -98,6 +98,27 @@ export function PendingCuentasList({
                 <span>{formatShortDate(cuenta.dueDate)}</span>
               </div>
             </div>
+          </>
+        )
+
+        return (
+          <li key={cuenta.id}>
+            {onEditCuenta !== undefined ? (
+              <button
+                type="button"
+                className="bg-card shadow-resting flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
+                aria-label={`Editar ${cuenta.name}`}
+                onClick={() => {
+                  onEditCuenta(cuenta, category?.name ?? '')
+                }}
+              >
+                {rowContent}
+              </button>
+            ) : (
+              <div className="bg-card shadow-resting flex items-center gap-3 rounded-2xl p-4">
+                {rowContent}
+              </div>
+            )}
           </li>
         )
       })}

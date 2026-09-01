@@ -20,6 +20,7 @@ import {
   parseCuentaDocument,
   toFirestoreCuentaDate,
 } from '@/lib/cuentas/converters'
+import { CuentaAlreadyPaidError, CuentaNotFoundError } from '@/lib/cuentas/cuentas'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import {
   categoryToDocument,
@@ -628,6 +629,77 @@ export function createFirestoreHouseholdsDb(
             data: cuentaDoc.data(),
           }),
         )
+      })
+    },
+    async updateCuenta(input) {
+      return withHouseholdAccess(
+        'updateCuenta',
+        async () => {
+          const cuentaRef = doc(firestore, 'cuentas', input.cuentaId)
+          const existing = await getDoc(cuentaRef)
+          if (
+            !existing.exists() ||
+            existing.data().household_id !== input.householdId
+          ) {
+            throw new CuentaNotFoundError()
+          }
+          const current = parseCuentaDocument({
+            id: existing.id,
+            data: existing.data(),
+          })
+          // Re-check status against this fresh read (not just the domain
+          // layer's earlier getCuenta) so a cuenta paid by someone else
+          // between that check and this write surfaces the specific
+          // CuentaAlreadyPaidError the UI knows how to handle gracefully,
+          // rather than a generic FirestoreDeniedError from the rules-level
+          // rejection that would follow anyway.
+          if (current.status !== 'pending') {
+            throw new CuentaAlreadyPaidError()
+          }
+          await updateDoc(cuentaRef, {
+            category_id: input.categoryId,
+            name: input.name,
+            due_date: toFirestoreCuentaDate(input.dueDate),
+            expected_amount: input.expectedAmount,
+            recurring: input.recurring,
+          })
+          return {
+            ...current,
+            categoryId: input.categoryId,
+            name: input.name,
+            dueDate: input.dueDate,
+            expectedAmount: input.expectedAmount,
+            recurring: input.recurring,
+          }
+        },
+        {
+          cuentaId: input.cuentaId,
+          householdId: input.householdId,
+          categoryId: input.categoryId,
+        },
+      )
+    },
+    async deleteCuenta(input) {
+      return withHouseholdAccess('deleteCuenta', async () => {
+        const cuentaRef = doc(firestore, 'cuentas', input.cuentaId)
+        const existing = await getDoc(cuentaRef)
+        if (
+          !existing.exists() ||
+          existing.data().household_id !== input.householdId
+        ) {
+          throw new CuentaNotFoundError()
+        }
+        // Same fresh re-check as updateCuenta above -- surfaces
+        // CuentaAlreadyPaidError instead of a generic denial if the cuenta
+        // was marked paid by someone else after the domain layer's own
+        // pre-check.
+        if (
+          parseCuentaDocument({ id: existing.id, data: existing.data() })
+            .status !== 'pending'
+        ) {
+          throw new CuentaAlreadyPaidError()
+        }
+        await deleteDoc(cuentaRef)
       })
     },
   }

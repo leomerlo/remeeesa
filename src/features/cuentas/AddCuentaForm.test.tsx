@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
@@ -8,11 +8,15 @@ import {
   FirestoreDeniedError,
 } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
-import { listPendingCuentas } from '@/lib/cuentas'
+import { createCuenta, deleteCuenta, listPendingCuentas } from '@/lib/cuentas'
+import type { Cuenta } from '@/lib/cuentas'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
+import { AddCuentaForm } from './AddCuentaForm'
+import type { EditCuentaTarget } from './AddCuentaForm'
 import { AddCuentaSheet } from './AddCuentaSheet'
 import type { AddCuentaSheetProps } from './AddCuentaSheet'
+import { PendingCuentasList } from './PendingCuentasList'
 
 function AddCuentaSheetHarness(
   props: Omit<AddCuentaSheetProps, 'open' | 'onOpenChange'>,
@@ -422,5 +426,369 @@ describe('AddCuentaForm', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'No se pudo cargar las categorías. Volvé a intentar.',
     )
+  })
+})
+
+function EditCuentaHarness(props: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+}): ReactElement {
+  const [editCuenta, setEditCuenta] = useState<EditCuentaTarget | null>(null)
+
+  return (
+    <>
+      <AddCuentaForm
+        db={props.db}
+        householdId={props.householdId}
+        editCuenta={editCuenta}
+        onEditFinished={() => {
+          setEditCuenta(null)
+        }}
+      />
+      <PendingCuentasList
+        db={props.db}
+        householdId={props.householdId}
+        onEditCuenta={(cuenta, categoryName) => {
+          setEditCuenta({
+            cuentaId: cuenta.id,
+            name: cuenta.name,
+            categoryName,
+            dueDate: cuenta.dueDate,
+            expectedAmount: cuenta.expectedAmount,
+            recurring: cuenta.recurring,
+          })
+        }}
+      />
+    </>
+  )
+}
+
+async function seedPendingCuenta(input?: {
+  readonly name?: string
+  readonly expectedAmount?: number | null
+  readonly recurring?: boolean
+}): Promise<{
+  readonly store: ReturnType<typeof createMemoryHouseholdsDb>
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly cuenta: Cuenta
+}> {
+  const store = createMemoryHouseholdsDb()
+  const db = store.asUser('user-1')
+  const household = await createHouseholdWithMembership({
+    db,
+    userId: 'user-1',
+    name: 'Casa Verde',
+    monthlyBudget: 100,
+  })
+  const categories = await listCategories({ db, householdId: household.id })
+  const comida = categories.find((category) => category.name === 'Comida')
+  if (comida === undefined) {
+    throw new Error('expected Comida category')
+  }
+  const cuenta = await createCuenta({
+    db,
+    householdId: household.id,
+    categoryId: comida.id,
+    name: input?.name ?? 'Alquiler',
+    dueDate: new Date(2026, 8, 10),
+    expectedAmount:
+      input?.expectedAmount !== undefined ? input.expectedAmount : 500,
+    recurring: input?.recurring ?? false,
+  })
+  return { store, db, householdId: household.id, cuenta }
+}
+
+describe('EditCuentaFlow', () => {
+  it('opens a pre-filled form when a list row is tapped, including recurring', async () => {
+    const { db, householdId } = await seedPendingCuenta({
+      name: 'Alquiler',
+      expectedAmount: 500,
+      recurring: true,
+    })
+
+    renderWithProviders(<EditCuentaHarness db={db} householdId={householdId} />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Editar Alquiler' }),
+    )
+
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Alquiler')
+    expect(screen.getByLabelText('Categoría')).toHaveValue('Comida')
+    expect(screen.getByLabelText('Fecha de vencimiento')).toHaveValue(
+      '2026-09-10',
+    )
+    expect(screen.getByLabelText('Monto esperado')).toHaveValue('500')
+    expect(screen.getByLabelText('Recurrente')).toHaveAttribute(
+      'data-state',
+      'checked',
+    )
+    expect(
+      screen.getByRole('button', { name: 'Guardar cambios' }),
+    ).toBeInTheDocument()
+  })
+
+  it('pre-fills a blank expected amount and unchecked recurring when the stored cuenta has them', async () => {
+    const { db, householdId } = await seedPendingCuenta({
+      name: 'Luz',
+      expectedAmount: null,
+      recurring: false,
+    })
+
+    renderWithProviders(<EditCuentaHarness db={db} householdId={householdId} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar Luz' }))
+
+    expect(screen.getByLabelText('Monto esperado')).toHaveValue('')
+    expect(screen.getByLabelText('Recurrente')).toHaveAttribute(
+      'data-state',
+      'unchecked',
+    )
+  })
+
+  it('saves edited fields, including toggling recurring on, and refetches the list', async () => {
+    const { db, householdId } = await seedPendingCuenta({
+      name: 'Alquiler',
+      expectedAmount: 500,
+      recurring: false,
+    })
+
+    renderWithProviders(<EditCuentaHarness db={db} householdId={householdId} />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Editar Alquiler' }),
+    )
+    fireEvent.change(screen.getByLabelText('Nombre'), {
+      target: { value: 'Alquiler nuevo' },
+    })
+    fireEvent.change(screen.getByLabelText('Monto esperado'), {
+      target: { value: '600' },
+    })
+    fireEvent.click(screen.getByLabelText('Recurrente'))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Alquiler nuevo')).toBeInTheDocument()
+      expect(screen.queryByText('Alquiler')).not.toBeInTheDocument()
+    })
+    expect(
+      screen.queryByRole('button', { name: 'Guardar cambios' }),
+    ).not.toBeInTheDocument()
+
+    const listed = await listPendingCuentas({ db, householdId })
+    expect(listed).toEqual([
+      expect.objectContaining({
+        name: 'Alquiler nuevo',
+        expectedAmount: 600,
+        recurring: true,
+      }),
+    ])
+  })
+
+  it('deletes the cuenta from within the edit form after confirming, and refetches the list', async () => {
+    const { db, householdId } = await seedPendingCuenta({ name: 'Alquiler' })
+
+    renderWithProviders(<EditCuentaHarness db={db} householdId={householdId} />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Editar Alquiler' }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar cuenta' }))
+
+    const dialog = screen.getByRole('alertdialog')
+    expect(dialog).toHaveTextContent('¿Eliminar la cuenta?')
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Eliminar cuenta' }),
+    )
+
+    await waitFor(() => {
+      expect(screen.queryByText('Alquiler')).not.toBeInTheDocument()
+    })
+    expect(
+      await screen.findByText('No hay cuentas pendientes'),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Guardar cambios' }),
+    ).not.toBeInTheDocument()
+    expect(await listPendingCuentas({ db, householdId })).toEqual([])
+  })
+
+  it('cancels the delete confirmation and keeps the cuenta', async () => {
+    const { db, householdId } = await seedPendingCuenta({ name: 'Alquiler' })
+
+    renderWithProviders(<EditCuentaHarness db={db} householdId={householdId} />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Editar Alquiler' }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar cuenta' }))
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Cancelar',
+      }),
+    )
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Guardar cambios' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Alquiler')).toBeInTheDocument()
+    expect(await listPendingCuentas({ db, householdId })).toHaveLength(1)
+  })
+
+  it('discards edits and leaves the cuenta unchanged via "Cancelar edición"', async () => {
+    const { db, householdId } = await seedPendingCuenta({ name: 'Alquiler' })
+
+    renderWithProviders(<EditCuentaHarness db={db} householdId={householdId} />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Editar Alquiler' }),
+    )
+    fireEvent.change(screen.getByLabelText('Nombre'), {
+      target: { value: 'Cambio descartado' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar edición' }))
+
+    expect(
+      screen.queryByRole('button', { name: 'Guardar cambios' }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByText('Alquiler')).toBeInTheDocument()
+    const listed = await listPendingCuentas({ db, householdId })
+    expect(listed).toEqual([expect.objectContaining({ name: 'Alquiler' })])
+  })
+
+  it('closes the edit form with no alert when the cuenta was deleted elsewhere before saving', async () => {
+    const { store, db, householdId, cuenta } = await seedPendingCuenta({
+      name: 'Alquiler',
+    })
+    store.seedMembership({ userId: 'user-2', householdId })
+
+    renderWithProviders(<EditCuentaHarness db={db} householdId={householdId} />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Editar Alquiler' }),
+    )
+    // Simulates a second household member deleting the same cuenta while
+    // this member's edit form is still open.
+    await deleteCuenta({
+      db: store.asUser('user-2'),
+      householdId,
+      cuentaId: cuenta.id,
+    })
+    fireEvent.change(screen.getByLabelText('Nombre'), {
+      target: { value: 'Stale edit' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    // Unlike the Expense form's stale-edit case, a gone Cuenta closes
+    // silently with no alert -- there is nothing left to save over or retry.
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('button', { name: 'Guardar cambios' }),
+      ).not.toBeInTheDocument()
+    })
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(
+      await screen.findByText('No hay cuentas pendientes'),
+    ).toBeInTheDocument()
+  })
+
+  it('closes the edit form with no alert when the cuenta was marked paid elsewhere before saving', async () => {
+    const { store, db, householdId, cuenta } = await seedPendingCuenta({
+      name: 'Alquiler',
+    })
+
+    renderWithProviders(<EditCuentaHarness db={db} householdId={householdId} />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Editar Alquiler' }),
+    )
+    // Simulates the cuenta being marked paid (out of scope of this issue)
+    // by someone else while this member's edit form is still open.
+    store.seedCuenta({ ...cuenta, status: 'paid', paidExpenseId: 'expense-1' })
+    fireEvent.change(screen.getByLabelText('Nombre'), {
+      target: { value: 'Stale edit' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('button', { name: 'Guardar cambios' }),
+      ).not.toBeInTheDocument()
+    })
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(
+      await screen.findByText('No hay cuentas pendientes'),
+    ).toBeInTheDocument()
+  })
+
+  it('closes the confirmation with no persistent error when deleting a cuenta already deleted elsewhere', async () => {
+    const { store, db, householdId, cuenta } = await seedPendingCuenta({
+      name: 'Alquiler',
+    })
+    store.seedMembership({ userId: 'user-2', householdId })
+
+    renderWithProviders(<EditCuentaHarness db={db} householdId={householdId} />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Editar Alquiler' }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar cuenta' }))
+    await deleteCuenta({
+      db: store.asUser('user-2'),
+      householdId,
+      cuentaId: cuenta.id,
+    })
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Eliminar cuenta',
+      }),
+    )
+
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    })
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(
+      await screen.findByText('No hay cuentas pendientes'),
+    ).toBeInTheDocument()
+  })
+
+  it('shows an alert and keeps the edit form open when deleting fails for another reason', async () => {
+    const { db, householdId } = await seedPendingCuenta({ name: 'Alquiler' })
+    const failingDb: HouseholdsDb = {
+      ...db,
+      deleteCuenta: async () => {
+        throw new FirestoreDeniedError({
+          operation: 'deleteCuenta',
+          code: 'permission-denied',
+          detail: 'Missing or insufficient permissions.',
+        })
+      },
+    }
+
+    renderWithProviders(
+      <EditCuentaHarness db={failingDb} householdId={householdId} />,
+    )
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Editar Alquiler' }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar cuenta' }))
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Eliminar cuenta',
+      }),
+    )
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'No se pudo eliminar la cuenta',
+    )
+    // The confirmation dialog closes, but the edit form itself stays open
+    // so the failed delete can be retried.
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Guardar cambios' }),
+    ).toBeInTheDocument()
   })
 })

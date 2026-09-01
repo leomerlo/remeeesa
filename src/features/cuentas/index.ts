@@ -1,5 +1,5 @@
 export { AddCuentaForm } from './AddCuentaForm'
-export type { AddCuentaFormProps } from './AddCuentaForm'
+export type { AddCuentaFormProps, EditCuentaTarget } from './AddCuentaForm'
 export { AddCuentaSheet } from './AddCuentaSheet'
 export type { AddCuentaSheetProps } from './AddCuentaSheet'
 export { CuentasPage } from './CuentasPage'

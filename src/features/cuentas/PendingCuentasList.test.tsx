@@ -2,7 +2,7 @@ import { QueryClient } from '@tanstack/react-query'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createCuenta } from '@/lib/cuentas'
 import type { Cuenta } from '@/lib/cuentas'
 import { listCategories } from '@/lib/expenses'
@@ -297,5 +297,75 @@ describe('PendingCuentasList', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'No se pudieron cargar las cuentas',
     )
+  })
+
+  it('renders a plain div with no button when onEditCuenta is omitted', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const comidaId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Comida',
+    })
+    await createCuenta({
+      db,
+      householdId: household.id,
+      categoryId: comidaId,
+      name: 'Alquiler',
+      dueDate: new Date(2026, 8, 10),
+      expectedAmount: 500,
+    })
+
+    renderWithProviders(
+      <PendingCuentasList db={db} householdId={household.id} />,
+    )
+
+    expect(await screen.findByText('Alquiler')).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Editar Alquiler' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('renders each row as a button and calls onEditCuenta with the cuenta and its category name when tapped', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const comidaId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Comida',
+    })
+    const cuenta = await createCuenta({
+      db,
+      householdId: household.id,
+      categoryId: comidaId,
+      name: 'Alquiler',
+      dueDate: new Date(2026, 8, 10),
+      expectedAmount: 500,
+    })
+    const onEditCuenta = vi.fn()
+
+    renderWithProviders(
+      <PendingCuentasList
+        db={db}
+        householdId={household.id}
+        onEditCuenta={onEditCuenta}
+      />,
+    )
+
+    const row = await screen.findByRole('button', { name: 'Editar Alquiler' })
+    fireEvent.click(row)
+
+    expect(onEditCuenta).toHaveBeenCalledTimes(1)
+    expect(onEditCuenta).toHaveBeenCalledWith(cuenta, 'Comida')
   })
 })
