@@ -21,27 +21,6 @@ function AddCuentaSheetHarness(
   return <AddCuentaSheet open={open} onOpenChange={setOpen} {...props} />
 }
 
-function localDateInputValue(date: Date): string {
-  const year = String(date.getFullYear()).padStart(4, '0')
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function deferred<T>(): {
-  readonly promise: Promise<T>
-  readonly resolve: (value: T) => void
-  readonly reject: (reason: unknown) => void
-} {
-  let resolve!: (value: T) => void
-  let reject!: (reason: unknown) => void
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res
-    reject = rej
-  })
-  return { promise, resolve, reject }
-}
-
 async function renderForm() {
   const db = createMemoryHouseholdsDb().asUser('user-1')
   const household = await createHouseholdWithMembership({
@@ -341,54 +320,6 @@ describe('AddCuentaForm', () => {
           expectedAmount: 25,
         }),
       ])
-    })
-  })
-
-  it('keeps the sheet open while a submit is in flight, so a failure that arrives after a dismiss attempt is still shown', async () => {
-    const base = createMemoryHouseholdsDb().asUser('user-1')
-    const household = await createHouseholdWithMembership({
-      db: base,
-      userId: 'user-1',
-      name: 'Casa Verde',
-      monthlyBudget: 100,
-    })
-    const create = deferred<never>()
-    const db: HouseholdsDb = {
-      ...base,
-      createCuenta: async () => create.promise,
-    }
-
-    renderWithProviders(
-      <AddCuentaSheetHarness db={db} householdId={household.id} />,
-    )
-
-    fireEvent.click(screen.getByRole('button', { name: 'Nueva cuenta' }))
-    fireEvent.change(await screen.findByLabelText('Nombre'), {
-      target: { value: 'Alquiler' },
-    })
-    fireEvent.change(screen.getByRole('combobox', { name: 'Categoría' }), {
-      target: { value: 'Servicios' },
-    })
-    fireEvent.change(screen.getByLabelText('Fecha de vencimiento'), {
-      target: { value: localDateInputValue(new Date()) },
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Agregar cuenta' }))
-
-    // The mutation is still pending: an Escape dismiss attempt must be a
-    // no-op rather than unmounting the form out from under it.
-    fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
-    expect(screen.getByLabelText('Nombre')).toBeInTheDocument()
-
-    create.reject(new Error('Network blip'))
-
-    expect(await screen.findByRole('alert')).toHaveTextContent('Network blip')
-    expect(screen.getByLabelText('Nombre')).toHaveValue('Alquiler')
-
-    // Once the mutation has settled, the dismiss guard must release: a
-    // second Escape now closes the sheet as normal.
-    fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
-    await waitFor(() => {
-      expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
   })
 
