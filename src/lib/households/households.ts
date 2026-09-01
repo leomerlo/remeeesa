@@ -52,6 +52,11 @@ export class FirestoreDeniedError extends Error {
   override readonly name = 'FirestoreDeniedError'
   readonly operation: string
   readonly code: string
+  // The raw Firestore SDK detail (often an untranslated English sentence,
+  // e.g. "Missing or insufficient permissions.") is intentionally kept off
+  // the user-facing message -- it would otherwise mix into an
+  // otherwise-Spanish sentence. Keep it here for logging/debugging only.
+  readonly detail?: string
 
   constructor(input: {
     readonly operation: string
@@ -60,13 +65,10 @@ export class FirestoreDeniedError extends Error {
   }) {
     const action =
       FIRESTORE_OPERATION_ACTIONS[input.operation] ?? input.operation
-    const detail =
-      input.detail !== undefined && input.detail.length > 0
-        ? input.detail
-        : input.code
-    super(`No se pudo ${action}: ${detail}`)
+    super(`No se pudo ${action}. Volvé a intentar.`)
     this.operation = input.operation
     this.code = input.code
+    this.detail = input.detail
   }
 }
 
