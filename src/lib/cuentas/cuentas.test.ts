@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   createHouseholdWithMembership,
   HouseholdAccessDeniedError,
@@ -8,6 +8,7 @@ import {
   findOrCreateCategory,
   listCategories,
   listExpensesInMonth,
+  listRecentExpenses,
 } from '@/lib/expenses/expenses'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import {
@@ -17,6 +18,7 @@ import {
   deleteCuenta,
   getCuenta,
   listPendingCuentas,
+  markCuentaPaid,
   updateCuenta,
 } from './cuentas'
 
@@ -204,7 +206,9 @@ describe('createCuenta', () => {
         dueDate: new Date(2026, 8, 10),
         expectedAmount: 0,
       }),
-    ).rejects.toThrow('El monto esperado de la cuenta debe ser un número positivo')
+    ).rejects.toThrow(
+      'El monto esperado de la cuenta debe ser un número positivo',
+    )
   })
 
   it('rejects an unknown category', async () => {
@@ -558,7 +562,10 @@ describe('listPendingCuentas', () => {
       expectedAmount: null,
     })
 
-    const listed = await listPendingCuentas({ db: ownerDb, householdId: household.id })
+    const listed = await listPendingCuentas({
+      db: ownerDb,
+      householdId: household.id,
+    })
 
     expect(listed).toEqual([])
   })
@@ -921,7 +928,9 @@ describe('updateCuenta', () => {
         cuentaId: cuenta.id,
         expectedAmount: 0,
       }),
-    ).rejects.toThrow('El monto esperado de la cuenta debe ser un número positivo')
+    ).rejects.toThrow(
+      'El monto esperado de la cuenta debe ser un número positivo',
+    )
   })
 
   it('throws CuentaNotFoundError for a missing id', async () => {
@@ -1259,6 +1268,419 @@ describe('memoryHouseholdsDb updateCuenta/deleteCuenta (bypassing the domain wra
 
     await expect(
       db.deleteCuenta({ householdId: household.id, cuentaId: cuenta.id }),
+    ).rejects.toThrow(CuentaAlreadyPaidError)
+  })
+})
+
+describe('markCuentaPaid', () => {
+  it('marks a pending cuenta paid, creating an expense with the final amount, payment date, cuenta category, and paying member', async () => {
+    const { db, household, comida, cuenta } = await seedPendingCuenta()
+    const paymentDate = new Date(2026, 7, 28)
+
+    const { cuenta: paid, expense } = await markCuentaPaid({
+      db,
+      householdId: household.id,
+      cuentaId: cuenta.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 480,
+      paymentDate,
+    })
+
+    expect(paid.status).toBe('paid')
+    expect(paid.paidExpenseId).toBe(expense.id)
+    expect(expense.categoryId).toBe(comida.id)
+    expect(expense.price).toBe(480)
+    expect(expense.expenseDate).toEqual(paymentDate)
+    expect(expense.memberId).toBe('user-1')
+    expect(expense.authorDisplayName).toBe('Ada')
+    expect(expense.comments).toBe('')
+    expect(expense.name).toBe('Alquiler')
+  })
+
+  it('removes the cuenta from listPendingCuentas once marked paid', async () => {
+    const { db, household, cuenta } = await seedPendingCuenta()
+
+    await markCuentaPaid({
+      db,
+      householdId: household.id,
+      cuentaId: cuenta.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 480,
+      paymentDate: new Date(2026, 7, 28),
+    })
+
+    const pending = await listPendingCuentas({ db, householdId: household.id })
+    expect(pending.find((entry) => entry.id === cuenta.id)).toBeUndefined()
+  })
+
+  it('rejects a second mark-paid attempt with CuentaAlreadyPaidError and creates exactly one Expense when marked paid twice back-to-back', async () => {
+    // memoryHouseholdsDb's markCuentaPaid has no internal await, so these
+    // two calls run to completion sequentially rather than truly racing --
+    // this proves idempotency on repeated calls, not concurrent-write safety
+    // under real interleaving (that guarantee comes from the Firestore
+    // transaction itself, checked structurally in firestoreHouseholdsDb.test.ts).
+    const { db, household, cuenta } = await seedPendingCuenta()
+
+    const [first, second] = await Promise.allSettled([
+      markCuentaPaid({
+        db,
+        householdId: household.id,
+        cuentaId: cuenta.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        finalAmount: 480,
+        paymentDate: new Date(2026, 7, 28),
+      }),
+      markCuentaPaid({
+        db,
+        householdId: household.id,
+        cuentaId: cuenta.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        finalAmount: 480,
+        paymentDate: new Date(2026, 7, 28),
+      }),
+    ])
+
+    const outcomes = [first, second]
+    expect(
+      outcomes.filter((outcome) => outcome.status === 'fulfilled'),
+    ).toHaveLength(1)
+    const rejected = outcomes.filter(
+      (outcome): outcome is PromiseRejectedResult =>
+        outcome.status === 'rejected',
+    )
+    expect(rejected).toHaveLength(1)
+    expect(rejected[0]?.reason).toBeInstanceOf(CuentaAlreadyPaidError)
+
+    const expenses = await listRecentExpenses({
+      db,
+      householdId: household.id,
+      limit: 10,
+    })
+    expect(expenses).toHaveLength(1)
+  })
+
+  it('leaves no orphaned state when a failure strikes between the status check and the writes', async () => {
+    const { db, household, cuenta } = await seedPendingCuenta()
+    const randomUUIDSpy = vi
+      .spyOn(crypto, 'randomUUID')
+      .mockImplementationOnce(() => {
+        throw new Error('boom')
+      })
+
+    await expect(
+      markCuentaPaid({
+        db,
+        householdId: household.id,
+        cuentaId: cuenta.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        finalAmount: 480,
+        paymentDate: new Date(2026, 7, 28),
+      }),
+    ).rejects.toThrow('boom')
+    randomUUIDSpy.mockRestore()
+
+    const stillPending = await getCuenta({
+      db,
+      householdId: household.id,
+      cuentaId: cuenta.id,
+    })
+    expect(stillPending?.status).toBe('pending')
+    expect(stillPending?.paidExpenseId).toBeNull()
+
+    const expenses = await listRecentExpenses({
+      db,
+      householdId: household.id,
+      limit: 10,
+    })
+    expect(expenses).toHaveLength(0)
+  })
+
+  it('throws CuentaNotFoundError for a missing cuenta id', async () => {
+    const { db, household } = await seedPendingCuenta()
+
+    await expect(
+      markCuentaPaid({
+        db,
+        householdId: household.id,
+        cuentaId: 'missing',
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        finalAmount: 480,
+        paymentDate: new Date(2026, 7, 28),
+      }),
+    ).rejects.toThrow(CuentaNotFoundError)
+  })
+
+  it('throws CuentaNotFoundError for a cuenta id belonging to a different household', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const otherDb = store.asUser('user-2')
+    const otherHousehold = await createHouseholdWithMembership({
+      db: otherDb,
+      userId: 'user-2',
+      name: 'Casa Azul',
+      monthlyBudget: 200,
+    })
+    const otherCategories = await listCategories({
+      db: otherDb,
+      householdId: otherHousehold.id,
+    })
+    const otherComida = otherCategories[0]
+    if (otherComida === undefined) {
+      throw new Error('expected a seeded category')
+    }
+    const otherCuenta = await createCuenta({
+      db: otherDb,
+      householdId: otherHousehold.id,
+      categoryId: otherComida.id,
+      name: 'Internet',
+      dueDate: new Date(2026, 8, 10),
+      expectedAmount: 100,
+    })
+
+    await expect(
+      markCuentaPaid({
+        db: ownerDb,
+        householdId: household.id,
+        cuentaId: otherCuenta.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        finalAmount: 480,
+        paymentDate: new Date(2026, 7, 28),
+      }),
+    ).rejects.toThrow(CuentaNotFoundError)
+  })
+
+  it('rejects a non-positive finalAmount before touching the cuenta or creating an expense', async () => {
+    const { db, household, cuenta } = await seedPendingCuenta()
+
+    await expect(
+      markCuentaPaid({
+        db,
+        householdId: household.id,
+        cuentaId: cuenta.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        finalAmount: 0,
+        paymentDate: new Date(2026, 7, 28),
+      }),
+    ).rejects.toThrow('El precio del gasto debe ser un número positivo')
+
+    const stillPending = await getCuenta({
+      db,
+      householdId: household.id,
+      cuentaId: cuenta.id,
+    })
+    expect(stillPending?.status).toBe('pending')
+    const expenses = await listRecentExpenses({
+      db,
+      householdId: household.id,
+      limit: 10,
+    })
+    expect(expenses).toHaveLength(0)
+  })
+
+  it('rejects a future paymentDate before touching the cuenta or creating an expense', async () => {
+    const { db, household, cuenta } = await seedPendingCuenta()
+
+    await expect(
+      markCuentaPaid({
+        db,
+        householdId: household.id,
+        cuentaId: cuenta.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        finalAmount: 480,
+        paymentDate: new Date(2026, 9, 15),
+      }),
+    ).rejects.toThrow('La fecha del gasto no puede ser futura')
+
+    const stillPending = await getCuenta({
+      db,
+      householdId: household.id,
+      cuentaId: cuenta.id,
+    })
+    expect(stillPending?.status).toBe('pending')
+    const expenses = await listRecentExpenses({
+      db,
+      householdId: household.id,
+      limit: 10,
+    })
+    expect(expenses).toHaveLength(0)
+  })
+
+  it('allows a paymentDate of exactly today', async () => {
+    const { db, household, cuenta } = await seedPendingCuenta()
+    const today = new Date()
+
+    const { expense } = await markCuentaPaid({
+      db,
+      householdId: household.id,
+      cuentaId: cuenta.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 480,
+      paymentDate: today,
+    })
+
+    expect(expense.expenseDate).toEqual(today)
+  })
+
+  it('rounds finalAmount to 2 decimal places, same as parseExpensePrice', async () => {
+    const { db, household, cuenta } = await seedPendingCuenta()
+
+    const { expense } = await markCuentaPaid({
+      db,
+      householdId: household.id,
+      cuentaId: cuenta.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 480.456,
+      paymentDate: new Date(2026, 7, 28),
+    })
+
+    expect(expense.price).toBe(480.46)
+  })
+
+  it('denies a non-member', async () => {
+    const store = createMemoryHouseholdsDb()
+    const ownerDb = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: ownerDb,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({
+      db: ownerDb,
+      householdId: household.id,
+    })
+    const comida = categories[0]
+    if (comida === undefined) {
+      throw new Error('expected a seeded category')
+    }
+    const cuenta = await createCuenta({
+      db: ownerDb,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Alquiler',
+      dueDate: new Date(2026, 8, 10),
+      expectedAmount: null,
+    })
+
+    await expect(
+      markCuentaPaid({
+        db: store.asUser('user-2'),
+        householdId: household.id,
+        cuentaId: cuenta.id,
+        memberId: 'user-2',
+        authorDisplayName: 'Intento ajeno',
+        finalAmount: 480,
+        paymentDate: new Date(2026, 7, 28),
+      }),
+    ).rejects.toThrow(HouseholdAccessDeniedError)
+  })
+})
+
+// Every markCuentaPaid scenario above goes through the domain wrapper, which
+// forwards memberId straight through without checking it against the
+// authenticated caller. The real Firestore adapter never trusts
+// input.memberId either way -- it resolves the actual member id itself via
+// awaitAuthenticatedUserId (see the "markCuentaPaid adapter" describe block
+// in firestoreHouseholdsDb.test.ts) -- so this fixture's own anti-spoof
+// check (mirroring createExpense's) is what stands between a malicious
+// caller and impersonating a housemate in this test double. These tests
+// call db.markCuentaPaid directly, bypassing the domain wrapper, to prove
+// the fixture's own guards work standalone.
+describe('memoryHouseholdsDb markCuentaPaid (bypassing the domain wrapper)', () => {
+  it('throws HouseholdAccessDeniedError when a member spoofs memberId to impersonate a different member of the same household', async () => {
+    const store = createMemoryHouseholdsDb()
+    const db = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    store.seedMembership({ userId: 'user-2', householdId: household.id })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories[0]
+    if (comida === undefined) {
+      throw new Error('expected a seeded category')
+    }
+    const cuenta = await createCuenta({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Alquiler',
+      dueDate: new Date(2026, 8, 10),
+      expectedAmount: 500,
+    })
+
+    // user-1 is a genuine member, calling as themself, but claims the
+    // resulting expense should be attributed to user-2 -- also a genuine
+    // member of the same household, not an outsider. assertMemberOf alone
+    // would let this through since user-1 IS a member; only the explicit
+    // memberId === userId check catches the impersonation.
+    await expect(
+      db.markCuentaPaid({
+        householdId: household.id,
+        cuentaId: cuenta.id,
+        memberId: 'user-2',
+        authorDisplayName: 'Spoofed as user-2',
+        finalAmount: 480,
+        paymentDate: new Date(2026, 7, 28),
+      }),
+    ).rejects.toThrow(HouseholdAccessDeniedError)
+  })
+
+  it('throws CuentaAlreadyPaidError when the stored cuenta is no longer pending, even with paidExpenseId already set', async () => {
+    const store = createMemoryHouseholdsDb()
+    const db = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories[0]
+    if (comida === undefined) {
+      throw new Error('expected a seeded category')
+    }
+    const cuenta = await createCuenta({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Alquiler',
+      dueDate: new Date(2026, 8, 10),
+      expectedAmount: 500,
+    })
+    // Simulates another member marking it paid between this test's earlier
+    // read and the write below -- store.seedCuenta overwrites the same id,
+    // leaving paidExpenseId already populated from that earlier mark-paid.
+    store.seedCuenta({ ...cuenta, status: 'paid', paidExpenseId: 'expense-1' })
+
+    await expect(
+      db.markCuentaPaid({
+        householdId: household.id,
+        cuentaId: cuenta.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Intento tardío',
+        finalAmount: 480,
+        paymentDate: new Date(2026, 7, 28),
+      }),
     ).rejects.toThrow(CuentaAlreadyPaidError)
   })
 })

@@ -20,7 +20,10 @@ import {
   parseCuentaDocument,
   toFirestoreCuentaDate,
 } from '@/lib/cuentas/converters'
-import { CuentaAlreadyPaidError, CuentaNotFoundError } from '@/lib/cuentas/cuentas'
+import {
+  CuentaAlreadyPaidError,
+  CuentaNotFoundError,
+} from '@/lib/cuentas/cuentas'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import {
   categoryToDocument,
@@ -701,6 +704,79 @@ export function createFirestoreHouseholdsDb(
         }
         await deleteDoc(cuentaRef)
       })
+    },
+    async markCuentaPaid(input) {
+      return withHouseholdAccess(
+        'markCuentaPaid',
+        async () => {
+          const memberId = await awaitAuthenticatedUserId(firestore)
+          const cuentaRef = doc(firestore, 'cuentas', input.cuentaId)
+          const expenseRef = doc(collection(firestore, 'expenses'))
+          const now = Timestamp.now()
+          const createdAt = now.toDate()
+
+          return runTransaction(firestore, async (tx) => {
+            const cuentaSnap = await tx.get(cuentaRef)
+            if (
+              !cuentaSnap.exists() ||
+              cuentaSnap.data().household_id !== input.householdId
+            ) {
+              throw new CuentaNotFoundError()
+            }
+            const current = parseCuentaDocument({
+              id: cuentaSnap.id,
+              data: cuentaSnap.data(),
+            })
+            if (current.status !== 'pending') {
+              throw new CuentaAlreadyPaidError()
+            }
+
+            tx.set(expenseRef, {
+              ...expenseToDocument({
+                householdId: input.householdId,
+                categoryId: current.categoryId,
+                memberId,
+                authorDisplayName: input.authorDisplayName,
+                name: current.name,
+                price: input.finalAmount,
+                comments: '',
+                expenseDate: input.paymentDate,
+                createdAt,
+              }),
+              expense_date: toFirestoreExpenseDate(input.paymentDate),
+              created_at: now,
+            })
+            tx.update(cuentaRef, {
+              status: 'paid',
+              paid_expense_id: expenseRef.id,
+            })
+
+            return {
+              cuenta: {
+                ...current,
+                status: 'paid' as const,
+                paidExpenseId: expenseRef.id,
+              },
+              expense: {
+                id: expenseRef.id,
+                householdId: input.householdId,
+                categoryId: current.categoryId,
+                memberId,
+                authorDisplayName: input.authorDisplayName,
+                name: current.name,
+                price: input.finalAmount,
+                comments: '',
+                expenseDate: input.paymentDate,
+                createdAt,
+              },
+            }
+          })
+        },
+        {
+          cuentaId: input.cuentaId,
+          householdId: input.householdId,
+        },
+      )
     },
   }
 }

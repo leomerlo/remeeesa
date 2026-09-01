@@ -6,6 +6,7 @@ export {
   deleteCuenta,
   getCuenta,
   listPendingCuentas,
+  markCuentaPaid,
   updateCuenta,
 } from './cuentas'
 export {

@@ -186,6 +186,26 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/categories/$(request.resource.data.category_id)).data.household_id == resource.data.household_id;
     }
 
+    // Mark-paid transition -- the rules-level backstop for idempotency. The
+    // diff is limited to exactly status+paid_expense_id, and resource.data.status
+    // must still be 'pending' -- a second mark-paid attempt has a stored status
+    // of 'paid' already, so this independently rejects it even if application
+    // logic were ever bypassed. existsAfter/getAfter (evaluated once every
+    // write in the same commit has landed) confirm paid_expense_id actually
+    // points at an Expense in the same household, so this write can't fake a
+    // paid status against a missing or cross-household Expense id -- it does
+    // not, and cannot, verify the Expense's amount/category/member match.
+    function isValidCuentaMarkPaid() {
+      return resource.data.status == 'pending'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paid_expense_id'])
+        && request.resource.data.status == 'paid'
+        && resource.data.paid_expense_id == null
+        && request.resource.data.paid_expense_id is string
+        && request.resource.data.paid_expense_id.size() > 0
+        && existsAfter(/databases/$(database)/documents/expenses/$(request.resource.data.paid_expense_id))
+        && getAfter(/databases/$(database)/documents/expenses/$(request.resource.data.paid_expense_id)).data.household_id == resource.data.household_id;
+    }
+
     match /households/{householdId} {
       allow read: if isMemberOf(householdId);
       // Create must land in the same batch as the caller's membership row so
@@ -274,7 +294,7 @@ service cloud.firestore {
       allow create: if isMemberOf(request.resource.data.household_id)
         && isValidCuenta(request.resource.data);
       allow update: if isMemberOf(resource.data.household_id)
-        && isValidCuentaUpdate();
+        && (isValidCuentaUpdate() || isValidCuentaMarkPaid());
       allow delete: if isMemberOf(resource.data.household_id)
         && resource.data.status == 'pending';
     }
