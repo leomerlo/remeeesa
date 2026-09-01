@@ -1,39 +1,11 @@
 import { Timestamp } from 'firebase/firestore'
+import {
+  isRecord,
+  parseRequiredString,
+  parseTimestamp,
+} from '@/lib/firestore/documentParsing'
 import type { Cuenta, CuentaStatus } from './types'
-import { parseCuentaDueDate, parseCuentaName } from './validate'
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function hasToDate(value: unknown): value is { toDate: () => unknown } {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'toDate' in value &&
-    typeof value.toDate === 'function'
-  )
-}
-
-function parseTimestamp(value: unknown, field: string): Date {
-  if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return value
-  }
-  if (hasToDate(value)) {
-    const date = value.toDate()
-    if (date instanceof Date && !Number.isNaN(date.getTime())) {
-      return date
-    }
-  }
-  throw new Error(`${field} must be a timestamp`)
-}
-
-function parseRequiredString(value: unknown, field: string): string {
-  if (typeof value !== 'string' || value.trim() === '') {
-    throw new Error(`${field} must be a non-empty string`)
-  }
-  return value
-}
+import { parseCuentaName } from './validate'
 
 function parseNullableNumber(value: unknown, field: string): number | null {
   if (value === null) {
@@ -100,7 +72,7 @@ export function parseCuentaDocument(input: {
     householdId: parseRequiredString(household_id, 'household_id'),
     categoryId: parseRequiredString(category_id, 'category_id'),
     name: parseCuentaName(name),
-    dueDate: parseCuentaDueDate(parseTimestamp(due_date, 'due_date')),
+    dueDate: parseTimestamp(due_date, 'due_date'),
     expectedAmount: parseNullableNumber(expected_amount, 'expected_amount'),
     recurring: parseBoolean(recurring, 'recurring'),
     status: parseCuentaStatus(status),

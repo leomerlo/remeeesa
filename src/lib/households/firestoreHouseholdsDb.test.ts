@@ -265,6 +265,14 @@ describe('listRecentExpenses adapter', () => {
   })
 })
 
+describe('listPendingCuentas adapter', () => {
+  it('scopes to the household, filters to pending status, and orders by due date ascending -- matching the household_id+status+due_date composite index', () => {
+    expect(adapterSource).toMatch(
+      /async listPendingCuentas\(input\) \{[\s\S]*?where\('household_id', '==', input\.householdId\),[\s\S]*?where\('status', '==', 'pending'\),[\s\S]*?orderBy\('due_date', 'asc'\),[\s\S]*?\}/,
+    )
+  })
+})
+
 describe('createExpense adapter', () => {
   it('waits for auth before writing so Firestore sees request.auth', () => {
     expect(adapterSource).toMatch(
