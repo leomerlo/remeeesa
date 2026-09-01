@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   createHouseholdWithMembership,
   getOrCreateHouseholdInvite,
@@ -15,6 +15,7 @@ import {
   findOrCreateCategory,
   listCategories,
   listExpensesInMonth,
+  listRecentExpenses,
   updateExpense,
 } from './expenses'
 
@@ -720,6 +721,249 @@ describe('listExpensesInMonth', () => {
 
     expect(listed).toHaveLength(1)
     expect(listed[0]?.authorDisplayName).toBe('Ada')
+  })
+})
+
+describe('listRecentExpenses', () => {
+  it('returns expenses across all months, newest first', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories[0]
+    expect(comida).toBeDefined()
+    if (comida === undefined) {
+      throw new Error('expected a seeded category')
+    }
+
+    const older = await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Old rent',
+      price: 40,
+      comments: '',
+      expenseDate: new Date(2026, 5, 1),
+    })
+    const newer = await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Pizza',
+      price: 10,
+      comments: '',
+      expenseDate: new Date(2026, 7, 15),
+    })
+
+    const listed = await listRecentExpenses({
+      db,
+      householdId: household.id,
+      limit: 10,
+    })
+
+    expect(listed.map((expense) => expense.id)).toEqual([newer.id, older.id])
+  })
+
+  it('caps the result at the given limit', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories[0]
+    expect(comida).toBeDefined()
+    if (comida === undefined) {
+      throw new Error('expected a seeded category')
+    }
+
+    for (let day = 1; day <= 12; day += 1) {
+      await createExpense({
+        db,
+        householdId: household.id,
+        categoryId: comida.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        name: `Expense ${String(day)}`,
+        price: 5,
+        comments: '',
+        expenseDate: new Date(2026, 6, day),
+      })
+    }
+
+    const listed = await listRecentExpenses({
+      db,
+      householdId: household.id,
+      limit: 10,
+    })
+
+    expect(listed).toHaveLength(10)
+  })
+
+  it('returns exactly limit expenses when the household has exactly limit', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories[0]
+    expect(comida).toBeDefined()
+    if (comida === undefined) {
+      throw new Error('expected a seeded category')
+    }
+
+    for (let day = 1; day <= 10; day += 1) {
+      await createExpense({
+        db,
+        householdId: household.id,
+        categoryId: comida.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        name: `Expense ${String(day)}`,
+        price: 5,
+        comments: '',
+        expenseDate: new Date(2026, 6, day),
+      })
+    }
+
+    const listed = await listRecentExpenses({
+      db,
+      householdId: household.id,
+      limit: 10,
+    })
+
+    expect(listed).toHaveLength(10)
+  })
+
+  it('breaks a tie on expense_date by createdAt, newest first', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories[0]
+    expect(comida).toBeDefined()
+    if (comida === undefined) {
+      throw new Error('expected a seeded category')
+    }
+    const sameDay = new Date(2026, 6, 15)
+
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date(2026, 6, 15, 9, 0, 0))
+      const createdFirst = await createExpense({
+        db,
+        householdId: household.id,
+        categoryId: comida.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        name: 'Created earlier',
+        price: 5,
+        comments: '',
+        expenseDate: sameDay,
+      })
+
+      vi.setSystemTime(new Date(2026, 6, 15, 15, 0, 0))
+      const createdSecond = await createExpense({
+        db,
+        householdId: household.id,
+        categoryId: comida.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        name: 'Created later',
+        price: 5,
+        comments: '',
+        expenseDate: sameDay,
+      })
+
+      const listed = await listRecentExpenses({
+        db,
+        householdId: household.id,
+        limit: 10,
+      })
+
+      expect(listed.map((expense) => expense.id)).toEqual([
+        createdSecond.id,
+        createdFirst.id,
+      ])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('returns an empty list for a household with no expenses at all', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    await expect(
+      listRecentExpenses({ db, householdId: household.id, limit: 10 }),
+    ).resolves.toEqual([])
+  })
+
+  it('does not include another household expenses', async () => {
+    const store = createMemoryHouseholdsDb()
+    const db = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const other = await createHouseholdWithMembership({
+      db: store.asUser('user-2'),
+      userId: 'user-2',
+      name: 'Casa Azul',
+      monthlyBudget: 200,
+    })
+    const otherCategories = await listCategories({
+      db: store.asUser('user-2'),
+      householdId: other.id,
+    })
+    const otherComida = otherCategories[0]
+    expect(otherComida).toBeDefined()
+    if (otherComida === undefined) {
+      throw new Error('expected a seeded category')
+    }
+    await createExpense({
+      db: store.asUser('user-2'),
+      householdId: other.id,
+      categoryId: otherComida.id,
+      memberId: 'user-2',
+      authorDisplayName: 'Bob',
+      name: 'Other pizza',
+      price: 30,
+      comments: '',
+      expenseDate: new Date(2026, 7, 15),
+    })
+
+    const listed = await listRecentExpenses({
+      db,
+      householdId: household.id,
+      limit: 10,
+    })
+
+    expect(listed).toEqual([])
   })
 })
 

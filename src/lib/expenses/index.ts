@@ -6,14 +6,18 @@ export {
   findOrCreateCategory,
   listCategories,
   listExpensesInMonth,
+  listRecentExpenses,
   updateExpense,
 } from './expenses'
 export {
+  computePercentUsed,
   computeRemainingBudget,
   currentMonthRange,
   formatBudgetAmount,
   isDateInCurrentMonth,
 } from './remainingBudget'
+export { summarizeByCategory, summarizeByPerson } from './summaries'
+export type { CategorySummary, PersonSummary } from './summaries'
 export {
   categoryDocumentId,
   DEFAULT_CATEGORY_NAMES,

@@ -4,6 +4,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   orderBy,
   query,
   runTransaction,
@@ -454,6 +455,24 @@ export function createFirestoreHouseholdsDb(
           where('expense_date', '<=', Timestamp.fromDate(input.monthEnd)),
           orderBy('expense_date', 'desc'),
           orderBy('created_at', 'desc'),
+        )
+        const snap = await getDocs(expensesQuery)
+        return snap.docs.map((expenseDoc) =>
+          parseExpenseDocument({
+            id: expenseDoc.id,
+            data: expenseDoc.data(),
+          }),
+        )
+      })
+    },
+    async listRecentExpenses(input) {
+      return withHouseholdAccess('listRecentExpenses', async () => {
+        const expensesQuery = query(
+          collection(firestore, 'expenses'),
+          where('household_id', '==', input.householdId),
+          orderBy('expense_date', 'desc'),
+          orderBy('created_at', 'desc'),
+          limit(input.limit),
         )
         const snap = await getDocs(expensesQuery)
         return snap.docs.map((expenseDoc) =>

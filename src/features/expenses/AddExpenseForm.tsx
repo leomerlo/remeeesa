@@ -18,11 +18,7 @@ import {
 } from '@/lib/expenses'
 import type { Category } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
-import {
-  categoriesQueryKey,
-  expenseListQueryKey,
-  expensesInMonthQueryKey,
-} from './queryKeys'
+import { categoriesQueryKey, expensesQueryKey } from './queryKeys'
 
 export type EditExpenseTarget = {
   readonly expenseId: string
@@ -168,12 +164,7 @@ function ExpenseFormBody({
   const isEditing = editExpense !== null
   const queryClient = useQueryClient()
   const categoriesKey = categoriesQueryKey({ householdId })
-  const expensesKey = expensesInMonthQueryKey({ householdId })
-  const expenseListKey = expenseListQueryKey({
-    householdId,
-    year: new Date().getFullYear(),
-    month: new Date().getMonth(),
-  })
+  const expensesKey = expensesQueryKey({ householdId })
   const [name, setName] = useState(initialFields.name)
   const [price, setPrice] = useState(initialFields.price)
   const [category, setCategory] = useState(initialFields.category)
@@ -183,9 +174,11 @@ function ExpenseFormBody({
   const today = localDateInputValue(new Date())
 
   async function invalidateExpenseViews(): Promise<void> {
+    // Categories are a separate entity from expenses, so they keep their
+    // own exact-key invalidation. The expenses prefix invalidates every
+    // consumer nested under it (month-scoped, recent) in one call.
     await queryClient.invalidateQueries({ queryKey: categoriesKey })
     await queryClient.invalidateQueries({ queryKey: expensesKey })
-    await queryClient.invalidateQueries({ queryKey: expenseListKey })
   }
 
   const mutation = useMutation({

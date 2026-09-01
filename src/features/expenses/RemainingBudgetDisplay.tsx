@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import type { ReactElement } from 'react'
 import { householdQueryKey } from '@/features/household'
 import {
+  computePercentUsed,
   computeRemainingBudget,
   currentMonthRange,
   formatBudgetAmount,
@@ -10,16 +11,12 @@ import {
 } from '@/lib/expenses'
 import { getHousehold } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
+import { PiggyBankIllustration } from './PiggyBankIllustration'
+import { expensesInMonthQueryKey } from './queryKeys'
 
 export type RemainingBudgetDisplayProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
-}
-
-export function expensesInMonthQueryKey(input: {
-  readonly householdId: string
-}): readonly ['expenses-in-month', string] {
-  return ['expenses-in-month', input.householdId]
 }
 
 export function RemainingBudgetDisplay({
@@ -56,9 +53,11 @@ export function RemainingBudgetDisplay({
 
   const remaining = computeRemainingBudget(household.monthlyBudget, expenses)
   const formattedRemaining = formatBudgetAmount(remaining)
+  const percentUsed = computePercentUsed(household.monthlyBudget, expenses)
 
   return (
-    <div className="from-primary to-[var(--surface-action-gradient-end)] flex w-full flex-col items-center gap-2 rounded-3xl bg-gradient-to-br p-8">
+    <div className="from-primary to-[var(--surface-action-gradient-end)] flex w-full flex-col items-center gap-4 rounded-3xl bg-gradient-to-br p-8">
+      <PiggyBankIllustration className="h-24 w-28" />
       <span className="text-primary-foreground text-body font-medium [text-shadow:0_1px_3px_rgba(0,0,0,0.35)]">
         Presupuesto restante
       </span>
@@ -69,6 +68,24 @@ export function RemainingBudgetDisplay({
       >
         {formattedRemaining}
       </p>
+      <div className="flex w-full flex-col gap-1">
+        <div
+          role="progressbar"
+          aria-label="% usado"
+          aria-valuenow={percentUsed}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          className="h-2 w-full overflow-hidden rounded-full bg-white/30"
+        >
+          <div
+            className="h-full rounded-full bg-white transition-[width]"
+            style={{ width: `${String(percentUsed)}%` }}
+          />
+        </div>
+        <span className="text-primary-foreground self-end text-xs font-medium [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]">
+          {percentUsed}% usado
+        </span>
+      </div>
     </div>
   )
 }

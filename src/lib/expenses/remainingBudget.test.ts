@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  computePercentUsed,
   computeRemainingBudget,
   currentMonthRange,
   formatBudgetAmount,
@@ -36,6 +37,58 @@ describe('computeRemainingBudget', () => {
     expect(
       computeRemainingBudget(100.5, [{ price: 10.25 }, { price: 0.25 }]),
     ).toBe(90)
+  })
+})
+
+describe('computePercentUsed', () => {
+  it('returns 0 when there are no expenses', () => {
+    expect(computePercentUsed(100, [])).toBe(0)
+  })
+
+  it('returns the percent of budget spent', () => {
+    expect(computePercentUsed(100, [{ price: 40 }])).toBe(40)
+  })
+
+  it('rounds to the nearest whole percent', () => {
+    expect(computePercentUsed(300, [{ price: 100 }])).toBe(33)
+  })
+
+  // A 0 (or negative) budget has nothing meaningful to divide by -- treat
+  // it as fully used once there's any spend, and 0% with no spend, rather
+  // than dividing by zero into NaN/Infinity.
+  it('returns 0 for a zero budget with no expenses', () => {
+    expect(computePercentUsed(0, [])).toBe(0)
+  })
+
+  it('returns 100 for a zero budget with any expense', () => {
+    expect(computePercentUsed(0, [{ price: 10 }])).toBe(100)
+  })
+
+  // Spending past the budget clamps at 100 rather than reporting e.g. 150%
+  // -- a progress bar has nowhere to put the overflow, and the exact
+  // over-budget amount is already shown by computeRemainingBudget going
+  // negative.
+  it('clamps at 100 when expenses exceed the budget', () => {
+    expect(computePercentUsed(100, [{ price: 150 }])).toBe(100)
+  })
+
+  it('returns exactly 100 when spending exactly matches the budget', () => {
+    expect(computePercentUsed(100, [{ price: 40 }, { price: 60 }])).toBe(100)
+  })
+
+  it('still clamps at 100 when spending is far past the budget', () => {
+    expect(computePercentUsed(100, [{ price: 1000 }])).toBe(100)
+  })
+
+  it('treats a zero-price expense as no additional spend', () => {
+    expect(computePercentUsed(100, [{ price: 0 }])).toBe(0)
+  })
+
+  it('rounds a half-percent boundary up', () => {
+    // 200.5 / 401 * 100 == 50.0-ish but chosen to land exactly on x.5 --
+    // Math.round rounds half away from zero in JS, so this must come out
+    // one whole point higher than truncation would give.
+    expect(computePercentUsed(200, [{ price: 101 }])).toBe(51)
   })
 })
 

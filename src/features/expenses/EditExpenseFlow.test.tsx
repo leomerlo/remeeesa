@@ -15,7 +15,7 @@ import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { AddExpenseForm } from './AddExpenseForm'
 import type { EditExpenseTarget } from './AddExpenseForm'
-import { ExpenseList } from './ExpenseList'
+import { RecentExpensesList } from './RecentExpensesList'
 import { RemainingBudgetDisplay } from './RemainingBudgetDisplay'
 
 function localDateInputValue(date: Date): string {
@@ -73,7 +73,7 @@ function EditExpenseHarness(props: {
           setEditExpense(null)
         }}
       />
-      <ExpenseList
+      <RecentExpensesList
         db={props.db}
         householdId={props.householdId}
         onEditExpense={(expense, categoryName) => {
@@ -304,7 +304,7 @@ describe('EditExpenseFlow', () => {
     )
     await waitFor(() => {
       expect(screen.queryByText('Pizza')).not.toBeInTheDocument()
-      expect(screen.getByText('No hay gastos este mes')).toBeInTheDocument()
+      expect(screen.getByText('Todavía no hay gastos')).toBeInTheDocument()
     })
   })
 

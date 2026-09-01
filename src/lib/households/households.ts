@@ -43,6 +43,7 @@ const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
   findOrCreateCategory: 'guardar la categoría',
   createExpense: 'agregar el gasto',
   listExpensesInMonth: 'cargar los gastos',
+  listRecentExpenses: 'cargar los gastos',
   getExpense: 'cargar el gasto',
   updateExpense: 'guardar el gasto',
   deleteExpense: 'eliminar el gasto',

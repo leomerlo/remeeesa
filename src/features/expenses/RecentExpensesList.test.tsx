@@ -5,8 +5,7 @@ import { createExpense, deleteExpense, listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership, leaveHousehold } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
-import { ExpenseList } from './ExpenseList'
-import { expensesInMonthQueryKey } from './queryKeys'
+import { RecentExpensesList } from './RecentExpensesList'
 import { RemainingBudgetDisplay } from './RemainingBudgetDisplay'
 
 function currentMonthDate(day: number): Date {
@@ -31,8 +30,8 @@ function formatExpenseDate(date: Date): string {
   })
 }
 
-describe('ExpenseList', () => {
-  it('shows an empty state when the household has no expenses this month', async () => {
+describe('RecentExpensesList', () => {
+  it('shows an empty state when the household has no expenses at all', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -42,22 +41,15 @@ describe('ExpenseList', () => {
     })
 
     const { container } = renderWithProviders(
-      <ExpenseList db={db} householdId={household.id} />,
+      <RecentExpensesList db={db} householdId={household.id} />,
     )
 
-    expect(
-      await screen.findByText('No hay gastos este mes'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Todavía no hay gastos')).toBeInTheDocument()
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
     expect(container.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
   })
 
-  it("lists this month's expenses with name, price, category, date, and author", async () => {
-    // currentMonthDate() clamps to today when the requested day hasn't
-    // happened yet this month, so a day-1 and a day-28 expense collapse to
-    // the same date whenever the suite happens to run on the 1st of the
-    // month. Pin "now" to the 28th (every month has one) so both dates stay
-    // distinct and non-future no matter what the real wall clock says.
+  it('lists recent expenses with name, price, category, date, and author, newest first', async () => {
     const realNow = new Date()
     const fixedNow = new Date(
       realNow.getFullYear(),
@@ -117,7 +109,9 @@ describe('ExpenseList', () => {
         expenseDate: laterDate,
       })
 
-      renderWithProviders(<ExpenseList db={db} householdId={household.id} />)
+      renderWithProviders(
+        <RecentExpensesList db={db} householdId={household.id} />,
+      )
 
       const rows = await screen.findAllByRole('listitem')
       expect(rows).toHaveLength(2)
@@ -132,14 +126,14 @@ describe('ExpenseList', () => {
       expect(rows[1]).toHaveTextContent(formatExpenseDate(earlierDate))
       expect(rows[1]).toHaveTextContent('Ada')
       expect(
-        screen.queryByText('No hay gastos este mes'),
+        screen.queryByText('Todavía no hay gastos'),
       ).not.toBeInTheDocument()
     } finally {
       vi.useRealTimers()
     }
   })
 
-  it('does not list an expense dated last month', async () => {
+  it('includes an expense dated last month, ahead of nothing newer', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -165,25 +159,18 @@ describe('ExpenseList', () => {
       comments: '',
       expenseDate: lastMonthDate(),
     })
-    await createExpense({
-      db,
-      householdId: household.id,
-      categoryId: comida.id,
-      memberId: 'user-1',
-      authorDisplayName: 'Ada',
-      name: 'Pizza',
-      price: 12.5,
-      comments: '',
-      expenseDate: currentMonthDate(15),
-    })
 
-    renderWithProviders(<ExpenseList db={db} householdId={household.id} />)
+    renderWithProviders(
+      <RecentExpensesList db={db} householdId={household.id} />,
+    )
 
-    expect(await screen.findByText('Pizza')).toBeInTheDocument()
-    expect(screen.queryByText('Old rent')).not.toBeInTheDocument()
+    expect(await screen.findByText('Old rent')).toBeInTheDocument()
+    expect(
+      screen.queryByText('Todavía no hay gastos'),
+    ).not.toBeInTheDocument()
   })
 
-  it('shows the empty state when the only expenses are from last month', async () => {
+  it('caps the list at the 10 most recent expenses', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -198,25 +185,26 @@ describe('ExpenseList', () => {
       throw new Error('expected Comida category')
     }
 
-    await createExpense({
-      db,
-      householdId: household.id,
-      categoryId: comida.id,
-      memberId: 'user-1',
-      authorDisplayName: 'Ada',
-      name: 'Old rent',
-      price: 40,
-      comments: '',
-      expenseDate: lastMonthDate(),
-    })
+    for (let day = 1; day <= 12; day += 1) {
+      await createExpense({
+        db,
+        householdId: household.id,
+        categoryId: comida.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        name: `Expense ${String(day)}`,
+        price: 5,
+        comments: '',
+        expenseDate: new Date(2026, 6, day),
+      })
+    }
 
-    renderWithProviders(<ExpenseList db={db} householdId={household.id} />)
+    renderWithProviders(
+      <RecentExpensesList db={db} householdId={household.id} />,
+    )
 
-    expect(
-      await screen.findByText('No hay gastos este mes'),
-    ).toBeInTheDocument()
-    expect(screen.queryByText('Old rent')).not.toBeInTheDocument()
-    expect(screen.queryByRole('list')).not.toBeInTheDocument()
+    const rows = await screen.findAllByRole('listitem')
+    expect(rows).toHaveLength(10)
   })
 
   it('shows the stored author display name after the author leaves the household', async () => {
@@ -255,14 +243,14 @@ describe('ExpenseList', () => {
     await leaveHousehold({ db: authorDb, userId: 'user-1' })
 
     renderWithProviders(
-      <ExpenseList db={remainingDb} householdId={household.id} />,
+      <RecentExpensesList db={remainingDb} householdId={household.id} />,
     )
 
     expect(await screen.findByText('Pizza')).toBeInTheDocument()
     expect(screen.getByText('Ada')).toBeInTheDocument()
   })
 
-  it('shows a delete action on every current-month expense row for any member', async () => {
+  it('shows a delete action on every expense row for any member', async () => {
     const store = createMemoryHouseholdsDb()
     const ownerDb = store.asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -295,7 +283,10 @@ describe('ExpenseList', () => {
     })
 
     renderWithProviders(
-      <ExpenseList db={store.asUser('user-2')} householdId={household.id} />,
+      <RecentExpensesList
+        db={store.asUser('user-2')}
+        householdId={household.id}
+      />,
     )
 
     const row = await screen.findByRole('listitem')
@@ -331,7 +322,9 @@ describe('ExpenseList', () => {
       expenseDate: currentMonthDate(15),
     })
 
-    renderWithProviders(<ExpenseList db={db} householdId={household.id} />)
+    renderWithProviders(
+      <RecentExpensesList db={db} householdId={household.id} />,
+    )
 
     fireEvent.click(await screen.findByRole('button', { name: 'Eliminar Pizza' }))
 
@@ -381,7 +374,7 @@ describe('ExpenseList', () => {
     renderWithProviders(
       <>
         <RemainingBudgetDisplay db={db} householdId={household.id} />
-        <ExpenseList db={db} householdId={household.id} />
+        <RecentExpensesList db={db} householdId={household.id} />
       </>,
       { queryClient },
     )
@@ -402,7 +395,7 @@ describe('ExpenseList', () => {
       expect(screen.queryByRole('listitem')).not.toBeInTheDocument()
     })
     expect(
-      await screen.findByText('No hay gastos este mes'),
+      await screen.findByText('Todavía no hay gastos'),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('status', { name: 'Presupuesto restante $100' }),
@@ -445,7 +438,7 @@ describe('ExpenseList', () => {
     })
 
     renderWithProviders(
-      <ExpenseList db={ownerDb} householdId={household.id} />,
+      <RecentExpensesList db={ownerDb} householdId={household.id} />,
       {
         queryClient,
       },
@@ -453,13 +446,13 @@ describe('ExpenseList', () => {
 
     expect(await screen.findByRole('listitem')).toHaveTextContent('Pizza')
 
+    // Deleted directly through the db, bypassing the query cache -- the
+    // list still shows the now-stale "Pizza" row until its own delete
+    // mutation below discovers the mismatch.
     await deleteExpense({
       db: ownerDb,
       householdId: household.id,
       expenseId: expense.id,
-    })
-    await queryClient.invalidateQueries({
-      queryKey: expensesInMonthQueryKey({ householdId: household.id }),
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Eliminar Pizza' }))
@@ -478,7 +471,7 @@ describe('ExpenseList', () => {
       expect(screen.queryByRole('listitem')).not.toBeInTheDocument()
     })
     expect(
-      await screen.findByText('No hay gastos este mes'),
+      await screen.findByText('Todavía no hay gastos'),
     ).toBeInTheDocument()
   })
 
@@ -524,7 +517,9 @@ describe('ExpenseList', () => {
       expenseDate: currentMonthDate(20),
     })
 
-    renderWithProviders(<ExpenseList db={db} householdId={household.id} />)
+    renderWithProviders(
+      <RecentExpensesList db={db} householdId={household.id} />,
+    )
 
     expect(await screen.findAllByRole('listitem')).toHaveLength(2)
 
@@ -569,78 +564,14 @@ describe('ExpenseList', () => {
       expenseDate: currentMonthDate(15),
     })
 
-    renderWithProviders(<ExpenseList db={db} householdId={household.id} />)
+    renderWithProviders(
+      <RecentExpensesList db={db} householdId={household.id} />,
+    )
 
     const row = await screen.findByRole('listitem')
     const icon = row.querySelector('[data-testid="category-icon"]')
     expect(icon).not.toBeNull()
     expect(icon).toHaveStyle({ backgroundColor: comida.color })
-  })
-
-  it("gives each expense row its own category's icon color, not a shared default", async () => {
-    const db = createMemoryHouseholdsDb().asUser('user-1')
-    const household = await createHouseholdWithMembership({
-      db,
-      userId: 'user-1',
-      name: 'Casa Verde',
-      monthlyBudget: 100,
-    })
-    const categories = await listCategories({ db, householdId: household.id })
-    const comida = categories.find((category) => category.name === 'Comida')
-    const transporte = categories.find(
-      (category) => category.name === 'Transporte',
-    )
-    expect(comida).toBeDefined()
-    expect(transporte).toBeDefined()
-    if (comida === undefined || transporte === undefined) {
-      throw new Error('expected seeded categories')
-    }
-    expect(comida.color).not.toBe(transporte.color)
-
-    await createExpense({
-      db,
-      householdId: household.id,
-      categoryId: comida.id,
-      memberId: 'user-1',
-      authorDisplayName: 'Ada',
-      name: 'Pizza',
-      price: 12.5,
-      comments: '',
-      expenseDate: currentMonthDate(15),
-    })
-    await createExpense({
-      db,
-      householdId: household.id,
-      categoryId: transporte.id,
-      memberId: 'user-1',
-      authorDisplayName: 'Bob',
-      name: 'Taxi',
-      price: 8.25,
-      comments: '',
-      expenseDate: currentMonthDate(20),
-    })
-
-    renderWithProviders(<ExpenseList db={db} householdId={household.id} />)
-
-    const rows = await screen.findAllByRole('listitem')
-    expect(rows).toHaveLength(2)
-
-    const pizzaRow = rows.find((row) => row.textContent?.includes('Pizza'))
-    const taxiRow = rows.find((row) => row.textContent?.includes('Taxi'))
-    expect(pizzaRow).toBeDefined()
-    expect(taxiRow).toBeDefined()
-    if (pizzaRow === undefined || taxiRow === undefined) {
-      throw new Error('expected both expense rows')
-    }
-
-    expect(pizzaRow.querySelector('[data-testid="category-icon"]')).toHaveStyle(
-      {
-        backgroundColor: comida.color,
-      },
-    )
-    expect(taxiRow.querySelector('[data-testid="category-icon"]')).toHaveStyle({
-      backgroundColor: transporte.color,
-    })
   })
 
   it('shows an error when the current user is not a household member', async () => {
@@ -654,7 +585,10 @@ describe('ExpenseList', () => {
     })
 
     renderWithProviders(
-      <ExpenseList db={store.asUser('user-2')} householdId={household.id} />,
+      <RecentExpensesList
+        db={store.asUser('user-2')}
+        householdId={household.id}
+      />,
     )
 
     expect(await screen.findByRole('alert')).toHaveTextContent(

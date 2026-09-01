@@ -5,10 +5,8 @@ import { createExpense, listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
-import {
-  expensesInMonthQueryKey,
-  RemainingBudgetDisplay,
-} from './RemainingBudgetDisplay'
+import { expensesInMonthQueryKey } from './queryKeys'
+import { RemainingBudgetDisplay } from './RemainingBudgetDisplay'
 
 async function seedHousehold(monthlyBudget: number) {
   const db = createMemoryHouseholdsDb().asUser('user-1')
@@ -52,6 +50,71 @@ describe('RemainingBudgetDisplay', () => {
       await screen.findByRole('status', { name: 'Presupuesto restante $100' }),
     ).toHaveTextContent('$100')
     expect(screen.getByText('Presupuesto restante')).toBeInTheDocument()
+  })
+
+  it('shows a progress bar at 0% used and the piggy-bank illustration when there are no expenses', async () => {
+    const { db, household } = await seedHousehold(100)
+
+    const { container } = renderWithProviders(
+      <RemainingBudgetDisplay db={db} householdId={household.id} />,
+    )
+
+    await screen.findByRole('status', { name: 'Presupuesto restante $100' })
+    const progressbar = screen.getByRole('progressbar', {
+      name: '% usado',
+    })
+    expect(progressbar).toHaveAttribute('aria-valuenow', '0')
+    expect(progressbar).toHaveAttribute('aria-valuemin', '0')
+    expect(progressbar).toHaveAttribute('aria-valuemax', '100')
+    expect(container.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
+  })
+
+  it('updates the progress bar to reflect the percent of budget used', async () => {
+    const { db, household, comida } = await seedHousehold(100)
+    await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Pizza',
+      price: 40,
+      comments: '',
+      expenseDate: new Date(),
+    })
+
+    renderWithProviders(
+      <RemainingBudgetDisplay db={db} householdId={household.id} />,
+    )
+
+    await screen.findByRole('status', { name: 'Presupuesto restante $60' })
+    expect(
+      screen.getByRole('progressbar', { name: '% usado' }),
+    ).toHaveAttribute('aria-valuenow', '40')
+  })
+
+  it('caps the progress bar at 100% when expenses exceed the budget', async () => {
+    const { db, household, comida } = await seedHousehold(100)
+    await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Rent',
+      price: 150,
+      comments: '',
+      expenseDate: new Date(),
+    })
+
+    renderWithProviders(
+      <RemainingBudgetDisplay db={db} householdId={household.id} />,
+    )
+
+    await screen.findByRole('status', { name: 'Presupuesto restante -$50' })
+    expect(
+      screen.getByRole('progressbar', { name: '% usado' }),
+    ).toHaveAttribute('aria-valuenow', '100')
   })
 
   it('shows remaining after current-month expenses', async () => {
