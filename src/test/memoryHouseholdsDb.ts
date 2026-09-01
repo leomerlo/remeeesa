@@ -392,7 +392,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         name: input.name,
         dueDate: input.dueDate,
         expectedAmount: input.expectedAmount,
-        recurring: false,
+        recurring: input.recurring ?? false,
         status: 'pending',
         paidExpenseId: null,
         createdAt: new Date(),

@@ -6,6 +6,7 @@ import {
   RemainingBudgetDisplay,
 } from '@/features/expenses'
 import type { EditExpenseTarget } from '@/features/expenses/AddExpenseForm'
+import { AddCuentaSheet } from '@/features/cuentas'
 import { LogoutButton } from '@/features/auth'
 import { OnboardingForm } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
@@ -76,6 +77,7 @@ export function HomePage({
   const [homeEpoch, setHomeEpoch] = useState(0)
   const [editExpense, setEditExpense] = useState<EditExpenseTarget | null>(null)
   const [isAddExpenseSheetOpen, setIsAddExpenseSheetOpen] = useState(false)
+  const [isAddCuentaSheetOpen, setIsAddCuentaSheetOpen] = useState(false)
 
   useEffect(() => {
     if (currentUserIdProp !== undefined) {
@@ -186,9 +188,6 @@ export function HomePage({
     <div className="flex w-full flex-col items-center gap-8">
       <p className="text-sm font-medium">{household?.name ?? 'Hogar'}</p>
       <RemainingBudgetDisplay db={db} householdId={membership.householdId} />
-      {/* A plain flex row, not a two-child layout baked around exactly one
-          button -- leaves room for a future "Nueva cuenta" action to join
-          "Agregar gasto" here without restructuring. */}
       <div className="flex w-full justify-center gap-4">
         <AddExpenseSheet
           open={isAddExpenseSheetOpen}
@@ -201,6 +200,12 @@ export function HomePage({
           onEditFinished={() => {
             setEditExpense(null)
           }}
+        />
+        <AddCuentaSheet
+          open={isAddCuentaSheetOpen}
+          onOpenChange={setIsAddCuentaSheetOpen}
+          db={db}
+          householdId={membership.householdId}
         />
       </div>
       <RecentExpensesList

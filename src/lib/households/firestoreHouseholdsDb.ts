@@ -562,6 +562,7 @@ export function createFirestoreHouseholdsDb(
       return withHouseholdAccess(
         'createCuenta',
         async () => {
+          const recurring = input.recurring ?? false
           const cuentaRef = doc(collection(firestore, 'cuentas'))
           const now = Timestamp.now()
           const createdAt = now.toDate()
@@ -572,7 +573,7 @@ export function createFirestoreHouseholdsDb(
               name: input.name,
               dueDate: input.dueDate,
               expectedAmount: input.expectedAmount,
-              recurring: false,
+              recurring,
               status: 'pending',
               paidExpenseId: null,
               createdAt,
@@ -587,7 +588,7 @@ export function createFirestoreHouseholdsDb(
             name: input.name,
             dueDate: input.dueDate,
             expectedAmount: input.expectedAmount,
-            recurring: false,
+            recurring,
             status: 'pending',
             paidExpenseId: null,
             createdAt,

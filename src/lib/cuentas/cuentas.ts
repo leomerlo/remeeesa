@@ -13,6 +13,7 @@ export async function createCuenta(input: {
   readonly name: string
   readonly dueDate: Date
   readonly expectedAmount: number | null
+  readonly recurring?: boolean
 }): Promise<Cuenta> {
   return input.db.createCuenta({
     householdId: input.householdId,
@@ -20,6 +21,7 @@ export async function createCuenta(input: {
     name: parseCuentaName(input.name),
     dueDate: parseCuentaDueDate(input.dueDate),
     expectedAmount: parseExpectedAmount(input.expectedAmount),
+    recurring: input.recurring,
   })
 }
 

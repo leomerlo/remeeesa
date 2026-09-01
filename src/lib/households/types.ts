@@ -107,6 +107,7 @@ export type HouseholdsDb = {
     readonly name: string
     readonly dueDate: Date
     readonly expectedAmount: number | null
+    readonly recurring?: boolean
   }): Promise<Cuenta>
   getCuenta(input: {
     readonly householdId: string
