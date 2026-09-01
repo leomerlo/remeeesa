@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { useParams } from 'react-router-dom'
+import { Lock, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { AuthHero } from '@/features/onboarding/AuthHero'
 import { createFirebaseSignupAuth } from '@/features/onboarding/signupAuth'
 import type { SignupAuth } from '@/features/onboarding/signupAuth'
 import { useFirebase } from '@/lib/firebaseContext'
@@ -141,66 +143,84 @@ export function JoinHouseholdPage({
 
   return (
     <div className="flex w-full flex-col items-center gap-8">
-      <form className="flex w-full flex-col gap-8" onSubmit={onSubmit}>
-        <div className="flex w-full flex-col gap-2">
-          <Label
-            htmlFor="signup-email"
-            className="text-muted-foreground font-medium"
-          >
-            Email
-          </Label>
-          <Input
-            id="signup-email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(event) => {
-              setEmail(event.target.value)
-            }}
-          />
-        </div>
+      <AuthHero />
+      <div className="bg-card shadow-resting flex w-full flex-col items-center gap-8 rounded-3xl p-6">
+        <form className="flex w-full flex-col gap-6" onSubmit={onSubmit}>
+          <div className="flex w-full flex-col gap-2">
+            <Label
+              htmlFor="signup-email"
+              className="text-muted-foreground font-medium"
+            >
+              Email
+            </Label>
+            <div className="relative flex items-center">
+              <Mail
+                aria-hidden="true"
+                className="text-muted-foreground pointer-events-none absolute left-3.5 size-4"
+              />
+              <Input
+                id="signup-email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value)
+                }}
+                className="pl-10"
+              />
+            </div>
+          </div>
 
-        <div className="flex w-full flex-col gap-2">
-          <Label
-            htmlFor="signup-password"
-            className="text-muted-foreground font-medium"
-          >
-            Contraseña
-          </Label>
-          <Input
-            id="signup-password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(event) => {
-              setPassword(event.target.value)
-            }}
-          />
-        </div>
+          <div className="flex w-full flex-col gap-2">
+            <Label
+              htmlFor="signup-password"
+              className="text-muted-foreground font-medium"
+            >
+              Contraseña
+            </Label>
+            <div className="relative flex items-center">
+              <Lock
+                aria-hidden="true"
+                className="text-muted-foreground pointer-events-none absolute left-3.5 size-4"
+              />
+              <Input
+                id="signup-password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value)
+                }}
+                className="pl-10"
+              />
+            </div>
+          </div>
 
-        {error !== null ? (
-          <p role="alert" className="text-sm font-medium">
-            {error}
-          </p>
-        ) : null}
+          {error !== null ? (
+            <p role="alert" className="text-sm font-medium">
+              {error}
+            </p>
+          ) : null}
 
-        <Button type="submit" disabled={pending}>
-          Crear cuenta
+          <Button type="submit" disabled={pending}>
+            Crear cuenta
+          </Button>
+        </form>
+
+        <Button
+          type="button"
+          variant="outline"
+          disabled={pending}
+          className="w-full"
+          onClick={() => {
+            void joinAfterAuth(() => auth.signUpWithGoogle())
+          }}
+        >
+          Continuar con Google
         </Button>
-      </form>
-
-      <Button
-        type="button"
-        variant="outline"
-        disabled={pending}
-        onClick={() => {
-          void joinAfterAuth(() => auth.signUpWithGoogle())
-        }}
-      >
-        Continuar con Google
-      </Button>
+      </div>
     </div>
   )
 }

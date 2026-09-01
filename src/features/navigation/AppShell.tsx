@@ -114,7 +114,7 @@ export function AppShell({
       {showNav ? (
         <nav
           aria-label="Navegación principal"
-          className="bg-card shadow-raised fixed inset-x-0 bottom-0 z-30 mx-auto max-w-md rounded-t-3xl sm:max-w-lg"
+          className="bg-card shadow-raised fixed inset-x-0 bottom-0 z-30 mx-auto max-w-md rounded-t-3xl px-2 pt-2 pb-3 sm:max-w-lg"
         >
           <ul className="flex items-stretch justify-around">
             {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
@@ -124,9 +124,9 @@ export function AppShell({
                   end={end}
                   className={({ isActive }) =>
                     cn(
-                      'flex min-h-11 min-w-11 flex-col items-center justify-center gap-1 rounded-2xl px-3 py-2 text-xs font-medium',
+                      'flex min-h-11 min-w-11 flex-col items-center justify-center gap-1 rounded-2xl px-3 py-1.5 text-xs font-medium transition-colors',
                       isActive
-                        ? 'bg-primary text-primary-foreground'
+                        ? 'text-primary bg-primary/10'
                         : 'text-muted-foreground',
                     )
                   }
