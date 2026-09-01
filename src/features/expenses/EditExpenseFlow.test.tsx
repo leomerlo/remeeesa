@@ -239,9 +239,13 @@ describe('EditExpenseFlow', () => {
       />,
     )
 
-    const lastMonth = new Date()
-    lastMonth.setMonth(lastMonth.getMonth() - 1)
-    lastMonth.setDate(15)
+    // Built directly (not via setMonth on a mutated "today") because
+    // setMonth(-1) on a date still holding today's day-of-month rolls
+    // forward whenever the previous month has fewer days than today's date
+    // (e.g. running this on the 31st with a 30-day or February previous
+    // month), landing back in the current month instead of last month.
+    const today = new Date()
+    const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 15)
 
     fireEvent.click(await screen.findByRole('button', { name: 'Edit Pizza' }))
     fireEvent.change(screen.getByLabelText('Date'), {
