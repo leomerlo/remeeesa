@@ -1,0 +1,358 @@
+import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { useState } from 'react'
+import type { ReactElement } from 'react'
+import { describe, expect, it } from 'vitest'
+import { listCategories } from '@/lib/expenses'
+import { createHouseholdWithMembership } from '@/lib/households'
+import type { HouseholdsDb } from '@/lib/households'
+import { listPendingCuentas } from '@/lib/cuentas'
+import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
+import { renderWithProviders } from '@/test/renderWithProviders'
+import { AddCuentaSheet } from './AddCuentaSheet'
+import type { AddCuentaSheetProps } from './AddCuentaSheet'
+
+function AddCuentaSheetHarness(
+  props: Omit<AddCuentaSheetProps, 'open' | 'onOpenChange'>,
+): ReactElement {
+  const [open, setOpen] = useState(false)
+  return <AddCuentaSheet open={open} onOpenChange={setOpen} {...props} />
+}
+
+function localDateInputValue(date: Date): string {
+  const year = String(date.getFullYear()).padStart(4, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function deferred<T>(): {
+  readonly promise: Promise<T>
+  readonly resolve: (value: T) => void
+  readonly reject: (reason: unknown) => void
+} {
+  let resolve!: (value: T) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
+async function renderForm() {
+  const db = createMemoryHouseholdsDb().asUser('user-1')
+  const household = await createHouseholdWithMembership({
+    db,
+    userId: 'user-1',
+    name: 'Casa Verde',
+    monthlyBudget: 100,
+  })
+  renderWithProviders(
+    <AddCuentaSheetHarness db={db} householdId={household.id} />,
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Nueva cuenta' }))
+  await screen.findByLabelText('Nombre')
+  return { db, householdId: household.id }
+}
+
+function fillCuenta(fields: {
+  readonly name?: string
+  readonly category?: string
+  readonly dueDate?: string
+  readonly expectedAmount?: string
+}): void {
+  if (fields.name !== undefined) {
+    fireEvent.change(screen.getByLabelText('Nombre'), {
+      target: { value: fields.name },
+    })
+  }
+  if (fields.category !== undefined) {
+    fireEvent.change(screen.getByRole('combobox', { name: 'Categoría' }), {
+      target: { value: fields.category },
+    })
+  }
+  if (fields.dueDate !== undefined) {
+    fireEvent.change(screen.getByLabelText('Fecha de vencimiento'), {
+      target: { value: fields.dueDate },
+    })
+  }
+  if (fields.expectedAmount !== undefined) {
+    fireEvent.change(screen.getByLabelText('Monto esperado'), {
+      target: { value: fields.expectedAmount },
+    })
+  }
+}
+
+function submitCuenta(): void {
+  fireEvent.click(screen.getByRole('button', { name: 'Agregar cuenta' }))
+}
+
+describe('AddCuentaForm', () => {
+  it('stores a pending cuenta for the household', async () => {
+    const { db, householdId } = await renderForm()
+
+    fillCuenta({
+      name: 'Alquiler',
+      category: 'Servicios',
+      dueDate: '2026-09-10',
+      expectedAmount: '500',
+    })
+    submitCuenta()
+
+    await waitFor(async () => {
+      const listed = await listPendingCuentas({ db, householdId })
+      expect(listed).toEqual([
+        expect.objectContaining({
+          householdId,
+          name: 'Alquiler',
+          expectedAmount: 500,
+          recurring: false,
+          status: 'pending',
+        }),
+      ])
+    })
+
+    // A successful save closes the sheet: the form unmounts and the
+    // trigger button reappears.
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: 'Nueva cuenta' }),
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('rejects an empty name', async () => {
+    const { db, householdId } = await renderForm()
+
+    fillCuenta({ name: '', category: 'Comida', dueDate: '2026-09-10' })
+    submitCuenta()
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/nombre/i)
+    expect(
+      await listPendingCuentas({ db, householdId }),
+    ).toEqual([])
+  })
+
+  it('rejects a whitespace-only name', async () => {
+    const { db, householdId } = await renderForm()
+
+    fillCuenta({ name: '   ', category: 'Comida', dueDate: '2026-09-10' })
+    submitCuenta()
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/nombre/i)
+    expect(await listPendingCuentas({ db, householdId })).toEqual([])
+  })
+
+  it('rejects an empty category', async () => {
+    const { db, householdId } = await renderForm()
+
+    fillCuenta({ name: 'Alquiler', category: '   ', dueDate: '2026-09-10' })
+    submitCuenta()
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/categoría/i)
+    expect(await listPendingCuentas({ db, householdId })).toEqual([])
+  })
+
+  it('accepts a due date in the past with no validation error, unlike the expense form', async () => {
+    const { db, householdId } = await renderForm()
+
+    expect(screen.getByLabelText('Fecha de vencimiento')).not.toHaveAttribute(
+      'max',
+    )
+    expect(screen.getByLabelText('Fecha de vencimiento')).not.toHaveAttribute(
+      'min',
+    )
+
+    fillCuenta({
+      name: 'Vieja deuda',
+      category: 'Comida',
+      dueDate: '2020-01-01',
+    })
+    submitCuenta()
+
+    await waitFor(async () => {
+      const listed = await listPendingCuentas({ db, householdId })
+      expect(listed).toEqual([
+        expect.objectContaining({
+          name: 'Vieja deuda',
+          dueDate: new Date(2020, 0, 1),
+        }),
+      ])
+    })
+  })
+
+  it('leaves expectedAmount as null, not 0, when the field is left blank', async () => {
+    const { db, householdId } = await renderForm()
+
+    fillCuenta({
+      name: 'Luz',
+      category: 'Servicios',
+      dueDate: '2026-09-05',
+    })
+    submitCuenta()
+
+    await waitFor(async () => {
+      const listed = await listPendingCuentas({ db, householdId })
+      expect(listed).toEqual([
+        expect.objectContaining({ name: 'Luz', expectedAmount: null }),
+      ])
+    })
+  })
+
+  it('creates a new category from free text, reusing the same pick-or-create behavior as the Expense form', async () => {
+    const { db, householdId } = await renderForm()
+
+    fillCuenta({
+      name: 'Streaming',
+      category: 'Suscripciones',
+      dueDate: '2026-09-12',
+      expectedAmount: '15',
+    })
+    submitCuenta()
+
+    await waitFor(async () => {
+      const listed = await listPendingCuentas({ db, householdId })
+      expect(listed).toHaveLength(1)
+      const categories = await listCategories({ db, householdId })
+      const created = categories.find(
+        (category) => category.name === 'Suscripciones',
+      )
+      expect(created).toBeDefined()
+      expect(listed[0]?.categoryId).toBe(created?.id)
+    })
+  })
+
+  it('reuses an existing category instead of creating a duplicate', async () => {
+    const { db, householdId } = await renderForm()
+    const categoriesBefore = await listCategories({ db, householdId })
+    const comida = categoriesBefore.find(
+      (category) => category.name === 'Comida',
+    )
+    expect(comida).toBeDefined()
+
+    fillCuenta({
+      name: 'Supermercado',
+      category: '  comida  ',
+      dueDate: '2026-09-05',
+    })
+    submitCuenta()
+
+    await waitFor(async () => {
+      const listed = await listPendingCuentas({ db, householdId })
+      expect(listed).toEqual([
+        expect.objectContaining({ categoryId: comida?.id }),
+      ])
+    })
+    const categoriesAfter = await listCategories({ db, householdId })
+    expect(
+      categoriesAfter.filter(
+        (category) => category.name.toLowerCase() === 'comida',
+      ),
+    ).toHaveLength(1)
+  })
+
+  it('defaults the recurring toggle to unchecked and stores recurring: false when left untouched', async () => {
+    const { db, householdId } = await renderForm()
+
+    expect(screen.getByLabelText('Recurrente')).toHaveAttribute(
+      'data-state',
+      'unchecked',
+    )
+
+    fillCuenta({
+      name: 'Internet',
+      category: 'Servicios',
+      dueDate: '2026-09-08',
+      expectedAmount: '30',
+    })
+    submitCuenta()
+
+    await waitFor(async () => {
+      const listed = await listPendingCuentas({ db, householdId })
+      expect(listed).toEqual([
+        expect.objectContaining({
+          name: 'Internet',
+          recurring: false,
+          expectedAmount: 30,
+        }),
+      ])
+    })
+  })
+
+  it('passes recurring: true when the toggle is switched on, without affecting expectedAmount', async () => {
+    const { db, householdId } = await renderForm()
+
+    fillCuenta({
+      name: 'Gimnasio',
+      category: 'Servicios',
+      dueDate: '2026-09-15',
+      expectedAmount: '25',
+    })
+    fireEvent.click(screen.getByLabelText('Recurrente'))
+    expect(screen.getByLabelText('Recurrente')).toHaveAttribute(
+      'data-state',
+      'checked',
+    )
+    submitCuenta()
+
+    await waitFor(async () => {
+      const listed = await listPendingCuentas({ db, householdId })
+      expect(listed).toEqual([
+        expect.objectContaining({
+          name: 'Gimnasio',
+          recurring: true,
+          expectedAmount: 25,
+        }),
+      ])
+    })
+  })
+
+  it('keeps the sheet open while a submit is in flight, so a failure that arrives after a dismiss attempt is still shown', async () => {
+    const base = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: base,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const create = deferred<never>()
+    const db: HouseholdsDb = {
+      ...base,
+      createCuenta: async () => create.promise,
+    }
+
+    renderWithProviders(
+      <AddCuentaSheetHarness db={db} householdId={household.id} />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Nueva cuenta' }))
+    fireEvent.change(await screen.findByLabelText('Nombre'), {
+      target: { value: 'Alquiler' },
+    })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Categoría' }), {
+      target: { value: 'Servicios' },
+    })
+    fireEvent.change(screen.getByLabelText('Fecha de vencimiento'), {
+      target: { value: localDateInputValue(new Date()) },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar cuenta' }))
+
+    // The mutation is still pending: an Escape dismiss attempt must be a
+    // no-op rather than unmounting the form out from under it.
+    fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
+    expect(screen.getByLabelText('Nombre')).toBeInTheDocument()
+
+    create.reject(new Error('Network blip'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Network blip')
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Alquiler')
+
+    // Once the mutation has settled, the dismiss guard must release: a
+    // second Escape now closes the sheet as normal.
+    fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
+    })
+  })
+})

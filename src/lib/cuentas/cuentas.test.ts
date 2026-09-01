@@ -47,6 +47,34 @@ describe('createCuenta', () => {
     })
   })
 
+  it('creates a recurring cuenta when recurring is passed as true', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories.find((category) => category.name === 'Comida')
+    expect(comida).toBeDefined()
+    if (comida === undefined) {
+      throw new Error('expected Comida category')
+    }
+
+    const cuenta = await createCuenta({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Streaming',
+      dueDate: new Date(2026, 8, 10),
+      expectedAmount: 15,
+      recurring: true,
+    })
+
+    expect(cuenta.recurring).toBe(true)
+  })
+
   it('allows a null expected amount', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({

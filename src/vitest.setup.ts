@@ -29,8 +29,20 @@ function createLocalStorageMock(): Storage {
 
 const localStorageMock = createLocalStorageMock()
 
+// jsdom has no ResizeObserver. Radix's Switch primitive (used by the Switch
+// UI component) measures itself with one unconditionally on mount via
+// @radix-ui/react-use-size, even though this project never reads that size
+// -- without a stub, mounting any Switch throws "ResizeObserver is not
+// defined" in every test environment, not just ones that exercise sizing.
+class ResizeObserverStub {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+
 beforeAll(() => {
   vi.stubGlobal('localStorage', localStorageMock)
+  vi.stubGlobal('ResizeObserver', ResizeObserverStub)
 })
 
 afterEach(() => {
