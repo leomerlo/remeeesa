@@ -1,6 +1,6 @@
 import { QueryClient } from '@tanstack/react-query'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createExpense, deleteExpense, listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership, leaveHousehold } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
@@ -53,64 +53,90 @@ describe('ExpenseList', () => {
   })
 
   it("lists this month's expenses with name, price, category, date, and author", async () => {
-    const db = createMemoryHouseholdsDb().asUser('user-1')
-    const household = await createHouseholdWithMembership({
-      db,
-      userId: 'user-1',
-      name: 'Casa Verde',
-      monthlyBudget: 100,
-    })
-    const categories = await listCategories({ db, householdId: household.id })
-    const comida = categories.find((category) => category.name === 'Comida')
-    const transporte = categories.find(
-      (category) => category.name === 'Transporte',
+    // currentMonthDate() clamps to today when the requested day hasn't
+    // happened yet this month, so a day-1 and a day-28 expense collapse to
+    // the same date whenever the suite happens to run on the 1st of the
+    // month. Pin "now" to the 28th (every month has one) so both dates stay
+    // distinct and non-future no matter what the real wall clock says.
+    const realNow = new Date()
+    const fixedNow = new Date(
+      realNow.getFullYear(),
+      realNow.getMonth(),
+      28,
+      12,
+      0,
+      0,
     )
-    expect(comida).toBeDefined()
-    expect(transporte).toBeDefined()
-    if (comida === undefined || transporte === undefined) {
-      throw new Error('expected seeded categories')
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(fixedNow)
+
+    try {
+      const db = createMemoryHouseholdsDb().asUser('user-1')
+      const household = await createHouseholdWithMembership({
+        db,
+        userId: 'user-1',
+        name: 'Casa Verde',
+        monthlyBudget: 100,
+      })
+      const categories = await listCategories({
+        db,
+        householdId: household.id,
+      })
+      const comida = categories.find((category) => category.name === 'Comida')
+      const transporte = categories.find(
+        (category) => category.name === 'Transporte',
+      )
+      expect(comida).toBeDefined()
+      expect(transporte).toBeDefined()
+      if (comida === undefined || transporte === undefined) {
+        throw new Error('expected seeded categories')
+      }
+
+      const earlierDate = currentMonthDate(1)
+      const laterDate = currentMonthDate(28)
+      await createExpense({
+        db,
+        householdId: household.id,
+        categoryId: comida.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        name: 'Pizza',
+        price: 12.5,
+        comments: '',
+        expenseDate: earlierDate,
+      })
+      await createExpense({
+        db,
+        householdId: household.id,
+        categoryId: transporte.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Bob',
+        name: 'Taxi',
+        price: 8.25,
+        comments: '',
+        expenseDate: laterDate,
+      })
+
+      renderWithProviders(<ExpenseList db={db} householdId={household.id} />)
+
+      const rows = await screen.findAllByRole('listitem')
+      expect(rows).toHaveLength(2)
+      expect(rows[0]).toHaveTextContent('Taxi')
+      expect(rows[0]).toHaveTextContent('8.25')
+      expect(rows[0]).toHaveTextContent('Transporte')
+      expect(rows[0]).toHaveTextContent(formatExpenseDate(laterDate))
+      expect(rows[0]).toHaveTextContent('Bob')
+      expect(rows[1]).toHaveTextContent('Pizza')
+      expect(rows[1]).toHaveTextContent('12.50')
+      expect(rows[1]).toHaveTextContent('Comida')
+      expect(rows[1]).toHaveTextContent(formatExpenseDate(earlierDate))
+      expect(rows[1]).toHaveTextContent('Ada')
+      expect(
+        screen.queryByText('No expenses this month'),
+      ).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
     }
-
-    const earlierDate = currentMonthDate(1)
-    const laterDate = currentMonthDate(28)
-    await createExpense({
-      db,
-      householdId: household.id,
-      categoryId: comida.id,
-      memberId: 'user-1',
-      authorDisplayName: 'Ada',
-      name: 'Pizza',
-      price: 12.5,
-      comments: '',
-      expenseDate: earlierDate,
-    })
-    await createExpense({
-      db,
-      householdId: household.id,
-      categoryId: transporte.id,
-      memberId: 'user-1',
-      authorDisplayName: 'Bob',
-      name: 'Taxi',
-      price: 8.25,
-      comments: '',
-      expenseDate: laterDate,
-    })
-
-    renderWithProviders(<ExpenseList db={db} householdId={household.id} />)
-
-    const rows = await screen.findAllByRole('listitem')
-    expect(rows).toHaveLength(2)
-    expect(rows[0]).toHaveTextContent('Taxi')
-    expect(rows[0]).toHaveTextContent('8.25')
-    expect(rows[0]).toHaveTextContent('Transporte')
-    expect(rows[0]).toHaveTextContent(formatExpenseDate(laterDate))
-    expect(rows[0]).toHaveTextContent('Bob')
-    expect(rows[1]).toHaveTextContent('Pizza')
-    expect(rows[1]).toHaveTextContent('12.50')
-    expect(rows[1]).toHaveTextContent('Comida')
-    expect(rows[1]).toHaveTextContent(formatExpenseDate(earlierDate))
-    expect(rows[1]).toHaveTextContent('Ada')
-    expect(screen.queryByText('No expenses this month')).not.toBeInTheDocument()
   })
 
   it('does not list an expense dated last month', async () => {
@@ -607,14 +633,12 @@ describe('ExpenseList', () => {
       throw new Error('expected both expense rows')
     }
 
-    expect(
-      pizzaRow.querySelector('[data-testid="category-icon"]'),
-    ).toHaveStyle({
-      backgroundColor: comida.color,
-    })
-    expect(
-      taxiRow.querySelector('[data-testid="category-icon"]'),
-    ).toHaveStyle({
+    expect(pizzaRow.querySelector('[data-testid="category-icon"]')).toHaveStyle(
+      {
+        backgroundColor: comida.color,
+      },
+    )
+    expect(taxiRow.querySelector('[data-testid="category-icon"]')).toHaveStyle({
       backgroundColor: transporte.color,
     })
   })
