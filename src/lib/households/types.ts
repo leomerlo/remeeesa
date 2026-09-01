@@ -129,4 +129,12 @@ export type HouseholdsDb = {
     readonly householdId: string
     readonly cuentaId: string
   }): Promise<void>
+  markCuentaPaid(input: {
+    readonly householdId: string
+    readonly cuentaId: string
+    readonly memberId: string
+    readonly authorDisplayName: string
+    readonly finalAmount: number
+    readonly paymentDate: Date
+  }): Promise<{ cuenta: Cuenta; expense: Expense }>
 }

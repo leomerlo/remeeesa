@@ -1,4 +1,10 @@
 import type { HouseholdsDb } from '@/lib/households/types'
+import {
+  parseAuthorDisplayName,
+  parseExpenseDate,
+  parseExpensePrice,
+} from '@/lib/expenses'
+import type { Expense } from '@/lib/expenses/types'
 import type { Cuenta } from './types'
 import {
   parseCuentaDueDate,
@@ -108,6 +114,25 @@ export async function updateCuenta(input: {
     dueDate,
     expectedAmount,
     recurring,
+  })
+}
+
+export async function markCuentaPaid(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly cuentaId: string
+  readonly memberId: string
+  readonly authorDisplayName: string
+  readonly finalAmount: number
+  readonly paymentDate: Date
+}): Promise<{ cuenta: Cuenta; expense: Expense }> {
+  return input.db.markCuentaPaid({
+    householdId: input.householdId,
+    cuentaId: input.cuentaId,
+    memberId: input.memberId,
+    authorDisplayName: parseAuthorDisplayName(input.authorDisplayName),
+    finalAmount: parseExpensePrice(input.finalAmount),
+    paymentDate: parseExpenseDate(input.paymentDate),
   })
 }
 

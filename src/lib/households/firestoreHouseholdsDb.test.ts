@@ -263,7 +263,7 @@ describe('firestore.rules cuentas', () => {
       /function isValidCuentaUpdate\(\) \{[\s\S]*?!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'status', 'paid_expense_id', 'created_at'\]\)/,
     )
     expect(rules).toMatch(
-      /match \/cuentas\/\{cuentaId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& isValidCuentaUpdate\(\);/,
+      /match \/cuentas\/\{cuentaId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidCuentaUpdate\(\) \|\| isValidCuentaMarkPaid\(\)\);/,
     )
   })
 
@@ -279,6 +279,74 @@ describe('firestore.rules cuentas', () => {
   it('lets members delete a still-pending cuenta only', () => {
     expect(rules).toMatch(
       /match \/cuentas\/\{cuentaId\}[\s\S]*allow delete: if isMemberOf\(resource\.data\.household_id\)\s*&& resource\.data\.status == 'pending';/,
+    )
+  })
+})
+
+// True multi-writer race behavior and the rules' actual server-side
+// enforcement are unverifiable without a Firestore emulator in this repo's
+// CI -- this is structural inspection only. The memory-double concurrency
+// test in cuentas.test.ts is what actually behaviorally proves the
+// idempotency logic.
+describe('firestore.rules cuentas mark-paid', () => {
+  it('defines isValidCuentaMarkPaid with a diff restricted to status and paid_expense_id, requiring the stored status to still be pending', () => {
+    expect(rules).toContain('function isValidCuentaMarkPaid()')
+    expect(rules).toMatch(
+      /function isValidCuentaMarkPaid\(\) \{[\s\S]*?resource\.data\.status == 'pending'/,
+    )
+    expect(rules).toMatch(
+      /function isValidCuentaMarkPaid\(\) \{[\s\S]*?request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\.hasOnly\(\['status', 'paid_expense_id'\]\)/,
+    )
+    expect(rules).toMatch(
+      /function isValidCuentaMarkPaid\(\) \{[\s\S]*?request\.resource\.data\.status == 'paid'/,
+    )
+    expect(rules).toMatch(
+      /function isValidCuentaMarkPaid\(\) \{[\s\S]*?resource\.data\.paid_expense_id == null/,
+    )
+    expect(rules).toMatch(
+      /function isValidCuentaMarkPaid\(\) \{[\s\S]*?request\.resource\.data\.paid_expense_id is string[\s\S]*?request\.resource\.data\.paid_expense_id\.size\(\) > 0/,
+    )
+  })
+
+  it('requires paid_expense_id to reference a real Expense in the same household, closing the fake-payment-record gap', () => {
+    expect(rules).toMatch(
+      /function isValidCuentaMarkPaid\(\) \{[\s\S]*?existsAfter\(\/databases\/\$\(database\)\/documents\/expenses\/\$\(request\.resource\.data\.paid_expense_id\)\)/,
+    )
+    expect(rules).toMatch(
+      /function isValidCuentaMarkPaid\(\) \{[\s\S]*?getAfter\(\/databases\/\$\(database\)\/documents\/expenses\/\$\(request\.resource\.data\.paid_expense_id\)\)\.data\.household_id == resource\.data\.household_id/,
+    )
+  })
+
+  it('ORs isValidCuentaMarkPaid into the cuenta update rule alongside isValidCuentaUpdate', () => {
+    expect(rules).toMatch(
+      /match \/cuentas\/\{cuentaId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidCuentaUpdate\(\) \|\| isValidCuentaMarkPaid\(\)\);/,
+    )
+  })
+})
+
+describe('markCuentaPaid adapter', () => {
+  it('resolves memberId via awaitAuthenticatedUserId, not trusted from input, and uses it to attribute the generated expense', () => {
+    expect(adapterSource).toMatch(
+      /async markCuentaPaid\(input\) \{[\s\S]*?const memberId = await awaitAuthenticatedUserId\(firestore\)/,
+    )
+    expect(adapterSource).not.toMatch(/memberId: input\.memberId/)
+  })
+
+  it('runs the status transition and expense creation inside a single Firestore transaction', () => {
+    expect(adapterSource).toMatch(
+      /async markCuentaPaid\(input\) \{[\s\S]*?runTransaction\(firestore, async \(tx\) => \{/,
+    )
+  })
+
+  it('reads the cuenta via tx.get before issuing any write, and throws CuentaAlreadyPaidError when it is no longer pending', () => {
+    expect(adapterSource).toMatch(
+      /async markCuentaPaid\(input\) \{[\s\S]*?const cuentaSnap = await tx\.get\(cuentaRef\)[\s\S]*?if \(current\.status !== 'pending'\) \{[\s\S]*?throw new CuentaAlreadyPaidError\(\)/,
+    )
+  })
+
+  it('writes the expense via tx.set before updating the cuenta status via tx.update', () => {
+    expect(adapterSource).toMatch(
+      /async markCuentaPaid\(input\) \{[\s\S]*?tx\.set\(expenseRef, \{[\s\S]*?tx\.update\(cuentaRef, \{[\s\S]*?status: 'paid',[\s\S]*?paid_expense_id: expenseRef\.id,/,
     )
   })
 })

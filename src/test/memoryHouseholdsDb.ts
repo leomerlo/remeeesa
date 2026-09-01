@@ -1,4 +1,7 @@
-import { CuentaAlreadyPaidError, CuentaNotFoundError } from '@/lib/cuentas/cuentas'
+import {
+  CuentaAlreadyPaidError,
+  CuentaNotFoundError,
+} from '@/lib/cuentas/cuentas'
 import type { Cuenta } from '@/lib/cuentas/types'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
@@ -428,7 +431,10 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
     async updateCuenta(input) {
       assertMemberOf(state, userId, input.householdId)
       const existing = state.cuentas.get(input.cuentaId)
-      if (existing === undefined || existing.householdId !== input.householdId) {
+      if (
+        existing === undefined ||
+        existing.householdId !== input.householdId
+      ) {
         throw new CuentaNotFoundError()
       }
       // Mirrors firestore.rules' isValidCuentaUpdate() requiring
@@ -459,7 +465,10 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
     async deleteCuenta(input) {
       assertMemberOf(state, userId, input.householdId)
       const existing = state.cuentas.get(input.cuentaId)
-      if (existing === undefined || existing.householdId !== input.householdId) {
+      if (
+        existing === undefined ||
+        existing.householdId !== input.householdId
+      ) {
         throw new CuentaNotFoundError()
       }
       // Mirrors firestore.rules' delete rule requiring
@@ -468,6 +477,48 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         throw new CuentaAlreadyPaidError()
       }
       state.cuentas.delete(input.cuentaId)
+    },
+    async markCuentaPaid(input) {
+      assertMemberOf(state, userId, input.householdId)
+      // Mirrors createExpense's anti-spoof check: the caller must attribute
+      // the generated Expense to themselves, not to another household
+      // member. The real Firestore adapter never trusts input.memberId in
+      // the first place (it resolves it via awaitAuthenticatedUserId), so
+      // this exists to keep the double from allowing a spoof that
+      // production never permits.
+      if (input.memberId !== userId) {
+        throw new HouseholdAccessDeniedError()
+      }
+      const existing = state.cuentas.get(input.cuentaId)
+      if (
+        existing === undefined ||
+        existing.householdId !== input.householdId
+      ) {
+        throw new CuentaNotFoundError()
+      }
+      if (existing.status !== 'pending') {
+        throw new CuentaAlreadyPaidError()
+      }
+      const expense: Expense = {
+        id: crypto.randomUUID(),
+        householdId: input.householdId,
+        categoryId: existing.categoryId,
+        memberId: input.memberId,
+        authorDisplayName: input.authorDisplayName,
+        name: existing.name,
+        price: input.finalAmount,
+        comments: '',
+        expenseDate: input.paymentDate,
+        createdAt: new Date(),
+      }
+      const updated: Cuenta = {
+        ...existing,
+        status: 'paid',
+        paidExpenseId: expense.id,
+      }
+      state.expenses.set(expense.id, expense)
+      state.cuentas.set(input.cuentaId, updated)
+      return { cuenta: updated, expense }
     },
   }
 }
