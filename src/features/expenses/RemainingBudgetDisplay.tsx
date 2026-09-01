@@ -48,7 +48,7 @@ export function RemainingBudgetDisplay({
     return (
       <div className="bg-card shadow-resting flex w-full flex-col items-center gap-2 rounded-3xl p-8">
         <p role="status" className="text-sm font-medium">
-          Loading…
+          Cargando…
         </p>
       </div>
     )
@@ -60,11 +60,11 @@ export function RemainingBudgetDisplay({
   return (
     <div className="from-primary to-[var(--surface-action-gradient-end)] flex w-full flex-col items-center gap-2 rounded-3xl bg-gradient-to-br p-8">
       <span className="text-primary-foreground text-body font-medium [text-shadow:0_1px_3px_rgba(0,0,0,0.35)]">
-        Remaining budget
+        Presupuesto restante
       </span>
       <p
         role="status"
-        aria-label={`Remaining budget ${formattedRemaining}`}
+        aria-label={`Presupuesto restante ${formattedRemaining}`}
         className="text-primary-foreground font-display text-display tracking-tight [text-shadow:0_1px_4px_rgba(0,0,0,0.35)]"
       >
         {formattedRemaining}

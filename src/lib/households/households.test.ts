@@ -58,7 +58,7 @@ describe('createHouseholdWithMembership', () => {
         name: '',
         monthlyBudget: 100,
       }),
-    ).rejects.toThrow('Household name must be non-empty')
+    ).rejects.toThrow('El nombre del hogar no puede estar vacío')
   })
 
   it('rejects a whitespace-only household name', async () => {
@@ -71,7 +71,7 @@ describe('createHouseholdWithMembership', () => {
         name: '   ',
         monthlyBudget: 100,
       }),
-    ).rejects.toThrow('Household name must be non-empty')
+    ).rejects.toThrow('El nombre del hogar no puede estar vacío')
   })
 
   it('rejects a non-positive monthly budget', async () => {
@@ -84,7 +84,7 @@ describe('createHouseholdWithMembership', () => {
         name: 'Casa Verde',
         monthlyBudget: 0,
       }),
-    ).rejects.toThrow('Monthly budget must be a positive number')
+    ).rejects.toThrow('El presupuesto mensual debe ser un número positivo')
   })
 
   it('rejects a negative monthly budget', async () => {
@@ -97,7 +97,7 @@ describe('createHouseholdWithMembership', () => {
         name: 'Casa Verde',
         monthlyBudget: -10,
       }),
-    ).rejects.toThrow('Monthly budget must be a positive number')
+    ).rejects.toThrow('El presupuesto mensual debe ser un número positivo')
   })
 
   it('rejects a second membership for the same user', async () => {
@@ -193,7 +193,7 @@ describe('updateHouseholdBudget', () => {
         householdId: household.id,
         monthlyBudget: 0,
       }),
-    ).rejects.toThrow('Monthly budget must be a positive number')
+    ).rejects.toThrow('El presupuesto mensual debe ser un número positivo')
   })
 })
 
@@ -259,7 +259,7 @@ describe('updateHousehold', () => {
         name: '',
         monthlyBudget: household.monthlyBudget,
       }),
-    ).rejects.toThrow('Household name must be non-empty')
+    ).rejects.toThrow('El nombre del hogar no puede estar vacío')
   })
 
   it('rejects a whitespace-only household name', async () => {
@@ -278,7 +278,7 @@ describe('updateHousehold', () => {
         name: '   ',
         monthlyBudget: household.monthlyBudget,
       }),
-    ).rejects.toThrow('Household name must be non-empty')
+    ).rejects.toThrow('El nombre del hogar no puede estar vacío')
   })
 
   it('rejects a non-positive monthly budget', async () => {
@@ -297,7 +297,7 @@ describe('updateHousehold', () => {
         name: 'Casa Azul',
         monthlyBudget: 0,
       }),
-    ).rejects.toThrow('Monthly budget must be a positive number')
+    ).rejects.toThrow('El presupuesto mensual debe ser un número positivo')
   })
 })
 
@@ -934,7 +934,7 @@ describe('leaveHousehold', () => {
 
     await expect(
       getHousehold({ db: leaverDb, householdId: household.id }),
-    ).rejects.toThrow('Only household members can access this household')
+    ).rejects.toThrow('Solo los integrantes del hogar pueden acceder a este hogar')
   })
 
   it('does not delete the household when the last member leaves', async () => {
@@ -951,7 +951,7 @@ describe('leaveHousehold', () => {
 
     await expect(
       getHousehold({ db: store.asUser('user-2'), householdId: household.id }),
-    ).rejects.toThrow('Only household members can access this household')
+    ).rejects.toThrow('Solo los integrantes del hogar pueden acceder a este hogar')
 
     store.addMember({ userId: 'user-2', householdId: household.id })
 

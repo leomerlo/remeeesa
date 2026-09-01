@@ -18,9 +18,11 @@ describe('App', () => {
     expect(
       screen.getByRole('heading', { name: 'remeeesa' }),
     ).toBeInTheDocument()
-    expect(screen.getByLabelText('Household name')).toBeInTheDocument()
-    expect(screen.getByLabelText('Monthly budget')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Continue' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Nombre del hogar')).toBeInTheDocument()
+    expect(screen.getByLabelText('Presupuesto mensual')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Continuar' }),
+    ).toBeInTheDocument()
   })
 
   it('renders signup-to-join at /join/:token', () => {
@@ -35,9 +37,11 @@ describe('App', () => {
     ).toBeInTheDocument()
     expect(screen.getByLabelText('Email')).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Create account' }),
+      screen.getByRole('button', { name: 'Crear cuenta' }),
     ).toBeInTheDocument()
-    expect(screen.queryByLabelText('Household name')).not.toBeInTheDocument()
+    expect(
+      screen.queryByLabelText('Nombre del hogar'),
+    ).not.toBeInTheDocument()
   })
 
   it('renders household editing at /household', async () => {
@@ -59,14 +63,16 @@ describe('App', () => {
       screen.getByRole('heading', { name: 'remeeesa' }),
     ).toBeInTheDocument()
     await waitFor(() => {
-      expect(screen.getByLabelText('Household name')).toHaveValue('Casa Verde')
+      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue(
+        'Casa Verde',
+      )
     })
-    expect(screen.getByLabelText('Monthly budget')).toHaveValue('100')
+    expect(screen.getByLabelText('Presupuesto mensual')).toHaveValue('100')
     expect(
-      await screen.findByRole('heading', { name: 'Participants' }),
+      await screen.findByRole('heading', { name: 'Integrantes' }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Generate invite link' }),
+      screen.getByRole('button', { name: 'Generar link de invitación' }),
     ).toBeInTheDocument()
   })
 
@@ -87,15 +93,14 @@ describe('App', () => {
 
     const nav = await screen.findByRole('navigation')
     expect(within(nav).getAllByRole('link')).toHaveLength(4)
-    expect(within(nav).getByRole('link', { name: /home/i })).toHaveAttribute(
-      'aria-current',
-      'page',
-    )
+    expect(
+      within(nav).getByRole('link', { name: /inicio/i }),
+    ).toHaveAttribute('aria-current', 'page')
 
     fireEvent.click(within(nav).getByRole('link', { name: /ajustes/i }))
 
     expect(
-      await screen.findByRole('heading', { name: 'Participants' }),
+      await screen.findByRole('heading', { name: 'Integrantes' }),
     ).toBeInTheDocument()
   })
 

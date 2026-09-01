@@ -82,7 +82,7 @@ function formFieldsFromEdit(editExpense: EditExpenseTarget): ExpenseFormFields {
 function parseDateInput(value: string): Date {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
   if (match === null) {
-    throw new Error('Expense date must be a valid date')
+    throw new Error('La fecha del gasto no es válida')
   }
   const year = Number(match[1])
   const month = Number(match[2])
@@ -93,7 +93,7 @@ function parseDateInput(value: string): Date {
     date.getMonth() !== month - 1 ||
     date.getDate() !== day
   ) {
-    throw new Error('Expense date must be a valid date')
+    throw new Error('La fecha del gasto no es válida')
   }
   return date
 }
@@ -118,12 +118,14 @@ function parseExpenseFields(input: ExpenseFormFields): ParsedExpenseFields {
 
 function mutationErrorMessage(error: unknown, mode: 'add' | 'edit'): string {
   if (error instanceof ExpenseNotFoundError) {
-    return 'This expense no longer exists'
+    return 'Este gasto ya no existe'
   }
   if (error instanceof Error) {
     return error.message
   }
-  return mode === 'edit' ? 'Could not save expense' : 'Could not add expense'
+  return mode === 'edit'
+    ? 'No se pudo guardar el gasto'
+    : 'No se pudo agregar el gasto'
 }
 
 function loadErrorMessage(error: unknown): string | null {
@@ -133,7 +135,7 @@ function loadErrorMessage(error: unknown): string | null {
   if (error instanceof Error) {
     return error.message
   }
-  return 'Could not load categories'
+  return 'No se pudieron cargar las categorías'
 }
 
 type ExpenseFormBodyProps = {
@@ -233,7 +235,7 @@ function ExpenseFormBody({
     },
     onError: async (caught) => {
       if (caught instanceof ExpenseNotFoundError) {
-        setError('This expense no longer exists')
+        setError('Este gasto ya no existe')
         await invalidateExpenseViews()
       }
     },
@@ -260,7 +262,7 @@ function ExpenseFormBody({
       mutation.mutate(fields)
     } catch (caught) {
       const message =
-        caught instanceof Error ? caught.message : 'Could not add expense'
+        caught instanceof Error ? caught.message : 'No se pudo agregar el gasto'
       setError(message)
     }
   }
@@ -283,7 +285,7 @@ function ExpenseFormBody({
           htmlFor="expense-name"
           className="text-muted-foreground font-medium"
         >
-          Name
+          Nombre
         </Label>
         <Input
           id="expense-name"
@@ -301,7 +303,7 @@ function ExpenseFormBody({
           htmlFor="expense-price"
           className="text-muted-foreground font-medium"
         >
-          Price
+          Precio
         </Label>
         <Input
           id="expense-price"
@@ -320,7 +322,7 @@ function ExpenseFormBody({
           htmlFor="expense-category"
           className="text-muted-foreground font-medium"
         >
-          Category
+          Categoría
         </Label>
         <CategoryCombobox
           id="expense-category"
@@ -335,7 +337,7 @@ function ExpenseFormBody({
           htmlFor="expense-comments"
           className="text-muted-foreground font-medium"
         >
-          Comments
+          Comentario
         </Label>
         <Input
           id="expense-comments"
@@ -353,7 +355,7 @@ function ExpenseFormBody({
           htmlFor="expense-date"
           className="text-muted-foreground font-medium"
         >
-          Date
+          Fecha
         </Label>
         <Input
           id="expense-date"
@@ -375,7 +377,7 @@ function ExpenseFormBody({
 
       <div className="flex w-full flex-col items-center gap-2">
         <Button type="submit" disabled={mutation.isPending}>
-          {isEditing ? 'Save changes' : 'Add expense'}
+          {isEditing ? 'Guardar cambios' : 'Agregar gasto'}
         </Button>
         {isEditing ? (
           <Button
@@ -387,7 +389,7 @@ function ExpenseFormBody({
               onEditFinished?.()
             }}
           >
-            Cancel edit
+            Cancelar edición
           </Button>
         ) : null}
       </div>

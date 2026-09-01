@@ -55,7 +55,7 @@ describe('parseCategoryDocument', () => {
           created_at: new Date('2026-01-15T12:00:00.000Z'),
         },
       }),
-    ).toThrow('Category name must be non-empty')
+    ).toThrow('El nombre de la categoría no puede estar vacío')
   })
 
   // Categories created before `color` existed on the schema have no stored

@@ -21,7 +21,7 @@ type NavItem = {
 }
 
 const NAV_ITEMS: readonly NavItem[] = [
-  { to: '/', label: 'Home', icon: Home, end: true },
+  { to: '/', label: 'Inicio', icon: Home, end: true },
   { to: '/historico', label: 'Histórico', icon: History, end: false },
   { to: '/categorias', label: 'Categorías', icon: LayoutGrid, end: false },
   { to: '/household', label: 'Ajustes', icon: Settings, end: false },
@@ -113,7 +113,7 @@ export function AppShell({
       </div>
       {showNav ? (
         <nav
-          aria-label="Primary"
+          aria-label="Navegación principal"
           className="bg-card shadow-raised fixed inset-x-0 bottom-0 z-30 mx-auto max-w-sm rounded-t-3xl"
         >
           <ul className="flex items-stretch justify-around">

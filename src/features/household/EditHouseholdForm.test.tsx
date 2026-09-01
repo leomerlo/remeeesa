@@ -27,10 +27,10 @@ async function renderEditHouseholdForm(input: {
 }
 
 async function submitBudget(value: string): Promise<void> {
-  fireEvent.change(await screen.findByLabelText('Monthly budget'), {
+  fireEvent.change(await screen.findByLabelText('Presupuesto mensual'), {
     target: { value },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
 }
 
 function SharedBudgetView(props: {
@@ -54,8 +54,8 @@ describe('EditHouseholdForm', () => {
     await renderEditHouseholdForm({ monthlyBudget: 100 })
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Household name')).toHaveValue('Casa Verde')
-      expect(screen.getByLabelText('Monthly budget')).toHaveValue('100')
+      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue('Casa Verde')
+      expect(screen.getByLabelText('Presupuesto mensual')).toHaveValue('100')
     })
   })
 
@@ -65,20 +65,20 @@ describe('EditHouseholdForm', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Household name')).toHaveValue('Casa Verde')
-      expect(screen.getByLabelText('Monthly budget')).toHaveValue('100')
+      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue('Casa Verde')
+      expect(screen.getByLabelText('Presupuesto mensual')).toHaveValue('100')
     })
-    fireEvent.change(screen.getByLabelText('Household name'), {
+    fireEvent.change(screen.getByLabelText('Nombre del hogar'), {
       target: { value: 'Casa Azul' },
     })
-    fireEvent.change(screen.getByLabelText('Monthly budget'), {
+    fireEvent.change(screen.getByLabelText('Presupuesto mensual'), {
       target: { value: '250' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Household name')).toHaveValue('Casa Azul')
-      expect(screen.getByLabelText('Monthly budget')).toHaveValue('250')
+      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue('Casa Azul')
+      expect(screen.getByLabelText('Presupuesto mensual')).toHaveValue('250')
     })
     await expect(getHousehold({ db, householdId })).resolves.toMatchObject({
       name: 'Casa Azul',
@@ -92,17 +92,17 @@ describe('EditHouseholdForm', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Household name')).toHaveValue('Casa Verde')
+      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue('Casa Verde')
     })
-    fireEvent.change(screen.getByLabelText('Household name'), {
+    fireEvent.change(screen.getByLabelText('Nombre del hogar'), {
       target: { value: '' },
     })
-    fireEvent.change(screen.getByLabelText('Monthly budget'), {
+    fireEvent.change(screen.getByLabelText('Presupuesto mensual'), {
       target: { value: '250' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/name/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/nombre/i)
     await expect(getHousehold({ db, householdId })).resolves.toMatchObject({
       name: 'Casa Verde',
       monthlyBudget: 100,
@@ -120,7 +120,7 @@ describe('EditHouseholdForm', () => {
     await waitFor(() => {
       expect(screen.getByRole('status')).toHaveTextContent('250')
     })
-    expect(screen.getByLabelText('Monthly budget')).toHaveValue('250')
+    expect(screen.getByLabelText('Presupuesto mensual')).toHaveValue('250')
     await expect(getHousehold({ db, householdId })).resolves.toMatchObject({
       monthlyBudget: 250,
     })
@@ -131,13 +131,13 @@ describe('EditHouseholdForm', () => {
       monthlyBudget: 100,
     })
 
-    fireEvent.change(await screen.findByLabelText('Household name'), {
+    fireEvent.change(await screen.findByLabelText('Nombre del hogar'), {
       target: { value: 'Casa Azul' },
     })
     expect(await screen.findByRole('status')).toHaveTextContent('100')
     await submitBudget('0')
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/budget/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/presupuesto/i)
     expect(screen.getByRole('status')).toHaveTextContent('100')
     await expect(getHousehold({ db, householdId })).resolves.toMatchObject({
       name: 'Casa Verde',
@@ -153,7 +153,7 @@ describe('EditHouseholdForm', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('100')
     await submitBudget('-12')
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/budget/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/presupuesto/i)
     expect(screen.getByRole('status')).toHaveTextContent('100')
     await expect(getHousehold({ db, householdId })).resolves.toMatchObject({
       monthlyBudget: 100,
@@ -168,7 +168,7 @@ describe('EditHouseholdForm', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('100')
     await submitBudget('abc')
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/budget/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/presupuesto/i)
     expect(screen.getByRole('status')).toHaveTextContent('100')
     await expect(getHousehold({ db, householdId })).resolves.toMatchObject({
       monthlyBudget: 100,
@@ -183,7 +183,7 @@ describe('EditHouseholdForm', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('100')
     await submitBudget('')
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/budget/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/presupuesto/i)
     expect(screen.getByRole('status')).toHaveTextContent('100')
     await expect(getHousehold({ db, householdId })).resolves.toMatchObject({
       monthlyBudget: 100,
@@ -198,7 +198,7 @@ describe('EditHouseholdForm', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('100')
     await submitBudget('   ')
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/budget/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/presupuesto/i)
     expect(screen.getByRole('status')).toHaveTextContent('100')
     await expect(getHousehold({ db, householdId })).resolves.toMatchObject({
       monthlyBudget: 100,

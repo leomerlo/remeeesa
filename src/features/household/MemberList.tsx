@@ -20,9 +20,9 @@ function memberLabel(input: {
   readonly currentUserId: string
 }): string {
   if (input.member.userId === input.currentUserId) {
-    return 'You'
+    return 'Vos'
   }
-  return 'Member'
+  return 'Miembro'
 }
 
 export function MemberList({
@@ -39,7 +39,7 @@ export function MemberList({
   if (members === undefined) {
     return (
       <p role="status" className="text-sm font-medium">
-        Loading…
+        Cargando…
       </p>
     )
   }
@@ -60,7 +60,7 @@ export function MemberList({
       aria-labelledby="participants-heading"
     >
       <h2 id="participants-heading" className="text-sm font-medium">
-        Participants
+        Integrantes
       </h2>
       <ul className="flex flex-col gap-1">
         {ordered.map((member) => (

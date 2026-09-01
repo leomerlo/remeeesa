@@ -87,7 +87,7 @@ export function EditHouseholdPage({
     return (
       <div className="bg-muted w-full rounded-3xl p-8">
         <p role="status" className="text-sm font-medium">
-          Loading…
+          Cargando…
         </p>
       </div>
     )
@@ -101,7 +101,7 @@ export function EditHouseholdPage({
     return (
       <div className="bg-muted w-full rounded-3xl p-8">
         <p role="status" className="text-sm font-medium">
-          Loading…
+          Cargando…
         </p>
       </div>
     )
@@ -114,7 +114,7 @@ export function EditHouseholdPage({
   return (
     <div className="bg-muted flex w-full flex-col items-center gap-8 rounded-3xl p-8">
       <Button variant="ghost" asChild className="self-start">
-        <Link to="/">Back</Link>
+        <Link to="/">Volver</Link>
       </Button>
       <EditHouseholdForm db={db} householdId={membership.householdId} />
       <MemberList

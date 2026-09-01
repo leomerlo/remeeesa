@@ -34,10 +34,10 @@ describe('RemainingBudgetDisplay', () => {
       <RemainingBudgetDisplay db={db} householdId={household.id} />,
     )
 
-    expect(screen.getByRole('status')).toHaveTextContent('Loading…')
+    expect(screen.getByRole('status')).toHaveTextContent('Cargando…')
 
     expect(
-      await screen.findByRole('status', { name: 'Remaining budget $100' }),
+      await screen.findByRole('status', { name: 'Presupuesto restante $100' }),
     ).toHaveTextContent('$100')
   })
 
@@ -49,9 +49,9 @@ describe('RemainingBudgetDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Remaining budget $100' }),
+      await screen.findByRole('status', { name: 'Presupuesto restante $100' }),
     ).toHaveTextContent('$100')
-    expect(screen.getByText('Remaining budget')).toBeInTheDocument()
+    expect(screen.getByText('Presupuesto restante')).toBeInTheDocument()
   })
 
   it('shows remaining after current-month expenses', async () => {
@@ -73,7 +73,7 @@ describe('RemainingBudgetDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Remaining budget $70' }),
+      await screen.findByRole('status', { name: 'Presupuesto restante $70' }),
     ).toHaveTextContent('$70')
   })
 
@@ -108,7 +108,7 @@ describe('RemainingBudgetDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Remaining budget $75' }),
+      await screen.findByRole('status', { name: 'Presupuesto restante $75' }),
     ).toHaveTextContent('$75')
   })
 
@@ -124,9 +124,9 @@ describe('RemainingBudgetDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Remaining budget $100' }),
+      await screen.findByRole('status', { name: 'Presupuesto restante $100' }),
     ).toHaveTextContent('$100')
-    expect(screen.getByText('Remaining budget')).toBeInTheDocument()
+    expect(screen.getByText('Presupuesto restante')).toBeInTheDocument()
 
     await createExpense({
       db,
@@ -145,7 +145,7 @@ describe('RemainingBudgetDisplay', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('status', { name: 'Remaining budget -$50' }),
+        screen.getByRole('status', { name: 'Presupuesto restante -$50' }),
       ).toHaveTextContent('-$50')
     })
   })

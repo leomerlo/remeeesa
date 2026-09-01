@@ -53,15 +53,12 @@ describe('HomePage', () => {
   it('shows onboarding when there is no session', () => {
     renderHome(<HomePage currentUserId={null} />)
 
-    expect(screen.getByLabelText('Household name')).toBeInTheDocument()
+    expect(screen.getByLabelText('Nombre del hogar')).toBeInTheDocument()
     expect(
-      screen.queryByRole('link', { name: 'Edit household' }),
+      screen.queryByRole('status', { name: /presupuesto restante/i }),
     ).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('status', { name: /remaining budget/i }),
-    ).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: 'Add expense' }),
+      screen.queryByRole('button', { name: 'Agregar gasto' }),
     ).not.toBeInTheDocument()
   })
 
@@ -70,18 +67,15 @@ describe('HomePage', () => {
 
     renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
 
-    expect(await screen.findByLabelText('Household name')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Nombre del hogar')).toBeInTheDocument()
     expect(
-      screen.queryByRole('link', { name: 'Edit household' }),
+      screen.queryByRole('status', { name: /presupuesto restante/i }),
     ).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('status', { name: /remaining budget/i }),
+      screen.queryByRole('button', { name: 'Agregar gasto' }),
     ).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: 'Add expense' }),
-    ).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: 'Log out' }),
+      screen.queryByRole('button', { name: 'Cerrar sesión' }),
     ).not.toBeInTheDocument()
   })
 
@@ -98,33 +92,32 @@ describe('HomePage', () => {
 
     expect(await screen.findByText('Casa Verde')).toBeInTheDocument()
     expect(
-      await screen.findByRole('status', { name: /remaining budget \$100/i }),
+      await screen.findByRole('status', {
+        name: /presupuesto restante \$100/i,
+      }),
     ).toHaveTextContent('$100')
     expect(
-      await screen.findByText('No expenses this month'),
+      await screen.findByText('No hay gastos este mes'),
     ).toBeInTheDocument()
+    expect(screen.queryByLabelText('Nombre del hogar')).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('link', { name: 'Edit household' }),
-    ).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Household name')).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole('button', { name: 'Generate invite link' }),
+      screen.queryByRole('button', { name: 'Generar link de invitación' }),
     ).not.toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Add expense' }),
+      screen.getByRole('button', { name: 'Agregar gasto' }),
     ).toBeInTheDocument()
-    expect(screen.queryByLabelText('Price')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Category')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Date')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Precio')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Categoría')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Fecha')).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: 'Log out' }),
+      screen.queryByRole('button', { name: 'Cerrar sesión' }),
     ).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
 
-    expect(await screen.findByLabelText('Price')).toBeInTheDocument()
-    expect(screen.getByLabelText('Category')).toBeInTheDocument()
-    expect(screen.getByLabelText('Date')).toBeInTheDocument()
+    expect(await screen.findByLabelText('Precio')).toBeInTheDocument()
+    expect(screen.getByLabelText('Categoría')).toBeInTheDocument()
+    expect(screen.getByLabelText('Fecha')).toBeInTheDocument()
     expect(screen.queryByLabelText(/author/i)).not.toBeInTheDocument()
   })
 
@@ -140,30 +133,29 @@ describe('HomePage', () => {
       />,
     )
 
-    fireEvent.change(await screen.findByLabelText('Household name'), {
+    fireEvent.change(await screen.findByLabelText('Nombre del hogar'), {
       target: { value: 'Casa Verde' },
     })
-    fireEvent.change(screen.getByLabelText('Monthly budget'), {
+    fireEvent.change(screen.getByLabelText('Presupuesto mensual'), {
       target: { value: '100' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }))
     fireEvent.change(screen.getByLabelText('Email'), {
       target: { value: 'ada@example.com' },
     })
-    fireEvent.change(screen.getByLabelText('Password'), {
+    fireEvent.change(screen.getByLabelText('Contraseña'), {
       target: { value: 'secret12' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }))
 
     expect(await screen.findByText('Casa Verde')).toBeInTheDocument()
     expect(
-      await screen.findByRole('status', { name: /remaining budget \$100/i }),
+      await screen.findByRole('status', {
+        name: /presupuesto restante \$100/i,
+      }),
     ).toHaveTextContent('$100')
     expect(
-      screen.queryByRole('link', { name: 'Edit household' }),
-    ).not.toBeInTheDocument()
-    expect(
-      screen.getByRole('button', { name: 'Add expense' }),
+      screen.getByRole('button', { name: 'Agregar gasto' }),
     ).toBeInTheDocument()
     await waitFor(() => {
       expect(signupAuth.signUpWithEmail).toHaveBeenCalled()
@@ -187,17 +179,19 @@ describe('HomePage', () => {
       />,
     )
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Add expense' }))
-    fireEvent.change(await screen.findByLabelText('Name'), {
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Agregar gasto' }),
+    )
+    fireEvent.change(await screen.findByLabelText('Nombre'), {
       target: { value: 'Pizza' },
     })
-    fireEvent.change(screen.getByLabelText('Price'), {
+    fireEvent.change(screen.getByLabelText('Precio'), {
       target: { value: '10' },
     })
-    fireEvent.change(screen.getByLabelText('Category'), {
+    fireEvent.change(screen.getByLabelText('Categoría'), {
       target: { value: 'Comida' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
 
     await waitFor(async () => {
       const listed = await listExpensesInMonth({
@@ -233,35 +227,39 @@ describe('HomePage', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: /remaining budget \$100/i }),
+      await screen.findByRole('status', {
+        name: /presupuesto restante \$100/i,
+      }),
     ).toHaveTextContent('$100')
     expect(
-      await screen.findByText('No expenses this month'),
+      await screen.findByText('No hay gastos este mes'),
     ).toBeInTheDocument()
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Add expense' }))
-    fireEvent.change(await screen.findByLabelText('Name'), {
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Agregar gasto' }),
+    )
+    fireEvent.change(await screen.findByLabelText('Nombre'), {
       target: { value: 'Pizza' },
     })
-    fireEvent.change(screen.getByLabelText('Price'), {
+    fireEvent.change(screen.getByLabelText('Precio'), {
       target: { value: '10' },
     })
-    fireEvent.change(screen.getByLabelText('Category'), {
+    fireEvent.change(screen.getByLabelText('Categoría'), {
       target: { value: 'Comida' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
 
     // Sheet closes and the trigger reappears, with no route change and no
     // full reload -- the list and remaining budget update in place.
     await waitFor(() => {
-      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
     expect(
-      screen.getByRole('button', { name: 'Add expense' }),
+      screen.getByRole('button', { name: 'Agregar gasto' }),
     ).toBeInTheDocument()
     expect(await screen.findByText('Pizza')).toBeInTheDocument()
     expect(
-      await screen.findByRole('status', { name: /remaining budget \$90/i }),
+      await screen.findByRole('status', { name: /presupuesto restante \$90/i }),
     ).toHaveTextContent('$90')
   })
 
@@ -276,17 +274,19 @@ describe('HomePage', () => {
 
     renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Add expense' }))
-    fireEvent.change(await screen.findByLabelText('Name'), {
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Agregar gasto' }),
+    )
+    fireEvent.change(await screen.findByLabelText('Nombre'), {
       target: { value: 'Pizza' },
     })
-    fireEvent.change(screen.getByLabelText('Price'), {
+    fireEvent.change(screen.getByLabelText('Precio'), {
       target: { value: '10' },
     })
-    fireEvent.change(screen.getByLabelText('Category'), {
+    fireEvent.change(screen.getByLabelText('Categoría'), {
       target: { value: 'Comida' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
 
     await waitFor(async () => {
       const listed = await listExpensesInMonth({
@@ -297,7 +297,7 @@ describe('HomePage', () => {
       expect(listed).toEqual([
         expect.objectContaining({
           memberId: 'user-1',
-          authorDisplayName: 'Member',
+          authorDisplayName: 'Miembro',
           name: 'Pizza',
           price: 10,
         }),

@@ -71,36 +71,36 @@ function submitOnboarding(fields: {
   readonly monthlyBudget?: string
 }): void {
   if (fields.name !== undefined) {
-    fireEvent.change(screen.getByLabelText('Household name'), {
+    fireEvent.change(screen.getByLabelText('Nombre del hogar'), {
       target: { value: fields.name },
     })
   }
   if (fields.monthlyBudget !== undefined) {
-    fireEvent.change(screen.getByLabelText('Monthly budget'), {
+    fireEvent.change(screen.getByLabelText('Presupuesto mensual'), {
       target: { value: fields.monthlyBudget },
     })
   }
-  fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Continuar' }))
 }
 
 function submitEmailLogin(): void {
   fireEvent.change(screen.getByLabelText('Email'), {
     target: { value: 'ada@example.com' },
   })
-  fireEvent.change(screen.getByLabelText('Password'), {
+  fireEvent.change(screen.getByLabelText('Contraseña'), {
     target: { value: 'secret12' },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
 }
 
 function submitEmailSignup(): void {
   fireEvent.change(screen.getByLabelText('Email'), {
     target: { value: 'ada@example.com' },
   })
-  fireEvent.change(screen.getByLabelText('Password'), {
+  fireEvent.change(screen.getByLabelText('Contraseña'), {
     target: { value: 'secret12' },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }))
 }
 
 function expectDraftFieldsWritten(input: {
@@ -135,8 +135,8 @@ describe('OnboardingForm', () => {
     markReturningUser()
     renderOnboarding()
 
-    expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument()
-    expect(screen.queryByLabelText('Household name')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Iniciar sesión' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Nombre del hogar')).not.toBeInTheDocument()
   })
 
   it('renders a decorative illustration alongside the household-creation form', () => {
@@ -158,7 +158,7 @@ describe('OnboardingForm', () => {
     renderOnboarding()
     submitOnboarding({ monthlyBudget: '1500' })
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/household name/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/nombre/i)
     expect(screen.getByText('No household draft')).toBeInTheDocument()
   })
 
@@ -166,7 +166,7 @@ describe('OnboardingForm', () => {
     renderOnboarding()
     submitOnboarding({ name: '   ', monthlyBudget: '1500' })
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/household name/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/nombre/i)
     expect(screen.getByText('No household draft')).toBeInTheDocument()
   })
 
@@ -174,7 +174,7 @@ describe('OnboardingForm', () => {
     renderOnboarding()
     submitOnboarding({ name: 'The Smiths', monthlyBudget: '0' })
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/budget/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/presupuesto/i)
     expect(screen.getByText('No household draft')).toBeInTheDocument()
   })
 
@@ -182,7 +182,7 @@ describe('OnboardingForm', () => {
     renderOnboarding()
     submitOnboarding({ name: 'The Smiths', monthlyBudget: '-12' })
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/budget/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/presupuesto/i)
     expect(screen.getByText('No household draft')).toBeInTheDocument()
   })
 
@@ -190,7 +190,7 @@ describe('OnboardingForm', () => {
     renderOnboarding()
     submitOnboarding({ name: 'The Smiths', monthlyBudget: 'abc' })
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/budget/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/presupuesto/i)
     expect(screen.getByText('No household draft')).toBeInTheDocument()
   })
 
@@ -216,7 +216,7 @@ describe('OnboardingForm', () => {
     renderOnboarding()
     submitOnboarding({ name: 'The Smiths' })
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/budget/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/presupuesto/i)
     expect(screen.getByText('No household draft')).toBeInTheDocument()
   })
 
@@ -239,12 +239,12 @@ describe('OnboardingForm', () => {
     submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })
 
     expect(screen.getByLabelText('Email')).toBeInTheDocument()
-    expect(screen.getByLabelText('Password')).toBeInTheDocument()
+    expect(screen.getByLabelText('Contraseña')).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Create account' }),
+      screen.getByRole('button', { name: 'Crear cuenta' }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Continue with Google' }),
+      screen.getByRole('button', { name: 'Continuar con Google' }),
     ).toBeInTheDocument()
   })
 
@@ -257,12 +257,12 @@ describe('OnboardingForm', () => {
     submitEmailSignup()
 
     await waitFor(() => {
-      expect(screen.getByRole('status')).toHaveTextContent('Household saved')
+      expect(screen.getByRole('status')).toHaveTextContent('Hogar guardado')
     })
     expect(localStorage.getItem('remeeesa.returning_user')).toBe('1')
     expect(screen.getByText('No household draft')).toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: 'Create account' }),
+      screen.queryByRole('button', { name: 'Crear cuenta' }),
     ).not.toBeInTheDocument()
     expect(signupAuth.signUpWithEmail).toHaveBeenCalledWith({
       email: 'ada@example.com',
@@ -286,15 +286,15 @@ describe('OnboardingForm', () => {
     submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Continue with Google' }),
+      screen.getByRole('button', { name: 'Continuar con Google' }),
     )
 
     await waitFor(() => {
-      expect(screen.getByRole('status')).toHaveTextContent('Household saved')
+      expect(screen.getByRole('status')).toHaveTextContent('Hogar guardado')
     })
     expect(screen.getByText('No household draft')).toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: 'Continue with Google' }),
+      screen.queryByRole('button', { name: 'Continuar con Google' }),
     ).not.toBeInTheDocument()
     expect(signupAuth.signUpWithGoogle).toHaveBeenCalledOnce()
     expect(signupAuth.signUpWithEmail).not.toHaveBeenCalled()
@@ -314,7 +314,7 @@ describe('OnboardingForm', () => {
     submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })
 
     expect(
-      screen.getByRole('button', { name: 'Create account' }),
+      screen.getByRole('button', { name: 'Crear cuenta' }),
     ).toBeInTheDocument()
     expect(signupAuth.signUpWithEmail).not.toHaveBeenCalled()
     expect(signupAuth.signUpWithGoogle).not.toHaveBeenCalled()
@@ -346,7 +346,7 @@ describe('OnboardingForm', () => {
     submitEmailSignup()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Could not create account',
+      'No se pudo crear la cuenta',
     )
     expect(
       screen.getByText('Household draft: The Smiths, 1500'),
@@ -375,11 +375,11 @@ describe('OnboardingForm', () => {
     submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Continue with Google' }),
+      screen.getByRole('button', { name: 'Continuar con Google' }),
     )
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Could not create account',
+      'No se pudo crear la cuenta',
     )
     expect(
       screen.getByText('Household draft: The Smiths, 1500'),
@@ -408,7 +408,7 @@ describe('OnboardingForm', () => {
     submitEmailSignup()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Could not save household',
+      'No se pudo guardar el hogar',
     )
     expect(
       screen.getByText('Household draft: The Smiths, 1500'),
@@ -443,14 +443,14 @@ describe('OnboardingForm', () => {
     submitEmailSignup()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Could not save household',
+      'No se pudo guardar el hogar',
     )
     expect(signupAuth.signUpWithEmail).toHaveBeenCalledOnce()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }))
 
     expect(await screen.findByRole('status')).toHaveTextContent(
-      'Household saved',
+      'Hogar guardado',
     )
     expect(signupAuth.signUpWithEmail).toHaveBeenCalledOnce()
     expect(screen.getByText('No household draft')).toBeInTheDocument()
@@ -477,11 +477,11 @@ describe('OnboardingForm', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('button', { name: 'Create account' }),
+        screen.getByRole('button', { name: 'Crear cuenta' }),
       ).toBeDisabled()
     })
     expect(
-      screen.getByRole('button', { name: 'Continue with Google' }),
+      screen.getByRole('button', { name: 'Continuar con Google' }),
     ).toBeDisabled()
     expect(signupAuth.signUpWithEmail).toHaveBeenCalledOnce()
     expect(signupAuth.signUpWithGoogle).not.toHaveBeenCalled()
@@ -489,18 +489,18 @@ describe('OnboardingForm', () => {
     resolveEmail({ userId: 'user-1' })
 
     await waitFor(() => {
-      expect(screen.getByRole('status')).toHaveTextContent('Household saved')
+      expect(screen.getByRole('status')).toHaveTextContent('Hogar guardado')
     })
   })
 
   it('shows sign in after clicking I already have an account on the household step', () => {
     renderOnboarding()
     fireEvent.click(
-      screen.getByRole('button', { name: 'I already have an account' }),
+      screen.getByRole('button', { name: 'Ya tengo una cuenta' }),
     )
 
-    expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument()
-    expect(screen.queryByLabelText('Household name')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Iniciar sesión' })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Nombre del hogar')).not.toBeInTheDocument()
   })
 
   it('signs in without creating a household when there is no draft', async () => {
@@ -510,7 +510,7 @@ describe('OnboardingForm', () => {
     const onFinished = vi.fn()
     renderOnboarding({ householdsDb: db, signupAuth, onFinished })
     fireEvent.click(
-      screen.getByRole('button', { name: 'I already have an account' }),
+      screen.getByRole('button', { name: 'Ya tengo una cuenta' }),
     )
     submitEmailLogin()
 
@@ -523,7 +523,7 @@ describe('OnboardingForm', () => {
     expect(signupAuth.signUpWithEmail).not.toHaveBeenCalled()
     expect(createHouseholdAndMembership).not.toHaveBeenCalled()
     expect(onFinished).toHaveBeenCalledOnce()
-    expect(screen.getByLabelText('Household name')).toBeInTheDocument()
+    expect(screen.getByLabelText('Nombre del hogar')).toBeInTheDocument()
   })
 
   it('creates the household from the draft after signing in on the signup step', async () => {
@@ -533,12 +533,12 @@ describe('OnboardingForm', () => {
     renderOnboarding({ householdsDb: db, signupAuth })
     submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })
     fireEvent.click(
-      screen.getByRole('button', { name: 'I already have an account' }),
+      screen.getByRole('button', { name: 'Ya tengo una cuenta' }),
     )
     submitEmailLogin()
 
     await waitFor(() => {
-      expect(screen.getByRole('status')).toHaveTextContent('Household saved')
+      expect(screen.getByRole('status')).toHaveTextContent('Hogar guardado')
     })
     expect(signupAuth.signInWithEmail).toHaveBeenCalledOnce()
     expect(signupAuth.signUpWithEmail).not.toHaveBeenCalled()

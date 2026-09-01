@@ -45,7 +45,7 @@ function authorDisplayNameFromAuth(
       return localPart
     }
   }
-  return 'Member'
+  return 'Miembro'
 }
 
 export function HomePage({
@@ -148,7 +148,7 @@ export function HomePage({
   if (currentUserId === undefined) {
     return (
       <p role="status" className="text-sm font-medium">
-        Loading…
+        Cargando…
       </p>
     )
   }
@@ -171,7 +171,7 @@ export function HomePage({
   if (membership === undefined) {
     return (
       <p role="status" className="text-sm font-medium">
-        Loading…
+        Cargando…
       </p>
     )
   }
@@ -182,7 +182,7 @@ export function HomePage({
 
   return (
     <div className="flex w-full flex-col items-center gap-8">
-      <p className="text-sm font-medium">{household?.name ?? 'Household'}</p>
+      <p className="text-sm font-medium">{household?.name ?? 'Hogar'}</p>
       <RemainingBudgetDisplay db={db} householdId={membership.householdId} />
       <AddExpenseSheet
         open={isAddExpenseSheetOpen}

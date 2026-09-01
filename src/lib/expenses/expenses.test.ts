@@ -265,7 +265,7 @@ describe('findOrCreateCategory', () => {
         householdId: household.id,
         name: '   ',
       }),
-    ).rejects.toThrow('Category name must be non-empty')
+    ).rejects.toThrow('El nombre de la categoría no puede estar vacío')
 
     const after = await listCategories({ db, householdId: household.id })
     expect(after).toHaveLength(6)
@@ -369,7 +369,7 @@ describe('createExpense', () => {
         comments: '',
         expenseDate: new Date(2026, 7, 15),
       }),
-    ).rejects.toThrow('Expense name must be non-empty')
+    ).rejects.toThrow('El nombre del gasto no puede estar vacío')
 
     await expect(
       createExpense({
@@ -383,7 +383,7 @@ describe('createExpense', () => {
         comments: '',
         expenseDate: new Date(2026, 7, 15),
       }),
-    ).rejects.toThrow('Expense price must be a positive number')
+    ).rejects.toThrow('El precio del gasto debe ser un número positivo')
 
     await expect(
       createExpense({
@@ -397,7 +397,7 @@ describe('createExpense', () => {
         comments: '',
         expenseDate: tomorrow,
       }),
-    ).rejects.toThrow('Expense date cannot be in the future')
+    ).rejects.toThrow('La fecha del gasto no puede ser futura')
 
     await expect(
       createExpense({
@@ -411,7 +411,7 @@ describe('createExpense', () => {
         comments: '',
         expenseDate: new Date(2026, 7, 15),
       }),
-    ).rejects.toThrow('Author display name must be non-empty')
+    ).rejects.toThrow('El nombre del autor no puede estar vacío')
   })
 
   it('rejects an unknown category and a different member as author', async () => {
@@ -1300,7 +1300,7 @@ describe('updateExpense', () => {
         name: '   ',
         now: augustNow,
       }),
-    ).rejects.toThrow('Expense name must be non-empty')
+    ).rejects.toThrow('El nombre del gasto no puede estar vacío')
 
     await expect(
       updateExpense({
@@ -1310,7 +1310,7 @@ describe('updateExpense', () => {
         price: 0,
         now: augustNow,
       }),
-    ).rejects.toThrow('Expense price must be a positive number')
+    ).rejects.toThrow('El precio del gasto debe ser un número positivo')
 
     await expect(
       updateExpense({
@@ -1320,7 +1320,7 @@ describe('updateExpense', () => {
         expenseDate: tomorrow,
         now: augustNow,
       }),
-    ).rejects.toThrow('Expense date cannot be in the future')
+    ).rejects.toThrow('La fecha del gasto no puede ser futura')
 
     const unchanged = await editorDb.getExpense({
       householdId: household.id,
@@ -1339,7 +1339,7 @@ describe('updateExpense', () => {
         householdId: household.id,
         name: '   ',
       }),
-    ).rejects.toThrow('Category name must be non-empty')
+    ).rejects.toThrow('El nombre de la categoría no puede estar vacío')
 
     const unchanged = await editorDb.getExpense({
       householdId: household.id,
@@ -1360,7 +1360,7 @@ describe('updateExpense', () => {
         expenseDate: new Date(2026, 6, 31),
         now: augustNow,
       }),
-    ).rejects.toThrow('Expense date must be in the current calendar month')
+    ).rejects.toThrow('La fecha del gasto debe ser del mes actual')
 
     const unchanged = await editorDb.getExpense({
       householdId: household.id,
@@ -1425,7 +1425,7 @@ describe('updateExpense', () => {
         name: 'Too late',
         now: augustNow,
       }),
-    ).rejects.toThrow('Expense is not in the current calendar month')
+    ).rejects.toThrow('El gasto no pertenece al mes actual')
 
     const unchanged = await db.getExpense({
       householdId: household.id,

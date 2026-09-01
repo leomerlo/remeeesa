@@ -196,10 +196,10 @@ export function CategoryCombobox({
         }}
         className="max-h-60 overflow-y-auto p-1"
       >
-        <ul id={listboxId} role="listbox" aria-label="Categories">
+        <ul id={listboxId} role="listbox" aria-label="Categorías">
           {filtered.length === 0 ? (
             <li className="px-2.5 py-1.5 text-sm text-muted-foreground">
-              No matching categories
+              No hay categorías que coincidan
             </li>
           ) : (
             filtered.map((category, index) => (

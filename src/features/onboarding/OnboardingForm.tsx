@@ -49,7 +49,7 @@ export function OnboardingForm({
   if (finished) {
     return (
       <p role="status" className="text-sm font-medium">
-        Household saved
+        Hogar guardado
       </p>
     )
   }
@@ -100,7 +100,7 @@ export function OnboardingForm({
           htmlFor="household-name"
           className="text-muted-foreground font-medium"
         >
-          Household name
+          Nombre del hogar
         </Label>
         <Input
           id="household-name"
@@ -118,7 +118,7 @@ export function OnboardingForm({
           htmlFor="monthly-budget"
           className="text-muted-foreground font-medium"
         >
-          Monthly budget
+          Presupuesto mensual
         </Label>
         <Input
           id="monthly-budget"
@@ -133,7 +133,7 @@ export function OnboardingForm({
           className="h-auto border-0 px-0 text-center font-display text-5xl tracking-tight md:text-5xl"
         />
         <p className="text-muted-foreground text-sm">
-          How much you can spend each month
+          Cuánto podés gastar por mes
         </p>
       </div>
 
@@ -143,7 +143,7 @@ export function OnboardingForm({
         </p>
       ) : null}
 
-      <Button type="submit">Continue</Button>
+      <Button type="submit">Continuar</Button>
 
       <Button
         type="button"
@@ -152,7 +152,7 @@ export function OnboardingForm({
           setStep('login')
         }}
       >
-        I already have an account
+        Ya tengo una cuenta
       </Button>
     </form>
   )

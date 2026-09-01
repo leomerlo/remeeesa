@@ -54,7 +54,7 @@ describe('Sheet', () => {
       </Sheet>,
     )
 
-    const closeButton = screen.getByRole('button', { name: 'Close' })
+    const closeButton = screen.getByRole('button', { name: 'Cerrar' })
     expect(closeButton).toHaveClass('h-11', 'w-11')
   })
 
@@ -66,7 +66,7 @@ describe('Sheet', () => {
       </Sheet>,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }))
 
     expect(onOpenChange).toHaveBeenCalledTimes(1)
     expect(onOpenChange).toHaveBeenCalledWith(false)
@@ -199,7 +199,7 @@ describe('Sheet', () => {
       </Sheet>,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }))
 
     // No confirmation UI should appear before/instead of the close call.
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
@@ -232,7 +232,7 @@ describe('Sheet', () => {
       </Sheet>,
     )
 
-    const closeButton = screen.getByRole('button', { name: 'Close' })
+    const closeButton = screen.getByRole('button', { name: 'Cerrar' })
     const body = document.querySelector('[data-slot="sheet-body"]')
     expect(body).not.toBeNull()
     expect(body?.contains(closeButton)).toBe(false)
@@ -245,7 +245,7 @@ describe('Sheet', () => {
       </Sheet>,
     )
 
-    const closeButton = screen.getByRole('button', { name: 'Close' })
+    const closeButton = screen.getByRole('button', { name: 'Cerrar' })
     expect(closeButton).toHaveClass(
       'hover:bg-muted',
       'focus-visible:border-ring',
@@ -262,7 +262,7 @@ describe('Sheet', () => {
       </Sheet>,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }))
 
     expect(onOpenChange).toHaveBeenCalledTimes(1)
     // The `open` prop was never updated by the parent, so the sheet must

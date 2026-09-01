@@ -65,7 +65,7 @@ export function EditHouseholdForm({
       mutation.mutate({ name: nextName, monthlyBudget })
     } catch (caught) {
       const message =
-        caught instanceof Error ? caught.message : 'Could not save household'
+        caught instanceof Error ? caught.message : 'No se pudo guardar el hogar'
       setError(message)
     }
   }
@@ -80,7 +80,7 @@ export function EditHouseholdForm({
           htmlFor="household-name"
           className="text-muted-foreground font-medium"
         >
-          Household name
+          Nombre del hogar
         </Label>
         <Input
           id="household-name"
@@ -104,7 +104,7 @@ export function EditHouseholdForm({
           htmlFor="monthly-budget"
           className="text-muted-foreground font-medium"
         >
-          Monthly budget
+          Presupuesto mensual
         </Label>
         <Input
           id="monthly-budget"
@@ -124,7 +124,7 @@ export function EditHouseholdForm({
         </p>
       ) : null}
 
-      <Button type="submit">Save</Button>
+      <Button type="submit">Guardar</Button>
     </form>
   )
 }

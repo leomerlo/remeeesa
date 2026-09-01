@@ -63,8 +63,8 @@ async function renderForm() {
       authorDisplayName="Ada"
     />,
   )
-  fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
-  await screen.findByLabelText('Name')
+  fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
+  await screen.findByLabelText('Nombre')
   return { db, householdId: household.id }
 }
 
@@ -76,34 +76,34 @@ function fillExpense(fields: {
   readonly date?: string
 }): void {
   if (fields.name !== undefined) {
-    fireEvent.change(screen.getByLabelText('Name'), {
+    fireEvent.change(screen.getByLabelText('Nombre'), {
       target: { value: fields.name },
     })
   }
   if (fields.price !== undefined) {
-    fireEvent.change(screen.getByLabelText('Price'), {
+    fireEvent.change(screen.getByLabelText('Precio'), {
       target: { value: fields.price },
     })
   }
   if (fields.category !== undefined) {
-    fireEvent.change(screen.getByRole('combobox', { name: 'Category' }), {
+    fireEvent.change(screen.getByRole('combobox', { name: 'Categoría' }), {
       target: { value: fields.category },
     })
   }
   if (fields.comments !== undefined) {
-    fireEvent.change(screen.getByLabelText('Comments'), {
+    fireEvent.change(screen.getByLabelText('Comentario'), {
       target: { value: fields.comments },
     })
   }
   if (fields.date !== undefined) {
-    fireEvent.change(screen.getByLabelText('Date'), {
+    fireEvent.change(screen.getByLabelText('Fecha'), {
       target: { value: fields.date },
     })
   }
 }
 
 function submitExpense(): void {
-  fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
 }
 
 describe('AddExpenseForm', () => {
@@ -142,9 +142,9 @@ describe('AddExpenseForm', () => {
     // A successful save closes the sheet: the form unmounts and the
     // trigger button reappears.
     await waitFor(() => {
-      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
       expect(
-        screen.queryByRole('button', { name: 'Add expense' }),
+        screen.queryByRole('button', { name: 'Agregar gasto' }),
       ).toBeInTheDocument()
     })
   })
@@ -170,16 +170,16 @@ describe('AddExpenseForm', () => {
       expect(listed).toHaveLength(1)
     })
     await waitFor(() => {
-      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
 
-    expect(await screen.findByLabelText('Name')).toHaveValue('')
-    expect(screen.getByLabelText('Price')).toHaveValue('')
-    expect(screen.getByLabelText('Category')).toHaveValue('')
-    expect(screen.getByLabelText('Comments')).toHaveValue('')
-    expect(screen.getByLabelText('Date')).toHaveValue(
+    expect(await screen.findByLabelText('Nombre')).toHaveValue('')
+    expect(screen.getByLabelText('Precio')).toHaveValue('')
+    expect(screen.getByLabelText('Categoría')).toHaveValue('')
+    expect(screen.getByLabelText('Comentario')).toHaveValue('')
+    expect(screen.getByLabelText('Fecha')).toHaveValue(
       localDateInputValue(today),
     )
     expect(screen.queryByLabelText(/author/i)).not.toBeInTheDocument()
@@ -198,22 +198,22 @@ describe('AddExpenseForm', () => {
       price: '9',
       comments: 'Unsaved',
     })
-    expect(screen.getByLabelText('Name')).toHaveValue('Draft pizza')
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Draft pizza')
 
     fireEvent.keyDown(document, { key: 'Escape', code: 'Escape' })
 
     await waitFor(() => {
-      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
 
-    expect(await screen.findByLabelText('Name')).toHaveValue('')
-    expect(screen.getByLabelText('Price')).toHaveValue('')
-    expect(screen.getByLabelText('Category')).toHaveValue('')
-    expect(screen.getByLabelText('Comments')).toHaveValue('')
-    expect(screen.getByLabelText('Date')).toHaveValue(
+    expect(await screen.findByLabelText('Nombre')).toHaveValue('')
+    expect(screen.getByLabelText('Precio')).toHaveValue('')
+    expect(screen.getByLabelText('Categoría')).toHaveValue('')
+    expect(screen.getByLabelText('Comentario')).toHaveValue('')
+    expect(screen.getByLabelText('Fecha')).toHaveValue(
       localDateInputValue(today),
     )
   })
@@ -226,7 +226,7 @@ describe('AddExpenseForm', () => {
       price: '9',
       category: 'Comida',
     })
-    expect(screen.getByLabelText('Name')).toHaveValue('Draft pizza')
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Draft pizza')
 
     // Radix's outside-pointer-down listener attaches after a 0ms timeout, to
     // avoid reacting to the same click that opened the dialog.
@@ -237,12 +237,12 @@ describe('AddExpenseForm', () => {
     fireEvent.click(overlay as Element)
 
     await waitFor(() => {
-      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
 
-    expect(await screen.findByLabelText('Name')).toHaveValue('')
+    expect(await screen.findByLabelText('Nombre')).toHaveValue('')
   })
 
   it('discards unsaved input when dismissed via the close control, reopening with empty defaults', async () => {
@@ -253,22 +253,22 @@ describe('AddExpenseForm', () => {
       price: '9',
       category: 'Comida',
     })
-    expect(screen.getByLabelText('Name')).toHaveValue('Draft pizza')
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Draft pizza')
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }))
 
     await waitFor(() => {
-      expect(screen.queryByLabelText('Name')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
     expect(
-      screen.getByRole('button', { name: 'Add expense' }),
+      screen.getByRole('button', { name: 'Agregar gasto' }),
     ).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
 
-    expect(await screen.findByLabelText('Name')).toHaveValue('')
-    expect(screen.getByLabelText('Price')).toHaveValue('')
-    expect(screen.getByLabelText('Category')).toHaveValue('')
+    expect(await screen.findByLabelText('Nombre')).toHaveValue('')
+    expect(screen.getByLabelText('Precio')).toHaveValue('')
+    expect(screen.getByLabelText('Categoría')).toHaveValue('')
   })
 
   it('rejects an empty name', async () => {
@@ -281,7 +281,7 @@ describe('AddExpenseForm', () => {
     })
     submitExpense()
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/name/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/nombre/i)
     expect(
       await listExpensesInMonth({
         db,
@@ -301,7 +301,7 @@ describe('AddExpenseForm', () => {
     })
     submitExpense()
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/name/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/nombre/i)
     expect(
       await listExpensesInMonth({
         db,
@@ -321,7 +321,7 @@ describe('AddExpenseForm', () => {
     })
     submitExpense()
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/price/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/precio/i)
     expect(
       await listExpensesInMonth({
         db,
@@ -340,7 +340,7 @@ describe('AddExpenseForm', () => {
       category: 'Comida',
     })
     submitExpense()
-    expect(screen.getByRole('alert')).toHaveTextContent(/price/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/precio/i)
 
     fillExpense({
       name: 'Pizza',
@@ -348,7 +348,7 @@ describe('AddExpenseForm', () => {
       category: 'Comida',
     })
     submitExpense()
-    expect(screen.getByRole('alert')).toHaveTextContent(/price/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/precio/i)
     expect(
       await listExpensesInMonth({
         db,
@@ -371,7 +371,7 @@ describe('AddExpenseForm', () => {
     })
     submitExpense()
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/future/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/futura/i)
     expect(
       await listExpensesInMonth({
         db,
@@ -429,7 +429,7 @@ describe('AddExpenseForm', () => {
     }
 
     fillExpense({ name: 'Internet', price: '15' })
-    const combobox = screen.getByRole('combobox', { name: 'Category' })
+    const combobox = screen.getByRole('combobox', { name: 'Categoría' })
     fireEvent.focus(combobox)
 
     const option = await screen.findByRole('option', { name: 'Servicios' })
@@ -466,10 +466,10 @@ describe('AddExpenseForm', () => {
     }
 
     fillExpense({ name: 'Groceries', price: '5' })
-    const combobox = screen.getByRole('combobox', { name: 'Category' })
+    const combobox = screen.getByRole('combobox', { name: 'Categoría' })
     fireEvent.focus(combobox)
 
-    const listbox = await screen.findByRole('listbox', { name: 'Categories' })
+    const listbox = await screen.findByRole('listbox', { name: 'Categorías' })
     expect(combobox).toHaveAttribute('aria-controls', listbox.id)
 
     fireEvent.keyDown(combobox, { key: 'ArrowDown' })
@@ -504,13 +504,13 @@ describe('AddExpenseForm', () => {
     readonly combobox: HTMLElement
   }> {
     await renderForm()
-    const combobox = screen.getByRole('combobox', { name: 'Category' })
+    const combobox = screen.getByRole('combobox', { name: 'Categoría' })
     // React Query resolves `listCategories` asynchronously; open once and
     // close so the categories are cached before a test exercises the
     // closed-state keyboard branches (they'd otherwise navigate an
     // empty list on the first synchronous keydown).
     fireEvent.focus(combobox)
-    await screen.findByRole('listbox', { name: 'Categories' })
+    await screen.findByRole('listbox', { name: 'Categorías' })
     fireEvent.keyDown(combobox, { key: 'Escape' })
     await waitFor(() => {
       expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
@@ -558,7 +558,7 @@ describe('AddExpenseForm', () => {
 
   it('closes the list on Escape without changing the field value', async () => {
     await renderForm()
-    const combobox = screen.getByRole('combobox', { name: 'Category' })
+    const combobox = screen.getByRole('combobox', { name: 'Categoría' })
 
     fireEvent.change(combobox, { target: { value: 'serv' } })
     await screen.findByRole('option', { name: 'Servicios' })
@@ -572,7 +572,7 @@ describe('AddExpenseForm', () => {
 
   it('narrows the option list to categories matching typed text, case-insensitively', async () => {
     await renderForm()
-    const combobox = screen.getByRole('combobox', { name: 'Category' })
+    const combobox = screen.getByRole('combobox', { name: 'Categoría' })
 
     fireEvent.change(combobox, { target: { value: 'SERV' } })
 
@@ -587,10 +587,10 @@ describe('AddExpenseForm', () => {
 
   it('closes the list when Enter is pressed on free text with no option highlighted', async () => {
     await renderForm()
-    const combobox = screen.getByRole('combobox', { name: 'Category' })
+    const combobox = screen.getByRole('combobox', { name: 'Categoría' })
 
     fireEvent.change(combobox, { target: { value: 'Cultura' } })
-    await screen.findByText('No matching categories')
+    await screen.findByText('No hay categorías que coincidan')
     expect(combobox).toHaveAttribute('aria-expanded', 'true')
 
     fireEvent.keyDown(combobox, { key: 'Enter' })
@@ -602,10 +602,10 @@ describe('AddExpenseForm', () => {
 
   it('does not silently select a stale highlighted option after the list closes from an outside interaction', async () => {
     await renderForm()
-    const combobox = screen.getByRole('combobox', { name: 'Category' })
+    const combobox = screen.getByRole('combobox', { name: 'Categoría' })
 
     fireEvent.focus(combobox)
-    await screen.findByRole('listbox', { name: 'Categories' })
+    await screen.findByRole('listbox', { name: 'Categorías' })
     fireEvent.keyDown(combobox, { key: 'ArrowDown' })
     await screen.findByRole('option', { name: 'Comida' })
 
@@ -621,10 +621,10 @@ describe('AddExpenseForm', () => {
     await waitFor(() => {
       expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
     })
-    expect(screen.getByLabelText('Name')).toBeInTheDocument()
+    expect(screen.getByLabelText('Nombre')).toBeInTheDocument()
 
     fireEvent.focus(combobox)
-    await screen.findByRole('listbox', { name: 'Categories' })
+    await screen.findByRole('listbox', { name: 'Categorías' })
     fireEvent.keyDown(combobox, { key: 'Enter' })
 
     expect(combobox).toHaveValue('')
@@ -650,14 +650,14 @@ describe('AddExpenseForm', () => {
         authorDisplayName="Ada"
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
-    await screen.findByLabelText('Name')
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
+    await screen.findByLabelText('Nombre')
 
-    const combobox = screen.getByRole('combobox', { name: 'Category' })
+    const combobox = screen.getByRole('combobox', { name: 'Categoría' })
     fireEvent.focus(combobox)
 
     expect(
-      await screen.findByText('No matching categories'),
+      await screen.findByText('No hay categorías que coincidan'),
     ).toBeInTheDocument()
     expect(screen.queryByRole('option')).not.toBeInTheDocument()
   })
@@ -745,7 +745,7 @@ describe('AddExpenseForm', () => {
     })
     submitExpense()
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/category/i)
+    expect(screen.getByRole('alert')).toHaveTextContent(/categoría/i)
     expect(
       await listExpensesInMonth({
         db,
@@ -759,8 +759,8 @@ describe('AddExpenseForm', () => {
     await renderForm()
     const today = localDateInputValue(new Date())
 
-    expect(screen.getByLabelText('Date')).toHaveValue(today)
-    expect(screen.getByLabelText('Date')).toHaveAttribute('max', today)
+    expect(screen.getByLabelText('Fecha')).toHaveValue(today)
+    expect(screen.getByLabelText('Fecha')).toHaveAttribute('max', today)
   })
 
   it('creates a new category from free text and stores comments as empty when omitted', async () => {
@@ -815,8 +815,8 @@ describe('AddExpenseForm', () => {
         <MonthExpenseCount db={db} householdId={household.id} />
       </>,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
-    await screen.findByLabelText('Name')
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
+    await screen.findByLabelText('Nombre')
 
     expect(await screen.findByText('Month expenses: 0')).toBeInTheDocument()
     fillExpense({
@@ -857,8 +857,8 @@ describe('AddExpenseForm', () => {
         authorDisplayName="Ada"
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
-    await screen.findByLabelText('Name')
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
+    await screen.findByLabelText('Nombre')
 
     fillExpense({
       name: 'Pizza',
@@ -868,7 +868,7 @@ describe('AddExpenseForm', () => {
     submitExpense()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Could not save category: Missing or insufficient permissions.',
+      'No se pudo guardar la categoría: Missing or insufficient permissions.',
     )
   })
 
@@ -898,8 +898,8 @@ describe('AddExpenseForm', () => {
         authorDisplayName="Ada"
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
-    await screen.findByLabelText('Name')
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
+    await screen.findByLabelText('Nombre')
 
     fillExpense({
       name: 'Pizza',
@@ -909,7 +909,7 @@ describe('AddExpenseForm', () => {
     submitExpense()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Could not add expense: Missing or insufficient permissions.',
+      'No se pudo agregar el gasto: Missing or insufficient permissions.',
     )
   })
 
@@ -939,10 +939,10 @@ describe('AddExpenseForm', () => {
         authorDisplayName="Ada"
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Add expense' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Could not load categories: Missing or insufficient permissions.',
+      'No se pudo cargar las categorías: Missing or insufficient permissions.',
     )
   })
 })

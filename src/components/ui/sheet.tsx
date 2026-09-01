@@ -29,7 +29,7 @@ function Sheet({ open, onOpenChange, title, children }: SheetProps) {
             className="hover:bg-muted focus-visible:border-ring focus-visible:ring-ring/50 absolute top-3 right-3 flex h-11 w-11 items-center justify-center rounded-full outline-none focus-visible:ring-3"
           >
             <X className="size-5" aria-hidden="true" />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">Cerrar</span>
           </Dialog.Close>
           {/* Only this body scrolls -- the close button above stays pinned
               in the non-scrolling part of Dialog.Content so it never

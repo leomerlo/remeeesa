@@ -81,7 +81,7 @@ describe('AppShell', () => {
     renderShell({ currentUserId: 'user-1', householdsDb: db })
 
     const nav = await screen.findByRole('navigation')
-    expect(within(nav).getByRole('link', { name: /home/i })).toHaveAttribute(
+    expect(within(nav).getByRole('link', { name: /inicio/i })).toHaveAttribute(
       'aria-current',
       'page',
     )
@@ -117,7 +117,7 @@ describe('AppShell', () => {
       'page',
     )
     expect(
-      within(nav).getByRole('link', { name: /home/i }),
+      within(nav).getByRole('link', { name: /inicio/i }),
     ).not.toHaveAttribute('aria-current', 'page')
   })
 
@@ -158,7 +158,7 @@ describe('AppShell', () => {
       within(nav).getByRole('link', { name: /histórico/i }),
     ).toHaveAttribute('aria-current', 'page')
     expect(
-      within(nav).getByRole('link', { name: /home/i }),
+      within(nav).getByRole('link', { name: /inicio/i }),
     ).not.toHaveAttribute('aria-current', 'page')
     expect(
       within(nav).getByRole('link', { name: /categorías/i }),
@@ -187,7 +187,7 @@ describe('AppShell', () => {
       within(nav).getByRole('link', { name: /categorías/i }),
     ).toHaveAttribute('aria-current', 'page')
     expect(
-      within(nav).getByRole('link', { name: /home/i }),
+      within(nav).getByRole('link', { name: /inicio/i }),
     ).not.toHaveAttribute('aria-current', 'page')
   })
 

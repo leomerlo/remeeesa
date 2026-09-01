@@ -52,7 +52,7 @@ describe('parseHouseholdDocument', () => {
           created_at: new Date('2026-01-15T12:00:00.000Z'),
         },
       }),
-    ).toThrow('Household name must be non-empty')
+    ).toThrow('El nombre del hogar no puede estar vacío')
   })
 
   it('rejects a non-positive monthly_budget', () => {
@@ -65,7 +65,7 @@ describe('parseHouseholdDocument', () => {
           created_at: new Date('2026-01-15T12:00:00.000Z'),
         },
       }),
-    ).toThrow('Monthly budget must be a positive number')
+    ).toThrow('El presupuesto mensual debe ser un número positivo')
   })
 })
 

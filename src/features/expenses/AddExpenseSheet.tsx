@@ -78,10 +78,10 @@ export function AddExpenseSheet({
             onOpenChange(true)
           }}
         >
-          Add expense
+          Agregar gasto
         </Button>
       ) : null}
-      <Sheet open={open} onOpenChange={handleOpenChange} title="Add expense">
+      <Sheet open={open} onOpenChange={handleOpenChange} title="Agregar gasto">
         <AddExpenseForm
           db={db}
           householdId={householdId}
