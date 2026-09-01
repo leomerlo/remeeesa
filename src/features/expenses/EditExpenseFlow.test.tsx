@@ -13,7 +13,7 @@ import type { Expense } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
-import { AddExpenseForm } from './AddExpenseForm'
+import { AddExpenseSheet } from './AddExpenseSheet'
 import type { EditExpenseTarget } from './AddExpenseForm'
 import { ExpenseList } from './ExpenseList'
 import { RemainingBudgetDisplay } from './RemainingBudgetDisplay'
@@ -59,11 +59,14 @@ function EditExpenseHarness(props: {
   readonly authorDisplayName: string
 }): ReactElement {
   const [editExpense, setEditExpense] = useState<EditExpenseTarget | null>(null)
+  const [isAddExpenseSheetOpen, setIsAddExpenseSheetOpen] = useState(false)
 
   return (
     <>
       <RemainingBudgetDisplay db={props.db} householdId={props.householdId} />
-      <AddExpenseForm
+      <AddExpenseSheet
+        open={isAddExpenseSheetOpen}
+        onOpenChange={setIsAddExpenseSheetOpen}
         db={props.db}
         householdId={props.householdId}
         memberId={props.memberId}
@@ -356,4 +359,19 @@ describe('EditExpenseFlow', () => {
       }),
     ])
   })
+
+  // Note: a focus-restore-on-dismiss test for edit mode was planned here,
+  // on the assumption that Radix's default focus-restoration would handle
+  // it with no extra code (the row's Edit button never unmounts, unlike the
+  // add-mode trigger). That assumption doesn't hold: Radix's modal
+  // Dialog.Content unconditionally overrides FocusScope's own
+  // restore-to-previously-focused-element default with
+  // `context.triggerRef.current?.focus()` -- and since `Sheet` never
+  // renders a `Dialog.Trigger`, `triggerRef.current` is always null, so
+  // dismissing the sheet leaves focus on `document.body` regardless of
+  // which mode opened it. This isn't a regression from the pre-#71 inline
+  // edit form (which had no dismiss-driven focus restoration either) and
+  // isn't part of #71's acceptance criteria, so it's left as-is rather than
+  // adding unscoped focus-management code; see the PR description for a
+  // suggested follow-up.
 })
