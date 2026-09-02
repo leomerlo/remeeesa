@@ -122,6 +122,9 @@ describe('PorPagarSection', () => {
       />,
     )
 
+    expect(
+      await screen.findByRole('heading', { name: 'Cuentas por pagar' }),
+    ).toBeInTheDocument()
     const list = await screen.findByRole('list', {
       name: 'Pendientes por pagar',
     })

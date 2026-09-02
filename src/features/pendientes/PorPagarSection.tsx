@@ -19,7 +19,7 @@ export type PorPagarSectionProps = {
 
 const HOME_PREVIEW_LIMIT = 5
 
-// Home's "Por pagar" preview: the soonest-due pending Pendientes as a
+// Home's "Cuentas por pagar" preview: the soonest-due pending Pendientes as a
 // horizontally-scrollable row of compact cards, matching the approved Home
 // comp. Deliberately a separate component from PendientesList rather
 // than a parameterization of it -- that one is the full vertical list on
@@ -52,7 +52,7 @@ export function PorPagarSection({
     return (
       <section aria-labelledby="por-pagar-heading" className="w-full">
         <h2 id="por-pagar-heading" className="text-title font-semibold">
-          Por pagar
+          Cuentas por pagar
         </h2>
         <div
           role="status"
@@ -63,10 +63,10 @@ export function PorPagarSection({
           {[0, 1].map((i) => (
             <div
               key={i}
-              className="bg-card shadow-resting flex h-full w-44 shrink-0 flex-col gap-2 rounded-2xl p-4"
+              className="bg-card shadow-resting flex h-full w-36 shrink-0 flex-col gap-1.5 rounded-2xl p-3"
             >
-              <Skeleton className="size-10 shrink-0 rounded-full" />
-              <Skeleton className="mt-auto h-6 w-20" />
+              <Skeleton className="size-8 shrink-0 rounded-full" />
+              <Skeleton className="mt-auto h-5 w-16" />
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-3 w-2/3" />
             </div>
@@ -102,7 +102,7 @@ export function PorPagarSection({
     <section aria-labelledby="por-pagar-heading" className="w-full">
       <div className="flex items-baseline justify-between gap-2">
         <h2 id="por-pagar-heading" className="text-title font-semibold">
-          Por pagar
+          Cuentas por pagar
         </h2>
         {hasOverflow ? (
           <Link
@@ -144,23 +144,23 @@ export function PorPagarSection({
               <button
                 type="button"
                 aria-label={`Marcar pagado ${pendiente.name}`}
-                className="bg-card shadow-resting flex h-full w-44 shrink-0 flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
+                className="bg-card shadow-resting flex h-full w-36 shrink-0 flex-col gap-1.5 rounded-2xl p-3 text-left transition-transform active:scale-[0.98]"
                 onClick={() => {
                   onMarkPaid(pendiente)
                 }}
               >
                 <span
                   aria-hidden="true"
-                  className="flex size-10 shrink-0 items-center justify-center rounded-full"
+                  className="flex size-8 shrink-0 items-center justify-center rounded-full"
                   style={{ backgroundColor: categoryColor }}
                 >
                   <CategoryIcon
-                    className="size-5 text-white"
+                    className="size-4 text-white"
                     aria-hidden="true"
                   />
                 </span>
                 {pendiente.expectedAmount !== null ? (
-                  <span className="font-display text-lg text-foreground">
+                  <span className="font-display text-base text-foreground">
                     {formatBudgetAmount(pendiente.expectedAmount)}
                   </span>
                 ) : null}
@@ -169,10 +169,10 @@ export function PorPagarSection({
                     has no amount would sit its name where its neighbours
                     show their price, and nothing would line up across the
                     row. */}
-                <span className="text-foreground mt-auto truncate font-medium">
+                <span className="text-foreground mt-auto truncate text-sm font-medium">
                   {pendiente.name}
                 </span>
-                {/* Two lines rather than one truncated one: at w-44
+                {/* Two lines rather than one truncated one: at w-36
                     "Servicios · 4 de sept de 2026" clipped to
                     "Servicios · 4 de sept de 2…", hiding the year. */}
                 <span className="text-muted-foreground flex flex-col text-xs">

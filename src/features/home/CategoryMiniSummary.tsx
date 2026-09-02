@@ -81,19 +81,23 @@ export function CategoryMiniSummary({
     return null
   }
 
-  // Title outside, each row its own card -- matches "Últimos movimientos"
-  // above it, rather than the whole section living inside one shared card.
+  // Title outside; rows share one card, separated by a thin divider --
+  // a tidy list rather than a card per row (that treatment stays on
+  // "Últimos movimientos" above, whose rows carry more weight: an icon,
+  // amount, and two lines of meta, vs. this section's plain name + total).
   return (
     <div className="flex w-full flex-col gap-3">
-      <h2 className="text-title font-semibold self-start">Categorías</h2>
+      <h2 className="text-title font-semibold self-start">
+        Gastos por categoría
+      </h2>
       <ul
         aria-label="Gastos por categoría"
-        className="flex w-full flex-col gap-3 text-sm"
+        className="bg-card shadow-resting divide-border flex w-full flex-col divide-y rounded-2xl text-sm"
       >
         {summary.map((entry) => (
           <li
             key={entry.categoryId}
-            className="bg-card shadow-resting flex items-center justify-between gap-2 rounded-2xl p-4"
+            className="flex items-center justify-between gap-2 p-4"
           >
             <span className="flex min-w-0 items-center gap-2">
               <span

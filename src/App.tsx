@@ -31,7 +31,7 @@ export function AppRoutes({
           vertically centered with a dead gap above it. Tall screens (Home,
           the auth flow) already overflow past one viewport, where centering
           would have had no visible effect anyway. */}
-      <main className="mx-auto flex min-h-svh w-full max-w-md flex-col items-center gap-6 px-6 pt-12 sm:max-w-lg sm:px-8">
+      <main className="mx-auto flex min-h-svh w-full max-w-md flex-col items-center gap-6 px-6 pt-6 sm:max-w-lg sm:px-8">
         <Routes>
           <Route
             element={

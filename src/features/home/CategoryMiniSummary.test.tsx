@@ -106,6 +106,9 @@ describe('CategoryMiniSummary', () => {
       <CategoryMiniSummary db={db} householdId={household.id} />,
     )
 
+    expect(
+      await screen.findByRole('heading', { name: 'Gastos por categoría' }),
+    ).toBeInTheDocument()
     const list = await screen.findByRole('list', {
       name: 'Gastos por categoría',
     })
