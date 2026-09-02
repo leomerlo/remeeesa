@@ -1,7 +1,11 @@
 import { fireEvent, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { createExpense, listCategories } from '@/lib/expenses'
-import { createHouseholdWithMembership, leaveHousehold } from '@/lib/households'
+import {
+  createHouseholdWithMembership,
+  leaveHousehold,
+  updateMemberDisplayName,
+} from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { RecentExpensesList } from './RecentExpensesList'
@@ -63,12 +67,19 @@ describe('RecentExpensesList', () => {
     vi.setSystemTime(fixedNow)
 
     try {
-      const db = createMemoryHouseholdsDb().asUser('user-1')
+      const store = createMemoryHouseholdsDb()
+      const db = store.asUser('user-1')
       const household = await createHouseholdWithMembership({
         db,
         userId: 'user-1',
         name: 'Casa Verde',
         monthlyBudget: 100,
+        displayName: 'Ada',
+      })
+      store.seedMembership({
+        userId: 'user-2',
+        householdId: household.id,
+        displayName: 'Bob',
       })
       const categories = await listCategories({
         db,
@@ -98,10 +109,10 @@ describe('RecentExpensesList', () => {
         expenseDate: earlierDate,
       })
       await createExpense({
-        db,
+        db: store.asUser('user-2'),
         householdId: household.id,
         categoryId: transporte.id,
-        memberId: 'user-1',
+        memberId: 'user-2',
         authorDisplayName: 'Bob',
         name: 'Taxi',
         price: 8.25,
@@ -258,6 +269,54 @@ describe('RecentExpensesList', () => {
     expect(row).toHaveTextContent('Pizza')
     expect(row).toHaveTextContent('$12,50')
     expect(row).toHaveTextContent('Ada')
+  })
+
+  // Regression: authorDisplayName is a snapshot taken when the expense was
+  // created, so it used to go stale the moment a member corrected their name
+  // in Ajustes -- old rows kept showing the name they'd since changed away
+  // from. The row must reflect the member's *current* name, not the one
+  // frozen on the expense.
+  it("shows the member's current display name, not the stale one stored on the expense", async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+      displayName: 'Florencia Sepúlveda',
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories.find((category) => category.name === 'Comida')
+    expect(comida).toBeDefined()
+    if (comida === undefined) {
+      throw new Error('expected Comida category')
+    }
+    await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Florencia Sepúlveda',
+      name: 'Veterinario',
+      price: 9000,
+      comments: '',
+      expenseDate: new Date(),
+    })
+
+    await updateMemberDisplayName({
+      db,
+      householdId: household.id,
+      userId: 'user-1',
+      displayName: 'Jlors',
+    })
+
+    renderWithProviders(
+      <RecentExpensesList db={db} householdId={household.id} />,
+    )
+
+    const row = await screen.findByRole('listitem')
+    expect(row).toHaveTextContent('Jlors')
+    expect(row).not.toHaveTextContent('Florencia Sepúlveda')
   })
 
   // Matches the approved comp: rows are plain, buttonless cards -- tapping

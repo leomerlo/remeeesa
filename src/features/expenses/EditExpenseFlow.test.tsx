@@ -331,6 +331,7 @@ describe('EditExpenseFlow', () => {
       userId: 'user-1',
       name: 'Casa Verde',
       monthlyBudget: 100,
+      displayName: 'Ada',
     })
     store.seedMembership({ userId: 'user-2', householdId: household.id })
     await seedCurrentMonthExpense({

@@ -8,7 +8,10 @@ import {
   formatCurrency,
   listCategories,
 } from '@/lib/expenses'
-import { createHouseholdWithMembership } from '@/lib/households'
+import {
+  createHouseholdWithMembership,
+  updateMemberDisplayName,
+} from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
@@ -300,5 +303,47 @@ describe('HistoricoPage', () => {
     expect(monthHeading.parentElement).toHaveTextContent(
       formatCurrency(10 * (EXPENSE_HISTORY_PAGE_SIZE + 3)),
     )
+  })
+
+  // Regression: authorDisplayName is a snapshot taken when the expense was
+  // created, so it used to go stale the moment a member corrected their name
+  // in Ajustes -- old rows in Histórico kept showing the name they'd since
+  // changed away from.
+  it("shows the member's current display name, not the stale one stored on a past expense", async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+      displayName: 'Florencia Sepúlveda',
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const category = categories[0]
+    if (category === undefined) {
+      throw new Error('expected a seeded category')
+    }
+    await seed({
+      db,
+      householdId: household.id,
+      categoryId: category.id,
+      name: 'Veterinario',
+      date: new Date(2026, 2, 15),
+    })
+
+    await updateMemberDisplayName({
+      db,
+      householdId: household.id,
+      userId: 'user-1',
+      displayName: 'Jlors',
+    })
+
+    renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+
+    const row = await screen.findByRole('button', {
+      name: 'Editar Veterinario',
+    })
+    expect(row).toHaveTextContent('Jlors')
+    expect(row).not.toHaveTextContent('Florencia Sepúlveda')
   })
 })

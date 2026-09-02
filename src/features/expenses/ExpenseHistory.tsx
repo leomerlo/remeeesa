@@ -1,8 +1,9 @@
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { AlertMessage } from '@/components/ui/alert-message'
 import type { ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { membersQueryKey } from '@/features/household'
 import {
   formatCurrency,
   listCategories,
@@ -13,7 +14,8 @@ import type { Category, Expense, ExpenseHistoryCursor } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { formatMonthLabel, formatShortDate } from '@/lib/format'
-import type { HouseholdsDb } from '@/lib/households'
+import { listHouseholdMembers } from '@/lib/households'
+import type { HouseholdMember, HouseholdsDb } from '@/lib/households'
 import { EmptyExpensesIllustration } from './EmptyExpensesIllustration'
 import { expenseHistoryQueryKey } from './queryKeys'
 
@@ -69,11 +71,13 @@ function ExpenseRow({
   expense,
   category,
   CategoryIcon,
+  authorDisplayName,
   onEditExpense,
 }: {
   readonly expense: Expense
   readonly category: Category | undefined
   readonly CategoryIcon: LucideIcon
+  readonly authorDisplayName: string
   readonly onEditExpense?: (expense: Expense, categoryName: string) => void
 }): ReactElement {
   const categoryName = category?.name ?? 'Categoría desconocida'
@@ -103,7 +107,7 @@ function ExpenseRow({
           <span aria-hidden="true">·</span>
           <span>{formatShortDate(expense.expenseDate)}</span>
           <span aria-hidden="true">·</span>
-          <span>{expense.authorDisplayName}</span>
+          <span>{authorDisplayName}</span>
         </div>
       </div>
     </>
@@ -158,8 +162,16 @@ export function ExpenseHistory({
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor,
   })
+  // Resolved live rather than trusting each Expense's stored
+  // authorDisplayName, which is a snapshot from creation/last reassignment
+  // and goes stale once someone corrects their name in Ajustes -- see the
+  // matching comment in RecentExpensesList.
+  const membersQuery = useQuery({
+    queryKey: membersQueryKey({ householdId }),
+    queryFn: () => listHouseholdMembers({ db, householdId }),
+  })
 
-  if (historyQuery.isPending) {
+  if (historyQuery.isPending || membersQuery.isPending) {
     return (
       <div
         role="status"
@@ -186,10 +198,13 @@ export function ExpenseHistory({
     )
   }
 
-  if (historyQuery.isError) {
+  if (historyQuery.isError || membersQuery.isError) {
+    const failed = historyQuery.isError
+      ? historyQuery.error
+      : membersQuery.error
     const message =
-      historyQuery.error instanceof Error
-        ? historyQuery.error.message
+      failed instanceof Error
+        ? failed.message
         : 'No se pudo cargar el histórico'
     return <AlertMessage>{message}</AlertMessage>
   }
@@ -211,6 +226,9 @@ export function ExpenseHistory({
 
   const categoryById = new Map(
     categories.map((category) => [category.id, category]),
+  )
+  const memberById = new Map<string, HouseholdMember>(
+    membersQuery.data.map((member) => [member.userId, member]),
   )
   const monthGroups = groupByMonth(expenses)
 
@@ -254,6 +272,10 @@ export function ExpenseHistory({
                     CategoryIcon={iconForCategoryName(
                       category?.name ?? 'Categoría desconocida',
                     )}
+                    authorDisplayName={
+                      memberById.get(expense.memberId)?.displayName ??
+                      expense.authorDisplayName
+                    }
                     {...(onEditExpense === undefined ? {} : { onEditExpense })}
                   />
                 )

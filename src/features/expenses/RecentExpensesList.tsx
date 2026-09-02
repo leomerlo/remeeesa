@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import type { ReactElement } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { categoriesQueryKey } from '@/features/expenses'
+import { membersQueryKey } from '@/features/household'
 import {
   currentMonthRange,
   formatCurrency,
@@ -14,6 +15,7 @@ import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { formatShortDate } from '@/lib/format'
 import type { Expense } from '@/lib/expenses'
+import { listHouseholdMembers } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { EmptyExpensesIllustration } from './EmptyExpensesIllustration'
 import { expensesInMonthQueryKey } from './queryKeys'
@@ -76,8 +78,21 @@ export function RecentExpensesList({
     queryKey: categoriesQueryKey({ householdId }),
     queryFn: () => listCategories({ db, householdId }),
   })
+  // Author name is resolved live from the current member list rather than
+  // trusted from the expense's own stored authorDisplayName: that field is a
+  // snapshot taken when the expense was created/last reassigned, so it goes
+  // stale the moment someone corrects their name in Ajustes. Falling back to
+  // the stored value covers a member who has since left the household.
+  const membersQuery = useQuery({
+    queryKey: membersQueryKey({ householdId }),
+    queryFn: () => listHouseholdMembers({ db, householdId }),
+  })
 
-  if (expensesQuery.isPending || categoriesQuery.isPending) {
+  if (
+    expensesQuery.isPending ||
+    categoriesQuery.isPending ||
+    membersQuery.isPending
+  ) {
     return (
       <div
         role="status"
@@ -101,10 +116,14 @@ export function RecentExpensesList({
     )
   }
 
-  if (expensesQuery.isError || categoriesQuery.isError) {
+  if (
+    expensesQuery.isError ||
+    categoriesQuery.isError ||
+    membersQuery.isError
+  ) {
     const failed = expensesQuery.isError
       ? expensesQuery.error
-      : categoriesQuery.error
+      : (categoriesQuery.error ?? membersQuery.error)
     const message =
       failed instanceof Error ? failed.message : 'No se pudo cargar los gastos'
     return <AlertMessage>{message}</AlertMessage>
@@ -125,6 +144,9 @@ export function RecentExpensesList({
 
   const categoryById = new Map(
     categories.map((category) => [category.id, category]),
+  )
+  const memberById = new Map(
+    membersQuery.data.map((member) => [member.userId, member]),
   )
 
   return (
@@ -163,7 +185,10 @@ export function RecentExpensesList({
                 <span aria-hidden="true">·</span>
                 <span>{formatShortDate(expense.expenseDate)}</span>
                 <span aria-hidden="true">·</span>
-                <span>{expense.authorDisplayName}</span>
+                <span>
+                  {memberById.get(expense.memberId)?.displayName ??
+                    expense.authorDisplayName}
+                </span>
               </div>
             </div>
           </>
