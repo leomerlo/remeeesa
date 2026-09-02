@@ -1,4 +1,5 @@
 import type { ReactElement, ReactNode, Ref } from 'react'
+import { Home } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export type PageHeaderProps = {
@@ -7,10 +8,11 @@ export type PageHeaderProps = {
   // the baseline with the title rather than becoming a second heading.
   readonly trailing?: ReactNode
   readonly headingRef?: Ref<HTMLHeadingElement>
-  // Home passes this for the household's own chosen name: the same violet
-  // gradient the budget hero and auth cards use, so the one title on this
-  // screen that is actually *yours* (not a generic screen label like every
-  // other page's title) reads as such. Every other PageHeader stays plain.
+  // Home passes this for the household's own chosen name: a leading house
+  // icon plus the same violet gradient the budget hero and auth cards use,
+  // so the one title on this screen that is actually *yours* (not a generic
+  // screen label like every other page's title) reads as such. Every other
+  // PageHeader stays plain.
   readonly gradient?: boolean
 }
 
@@ -33,13 +35,22 @@ export function PageHeader({
       <h1
         ref={headingRef}
         tabIndex={-1}
-        className={cn(
-          'text-title font-semibold outline-none',
-          gradient &&
-            'from-primary to-[var(--surface-action-gradient-end)] bg-gradient-to-br bg-clip-text text-transparent',
-        )}
+        className="flex items-center gap-2 text-title font-semibold outline-none"
       >
-        {title}
+        {gradient ? (
+          <Home className="text-primary size-5 shrink-0" aria-hidden="true" />
+        ) : null}
+        {/* The gradient clips to this span specifically, not the whole h1 --
+            Home's icon uses currentColor, so text-transparent on a shared
+            ancestor would make the icon disappear along with the text. */}
+        <span
+          className={cn(
+            gradient &&
+              'from-primary to-[var(--surface-action-gradient-end)] bg-gradient-to-br bg-clip-text text-transparent',
+          )}
+        >
+          {title}
+        </span>
       </h1>
       {trailing === undefined ? null : (
         <span className="text-muted-foreground shrink-0 text-sm font-medium">
