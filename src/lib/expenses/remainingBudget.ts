@@ -16,15 +16,26 @@ export function formatBudgetAmount(amount: number): string {
   return amount < 0 ? `-${formatCurrency(amount)}` : formatCurrency(amount)
 }
 
-export function computeRemainingBudget(
-  monthlyBudget: number,
+// The one summation every figure on the budget card is derived from: what
+// the household has actually spent this month. Shared rather than repeated
+// per figure so "spent" always means the same sum everywhere it appears --
+// the ascending "Gastado" card, the descending "Presupuesto restante" card,
+// and the progress bar's percentage all read from this same number.
+export function computeSpentThisMonth(
   expenses: readonly { price: number }[],
 ): number {
   let sum = 0
   for (const expense of expenses) {
     sum += expense.price
   }
-  return monthlyBudget - sum
+  return sum
+}
+
+export function computeRemainingBudget(
+  monthlyBudget: number,
+  expenses: readonly { price: number }[],
+): number {
+  return monthlyBudget - computeSpentThisMonth(expenses)
 }
 
 // A 0 (or negative) monthlyBudget has nothing meaningful to divide by, so
@@ -38,10 +49,7 @@ export function computePercentUsed(
   monthlyBudget: number,
   expenses: readonly { price: number }[],
 ): number {
-  let spent = 0
-  for (const expense of expenses) {
-    spent += expense.price
-  }
+  const spent = computeSpentThisMonth(expenses)
   if (monthlyBudget <= 0) {
     return spent > 0 ? 100 : 0
   }

@@ -9,6 +9,7 @@ import {
   formatBudgetAmount,
   listExpensesInMonth,
 } from '@/lib/expenses'
+import { formatMonthLabel } from '@/lib/format'
 import { getHousehold } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { PiggyBankIllustration } from './PiggyBankIllustration'
@@ -65,6 +66,12 @@ export function RemainingBudgetDisplay({
           page title again. */}
       <PiggyBankIllustration className="pointer-events-none absolute -top-14 -right-3 h-28 w-32" />
       <div className="flex flex-col gap-2 pr-16">
+        {/* The small month label is what tells this card and Gastado este
+            mes's card apart from a figure that means "always" -- without it,
+            "restante" alone doesn't say restante of what period. */}
+        <span className="text-primary-foreground/70 text-xs font-medium">
+          {formatMonthLabel(monthRange.monthStart)}
+        </span>
         <span className="text-primary-foreground text-body font-medium">
           Presupuesto restante
         </span>

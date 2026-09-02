@@ -23,6 +23,7 @@ export { CATEGORY_COLOR_PALETTE } from './categoryColor'
 export {
   computePercentUsed,
   computeRemainingBudget,
+  computeSpentThisMonth,
   currentMonthRange,
   formatBudgetAmount,
   formatCurrency,

@@ -97,6 +97,12 @@ describe('HomePage', () => {
         name: /presupuesto restante \$100/i,
       }),
     ).toHaveTextContent('$100,00')
+    // The two cards read from the same month's expenses, from opposite
+    // ends: Gastado counts up from zero, Presupuesto restante counts down
+    // from the budget.
+    expect(
+      screen.getByRole('status', { name: 'Gastado este mes $0,00' }),
+    ).toHaveTextContent('$0,00')
     expect(await screen.findByText('Todavía no hay gastos')).toBeInTheDocument()
     expect(
       screen.getByRole('progressbar', { name: '% usado' }),

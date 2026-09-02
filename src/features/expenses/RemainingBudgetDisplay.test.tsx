@@ -5,6 +5,7 @@ import { createExpense, listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
+import { formatMonthLabel } from '@/lib/format'
 import { expensesInMonthQueryKey } from './queryKeys'
 import { RemainingBudgetDisplay } from './RemainingBudgetDisplay'
 
@@ -54,6 +55,19 @@ describe('RemainingBudgetDisplay', () => {
       }),
     ).toHaveTextContent('$100,00')
     expect(screen.getByText('Presupuesto restante')).toBeInTheDocument()
+  })
+
+  // Same reasoning as SpentThisMonthDisplay's label: without it, nothing on
+  // the card says which month "restante" is even counting down.
+  it('labels the card with the current month', async () => {
+    const { db, household } = await seedHousehold(100)
+
+    renderWithProviders(
+      <RemainingBudgetDisplay db={db} householdId={household.id} />,
+    )
+
+    await screen.findByText('Presupuesto restante')
+    expect(screen.getByText(formatMonthLabel(new Date()))).toBeInTheDocument()
   })
 
   it('shows a progress bar at 0% used and the piggy-bank illustration when there are no expenses', async () => {

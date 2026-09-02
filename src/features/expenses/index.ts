@@ -13,6 +13,8 @@ export { RecentExpensesList } from './RecentExpensesList'
 export type { RecentExpensesListProps } from './RecentExpensesList'
 export { RemainingBudgetDisplay } from './RemainingBudgetDisplay'
 export type { RemainingBudgetDisplayProps } from './RemainingBudgetDisplay'
+export { SpentThisMonthDisplay } from './SpentThisMonthDisplay'
+export type { SpentThisMonthDisplayProps } from './SpentThisMonthDisplay'
 export {
   categoriesQueryKey,
   expenseHistoryQueryKey,

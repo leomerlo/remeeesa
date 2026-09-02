@@ -10,7 +10,7 @@ import type { LucideIcon } from 'lucide-react'
 import type { Category, Expense } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
-import { formatShortDate } from '@/lib/format'
+import { formatMonthLabel, formatShortDate } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
 import { EmptyExpensesIllustration } from './EmptyExpensesIllustration'
 import { expenseHistoryQueryKey } from './queryKeys'
@@ -19,16 +19,6 @@ export type ExpenseHistoryProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly onEditExpense?: (expense: Expense, categoryName: string) => void
-}
-
-function monthLabel(date: Date): string {
-  const label = date.toLocaleDateString('es-AR', {
-    month: 'long',
-    year: 'numeric',
-  })
-  // es-AR renders this as "agosto de 2026"; the screen wants it capitalised
-  // as a heading.
-  return label.charAt(0).toUpperCase() + label.slice(1)
 }
 
 type MonthGroup = {
@@ -58,7 +48,7 @@ function groupByMonth(expenses: readonly Expense[]): readonly MonthGroup[] {
     }
     groups.push({
       key,
-      label: monthLabel(expense.expenseDate),
+      label: formatMonthLabel(expense.expenseDate),
       total: expense.price,
       expenses: [expense],
     })
