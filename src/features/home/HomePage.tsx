@@ -218,6 +218,8 @@ export function HomePage({
       <PorPagarSection
         db={db}
         householdId={membership.householdId}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
         onMarkPaid={(pendiente, categoryName) => {
           // Opens the same edit sheet as tapping a row on /pendientes, with
           // "Ya lo pagué" pre-checked -- one form for both editing and

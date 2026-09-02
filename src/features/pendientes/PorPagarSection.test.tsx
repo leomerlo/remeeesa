@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { createPendiente } from '@/lib/pendientes'
+import { createPendiente, markPendientePaid } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import { listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
@@ -322,19 +322,24 @@ describe('PorPagarSection', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  // scroll-px-6 is load-bearing: snap-mandatory snaps to the first card's own
-  // start edge, scrolling the row's 24px left padding away and leaving that
-  // card flush against the screen edge, out of line with every other section
-  // on Home.
-  it('keeps the scroller aligned to the page gutter under scroll snapping', async () => {
+  it('shows a pendiente paid this month with a "Pagado" badge, not as a mark-paid button', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
-    await seedPendiente({
+    const pendiente = await seedPendiente({
       db,
       householdId,
       categoryId,
-      name: 'Luz',
-      dayOfMonth: 4,
-      expectedAmount: 28000,
+      name: 'Gas',
+      dayOfMonth: 10,
+      expectedAmount: 1000,
+    })
+    await markPendientePaid({
+      db,
+      householdId,
+      pendienteId: pendiente.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 1000,
+      paymentDate: new Date(),
     })
 
     renderSection(
@@ -348,7 +353,94 @@ describe('PorPagarSection', () => {
     const list = await screen.findByRole('list', {
       name: 'Pendientes por pagar',
     })
-    expect(list.className).toContain('snap-mandatory')
-    expect(list.className).toContain('scroll-px-6')
+    const row = within(list).getByText('Gas').closest('li')
+    expect(row).not.toBeNull()
+    expect(row).toHaveTextContent('Pagado')
+    expect(
+      within(row as HTMLElement).queryByRole('button'),
+    ).not.toBeInTheDocument()
+  })
+
+  it('lists a pending pendiente before one paid this month', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    const paid = await seedPendiente({
+      db,
+      householdId,
+      categoryId,
+      name: 'Gas',
+      dayOfMonth: 10,
+      expectedAmount: 1000,
+    })
+    await markPendientePaid({
+      db,
+      householdId,
+      pendienteId: paid.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 1000,
+      paymentDate: new Date(),
+    })
+    await seedPendiente({
+      db,
+      householdId,
+      categoryId,
+      name: 'Internet',
+      dayOfMonth: 20,
+      expectedAmount: 500,
+    })
+
+    renderSection(
+      <PorPagarSection
+        db={db}
+        householdId={householdId}
+        onMarkPaid={vi.fn()}
+      />,
+    )
+
+    const list = await screen.findByRole('list', {
+      name: 'Pendientes por pagar',
+    })
+    const items = within(list).getAllByRole('listitem')
+    expect(items[0]).toHaveTextContent('Internet')
+    expect(items[1]).toHaveTextContent('Gas')
+  })
+
+  it('does not show a pendiente paid in a different viewed month', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    const paid = await seedPendiente({
+      db,
+      householdId,
+      categoryId,
+      name: 'Gas',
+      dayOfMonth: 10,
+      expectedAmount: 1000,
+    })
+    // Paid in the past, well outside the viewed month below.
+    await markPendientePaid({
+      db,
+      householdId,
+      pendienteId: paid.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 1000,
+      paymentDate: new Date(2026, 0, 15),
+    })
+
+    renderSection(
+      <PorPagarSection
+        db={db}
+        householdId={householdId}
+        onMarkPaid={vi.fn()}
+        monthStart={new Date(2026, 5, 1)}
+        monthEnd={new Date(2026, 5, 30, 23, 59, 59, 999)}
+      />,
+    )
+
+    // Nothing else pending and nothing paid in the *viewed* month -- the
+    // section removes itself entirely, same as the empty-state test above.
+    await waitFor(() => {
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+    expect(screen.queryByText('Gas')).not.toBeInTheDocument()
   })
 })

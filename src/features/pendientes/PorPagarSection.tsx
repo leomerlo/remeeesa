@@ -1,10 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
 import type { ReactElement } from 'react'
+import { Check } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Skeleton } from '@/components/ui/skeleton'
-import { listPendientes } from '@/lib/pendientes'
+import { listPendientesForMonth } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
-import { formatBudgetAmount, listCategories } from '@/lib/expenses'
+import {
+  currentMonthRange,
+  formatBudgetAmount,
+  listCategories,
+} from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { formatShortDate } from '@/lib/format'
@@ -15,29 +21,44 @@ export type PorPagarSectionProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly onMarkPaid: (pendiente: Pendiente, categoryName: string) => void
+  // Defaults to the current month. MonthNavigator's viewed month flows down
+  // to this the same way it does to RecentExpensesList, so paging back a
+  // month shows what was actually paid that month, not always "right now".
+  // Pending items ignore this and always show regardless of viewed month --
+  // see listPendientesForMonth.
+  readonly monthStart?: Date
+  readonly monthEnd?: Date
 }
 
 const HOME_PREVIEW_LIMIT = 5
 
-// Home's "Cuentas por pagar" preview: the soonest-due pending Pendientes as a
-// horizontally-scrollable row of compact cards, matching the approved Home
-// comp. Deliberately a separate component from PendientesList rather
-// than a parameterization of it -- that one is the full vertical list on
-// /pendientes, with edit and pay affordances per row; this one is a glanceable
-// preview whose whole card is a single tap target into the mark-paid flow.
+// Home's "Cuentas por pagar": every currently-pending Pendiente plus
+// whichever ones were paid this month, as a vertical list matching
+// RecentExpensesList's row style (per direct feedback -- this used to be a
+// horizontally-scrolling carousel). A pending row's whole card is a single
+// tap target into the mark-paid flow, same as before; a paid row is
+// display-only, marked with a check badge and "Pagado" instead of a due
+// date -- there's nothing left to do with it here.
 //
-// Reads the same pendientesQueryKey every other Pendiente view reads, so a
-// mutation from any screen refreshes this section with no extra wiring.
+// Reads the same pendientesQueryKey prefix every other Pendiente view reads
+// (suffixed with the viewed month's timestamp, same convention as
+// RecentExpensesList/expensesInMonthQueryKey), so a mutation from any screen
+// still refreshes this section -- invalidateQueries matches by prefix.
 export function PorPagarSection({
   db,
   householdId,
   onMarkPaid,
+  monthStart: monthStartProp,
+  monthEnd: monthEndProp,
 }: PorPagarSectionProps): ReactElement | null {
+  const defaultRange = useMemo(() => currentMonthRange(), [])
+  const monthStart = monthStartProp ?? defaultRange.monthStart
+  const monthEnd = monthEndProp ?? defaultRange.monthEnd
   const pendientesQuery = useQuery({
-    queryKey: pendientesQueryKey({ householdId }),
+    queryKey: [...pendientesQueryKey({ householdId }), monthStart.getTime()],
     queryFn: async () => {
       const [pendientes, categories] = await Promise.all([
-        listPendientes({ db, householdId }),
+        listPendientesForMonth({ db, householdId, monthStart, monthEnd }),
         listCategories({ db, householdId }),
       ])
       return { pendientes, categories }
@@ -57,18 +78,19 @@ export function PorPagarSection({
         <div
           role="status"
           aria-label="Cargando…"
-          className="mt-3 flex gap-3 overflow-hidden"
+          className="mt-3 flex w-full flex-col gap-3"
         >
           <span className="sr-only">Cargando…</span>
           {[0, 1].map((i) => (
             <div
               key={i}
-              className="bg-card shadow-resting flex h-full w-36 shrink-0 flex-col gap-1.5 rounded-2xl p-3"
+              className="bg-card shadow-resting flex w-full items-center gap-3 rounded-2xl p-4"
             >
-              <Skeleton className="size-8 shrink-0 rounded-full" />
-              <Skeleton className="mt-auto h-5 w-16" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-3 w-2/3" />
+              <Skeleton className="size-11 shrink-0 rounded-full" />
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-3 w-1/3" />
+              </div>
             </div>
           ))}
         </div>
@@ -85,7 +107,8 @@ export function PorPagarSection({
 
   const { pendientes, categories } = pendientesQuery.data
 
-  // Nothing pending: render nothing at all, not an empty box.
+  // Nothing pending and nothing paid this month: render nothing at all, not
+  // an empty box.
   if (pendientes.length === 0) {
     return null
   }
@@ -93,8 +116,9 @@ export function PorPagarSection({
   const categoryById = new Map(
     categories.map((category) => [category.id, category]),
   )
-  // listPendientes already returns soonest-due-first, so this is a plain
-  // head slice, not a re-sort.
+  // listPendientesForMonth already returns pending (soonest-due-first) ahead
+  // of paid-this-month (most-recently-paid-first), so this is a plain head
+  // slice, not a re-sort.
   const preview = pendientes.slice(0, HOME_PREVIEW_LIMIT)
   const hasOverflow = pendientes.length > HOME_PREVIEW_LIMIT
 
@@ -113,19 +137,9 @@ export function PorPagarSection({
           </Link>
         ) : null}
       </div>
-      {/* Horizontal scroll, per the comp. -mx-6/px-6 lets the row bleed to
-          the screen edges while the cards still align with the page's
-          content gutter.
-          scroll-px-6 is what makes that actually hold: snap-mandatory snaps
-          to the first card's own start edge, which scrolled the 24px of left
-          padding away and left the first card flush against the screen edge,
-          a gutter out of line with every other section on Home.
-          The scrollbar is hidden because it rendered as a grey bar sitting
-          under the cards on desktop; the row is swipeable and the partially
-          visible next card is the affordance. */}
       <ul
         aria-label="Pendientes por pagar"
-        className="-mx-6 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-6 px-6 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="mt-3 flex w-full flex-col gap-3 text-sm"
       >
         {preview.map((pendiente) => {
           const category = categoryById.get(pendiente.categoryId)
@@ -133,65 +147,80 @@ export function PorPagarSection({
           const categoryColor =
             category?.color ?? colorForCategoryName(categoryName)
           const CategoryIcon = iconForCategoryName(categoryName)
+          const isPaid = pendiente.status === 'paid'
 
-          return (
-            // flex on the li + h-full on the card make every card stretch to
-            // the tallest one, which is what gives the name/date block
-            // below an actual bottom edge to anchor to via mt-auto. Without
-            // it each card is only as tall as its own content and nothing
-            // lines up across the row.
-            <li key={pendiente.id} className="flex snap-start">
-              <button
-                type="button"
-                aria-label={`Marcar pagado ${pendiente.name}`}
-                className="bg-card shadow-resting flex h-full w-36 shrink-0 flex-col gap-1.5 rounded-2xl p-3 text-left transition-transform active:scale-[0.98]"
-                onClick={() => {
-                  onMarkPaid(pendiente, categoryName)
+          const amount =
+            pendiente.expectedAmount !== null ? (
+              <span className="font-display text-lg text-foreground">
+                {formatBudgetAmount(pendiente.expectedAmount)}
+              </span>
+            ) : pendiente.recurring ? (
+              // Same placeholder RecentExpensesList/PendientesList use for a
+              // recurring pendiente with no amount yet -- a blank space here
+              // reads as a rendering bug, not "not filled in yet".
+              <span className="font-display text-muted-foreground text-lg">
+                $ --,--
+              </span>
+            ) : null
+
+          const rowContent = (
+            <>
+              <span
+                aria-hidden="true"
+                className="flex size-11 shrink-0 items-center justify-center rounded-full"
+                style={{
+                  backgroundColor: isPaid
+                    ? 'var(--color-green-100)'
+                    : categoryColor,
                 }}
               >
-                <span
-                  aria-hidden="true"
-                  className="flex size-8 shrink-0 items-center justify-center rounded-full"
-                  style={{ backgroundColor: categoryColor }}
-                >
+                {isPaid ? (
+                  <Check className="text-green-700 size-5" aria-hidden="true" />
+                ) : (
                   <CategoryIcon
-                    className="size-4 text-white"
+                    className="size-5 text-white"
                     aria-hidden="true"
                   />
-                </span>
-                {pendiente.expectedAmount !== null ? (
-                  <span className="font-display text-base text-foreground">
-                    {formatBudgetAmount(pendiente.expectedAmount)}
+                )}
+              </span>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="truncate text-foreground font-medium">
+                    {pendiente.name}
                   </span>
-                ) : pendiente.recurring ? (
-                  // A recurring bill with no amount yet reads as
-                  // incomplete/broken with nothing where a price usually
-                  // is -- a placeholder says "not filled in yet" instead of
-                  // looking like a rendering bug. A one-off Pendiente with
-                  // no amount is a different, deliberate case and stays
-                  // blank.
-                  <span className="font-display text-muted-foreground text-base">
-                    $ --,--
-                  </span>
-                ) : null}
-                {/* mt-auto bottom-anchors the name/date block: the expected
-                    amount above is optional, so without this a card that
-                    has no amount would sit its name where its neighbours
-                    show their price, and nothing would line up across the
-                    row. */}
-                <span className="text-foreground mt-auto truncate text-sm font-medium">
-                  {pendiente.name}
-                </span>
-                {/* Two lines rather than one truncated one: at w-36
-                    "Servicios · 4 de sept de 2026" clipped to
-                    "Servicios · 4 de sept de 2…", hiding the year. */}
-                <span className="text-muted-foreground flex flex-col text-xs">
-                  <span className="truncate">{categoryName}</span>
-                  <span className="truncate">
-                    {formatShortDate(pendiente.dueDate)}
-                  </span>
-                </span>
-              </button>
+                  {amount}
+                </div>
+                <div className="flex flex-wrap gap-x-1.5 text-xs text-muted-foreground">
+                  <span>{categoryName}</span>
+                  <span aria-hidden="true">·</span>
+                  {isPaid ? (
+                    <span className="text-green-700 font-medium">Pagado</span>
+                  ) : (
+                    <span>{formatShortDate(pendiente.dueDate)}</span>
+                  )}
+                </div>
+              </div>
+            </>
+          )
+
+          return (
+            <li key={pendiente.id}>
+              {isPaid ? (
+                <div className="bg-card shadow-resting flex w-full items-center gap-3 rounded-2xl p-4 opacity-70">
+                  {rowContent}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  aria-label={`Marcar pagado ${pendiente.name}`}
+                  className="bg-card shadow-resting flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
+                  onClick={() => {
+                    onMarkPaid(pendiente, categoryName)
+                  }}
+                >
+                  {rowContent}
+                </button>
+              )}
             </li>
           )
         })}
