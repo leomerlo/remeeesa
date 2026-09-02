@@ -27,3 +27,13 @@ export function recentExpensesQueryKey(input: {
 }): readonly ['expenses', string, 'recent', number] {
   return [...expensesQueryKey(input), 'recent', input.limit]
 }
+
+// The all-time, month-paginated feed behind Histórico. Nested under the
+// shared expenses prefix so a mutation from any screen -- including a date
+// edit that moves an expense across the current-month boundary -- refetches
+// it along with everything else, rather than needing its own invalidation.
+export function expenseHistoryQueryKey(input: {
+  readonly householdId: string
+}): readonly ['expenses', string, 'history'] {
+  return [...expensesQueryKey(input), 'history']
+}

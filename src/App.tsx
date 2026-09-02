@@ -6,6 +6,7 @@ import { JoinHouseholdPage } from '@/features/join'
 import { AppShell } from '@/features/navigation'
 import { HistoricoPage } from '@/features/historico'
 import { CategoriasPage } from '@/features/categorias'
+import { PendientesPage } from '@/features/pendientes'
 import { HouseholdDraftProvider } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
 import type { HouseholdsDb } from '@/lib/households'
@@ -29,7 +30,7 @@ export function AppRoutes({
           vertically centered with a dead gap above it. Tall screens (Home,
           the auth flow) already overflow past one viewport, where centering
           would have had no visible effect anyway. */}
-      <main className="mx-auto flex min-h-svh w-full max-w-md flex-col items-center gap-8 px-6 pt-12 sm:max-w-lg sm:px-8">
+      <main className="mx-auto flex min-h-svh w-full max-w-md flex-col items-center gap-6 px-6 pt-12 sm:max-w-lg sm:px-8">
         <Routes>
           <Route
             element={
@@ -49,8 +50,33 @@ export function AppRoutes({
                 />
               }
             />
-            <Route path="/historico" element={<HistoricoPage />} />
-            <Route path="/categorias" element={<CategoriasPage />} />
+            <Route
+              path="/historico"
+              element={
+                <HistoricoPage
+                  currentUserId={currentUserId}
+                  householdsDb={householdsDb}
+                />
+              }
+            />
+            <Route
+              path="/categorias"
+              element={
+                <CategoriasPage
+                  currentUserId={currentUserId}
+                  householdsDb={householdsDb}
+                />
+              }
+            />
+            <Route
+              path="/pendientes"
+              element={
+                <PendientesPage
+                  currentUserId={currentUserId}
+                  householdsDb={householdsDb}
+                />
+              }
+            />
             <Route
               path="/household"
               element={

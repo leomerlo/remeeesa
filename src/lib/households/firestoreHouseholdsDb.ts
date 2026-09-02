@@ -2,6 +2,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  writeBatch,
   getDoc,
   getDocs,
   limit,
@@ -13,8 +14,19 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore'
-import type { Firestore } from 'firebase/firestore'
+import type { DocumentReference, Firestore } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
+import {
+  pendienteToDocument,
+  parsePendienteDocument,
+  toFirestorePendienteDate,
+} from '@/lib/pendientes/converters'
+import {
+  PendienteAlreadyPaidError,
+  PendienteNotFoundError,
+} from '@/lib/pendientes/pendientes'
+import { nextCycleDueDate } from '@/lib/pendientes/recurrence'
+import { chunkForWriteBatch } from '@/lib/expenses/batching'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import {
   categoryToDocument,
@@ -23,9 +35,15 @@ import {
   parseExpenseDocument,
   toFirestoreExpenseDate,
 } from '@/lib/expenses/converters'
+import {
+  CategoryInUseError,
+  CategoryNameTakenError,
+  CategoryNotFoundError,
+} from '@/lib/expenses/categoryManagement'
 import { ExpenseNotFoundError } from '@/lib/expenses/expenses'
+import { monthEndOf, monthStartOf } from '@/lib/expenses/history'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
-import { parseCategoryName } from '@/lib/expenses/validate'
+import { parseCategoryColor, parseCategoryName } from '@/lib/expenses/validate'
 import { logFirebaseError } from '@/lib/firebaseDevLog'
 import {
   householdToDocument,
@@ -87,6 +105,64 @@ export function mapHouseholdFirestoreError(
     })
   }
   throw error
+}
+
+// Every document that stores this category's id, across both collections that
+// can hold one. Rename and merge move all of them; delete refuses while any
+// exist. Pendientes are queried alongside Expenses on purpose -- forgetting them
+// is what would leave paid bills pointing at a category that no longer exists.
+async function categoryReferences(
+  firestore: Firestore,
+  input: { readonly householdId: string; readonly categoryId: string },
+) {
+  const [expensesSnap, pendientesSnap] = await Promise.all(
+    (['expenses', 'pendientes'] as const).map((collectionName) =>
+      getDocs(
+        query(
+          collection(firestore, collectionName),
+          where('household_id', '==', input.householdId),
+          where('category_id', '==', input.categoryId),
+        ),
+      ),
+    ),
+  )
+  return [...(expensesSnap?.docs ?? []), ...(pendientesSnap?.docs ?? [])].map(
+    (referencing) => referencing.ref,
+  )
+}
+
+// Batched rather than transactional: a household can accumulate more
+// references than one transaction may touch. The repoint therefore runs before
+// the old category doc is deleted, so an interrupted run leaves references
+// split across two categories that both still exist -- untidy, and fixable by
+// repeating the operation, but never an orphan pointing at a missing doc.
+async function repointCategoryReferences(
+  firestore: Firestore,
+  refs: readonly DocumentReference[],
+  toCategoryId: string,
+): Promise<void> {
+  for (const chunk of chunkForWriteBatch(refs)) {
+    const batch = writeBatch(firestore)
+    for (const ref of chunk) {
+      batch.update(ref, { category_id: toCategoryId })
+    }
+    await batch.commit()
+  }
+}
+
+async function readOwnCategory(
+  firestore: Firestore,
+  input: { readonly householdId: string; readonly categoryId: string },
+) {
+  const snap = await getDoc(doc(firestore, 'categories', input.categoryId))
+  if (!snap.exists()) {
+    throw new CategoryNotFoundError()
+  }
+  const category = parseCategoryDocument({ id: snap.id, data: snap.data() })
+  if (category.householdId !== input.householdId) {
+    throw new CategoryNotFoundError()
+  }
+  return category
 }
 
 async function withHouseholdAccess<T>(
@@ -403,6 +479,110 @@ export function createFirestoreHouseholdsDb(
         { householdId: input.householdId, categoryName: input.name },
       )
     },
+    async updateCategoryColor(input) {
+      return withHouseholdAccess(
+        'updateCategoryColor',
+        async () => {
+          const existing = await readOwnCategory(firestore, input)
+          const color = parseCategoryColor(input.color)
+          await updateDoc(doc(firestore, 'categories', existing.id), { color })
+          return { ...existing, color }
+        },
+        { householdId: input.householdId, categoryId: input.categoryId },
+      )
+    },
+    async renameCategory(input) {
+      return withHouseholdAccess(
+        'renameCategory',
+        async () => {
+          const existing = await readOwnCategory(firestore, input)
+          const name = parseCategoryName(input.name)
+          const newId = categoryDocumentId({
+            householdId: input.householdId,
+            name,
+          })
+
+          // Same id means only the casing or spacing changed, so there is
+          // nothing to repoint -- just rewrite the name on the doc in place.
+          if (newId === existing.id) {
+            await updateDoc(doc(firestore, 'categories', existing.id), { name })
+            return { ...existing, name }
+          }
+
+          // Checked before a single write, so a rejected rename leaves no
+          // half-moved references behind.
+          const collision = await getDoc(doc(firestore, 'categories', newId))
+          if (collision.exists()) {
+            throw new CategoryNameTakenError()
+          }
+
+          const renamed = { ...existing, id: newId, name }
+          await setDoc(doc(firestore, 'categories', newId), {
+            ...categoryToDocument({
+              householdId: existing.householdId,
+              name,
+              color: existing.color,
+              createdAt: existing.createdAt,
+            }),
+            created_at: Timestamp.fromDate(existing.createdAt),
+          })
+          const refs = await categoryReferences(firestore, input)
+          await repointCategoryReferences(firestore, refs, newId)
+          await deleteDoc(doc(firestore, 'categories', existing.id))
+          return renamed
+        },
+        { householdId: input.householdId, categoryId: input.categoryId },
+      )
+    },
+    async deleteCategory(input) {
+      return withHouseholdAccess(
+        'deleteCategory',
+        async () => {
+          const existing = await readOwnCategory(firestore, input)
+          const refs = await categoryReferences(firestore, input)
+          if (refs.length > 0) {
+            throw new CategoryInUseError()
+          }
+          await deleteDoc(doc(firestore, 'categories', existing.id))
+        },
+        { householdId: input.householdId, categoryId: input.categoryId },
+      )
+    },
+    async mergeCategories(input) {
+      return withHouseholdAccess(
+        'mergeCategories',
+        async () => {
+          const source = await readOwnCategory(firestore, {
+            householdId: input.householdId,
+            categoryId: input.sourceCategoryId,
+          })
+          // Read for its side effect: merging into a category that is missing
+          // or belongs to another household would orphan every reference we
+          // are about to move onto it.
+          await readOwnCategory(firestore, {
+            householdId: input.householdId,
+            categoryId: input.survivorCategoryId,
+          })
+          if (source.id === input.survivorCategoryId) {
+            throw new Error('No se puede unir una categoría consigo misma')
+          }
+          const refs = await categoryReferences(firestore, {
+            householdId: input.householdId,
+            categoryId: input.sourceCategoryId,
+          })
+          await repointCategoryReferences(
+            firestore,
+            refs,
+            input.survivorCategoryId,
+          )
+          await deleteDoc(doc(firestore, 'categories', source.id))
+        },
+        {
+          householdId: input.householdId,
+          sourceCategoryId: input.sourceCategoryId,
+        },
+      )
+    },
     async createExpense(input) {
       return withHouseholdAccess(
         'createExpense',
@@ -483,6 +663,90 @@ export function createFirestoreHouseholdsDb(
         )
       })
     },
+    async listExpenseHistoryPage(input) {
+      return withHouseholdAccess('listExpenseHistoryPage', async () => {
+        const beforeCursor =
+          input.beforeMonthStart === undefined
+            ? []
+            : [
+                where(
+                  'expense_date',
+                  '<',
+                  Timestamp.fromDate(input.beforeMonthStart),
+                ),
+              ]
+
+        // Which month this page covers is discovered from the data, not
+        // walked month by month: a household with a gap between, say,
+        // August and March would otherwise need a round trip per empty
+        // month in between just to find the next one that has anything.
+        const newestQuery = query(
+          collection(firestore, 'expenses'),
+          where('household_id', '==', input.householdId),
+          ...beforeCursor,
+          orderBy('expense_date', 'desc'),
+          orderBy('created_at', 'desc'),
+          limit(1),
+        )
+        const newestSnap = await getDocs(newestQuery)
+        const newestDoc = newestSnap.docs[0]
+        if (newestDoc === undefined) {
+          return { expenses: [], nextBeforeMonthStart: null }
+        }
+        const newest = parseExpenseDocument({
+          id: newestDoc.id,
+          data: newestDoc.data(),
+        })
+
+        // The whole month, unbounded: the page is a calendar month rather
+        // than a row count, so it is never cut short mid-month no matter
+        // how many expenses that month happens to hold.
+        const pageMonthStart = monthStartOf(newest.expenseDate)
+        const monthQuery = query(
+          collection(firestore, 'expenses'),
+          where('household_id', '==', input.householdId),
+          where('expense_date', '>=', Timestamp.fromDate(pageMonthStart)),
+          where(
+            'expense_date',
+            '<=',
+            Timestamp.fromDate(monthEndOf(newest.expenseDate)),
+          ),
+          orderBy('expense_date', 'desc'),
+          orderBy('created_at', 'desc'),
+        )
+        const monthSnap = await getDocs(monthQuery)
+        const expenses = monthSnap.docs.map((expenseDoc) =>
+          parseExpenseDocument({
+            id: expenseDoc.id,
+            data: expenseDoc.data(),
+          }),
+        )
+
+        // One extra single-row read so the caller can hide "load more"
+        // rather than offering a button that returns nothing.
+        //
+        // The created_at tiebreak is not about ordering -- this only ever asks
+        // "is there anything older" -- it is what keeps the query on the
+        // household_id/expense_date/created_at index every other expense query
+        // already uses. Ordering by expense_date alone makes Firestore append
+        // an implicit __name__ sort, which is a *different* composite index
+        // and fails in production with "The query requires an index".
+        const olderQuery = query(
+          collection(firestore, 'expenses'),
+          where('household_id', '==', input.householdId),
+          where('expense_date', '<', Timestamp.fromDate(pageMonthStart)),
+          orderBy('expense_date', 'desc'),
+          orderBy('created_at', 'desc'),
+          limit(1),
+        )
+        const olderSnap = await getDocs(olderQuery)
+
+        return {
+          expenses,
+          nextBeforeMonthStart: olderSnap.empty ? null : pageMonthStart,
+        }
+      })
+    },
     async getExpense(input) {
       return withHouseholdAccess('getExpense', async () => {
         const expenseRef = doc(firestore, 'expenses', input.expenseId)
@@ -552,6 +816,269 @@ export function createFirestoreHouseholdsDb(
         }
         await deleteDoc(expenseRef)
       })
+    },
+    async createPendiente(input) {
+      return withHouseholdAccess(
+        'createPendiente',
+        async () => {
+          const recurring = input.recurring ?? false
+          const pendienteRef = doc(collection(firestore, 'pendientes'))
+          const now = Timestamp.now()
+          const createdAt = now.toDate()
+          await setDoc(pendienteRef, {
+            ...pendienteToDocument({
+              householdId: input.householdId,
+              categoryId: input.categoryId,
+              name: input.name,
+              dueDate: input.dueDate,
+              expectedAmount: input.expectedAmount,
+              recurring,
+              status: 'pending',
+              paidExpenseId: null,
+              createdAt,
+            }),
+            due_date: toFirestorePendienteDate(input.dueDate),
+            created_at: now,
+          })
+          return {
+            id: pendienteRef.id,
+            householdId: input.householdId,
+            categoryId: input.categoryId,
+            name: input.name,
+            dueDate: input.dueDate,
+            expectedAmount: input.expectedAmount,
+            recurring,
+            status: 'pending',
+            paidExpenseId: null,
+            createdAt,
+          }
+        },
+        { householdId: input.householdId, categoryId: input.categoryId },
+      )
+    },
+    async getPendiente(input) {
+      return withHouseholdAccess('getPendiente', async () => {
+        const pendienteRef = doc(firestore, 'pendientes', input.pendienteId)
+        const existing = await getDoc(pendienteRef)
+        if (
+          !existing.exists() ||
+          existing.data().household_id !== input.householdId
+        ) {
+          return null
+        }
+        return parsePendienteDocument({
+          id: existing.id,
+          data: existing.data(),
+        })
+      })
+    },
+    async listPendientes(input) {
+      return withHouseholdAccess('listPendientes', async () => {
+        const pendientesQuery = query(
+          collection(firestore, 'pendientes'),
+          where('household_id', '==', input.householdId),
+          where('status', '==', 'pending'),
+          orderBy('due_date', 'asc'),
+        )
+        const snap = await getDocs(pendientesQuery)
+        return snap.docs.map((pendienteDoc) =>
+          parsePendienteDocument({
+            id: pendienteDoc.id,
+            data: pendienteDoc.data(),
+          }),
+        )
+      })
+    },
+    async updatePendiente(input) {
+      return withHouseholdAccess(
+        'updatePendiente',
+        async () => {
+          const pendienteRef = doc(firestore, 'pendientes', input.pendienteId)
+          const existing = await getDoc(pendienteRef)
+          if (
+            !existing.exists() ||
+            existing.data().household_id !== input.householdId
+          ) {
+            throw new PendienteNotFoundError()
+          }
+          const current = parsePendienteDocument({
+            id: existing.id,
+            data: existing.data(),
+          })
+          // Re-check status against this fresh read (not just the domain
+          // layer's earlier getPendiente) so a pendiente paid by someone else
+          // between that check and this write surfaces the specific
+          // PendienteAlreadyPaidError the UI knows how to handle gracefully,
+          // rather than a generic FirestoreDeniedError from the rules-level
+          // rejection that would follow anyway.
+          if (current.status !== 'pending') {
+            throw new PendienteAlreadyPaidError()
+          }
+          await updateDoc(pendienteRef, {
+            category_id: input.categoryId,
+            name: input.name,
+            due_date: toFirestorePendienteDate(input.dueDate),
+            expected_amount: input.expectedAmount,
+            recurring: input.recurring,
+          })
+          return {
+            ...current,
+            categoryId: input.categoryId,
+            name: input.name,
+            dueDate: input.dueDate,
+            expectedAmount: input.expectedAmount,
+            recurring: input.recurring,
+          }
+        },
+        {
+          pendienteId: input.pendienteId,
+          householdId: input.householdId,
+          categoryId: input.categoryId,
+        },
+      )
+    },
+    async deletePendiente(input) {
+      return withHouseholdAccess('deletePendiente', async () => {
+        const pendienteRef = doc(firestore, 'pendientes', input.pendienteId)
+        const existing = await getDoc(pendienteRef)
+        if (
+          !existing.exists() ||
+          existing.data().household_id !== input.householdId
+        ) {
+          throw new PendienteNotFoundError()
+        }
+        // Same fresh re-check as updatePendiente above -- surfaces
+        // PendienteAlreadyPaidError instead of a generic denial if the pendiente
+        // was marked paid by someone else after the domain layer's own
+        // pre-check.
+        if (
+          parsePendienteDocument({ id: existing.id, data: existing.data() })
+            .status !== 'pending'
+        ) {
+          throw new PendienteAlreadyPaidError()
+        }
+        await deleteDoc(pendienteRef)
+      })
+    },
+    async markPendientePaid(input) {
+      return withHouseholdAccess(
+        'markPendientePaid',
+        async () => {
+          const memberId = await awaitAuthenticatedUserId(firestore)
+          const pendienteRef = doc(firestore, 'pendientes', input.pendienteId)
+          const expenseRef = doc(collection(firestore, 'expenses'))
+          // Hoisted out of the transaction callback deliberately: the
+          // callback is re-run on contention, and a ref minted inside it
+          // would take a different id on each attempt, so the id written
+          // could drift from the one returned to the caller. This only mints
+          // a client-side id -- nothing is written -- so leaving it unused on
+          // the non-recurring path creates no orphan document.
+          const nextPendienteRef = doc(collection(firestore, 'pendientes'))
+          const now = Timestamp.now()
+          const createdAt = now.toDate()
+
+          return runTransaction(firestore, async (tx) => {
+            const pendienteSnap = await tx.get(pendienteRef)
+            if (
+              !pendienteSnap.exists() ||
+              pendienteSnap.data().household_id !== input.householdId
+            ) {
+              throw new PendienteNotFoundError()
+            }
+            const current = parsePendienteDocument({
+              id: pendienteSnap.id,
+              data: pendienteSnap.data(),
+            })
+            if (current.status !== 'pending') {
+              throw new PendienteAlreadyPaidError()
+            }
+
+            tx.set(expenseRef, {
+              ...expenseToDocument({
+                householdId: input.householdId,
+                categoryId: current.categoryId,
+                memberId,
+                authorDisplayName: input.authorDisplayName,
+                name: current.name,
+                price: input.finalAmount,
+                comments: '',
+                expenseDate: input.paymentDate,
+                createdAt,
+              }),
+              expense_date: toFirestoreExpenseDate(input.paymentDate),
+              created_at: now,
+            })
+            tx.update(pendienteRef, {
+              status: 'paid',
+              paid_expense_id: expenseRef.id,
+            })
+
+            // A recurring pendiente spawns its next cycle in this same
+            // transaction, so all three writes land together or not at all.
+            // The expected amount is deliberately blanked rather than copied
+            // from the cycle just paid.
+            const nextDueDate = current.recurring
+              ? nextCycleDueDate(current.dueDate)
+              : null
+            if (nextDueDate !== null) {
+              tx.set(nextPendienteRef, {
+                ...pendienteToDocument({
+                  householdId: input.householdId,
+                  categoryId: current.categoryId,
+                  name: current.name,
+                  dueDate: nextDueDate,
+                  expectedAmount: null,
+                  recurring: true,
+                  status: 'pending',
+                  paidExpenseId: null,
+                  createdAt,
+                }),
+                due_date: toFirestorePendienteDate(nextDueDate),
+                created_at: now,
+              })
+            }
+
+            return {
+              pendiente: {
+                ...current,
+                status: 'paid' as const,
+                paidExpenseId: expenseRef.id,
+              },
+              nextPendiente:
+                nextDueDate === null
+                  ? null
+                  : {
+                      id: nextPendienteRef.id,
+                      householdId: input.householdId,
+                      categoryId: current.categoryId,
+                      name: current.name,
+                      dueDate: nextDueDate,
+                      expectedAmount: null,
+                      recurring: true,
+                      status: 'pending' as const,
+                      paidExpenseId: null,
+                      createdAt,
+                    },
+              expense: {
+                id: expenseRef.id,
+                householdId: input.householdId,
+                categoryId: current.categoryId,
+                memberId,
+                authorDisplayName: input.authorDisplayName,
+                name: current.name,
+                price: input.finalAmount,
+                comments: '',
+                expenseDate: input.paymentDate,
+                createdAt,
+              },
+            }
+          })
+        },
+        {
+          pendienteId: input.pendienteId,
+          householdId: input.householdId,
+        },
+      )
     },
   }
 }

@@ -25,6 +25,32 @@ describe('MemberList', () => {
     ).toBeInTheDocument()
   })
 
+  // Without a name the avatar rendered "V" -- the first letter of a pronoun
+  // rather than of anybody's name.
+  it('shows the signed-in member by name, tagged as Vos', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderWithProviders(
+      <MemberList
+        db={db}
+        householdId={household.id}
+        currentUserId="user-1"
+        currentUserDisplayName="Florencia"
+      />,
+    )
+
+    const row = (await screen.findByText('Florencia')).closest('li')
+    expect(row).toHaveTextContent('Vos')
+    // The avatar takes its initial from the real name now.
+    expect(row?.firstElementChild).toHaveTextContent('F')
+  })
+
   it('lists other members after You', async () => {
     const store = createMemoryHouseholdsDb()
     const db = store.asUser('user-1')

@@ -1,18 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
-import { Wallet } from 'lucide-react'
 import { PageHeader } from '@/components/PageHeader'
-import { Button } from '@/components/ui/button'
 import {
   AddExpenseSheet,
   RecentExpensesList,
   RemainingBudgetDisplay,
 } from '@/features/expenses'
 import type { EditExpenseTarget } from '@/features/expenses/AddExpenseForm'
+import {
+  AddPendienteSheet,
+  MarkPendientePaidSheet,
+  PorPagarSection,
+} from '@/features/pendientes'
+import type { Pendiente } from '@/lib/pendientes'
 import { LogoutButton } from '@/features/auth'
 import { OnboardingForm } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
 import { markReturningUser } from '@/features/onboarding/returningUserStorage'
+import { authorDisplayNameFromAuth } from '@/lib/displayName'
 import { useFirebase } from '@/lib/firebaseContext'
 import {
   createFirestoreHouseholdsDb,
@@ -21,6 +26,7 @@ import {
 } from '@/lib/households'
 import type { Household, HouseholdMember, HouseholdsDb } from '@/lib/households'
 import { CategoryMiniSummary } from './CategoryMiniSummary'
+import { GastoVsPendienteHint } from './GastoVsPendienteHint'
 import { PersonMiniSummary } from './PersonMiniSummary'
 
 export type HomePageProps = {
@@ -28,29 +34,6 @@ export type HomePageProps = {
   readonly authorDisplayName?: string
   readonly signupAuth?: SignupAuth
   readonly householdsDb?: HouseholdsDb
-}
-
-function authorDisplayNameFromAuth(
-  user:
-    | {
-        readonly displayName?: string | null
-        readonly email?: string | null
-      }
-    | null
-    | undefined,
-): string {
-  const displayName = user?.displayName?.trim()
-  if (displayName !== undefined && displayName !== '') {
-    return displayName
-  }
-  const email = user?.email?.trim()
-  if (email !== undefined && email !== '') {
-    const localPart = email.split('@')[0]?.trim()
-    if (localPart !== undefined && localPart !== '') {
-      return localPart
-    }
-  }
-  return 'Miembro'
 }
 
 export function HomePage({
@@ -79,6 +62,10 @@ export function HomePage({
   const [homeEpoch, setHomeEpoch] = useState(0)
   const [editExpense, setEditExpense] = useState<EditExpenseTarget | null>(null)
   const [isAddExpenseSheetOpen, setIsAddExpenseSheetOpen] = useState(false)
+  const [isAddPendienteSheetOpen, setIsAddPendienteSheetOpen] = useState(false)
+  const [markPaidPendiente, setMarkPaidPendiente] = useState<Pendiente | null>(
+    null,
+  )
 
   useEffect(() => {
     if (currentUserIdProp !== undefined) {
@@ -160,7 +147,7 @@ export function HomePage({
 
   if (currentUserId === null || membership === null) {
     return (
-      <div className="flex w-full flex-col items-center gap-8">
+      <div className="flex w-full flex-col items-center gap-6">
         {showLogout ? <LogoutButton /> : null}
         <OnboardingForm
           householdsDb={householdsDb}
@@ -186,7 +173,7 @@ export function HomePage({
     authorDisplayNameFromAuth(firebase.auth?.currentUser)
 
   return (
-    <div className="flex w-full flex-col items-center gap-8">
+    <div className="flex w-full flex-col items-center gap-6">
       {/* No settings shortcut here: Ajustes is already one tap away in the
           bottom nav, so a second icon-link to the same destination is
           redundant. */}
@@ -206,21 +193,29 @@ export function HomePage({
           }}
         />
         {editExpense === null ? (
-          // Cuentas (bill-tracking, ADR-0004) isn't built yet -- issue #72
-          // -- so this stays visible but inert rather than pretending the
-          // feature exists. Remove `disabled` once #72 ships.
-          <Button
-            type="button"
-            variant="outline"
-            disabled
-            className="flex-1 gap-1.5"
-            title="Próximamente"
-          >
-            <Wallet aria-hidden="true" />
-            Nueva cuenta
-          </Button>
+          <AddPendienteSheet
+            open={isAddPendienteSheetOpen}
+            onOpenChange={setIsAddPendienteSheetOpen}
+            db={db}
+            householdId={membership.householdId}
+            triggerClassName="flex-1"
+          />
         ) : null}
       </div>
+      <GastoVsPendienteHint />
+      <PorPagarSection
+        db={db}
+        householdId={membership.householdId}
+        onMarkPaid={setMarkPaidPendiente}
+      />
+      <MarkPendientePaidSheet
+        db={db}
+        householdId={membership.householdId}
+        memberId={currentUserId}
+        authorDisplayName={authorDisplayName}
+        pendiente={markPaidPendiente}
+        onOpenChange={setMarkPaidPendiente}
+      />
       <div className="flex w-full flex-col gap-3">
         <h2 className="text-title font-semibold self-start">
           Últimos movimientos

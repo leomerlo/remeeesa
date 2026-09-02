@@ -20,10 +20,10 @@ their data into one screen; it doesn't rebuild any of that logic.
       a recent-activity preview, a category mini-summary, and a person mini-summary.
 - [ ] **Balance card**: the household's remaining budget for the current month, as today (large,
       bold numeral), now on the new gradient-card visual treatment from `wallet-visual-system.md`.
-- [ ] **Action row**: two buttons, "Agregar gasto" and "Nueva cuenta", each opening its own
-      bottom sheet (add-expense sheet from `navigation-shell.md`; new-Cuenta sheet from
+- [ ] **Action row**: two buttons, "Agregar gasto" and "Nuevo pendiente", each opening its own
+      bottom sheet (add-expense sheet from `navigation-shell.md`; new-Pendiente sheet from
       `cuentas-pendientes.md`) — not a single button with a follow-up choice.
-- [ ] **Por pagar**: up to 5 of the household's pending Cuentas, soonest due date first, each
+- [ ] **Por pagar**: up to 5 of the household's pending Pendientes, soonest due date first, each
       showing name, category, due date, and expected amount if known. Tapping one opens the
       mark-paid flow from `cuentas-pendientes.md`. If there are more than 5 pending, a "ver
       todas" link leads to the full pending list. If there are none, this section is hidden
@@ -40,20 +40,20 @@ their data into one screen; it doesn't rebuild any of that logic.
       (skeleton/placeholder), rather than one spinner blocking the whole screen until the
       slowest section resolves — the point of "at a glance" is that the balance shows up
       immediately even if, say, the person breakdown is still loading.
-- [ ] All of Home's data (balance, pending Cuentas, recent expenses, summaries) refetches after
+- [ ] All of Home's data (balance, pending Pendientes, recent expenses, summaries) refetches after
       any mutation that affects it, made **from any screen**, not only Home itself — e.g. marking
-      a Cuenta paid from Home, then editing that resulting Expense's amount from Histórico, then
+      a Pendiente paid from Home, then editing that resulting Expense's amount from Histórico, then
       returning to Home, must show the updated balance without a manual reload. This means the
-      Expense/Cuenta/Category queries share query keys (or an equivalent invalidation mechanism)
-      across Home, Histórico, Categorías, and the Cuentas flows, not separate per-screen caches.
+      Expense/Pendiente/Category queries share query keys (or an equivalent invalidation mechanism)
+      across Home, Histórico, Categorías, and the Pendientes flows, not separate per-screen caches.
 - [ ] `npm run typecheck`, `npm run lint`, and `npm test` pass.
 
 ## Out of scope
 
 - Currency/account tabs (pesos/dólares/reservas/inversiones) — not applicable to this household.
 - Transfer, top-up, or "your alias" style actions — not applicable; replaced by "Agregar gasto"
-  and "Nueva cuenta".
-- Confetti/celebration animation on marking a Cuenta paid or similar micro-interactions — worth
+  and "Nuevo pendiente".
+- Confetti/celebration animation on marking a Pendiente paid or similar micro-interactions — worth
   doing (per the "fun, colorful, with confetti" direction from the review) but tracked as a
   follow-up polish pass via the `animate` skill once this story's functional shell exists, not
   bundled into this story's acceptance criteria.

@@ -4,6 +4,7 @@ import { Navigate } from 'react-router-dom'
 import { PageHeader } from '@/components/PageHeader'
 import { LogoutButton } from '@/features/auth'
 import { InviteLinkPanel } from '@/features/invite'
+import { authorDisplayNameFromAuth } from '@/lib/displayName'
 import { useFirebase } from '@/lib/firebaseContext'
 import { createFirestoreHouseholdsDb, getMembership } from '@/lib/households'
 import type { HouseholdMember, HouseholdsDb } from '@/lib/households'
@@ -117,17 +118,25 @@ export function EditHouseholdPage({
           like Home/Histórico/Categorías, not a drill-down sub-page -- the
           nav already gets you back in one tap. */}
       <PageHeader title="Ajustes" />
-      <div className="bg-card shadow-resting flex w-full flex-col items-center gap-8 rounded-3xl p-6">
+      <div className="bg-card shadow-resting flex w-full flex-col gap-6 rounded-3xl p-6">
         <EditHouseholdForm db={db} householdId={membership.householdId} />
       </div>
-      <div className="bg-card shadow-resting w-full rounded-3xl p-6">
+      {/* Members and the invite link share one card: inviting somebody is
+          how the member list grows, and the invite panel on its own was a
+          card whose entire contents were a single button. */}
+      <div className="bg-card shadow-resting flex w-full flex-col gap-6 rounded-3xl p-6">
         <MemberList
           db={db}
           householdId={membership.householdId}
           currentUserId={currentUserId}
+          {...(firebase.auth?.currentUser == null
+            ? {}
+            : {
+                currentUserDisplayName: authorDisplayNameFromAuth(
+                  firebase.auth.currentUser,
+                ),
+              })}
         />
-      </div>
-      <div className="bg-card shadow-resting w-full rounded-3xl p-6">
         <InviteLinkPanel db={db} householdId={membership.householdId} />
       </div>
       {usesLiveSession ? (

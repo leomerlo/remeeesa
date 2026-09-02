@@ -7,6 +7,7 @@ import {
 } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
+import { formatShortDate } from '@/lib/format'
 import type { Expense } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
 import { EmptyExpensesIllustration } from './EmptyExpensesIllustration'
@@ -19,14 +20,6 @@ export type RecentExpensesListProps = {
 }
 
 const RECENT_EXPENSES_LIMIT = 10
-
-function formatExpenseDate(date: Date): string {
-  return date.toLocaleDateString('es-AR', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-}
 
 // All-time recent-movements list ("Últimos movimientos" on Home). Matches
 // the approved comp's plain, buttonless cards -- there is no edit/delete
@@ -129,7 +122,7 @@ export function RecentExpensesList({
               <div className="flex flex-wrap gap-x-1.5 text-xs text-muted-foreground">
                 <span>{categoryName}</span>
                 <span aria-hidden="true">·</span>
-                <span>{formatExpenseDate(expense.expenseDate)}</span>
+                <span>{formatShortDate(expense.expenseDate)}</span>
                 <span aria-hidden="true">·</span>
                 <span>{expense.authorDisplayName}</span>
               </div>

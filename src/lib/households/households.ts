@@ -44,9 +44,15 @@ const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
   createExpense: 'agregar el gasto',
   listExpensesInMonth: 'cargar los gastos',
   listRecentExpenses: 'cargar los gastos',
+  listExpenseHistoryPage: 'cargar el histórico',
   getExpense: 'cargar el gasto',
   updateExpense: 'guardar el gasto',
   deleteExpense: 'eliminar el gasto',
+  createPendiente: 'agregar el pendiente',
+  getPendiente: 'cargar el pendiente',
+  listPendientes: 'cargar los pendientes',
+  updatePendiente: 'guardar el pendiente',
+  deletePendiente: 'eliminar el pendiente',
 }
 
 export class FirestoreDeniedError extends Error {

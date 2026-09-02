@@ -1,11 +1,10 @@
 import type { HouseholdsDb } from '@/lib/households/types'
+import type { ExpenseHistoryPage } from './history'
 import type { Category, Expense } from './types'
 import {
-  assertExpenseInCurrentMonth,
   parseAuthorDisplayName,
   parseCategoryName,
   parseExpenseDate,
-  parseExpenseDateInCurrentMonth,
   parseExpenseName,
   parseExpensePrice,
 } from './validate'
@@ -84,6 +83,19 @@ export async function listRecentExpenses(input: {
   })
 }
 
+export async function listExpenseHistoryPage(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly beforeMonthStart?: Date
+}): Promise<ExpenseHistoryPage> {
+  return input.db.listExpenseHistoryPage({
+    householdId: input.householdId,
+    ...(input.beforeMonthStart === undefined
+      ? {}
+      : { beforeMonthStart: input.beforeMonthStart }),
+  })
+}
+
 export async function updateExpense(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
@@ -103,7 +115,6 @@ export async function updateExpense(input: {
   if (existing === null) {
     throw new ExpenseNotFoundError()
   }
-  assertExpenseInCurrentMonth(existing.expenseDate, now)
 
   const name =
     input.name !== undefined ? parseExpenseName(input.name) : existing.name
@@ -112,9 +123,13 @@ export async function updateExpense(input: {
   const comments =
     input.comments !== undefined ? input.comments : existing.comments
   const categoryId = input.categoryId ?? existing.categoryId
+  // Any month, not just the current one: Histórico lets a member open an
+  // expense from any month, so both the expense being edited and the date it
+  // is moved to are unrestricted. Future dates are still rejected, by the
+  // same rule that governs creating one.
   const expenseDate =
     input.expenseDate !== undefined
-      ? parseExpenseDateInCurrentMonth(input.expenseDate, now)
+      ? parseExpenseDate(input.expenseDate, now)
       : existing.expenseDate
 
   return input.db.updateExpense({

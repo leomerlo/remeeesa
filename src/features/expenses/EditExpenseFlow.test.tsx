@@ -215,7 +215,7 @@ describe('EditExpenseFlow', () => {
     ])
   })
 
-  it('shows the out-of-month validation message and keeps the form open', async () => {
+  it('accepts a date edit that moves the expense to a past month', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -253,13 +253,22 @@ describe('EditExpenseFlow', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'La fecha del gasto debe ser del mes actual',
-    )
-    expect(
-      screen.getByRole('button', { name: 'Guardar cambios' }),
-    ).toBeInTheDocument()
-    expect(screen.getByText('Pizza')).toBeInTheDocument()
+    // The edit is accepted now that Histórico surfaces every month: the form
+    // closes instead of surfacing an out-of-month error.
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('button', { name: 'Guardar cambios' }),
+      ).not.toBeInTheDocument()
+    })
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+    const listed = await listExpensesInMonth({
+      db,
+      householdId: household.id,
+      ...currentMonthRange(),
+    })
+    // It left the current month, so the month-scoped read no longer sees it.
+    expect(listed).toEqual([])
   })
 
   it('shows a stale-expense message and refetches the list when the row was deleted elsewhere', async () => {

@@ -51,17 +51,20 @@ describe('CategoryMiniSummary', () => {
     await screen.findByRole('list', { name: 'Gastos por categoría' })
   })
 
-  it('shows an empty state when there are no expenses this month', async () => {
+  // Renders nothing at all -- not a card repeating "Todavía no hay gastos
+  // este mes" -- because that message is already the movements list's own
+  // empty state, right above this one on Home.
+  it('renders nothing when there are no expenses this month', async () => {
     const { db, household } = await seedHousehold()
 
-    renderWithProviders(
+    const { container } = renderWithProviders(
       <CategoryMiniSummary db={db} householdId={household.id} />,
     )
 
-    expect(
-      await screen.findByText('Todavía no hay gastos este mes'),
-    ).toBeInTheDocument()
-    expect(screen.queryByRole('list')).not.toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+    expect(container).toBeEmptyDOMElement()
   })
 
   it('lists categories sorted by total descending, with a color swatch and amount each', async () => {

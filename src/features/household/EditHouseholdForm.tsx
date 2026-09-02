@@ -73,7 +73,7 @@ export function EditHouseholdForm({
 
   return (
     <form
-      className="flex w-full flex-col items-center gap-8"
+      className="flex w-full flex-col items-center gap-6"
       onSubmit={onSubmit}
     >
       <div className="flex w-full flex-col gap-2">
@@ -102,26 +102,39 @@ export function EditHouseholdForm({
           >
             Presupuesto mensual
           </Label>
+          {/* The confirmed, saved amount -- separate from `amount` above,
+              which tracks the in-progress draft. Lets a rejected submission
+              (e.g. a negative budget) visibly leave the real value unchanged
+              instead of just clearing an error message. Always shown: it is
+              the only confirmation that a save landed. */}
           {household !== undefined ? (
-            // The confirmed, saved amount -- separate from `amount` above,
-            // which tracks the in-progress draft. Lets a rejected
-            // submission (e.g. a negative budget) visibly leave the real
-            // value unchanged instead of just clearing an error message.
             <p role="status" className="text-muted-foreground text-xs">
               Actual: {formatCurrency(household.monthlyBudget)}
             </p>
           ) : null}
         </div>
-        <Input
-          id="monthly-budget"
-          name="monthly-budget"
-          value={amount}
-          onChange={(event) => {
-            setBudgetDraft(event.target.value)
-          }}
-          inputMode="decimal"
-          autoComplete="off"
-        />
+        {/* The peso sign lives beside the field rather than inside its value:
+            the raw number stays parseable, but the input stops reading as a
+            bare "500000" next to amounts formatted everywhere else. */}
+        <div className="relative">
+          <span
+            aria-hidden="true"
+            className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+          >
+            $
+          </span>
+          <Input
+            id="monthly-budget"
+            name="monthly-budget"
+            className="pl-7"
+            value={amount}
+            onChange={(event) => {
+              setBudgetDraft(event.target.value)
+            }}
+            inputMode="decimal"
+            autoComplete="off"
+          />
+        </div>
       </div>
 
       {error !== null ? (

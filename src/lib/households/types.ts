@@ -1,3 +1,4 @@
+import type { Pendiente } from '@/lib/pendientes/types'
 import type { Category, Expense } from '@/lib/expenses/types'
 
 export type HouseholdDraft = {
@@ -55,6 +56,36 @@ export type HouseholdsDb = {
     readonly householdId: string
     readonly name: string
   }): Promise<Category>
+  // Color is the one part of a Category that changes in place: a doc's id is
+  // derived from its name, so a color swap is a plain field update while a
+  // rename is a create-repoint-delete (see renameCategory).
+  updateCategoryColor(input: {
+    readonly householdId: string
+    readonly categoryId: string
+    readonly color: string
+  }): Promise<Category>
+  // Creates a doc at the new name's id (carrying over color and createdAt),
+  // repoints every referencing Expense and Pendiente, then deletes the old doc.
+  // Rejects -- writing nothing -- when the new name already belongs to another
+  // category; that case is a merge, not a rename.
+  renameCategory(input: {
+    readonly householdId: string
+    readonly categoryId: string
+    readonly name: string
+  }): Promise<Category>
+  // Refuses while any Expense or Pendiente still points at the category, so
+  // deleting can never orphan a reference.
+  deleteCategory(input: {
+    readonly householdId: string
+    readonly categoryId: string
+  }): Promise<void>
+  // Repoints everything from the source onto an existing survivor and deletes
+  // the source. The survivor's own name and color are left alone.
+  mergeCategories(input: {
+    readonly householdId: string
+    readonly sourceCategoryId: string
+    readonly survivorCategoryId: string
+  }): Promise<void>
   createExpense(input: {
     readonly householdId: string
     readonly categoryId: string
@@ -62,15 +93,6 @@ export type HouseholdsDb = {
     readonly authorDisplayName: string
     readonly name: string
     readonly price: number
-    readonly comments: string
-    readonly expenseDate: Date
-  }): Promise<Expense>
-  updateExpense(input: {
-    readonly expenseId: string
-    readonly householdId: string
-    readonly name: string
-    readonly price: number
-    readonly categoryId: string
     readonly comments: string
     readonly expenseDate: Date
   }): Promise<Expense>
@@ -83,6 +105,19 @@ export type HouseholdsDb = {
     readonly householdId: string
     readonly limit: number
   }): Promise<readonly Expense[]>
+  // All-time history, newest first, paginated in whole calendar months: a
+  // page never ends mid-month, so the Histórico screen can render a month
+  // header knowing every expense under it has already arrived.
+  // `beforeMonthStart` is the cursor -- omit it for the first page, then
+  // pass back the `nextBeforeMonthStart` of the previous page.
+  // `nextBeforeMonthStart` is null once there is nothing older left.
+  listExpenseHistoryPage(input: {
+    readonly householdId: string
+    readonly beforeMonthStart?: Date
+  }): Promise<{
+    readonly expenses: readonly Expense[]
+    readonly nextBeforeMonthStart: Date | null
+  }>
   getExpense(input: {
     readonly householdId: string
     readonly expenseId: string
@@ -100,4 +135,48 @@ export type HouseholdsDb = {
     readonly householdId: string
     readonly expenseId: string
   }): Promise<void>
+  createPendiente(input: {
+    readonly householdId: string
+    readonly categoryId: string
+    readonly name: string
+    readonly dueDate: Date
+    readonly expectedAmount: number | null
+    readonly recurring?: boolean
+  }): Promise<Pendiente>
+  getPendiente(input: {
+    readonly householdId: string
+    readonly pendienteId: string
+  }): Promise<Pendiente | null>
+  listPendientes(input: {
+    readonly householdId: string
+  }): Promise<readonly Pendiente[]>
+  updatePendiente(input: {
+    readonly householdId: string
+    readonly pendienteId: string
+    readonly categoryId: string
+    readonly name: string
+    readonly dueDate: Date
+    readonly expectedAmount: number | null
+    readonly recurring: boolean
+  }): Promise<Pendiente>
+  deletePendiente(input: {
+    readonly householdId: string
+    readonly pendienteId: string
+  }): Promise<void>
+  markPendientePaid(input: {
+    readonly householdId: string
+    readonly pendienteId: string
+    readonly memberId: string
+    readonly authorDisplayName: string
+    readonly finalAmount: number
+    readonly paymentDate: Date
+    // nextPendiente is the auto-created next cycle for a recurring Pendiente,
+    // written in the same transaction; null for a non-recurring one. Declared
+    // as `Pendiente | null` rather than an optional property so every adapter has
+    // to state the non-recurring case explicitly instead of omitting it.
+  }): Promise<{
+    pendiente: Pendiente
+    expense: Expense
+    nextPendiente: Pendiente | null
+  }>
 }

@@ -8,6 +8,10 @@ export type MemberListProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly currentUserId: string
+  // The signed-in member's real name. Without it every avatar for "Vos"
+  // rendered the initial "V", which is the first letter of a pronoun rather
+  // than of anybody's name.
+  readonly currentUserDisplayName?: string
 }
 
 function membersQueryKey(input: {
@@ -19,9 +23,13 @@ function membersQueryKey(input: {
 function memberLabel(input: {
   readonly member: HouseholdMember
   readonly currentUserId: string
+  // The signed-in member's real name. Without it every avatar for "Vos"
+  // rendered the initial "V", which is the first letter of a pronoun rather
+  // than of anybody's name.
+  readonly currentUserDisplayName?: string
 }): string {
   if (input.member.userId === input.currentUserId) {
-    return 'Vos'
+    return input.currentUserDisplayName ?? 'Vos'
   }
   return 'Miembro'
 }
@@ -30,6 +38,7 @@ export function MemberList({
   db,
   householdId,
   currentUserId,
+  currentUserDisplayName,
 }: MemberListProps): ReactElement {
   const membersQuery = useQuery({
     queryKey: membersQueryKey({ householdId }),
@@ -65,7 +74,16 @@ export function MemberList({
       </h2>
       <ul className="flex flex-col gap-3">
         {ordered.map((member) => {
-          const label = memberLabel({ member, currentUserId })
+          const label = memberLabel({
+            member,
+            currentUserId,
+            ...(currentUserDisplayName === undefined
+              ? {}
+              : { currentUserDisplayName }),
+          })
+          // Only when the row already shows a real name -- with the 'Vos'
+          // fallback label the chip would render "Vos Vos".
+          const showYouChip = member.userId === currentUserId && label !== 'Vos'
           // Reuses the category-color hash (any string in, one of the
           // palette's 8 hues out) for a per-member avatar tint -- there's
           // no member-specific color concept, just the same "give this
@@ -82,6 +100,9 @@ export function MemberList({
                 {label.charAt(0).toUpperCase()}
               </span>
               <span className="text-foreground font-medium">{label}</span>
+              {showYouChip ? (
+                <span className="text-muted-foreground text-xs">Vos</span>
+              ) : null}
             </li>
           )
         })}

@@ -52,8 +52,8 @@ the Home/Histórico/Categorías content itself.
 ## Out of scope
 
 - The actual content of Home, Histórico, and Categorías (their own stories).
-- The two-CTA row ("Agregar gasto" / "Nueva cuenta") on Home — that's `home-dashboard.md`, since
-  "Nueva cuenta" depends on the Cuenta entity from `cuentas-pendientes.md`.
+- The two-CTA row ("Agregar gasto" / "Nuevo pendiente") on Home — that's `home-dashboard.md`, since
+  "Nuevo pendiente" depends on the Pendiente entity from `cuentas-pendientes.md`.
 - Deep-linking to a specific sheet state via URL.
 
 ## Open questions

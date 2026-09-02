@@ -9,12 +9,12 @@ data, doesn't rebuild it.
 
 Today's pattern (`AddExpenseForm`, `ExpenseList`) is: each mutation site hand-enumerates the
 exact query keys it knows about and invalidates each individually. That doesn't scale once Home,
-Cuentas, and Categorías all read the same underlying `expenses`/`cuentas`/`categories` data from
+Pendientes, and Categorías all read the same underlying `expenses`/`pendientes`/`categories` data from
 different screens — every mutation site would otherwise need to know every other screen's exact
 key shape, which is exactly what this story's cross-screen refetch requirement rules out.
 
 **Fix:** give each entity type a hierarchical, household-scoped key factory (e.g.
-`['expenses', householdId, ...]`, `['cuentas', householdId, ...]`, `['categories', householdId,
+`['expenses', householdId, ...]`, `['pendientes', householdId, ...]`, `['categories', householdId,
 ...]`) and have mutation sites invalidate by the **entity-type + householdId prefix** (React
 Query does prefix matching by default), not by enumerating leaf keys. A new Home query then just
 keys itself under the right prefix to automatically participate — no mutation site needs to
@@ -31,8 +31,8 @@ the balance showing up even if, say, the person breakdown is still loading):
 1. **Balance card** — relocate/restyle the existing `RemainingBudgetDisplay` onto the gradient
    treatment; logic unchanged.
 2. **Action row** — two buttons opening the add-expense sheet (`navigation-shell.md`) and the
-   new-Cuenta sheet (`cuentas-pendientes.md`). No new sheet logic, just wiring.
-3. **Por pagar** — query `cuentas` where `status: pending`, order by `dueDate` asc, limit ~6 (to
+   new-Pendiente sheet (`cuentas-pendientes.md`). No new sheet logic, just wiring.
+3. **Por pagar** — query `pendientes` where `status: pending`, order by `dueDate` asc, limit ~6 (to
    detect the "more than 5" case); absent entirely when zero pending.
 4. **Recent activity** — new query for ~10 most recent expenses across all time (not the existing
    month-scoped query); empty state at zero.
@@ -43,7 +43,7 @@ the balance showing up even if, say, the person breakdown is still loading):
 
 1. Shared cross-screen query-key & invalidation strategy (migrates existing mutation sites too)
 2. Balance card on Home (gradient treatment)
-3. Action row ("Agregar gasto" / "Nueva cuenta")
+3. Action row ("Agregar gasto" / "Nuevo pendiente")
 4. Por pagar section
 5. Recent-activity preview
 6. Category and person mini-summaries

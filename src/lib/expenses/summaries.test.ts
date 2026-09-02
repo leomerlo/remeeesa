@@ -50,12 +50,19 @@ describe('summarizeByCategory', () => {
     })
 
     expect(summary).toEqual([
-      { categoryId: 'cat-comida', name: 'Comida', color: comida.color, total: 25 },
+      {
+        categoryId: 'cat-comida',
+        name: 'Comida',
+        color: comida.color,
+        total: 25,
+        share: 25 / 33,
+      },
       {
         categoryId: 'cat-transporte',
         name: 'Transporte',
         color: transporte.color,
         total: 8,
+        share: 8 / 33,
       },
     ])
   })
@@ -115,6 +122,7 @@ describe('summarizeByCategory', () => {
         name: 'Categoría desconocida',
         color: colorForCategoryName('Categoría desconocida'),
         total: 12,
+        share: 1,
       },
     ])
   })
@@ -134,7 +142,13 @@ describe('summarizeByCategory', () => {
     const summary = summarizeByCategory({ expenses, categories: [comida] })
 
     expect(summary).toEqual([
-      { categoryId: 'cat-comida', name: 'Comida', color: comida.color, total: 15.5 },
+      {
+        categoryId: 'cat-comida',
+        name: 'Comida',
+        color: comida.color,
+        total: 15.5,
+        share: 1,
+      },
     ])
   })
 })
@@ -169,5 +183,41 @@ describe('summarizeByPerson', () => {
     const summary = summarizeByPerson({ expenses })
 
     expect(summary).toEqual([{ authorDisplayName: 'Ada', total: 15 }])
+  })
+})
+
+describe('summarizeByCategory share', () => {
+  it('gives every category its fraction of the period total, summing to one', () => {
+    const comida = makeCategory({ id: 'cat-comida', name: 'Comida' })
+    const transporte = makeCategory({
+      id: 'cat-transporte',
+      name: 'Transporte',
+      color: '#5394c7',
+    })
+    const expenses = [
+      makeExpense({ id: 'e1', categoryId: 'cat-comida', price: 75 }),
+      makeExpense({ id: 'e2', categoryId: 'cat-transporte', price: 25 }),
+    ]
+
+    const summary = summarizeByCategory({
+      expenses,
+      categories: [comida, transporte],
+    })
+
+    expect(summary[0]?.share).toBeCloseTo(0.75, 10)
+    expect(summary[1]?.share).toBeCloseTo(0.25, 10)
+    expect(summary.reduce((sum, entry) => sum + entry.share, 0)).toBeCloseTo(
+      1,
+      10,
+    )
+  })
+
+  // Guards the divide: without it a zero total would put NaN into the chart's
+  // geometry, which silently draws nothing instead of showing an empty state.
+  it('never produces NaN when there is nothing to divide by', () => {
+    const summary = summarizeByCategory({ expenses: [], categories: [] })
+
+    expect(summary).toEqual([])
+    expect(summary.some((entry) => Number.isNaN(entry.share))).toBe(false)
   })
 })

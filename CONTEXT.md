@@ -34,19 +34,19 @@ A Household's `monthlyBudget` minus the sum of all Expenses dated in the current
 Can go negative (over budget) — this never blocks adding more Expenses.
 _Avoid_: Balance (reserved for a future income-tracking concept, not yet in scope)
 
-**Cuenta** (Bill):
+**Pendiente** (Bill):
 A payment obligation, tracked *before* it's paid — the accounts-payable side of the household,
 distinct from Expense (the accounts-paid side). Has a category, an optional expected amount
 (often unknown ahead of time — recurring amounts change month to month), a due date, and a
-pending/paid status. Marking a Cuenta paid records the real amount and generates the matching
+pending/paid status. Marking a Pendiente paid records the real amount and generates the matching
 Expense; that's the moment it starts counting against the budget.
-_Avoid_: Bill (English works too, but "Cuenta" is the term the household actually uses),
-recurring expense (a Cuenta may or may not repeat monthly)
+_Avoid_: Bill (English works too, but "Pendiente" is the term the household actually uses),
+recurring expense (a Pendiente may or may not repeat monthly)
 
-**Recurring** (as applied to a Cuenta):
-A Cuenta that comes back every month under the same name/category (e.g. "Internet", "Seguro del
+**Recurring** (as applied to a Pendiente):
+A Pendiente that comes back every month under the same name/category (e.g. "Internet", "Seguro del
 auto") — but the *amount* is expected to vary each cycle (inflation), so recurring never means
-"auto-charge the same amount." A household member marks a Cuenta recurring manually; the
+"auto-charge the same amount." A household member marks a Pendiente recurring manually; the
 household is expected to recognize what's recurring through use, not declare it all up front.
 
 ## Relationships
@@ -60,9 +60,9 @@ household is expected to recognize what's recurring through use, not declare it 
   Entretenimiento, Salud, Otros).
 - **Remaining budget** is derived, not stored: `Household.monthlyBudget` minus the sum of the
   current month's **Expenses**.
-- A **Cuenta** belongs to exactly one **Household** and one **Category**. Paying a Cuenta
-  generates exactly one **Expense**; an **Expense** may or may not have originated from a Cuenta
-  (a coffee bought on the spot is an Expense with no Cuenta behind it).
+- A **Pendiente** belongs to exactly one **Household** and one **Category**. Paying a Pendiente
+  generates exactly one **Expense**; an **Expense** may or may not have originated from a Pendiente
+  (a coffee bought on the spot is an Expense with no Pendiente behind it).
 
 ## Example dialogue
 

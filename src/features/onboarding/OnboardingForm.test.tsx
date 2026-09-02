@@ -135,14 +135,16 @@ describe('OnboardingForm', () => {
     markReturningUser()
     renderOnboarding()
 
-    expect(screen.getByRole('button', { name: 'Iniciar sesión' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Iniciar sesión' }),
+    ).toBeInTheDocument()
     expect(screen.queryByLabelText('Nombre del hogar')).not.toBeInTheDocument()
   })
 
   it('renders a decorative illustration alongside the household-creation form', () => {
     const { container } = renderOnboarding()
 
-    expect(container.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
+    expect(container.querySelector('img[aria-hidden="true"]')).not.toBeNull()
   })
 
   it('stores a household draft when name and budget are valid', () => {
@@ -495,11 +497,11 @@ describe('OnboardingForm', () => {
 
   it('shows sign in after clicking I already have an account on the household step', () => {
     renderOnboarding()
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Ya tengo una cuenta' }),
-    )
+    fireEvent.click(screen.getByRole('button', { name: 'Ya tengo una cuenta' }))
 
-    expect(screen.getByRole('button', { name: 'Iniciar sesión' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Iniciar sesión' }),
+    ).toBeInTheDocument()
     expect(screen.queryByLabelText('Nombre del hogar')).not.toBeInTheDocument()
   })
 
@@ -509,9 +511,7 @@ describe('OnboardingForm', () => {
     const signupAuth = signupAuthFor('user-1')
     const onFinished = vi.fn()
     renderOnboarding({ householdsDb: db, signupAuth, onFinished })
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Ya tengo una cuenta' }),
-    )
+    fireEvent.click(screen.getByRole('button', { name: 'Ya tengo una cuenta' }))
     submitEmailLogin()
 
     await waitFor(() => {
@@ -532,9 +532,7 @@ describe('OnboardingForm', () => {
     const signupAuth = signupAuthFor('user-1')
     renderOnboarding({ householdsDb: db, signupAuth })
     submitOnboarding({ name: 'The Smiths', monthlyBudget: '1500' })
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Ya tengo una cuenta' }),
-    )
+    fireEvent.click(screen.getByRole('button', { name: 'Ya tengo una cuenta' }))
     submitEmailLogin()
 
     await waitFor(() => {
@@ -563,5 +561,23 @@ describe('OnboardingForm', () => {
     renderOnboarding()
 
     expect(screen.getByText('No household draft')).toBeInTheDocument()
+  })
+
+  // The dead end this closes: a returning visitor lands in login mode
+  // automatically, with no state on screen to say why. Before this, a wrong
+  // guess -- a shared computer, or a second household member's first
+  // sign-in on this device -- had no way back to account creation short of
+  // a reload.
+  it('gets back to the household wizard from login mode via "No tengo una cuenta"', () => {
+    markReturningUser()
+    renderOnboarding()
+
+    expect(
+      screen.getByRole('button', { name: 'Iniciar sesión' }),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'No tengo una cuenta' }))
+
+    expect(screen.getByLabelText('Nombre del hogar')).toBeInTheDocument()
   })
 })

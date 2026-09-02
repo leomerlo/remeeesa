@@ -1592,7 +1592,53 @@ describe('updateExpense', () => {
     expect(unchanged).toEqual(expense)
   })
 
-  it('rejects a date edit that moves the expense outside the current calendar month and leaves it unchanged', async () => {
+  // Histórico lets a member open an expense from any month, so a date edit
+  // may deliberately move an expense out of the current month. This used to
+  // be rejected; the restriction was lifted with the Histórico screen.
+  it('moves an expense out of the current calendar month when the date is edited', async () => {
+    const store = createMemoryHouseholdsDb()
+    const { household, expense, editorDb } = await seedAugustExpense({ store })
+
+    const updated = await updateExpense({
+      db: editorDb,
+      householdId: household.id,
+      expenseId: expense.id,
+      expenseDate: new Date(2026, 6, 31),
+      now: augustNow,
+    })
+
+    expect(updated.expenseDate).toEqual(new Date(2026, 6, 31))
+    const stored = await editorDb.getExpense({
+      householdId: household.id,
+      expenseId: expense.id,
+    })
+    expect(stored?.expenseDate).toEqual(new Date(2026, 6, 31))
+  })
+
+  it('moves an expense into the current calendar month when the date is edited', async () => {
+    const store = createMemoryHouseholdsDb()
+    const { household, expense, editorDb } = await seedAugustExpense({ store })
+    // Park it in July first, then bring it back into August.
+    await updateExpense({
+      db: editorDb,
+      householdId: household.id,
+      expenseId: expense.id,
+      expenseDate: new Date(2026, 6, 10),
+      now: augustNow,
+    })
+
+    const updated = await updateExpense({
+      db: editorDb,
+      householdId: household.id,
+      expenseId: expense.id,
+      expenseDate: new Date(2026, 7, 5),
+      now: augustNow,
+    })
+
+    expect(updated.expenseDate).toEqual(new Date(2026, 7, 5))
+  })
+
+  it('still rejects a future date when editing, in any month', async () => {
     const store = createMemoryHouseholdsDb()
     const { household, expense, editorDb } = await seedAugustExpense({ store })
 
@@ -1601,10 +1647,10 @@ describe('updateExpense', () => {
         db: editorDb,
         householdId: household.id,
         expenseId: expense.id,
-        expenseDate: new Date(2026, 6, 31),
+        expenseDate: new Date(2026, 8, 1),
         now: augustNow,
       }),
-    ).rejects.toThrow('La fecha del gasto debe ser del mes actual')
+    ).rejects.toThrow('La fecha del gasto no puede ser futura')
 
     const unchanged = await editorDb.getExpense({
       householdId: household.id,
@@ -1634,7 +1680,7 @@ describe('updateExpense', () => {
     expect(updated.authorDisplayName).toBe('Ada')
   })
 
-  it('rejects editing an expense that is not in the current calendar month', async () => {
+  it('edits an expense from a past calendar month without moving its date', async () => {
     const store = createMemoryHouseholdsDb()
     const db = store.asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -1661,21 +1707,21 @@ describe('updateExpense', () => {
       expenseDate: new Date(2026, 6, 15),
     })
 
-    await expect(
-      updateExpense({
-        db,
-        householdId: household.id,
-        expenseId: julyExpense.id,
-        name: 'Too late',
-        now: augustNow,
-      }),
-    ).rejects.toThrow('El gasto no pertenece al mes actual')
-
-    const unchanged = await db.getExpense({
+    // A past-month expense is editable: Histórico surfaces every month, so
+    // refusing to edit anything but the current one would make most of that
+    // screen read-only.
+    const updated = await updateExpense({
+      db,
       householdId: household.id,
       expenseId: julyExpense.id,
+      name: 'July lunch, corrected',
+      now: augustNow,
     })
-    expect(unchanged).toEqual(julyExpense)
+
+    expect(updated.name).toBe('July lunch, corrected')
+    // The date itself is untouched -- editing a field other than the date
+    // must not silently drag the expense into the current month.
+    expect(updated.expenseDate).toEqual(new Date(2026, 6, 15))
   })
 
   it('rejects an unknown category, a missing expense, and a non-member', async () => {

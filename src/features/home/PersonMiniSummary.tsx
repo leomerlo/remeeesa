@@ -23,7 +23,7 @@ export type PersonMiniSummaryProps = {
 export function PersonMiniSummary({
   db,
   householdId,
-}: PersonMiniSummaryProps): ReactElement {
+}: PersonMiniSummaryProps): ReactElement | null {
   const monthRange = useMemo(() => currentMonthRange(), [])
   const expensesQuery = useQuery({
     queryKey: expensesInMonthQueryKey({ householdId }),
@@ -48,30 +48,30 @@ export function PersonMiniSummary({
 
   const summary = summarizeByPerson({ expenses })
 
+  // Same reasoning as CategoryMiniSummary: nothing at all rather than a
+  // second (here, third) card repeating "Todavía no hay gastos este mes".
+  if (summary.length === 0) {
+    return null
+  }
+
   return (
     <div className="bg-card shadow-resting flex w-full flex-col gap-3 rounded-2xl p-4">
       <h2 className="text-title font-semibold">Integrantes</h2>
-      {summary.length === 0 ? (
-        <p role="status" className="text-sm text-muted-foreground">
-          Todavía no hay gastos este mes
-        </p>
-      ) : (
-        <ul aria-label="Gastos por persona" className="flex flex-col gap-2">
-          {summary.map((entry) => (
-            <li
-              key={entry.authorDisplayName}
-              className="flex items-center justify-between gap-2 text-sm"
-            >
-              <span className="truncate text-foreground">
-                {entry.authorDisplayName}
-              </span>
-              <span className="shrink-0 font-medium text-foreground">
-                {formatCurrency(entry.total)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul aria-label="Gastos por persona" className="flex flex-col gap-2">
+        {summary.map((entry) => (
+          <li
+            key={entry.authorDisplayName}
+            className="flex items-center justify-between gap-2 text-sm"
+          >
+            <span className="truncate text-foreground">
+              {entry.authorDisplayName}
+            </span>
+            <span className="shrink-0 font-medium text-foreground">
+              {formatCurrency(entry.total)}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

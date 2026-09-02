@@ -6,9 +6,20 @@ export {
   findOrCreateCategory,
   listCategories,
   listExpensesInMonth,
+  listExpenseHistoryPage,
   listRecentExpenses,
   updateExpense,
 } from './expenses'
+export {
+  CategoryInUseError,
+  CategoryNameTakenError,
+  CategoryNotFoundError,
+  deleteCategory,
+  mergeCategories,
+  renameCategory,
+  updateCategoryColor,
+} from './categoryManagement'
+export { CATEGORY_COLOR_PALETTE } from './categoryColor'
 export {
   computePercentUsed,
   computeRemainingBudget,
@@ -31,11 +42,12 @@ export {
   parseExpenseDocument,
 } from './converters'
 export {
-  assertExpenseInCurrentMonth,
   parseAuthorDisplayName,
+  parseCategoryColor,
   parseCategoryName,
   parseExpenseDate,
-  parseExpenseDateInCurrentMonth,
   parseExpenseName,
   parseExpensePrice,
 } from './validate'
+export { monthEndOf, monthStartOf } from './history'
+export type { ExpenseHistoryPage } from './history'
