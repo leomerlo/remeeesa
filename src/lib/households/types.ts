@@ -168,6 +168,15 @@ export type HouseholdsDb = {
   listPendientes(input: {
     readonly householdId: string
   }): Promise<readonly Pendiente[]>
+  // Paid Pendientes are otherwise invisible once marked paid -- listPendientes
+  // only ever returns status == 'pending'. This is the one place a paid
+  // Pendiente can still be found, scoped by when it was paid (paidAt) rather
+  // than its due date, since paying it doesn't change when it was due.
+  listPendientesPaidInMonth(input: {
+    readonly householdId: string
+    readonly monthStart: Date
+    readonly monthEnd: Date
+  }): Promise<readonly Pendiente[]>
   updatePendiente(input: {
     readonly householdId: string
     readonly pendienteId: string

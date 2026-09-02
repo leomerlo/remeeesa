@@ -872,6 +872,25 @@ export function createFirestoreHouseholdsDb(
         )
       })
     },
+    async listPendientesPaidInMonth(input) {
+      return withHouseholdAccess('listPendientesPaidInMonth', async () => {
+        const pendientesQuery = query(
+          collection(firestore, 'pendientes'),
+          where('household_id', '==', input.householdId),
+          where('status', '==', 'paid'),
+          where('paid_at', '>=', Timestamp.fromDate(input.monthStart)),
+          where('paid_at', '<=', Timestamp.fromDate(input.monthEnd)),
+          orderBy('paid_at', 'desc'),
+        )
+        const snap = await getDocs(pendientesQuery)
+        return snap.docs.map((pendienteDoc) =>
+          parsePendienteDocument({
+            id: pendienteDoc.id,
+            data: pendienteDoc.data(),
+          }),
+        )
+      })
+    },
     async updatePendiente(input) {
       return withHouseholdAccess(
         'updatePendiente',

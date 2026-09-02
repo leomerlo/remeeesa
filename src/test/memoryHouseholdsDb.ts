@@ -601,6 +601,26 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       )
       return pendientes
     },
+    async listPendientesPaidInMonth(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const pendientes: Pendiente[] = []
+      for (const pendiente of state.pendientes.values()) {
+        if (
+          pendiente.householdId === input.householdId &&
+          pendiente.status === 'paid' &&
+          pendiente.paidAt !== null &&
+          pendiente.paidAt >= input.monthStart &&
+          pendiente.paidAt <= input.monthEnd
+        ) {
+          pendientes.push(pendiente)
+        }
+      }
+      pendientes.sort(
+        (left, right) =>
+          (right.paidAt?.getTime() ?? 0) - (left.paidAt?.getTime() ?? 0),
+      )
+      return pendientes
+    },
     async updatePendiente(input) {
       assertMemberOf(state, userId, input.householdId)
       const existing = state.pendientes.get(input.pendienteId)

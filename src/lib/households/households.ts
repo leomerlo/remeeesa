@@ -73,6 +73,7 @@ export const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
   createPendiente: 'agregar el pendiente',
   getPendiente: 'cargar el pendiente',
   listPendientes: 'cargar los pendientes',
+  listPendientesPaidInMonth: 'cargar los pendientes pagados',
   updatePendiente: 'guardar el pendiente',
   deletePendiente: 'eliminar el pendiente',
   markPendientePaid: 'marcar el pendiente como pagado',

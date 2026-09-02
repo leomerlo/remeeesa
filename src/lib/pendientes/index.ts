@@ -7,6 +7,7 @@ export {
   deletePendiente,
   getPendiente,
   listPendientes,
+  listPendientesForMonth,
   markPendientePaid,
   updatePendiente,
 } from './pendientes'

@@ -18,6 +18,7 @@ import {
   deletePendiente,
   getPendiente,
   listPendientes,
+  listPendientesForMonth,
   markPendientePaid,
   updatePendiente,
 } from './pendientes'
@@ -621,6 +622,119 @@ async function seedPendingPendiente(input?: {
   })
   return { db, household, comida, pendiente }
 }
+
+describe('listPendientesForMonth', () => {
+  it('includes every pending pendiente regardless of its due date', async () => {
+    const { db, household, comida } = await seedPendingPendiente()
+    // Overdue by a lot -- still pending, so still owed, regardless of the
+    // month being viewed.
+    await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Vieja factura',
+      dueDate: new Date(2026, 2, 1),
+      expectedAmount: 100,
+    })
+
+    const listed = await listPendientesForMonth({
+      db,
+      householdId: household.id,
+      monthStart: new Date(2026, 8, 1),
+      monthEnd: new Date(2026, 8, 30, 23, 59, 59, 999),
+    })
+
+    expect(listed.map((pendiente) => pendiente.name).sort()).toEqual(
+      ['Alquiler', 'Vieja factura'].sort(),
+    )
+  })
+
+  it('includes a pendiente paid within the given month', async () => {
+    const { db, household, pendiente } = await seedPendingPendiente()
+
+    await markPendientePaid({
+      db,
+      householdId: household.id,
+      pendienteId: pendiente.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 500,
+      paymentDate: new Date(2026, 7, 15),
+    })
+
+    const listed = await listPendientesForMonth({
+      db,
+      householdId: household.id,
+      monthStart: new Date(2026, 7, 1),
+      monthEnd: new Date(2026, 7, 31, 23, 59, 59, 999),
+    })
+
+    const paidEntry = listed.find((entry) => entry.id === pendiente.id)
+    expect(paidEntry).toBeDefined()
+    expect(paidEntry?.status).toBe('paid')
+  })
+
+  it('excludes a pendiente paid in a different month', async () => {
+    const { db, household, pendiente } = await seedPendingPendiente()
+
+    await markPendientePaid({
+      db,
+      householdId: household.id,
+      pendienteId: pendiente.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 500,
+      paymentDate: new Date(2026, 6, 15), // July, not August
+    })
+
+    const listed = await listPendientesForMonth({
+      db,
+      householdId: household.id,
+      monthStart: new Date(2026, 7, 1),
+      monthEnd: new Date(2026, 7, 31, 23, 59, 59, 999),
+    })
+
+    expect(listed.find((entry) => entry.id === pendiente.id)).toBeUndefined()
+  })
+
+  it('lists pending entries before paid-this-month entries', async () => {
+    const {
+      db,
+      household,
+      comida,
+      pendiente: paidSoon,
+    } = await seedPendingPendiente()
+    await markPendientePaid({
+      db,
+      householdId: household.id,
+      pendienteId: paidSoon.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 500,
+      paymentDate: new Date(2026, 7, 5),
+    })
+    const stillPending = await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Internet',
+      dueDate: new Date(2026, 8, 20),
+      expectedAmount: 300,
+    })
+
+    const listed = await listPendientesForMonth({
+      db,
+      householdId: household.id,
+      monthStart: new Date(2026, 7, 1),
+      monthEnd: new Date(2026, 7, 31, 23, 59, 59, 999),
+    })
+
+    expect(listed.map((entry) => entry.id)).toEqual([
+      stillPending.id,
+      paidSoon.id,
+    ])
+  })
+})
 
 describe('updatePendiente', () => {
   it('updates the name only, leaving other fields as stored', async () => {

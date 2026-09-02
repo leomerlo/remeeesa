@@ -57,6 +57,29 @@ export async function listPendientes(input: {
   return input.db.listPendientes({ householdId: input.householdId })
 }
 
+// Every pending Pendiente (regardless of due date -- an overdue bill from
+// three months ago stays actionable until it's paid, not just during the
+// month it fell due) plus whichever ones were paid within the given month.
+// Pending first (soonest due date first, from listPendientes), then paid
+// ones (most recently paid first) -- so the still-actionable half of the
+// list never gets pushed down by completed history.
+export async function listPendientesForMonth(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly monthStart: Date
+  readonly monthEnd: Date
+}): Promise<readonly Pendiente[]> {
+  const [pending, paidThisMonth] = await Promise.all([
+    input.db.listPendientes({ householdId: input.householdId }),
+    input.db.listPendientesPaidInMonth({
+      householdId: input.householdId,
+      monthStart: input.monthStart,
+      monthEnd: input.monthEnd,
+    }),
+  ])
+  return [...pending, ...paidThisMonth]
+}
+
 async function getPendienteOrThrow(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
