@@ -1,4 +1,5 @@
 import type { ReactElement, ReactNode, Ref } from 'react'
+import { cn } from '@/lib/utils'
 
 export type PageHeaderProps = {
   readonly title: string
@@ -6,6 +7,11 @@ export type PageHeaderProps = {
   // the baseline with the title rather than becoming a second heading.
   readonly trailing?: ReactNode
   readonly headingRef?: Ref<HTMLHeadingElement>
+  // Home passes this for the household's own chosen name: the same violet
+  // gradient the budget hero and auth cards use, so the one title on this
+  // screen that is actually *yours* (not a generic screen label like every
+  // other page's title) reads as such. Every other PageHeader stays plain.
+  readonly gradient?: boolean
 }
 
 // The one page-level header every top-level screen (Home, Histórico,
@@ -18,6 +24,7 @@ export function PageHeader({
   title,
   trailing,
   headingRef,
+  gradient = false,
 }: PageHeaderProps): ReactElement {
   return (
     <div className="flex w-full items-baseline justify-between gap-3">
@@ -26,7 +33,11 @@ export function PageHeader({
       <h1
         ref={headingRef}
         tabIndex={-1}
-        className="text-title font-semibold outline-none"
+        className={cn(
+          'text-title font-semibold outline-none',
+          gradient &&
+            'from-primary to-[var(--surface-action-gradient-end)] bg-gradient-to-br bg-clip-text text-transparent',
+        )}
       >
         {title}
       </h1>

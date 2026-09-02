@@ -177,7 +177,7 @@ export function HomePage({
       {/* No settings shortcut here: Ajustes is already one tap away in the
           bottom nav, so a second icon-link to the same destination is
           redundant. */}
-      <PageHeader title={household?.name ?? 'Hogar'} />
+      <PageHeader title={household?.name ?? 'Hogar'} gradient />
       <PendienteDueSoonBanner db={db} householdId={membership.householdId} />
       <MonthNavigator
         db={db}
