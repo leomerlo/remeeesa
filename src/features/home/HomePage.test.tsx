@@ -129,9 +129,6 @@ describe('HomePage', () => {
     expect(
       screen.queryAllByText('Todavía no hay gastos este mes'),
     ).toHaveLength(1)
-    expect(
-      screen.getByRole('button', { name: 'Nuevo recurrente' }),
-    ).toBeInTheDocument()
     expect(screen.queryByText('Por pagar')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Precio')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Categoría')).not.toBeInTheDocument()
@@ -148,7 +145,7 @@ describe('HomePage', () => {
     expect(screen.queryByLabelText(/author/i)).not.toBeInTheDocument()
   })
 
-  it('opens the Nuevo recurrente sheet and creates a pending item', async () => {
+  it('creates a pending item from the unified Agregar gasto sheet when "Ya lo pagué" is unchecked', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -160,14 +157,18 @@ describe('HomePage', () => {
     renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
 
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Nuevo recurrente' }),
+      await screen.findByRole('button', { name: 'Agregar gasto' }),
     )
 
     expect(await screen.findByLabelText('Nombre')).toBeInTheDocument()
     expect(screen.getByLabelText('Categoría')).toBeInTheDocument()
-    expect(screen.getByLabelText('Fecha de vencimiento')).toBeInTheDocument()
-    expect(screen.getByLabelText('Monto esperado')).toBeInTheDocument()
     expect(screen.getByLabelText('Recurrente')).toBeInTheDocument()
+    // "Ya lo pagué" starts checked -- the common case is logging something
+    // that already happened -- so the date/amount fields start in their
+    // "already paid" shape.
+    expect(screen.getByLabelText('Ya lo pagué')).toBeChecked()
+    expect(screen.getByLabelText('Precio')).toBeInTheDocument()
+    expect(screen.getByLabelText('Fecha')).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('Nombre'), {
       target: { value: 'Alquiler' },
@@ -175,14 +176,20 @@ describe('HomePage', () => {
     fireEvent.change(screen.getByLabelText('Categoría'), {
       target: { value: 'Servicios' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Agregar recurrente' }))
+    fireEvent.click(screen.getByLabelText('Ya lo pagué'))
+
+    // Unchecking it swaps the field labels to the "not yet paid" shape.
+    expect(screen.getByLabelText('Monto esperado')).toBeInTheDocument()
+    expect(screen.getByLabelText('Fecha de vencimiento')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar pendiente' }))
 
     // Sheet closes and the trigger reappears -- no route change, no reload.
     await waitFor(() => {
       expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
     expect(
-      screen.getByRole('button', { name: 'Nuevo recurrente' }),
+      screen.getByRole('button', { name: 'Agregar gasto' }),
     ).toBeInTheDocument()
 
     const pending = await listPendientes({ db, householdId: household.id })

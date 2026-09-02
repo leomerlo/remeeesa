@@ -4,6 +4,7 @@ import type { ReactElement } from 'react'
 import { PageHeader } from '@/components/PageHeader'
 import {
   AddExpenseSheet,
+  AddGastoSheet,
   MonthNavigator,
   RecentExpensesList,
 } from '@/features/expenses'
@@ -28,7 +29,6 @@ import {
 } from '@/lib/households'
 import type { Household, HouseholdMember, HouseholdsDb } from '@/lib/households'
 import { CategoryMiniSummary } from './CategoryMiniSummary'
-import { GastoVsPendienteHint } from './GastoVsPendienteHint'
 import { PersonMiniSummary } from './PersonMiniSummary'
 
 export type HomePageProps = {
@@ -63,8 +63,7 @@ export function HomePage({
   const [household, setHousehold] = useState<Household | null>(null)
   const [homeEpoch, setHomeEpoch] = useState(0)
   const [editExpense, setEditExpense] = useState<EditExpenseTarget | null>(null)
-  const [isAddExpenseSheetOpen, setIsAddExpenseSheetOpen] = useState(false)
-  const [isAddPendienteSheetOpen, setIsAddPendienteSheetOpen] = useState(false)
+  const [isAddGastoSheetOpen, setIsAddGastoSheetOpen] = useState(false)
   const [editPendiente, setEditPendiente] =
     useState<EditPendienteTarget | null>(null)
   // Owned here (not inside MonthNavigator) so every month-scoped section on
@@ -185,36 +184,43 @@ export function HomePage({
         viewedMonth={viewedMonth}
         onViewedMonthChange={setViewedMonth}
       />
-      <div className="flex w-full gap-3">
-        <AddExpenseSheet
-          open={isAddExpenseSheetOpen}
-          onOpenChange={setIsAddExpenseSheetOpen}
-          db={db}
-          householdId={membership.householdId}
-          memberId={currentUserId}
-          authorDisplayName={authorDisplayName}
-          editExpense={editExpense}
-          onEditFinished={() => {
-            setEditExpense(null)
-          }}
-        />
-        {editExpense === null ? (
-          <AddPendienteSheet
-            open={isAddPendienteSheetOpen}
-            onOpenChange={setIsAddPendienteSheetOpen}
-            db={db}
-            householdId={membership.householdId}
-            memberId={currentUserId}
-            authorDisplayName={authorDisplayName}
-            editPendiente={editPendiente}
-            onEditFinished={() => {
-              setEditPendiente(null)
-            }}
-            triggerClassName="flex-1"
-          />
-        ) : null}
-      </div>
-      <GastoVsPendienteHint />
+      <AddGastoSheet
+        open={isAddGastoSheetOpen}
+        onOpenChange={setIsAddGastoSheetOpen}
+        db={db}
+        householdId={membership.householdId}
+        memberId={currentUserId}
+        authorDisplayName={authorDisplayName}
+      />
+      {/* Both mounted purely to edit/mark-paid a row they were handed
+          (editExpense/editPendiente) -- adding goes through AddGastoSheet
+          above instead, so neither shows its own trigger here. */}
+      <AddExpenseSheet
+        open={false}
+        showTrigger={false}
+        onOpenChange={() => {}}
+        db={db}
+        householdId={membership.householdId}
+        memberId={currentUserId}
+        authorDisplayName={authorDisplayName}
+        editExpense={editExpense}
+        onEditFinished={() => {
+          setEditExpense(null)
+        }}
+      />
+      <AddPendienteSheet
+        open={false}
+        showTrigger={false}
+        onOpenChange={() => {}}
+        db={db}
+        householdId={membership.householdId}
+        memberId={currentUserId}
+        authorDisplayName={authorDisplayName}
+        editPendiente={editPendiente}
+        onEditFinished={() => {
+          setEditPendiente(null)
+        }}
+      />
       <PorPagarSection
         db={db}
         householdId={membership.householdId}
