@@ -8,7 +8,11 @@ import {
   RecentExpensesList,
 } from '@/features/expenses'
 import type { EditExpenseTarget } from '@/features/expenses/AddExpenseForm'
-import { AddPendienteSheet, PorPagarSection } from '@/features/pendientes'
+import {
+  AddPendienteSheet,
+  PendienteDueSoonBanner,
+  PorPagarSection,
+} from '@/features/pendientes'
 import type { EditPendienteTarget } from '@/features/pendientes/AddPendienteForm'
 import { LogoutButton } from '@/features/auth'
 import { currentMonthRange } from '@/lib/expenses'
@@ -174,6 +178,7 @@ export function HomePage({
           bottom nav, so a second icon-link to the same destination is
           redundant. */}
       <PageHeader title={household?.name ?? 'Hogar'} />
+      <PendienteDueSoonBanner db={db} householdId={membership.householdId} />
       <MonthNavigator
         db={db}
         householdId={membership.householdId}
