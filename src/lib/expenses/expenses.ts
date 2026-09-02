@@ -1,5 +1,5 @@
 import type { HouseholdsDb } from '@/lib/households/types'
-import type { ExpenseHistoryPage } from './history'
+import type { ExpenseHistoryCursor, ExpenseHistoryPage } from './history'
 import type { Category, Expense } from './types'
 import {
   parseAuthorDisplayName,
@@ -86,13 +86,11 @@ export async function listRecentExpenses(input: {
 export async function listExpenseHistoryPage(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
-  readonly beforeMonthStart?: Date
+  readonly after?: ExpenseHistoryCursor
 }): Promise<ExpenseHistoryPage> {
   return input.db.listExpenseHistoryPage({
     householdId: input.householdId,
-    ...(input.beforeMonthStart === undefined
-      ? {}
-      : { beforeMonthStart: input.beforeMonthStart }),
+    ...(input.after === undefined ? {} : { after: input.after }),
   })
 }
 

@@ -1,5 +1,6 @@
 import type { Pendiente } from '@/lib/pendientes/types'
 import type { Category, Expense } from '@/lib/expenses/types'
+import type { ExpenseHistoryCursor } from '@/lib/expenses/history'
 
 export type HouseholdDraft = {
   readonly name: string
@@ -105,18 +106,17 @@ export type HouseholdsDb = {
     readonly householdId: string
     readonly limit: number
   }): Promise<readonly Expense[]>
-  // All-time history, newest first, paginated in whole calendar months: a
-  // page never ends mid-month, so the Histórico screen can render a month
-  // header knowing every expense under it has already arrived.
-  // `beforeMonthStart` is the cursor -- omit it for the first page, then
-  // pass back the `nextBeforeMonthStart` of the previous page.
-  // `nextBeforeMonthStart` is null once there is nothing older left.
+  // All-time history, newest first, paginated in fixed-size pages of
+  // EXPENSE_HISTORY_PAGE_SIZE rows regardless of what calendar month(s)
+  // they fall in. `after` is the cursor -- omit it for the first page, then
+  // pass back the `nextCursor` of the previous page. `nextCursor` is null
+  // once there is nothing older left.
   listExpenseHistoryPage(input: {
     readonly householdId: string
-    readonly beforeMonthStart?: Date
+    readonly after?: ExpenseHistoryCursor
   }): Promise<{
     readonly expenses: readonly Expense[]
-    readonly nextBeforeMonthStart: Date | null
+    readonly nextCursor: ExpenseHistoryCursor | null
   }>
   getExpense(input: {
     readonly householdId: string

@@ -447,15 +447,25 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
     },
     async listExpenseHistoryPage(input) {
       assertMemberOf(state, userId, input.householdId)
+      const after = input.after
       const expenses: Expense[] = []
       for (const expense of state.expenses.values()) {
-        if (
-          expense.householdId === input.householdId &&
-          (input.beforeMonthStart === undefined ||
-            expense.expenseDate.getTime() < input.beforeMonthStart.getTime())
-        ) {
-          expenses.push(expense)
+        if (expense.householdId !== input.householdId) {
+          continue
         }
+        // Strictly older than the cursor, by the same (expense_date desc,
+        // created_at desc) ordering the sort below applies.
+        if (
+          after !== undefined &&
+          !(
+            expense.expenseDate.getTime() < after.expenseDate.getTime() ||
+            (expense.expenseDate.getTime() === after.expenseDate.getTime() &&
+              expense.createdAt.getTime() < after.createdAt.getTime())
+          )
+        ) {
+          continue
+        }
+        expenses.push(expense)
       }
       expenses.sort((left, right) => {
         const dateDiff =
@@ -465,11 +475,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         }
         return right.createdAt.getTime() - left.createdAt.getTime()
       })
-      return buildExpenseHistoryPage(expenses, (monthStart) =>
-        expenses.some(
-          (expense) => expense.expenseDate.getTime() < monthStart.getTime(),
-        ),
-      )
+      return buildExpenseHistoryPage(expenses)
     },
     async getExpense(input) {
       assertMemberOf(state, userId, input.householdId)

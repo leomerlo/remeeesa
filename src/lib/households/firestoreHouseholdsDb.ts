@@ -10,6 +10,7 @@ import {
   query,
   runTransaction,
   setDoc,
+  startAfter,
   Timestamp,
   updateDoc,
   where,
@@ -41,7 +42,10 @@ import {
   CategoryNotFoundError,
 } from '@/lib/expenses/categoryManagement'
 import { ExpenseNotFoundError } from '@/lib/expenses/expenses'
-import { monthEndOf, monthStartOf } from '@/lib/expenses/history'
+import {
+  buildExpenseHistoryPage,
+  EXPENSE_HISTORY_PAGE_SIZE,
+} from '@/lib/expenses/history'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
 import { parseCategoryColor, parseCategoryName } from '@/lib/expenses/validate'
 import { logFirebaseError } from '@/lib/firebaseDevLog'
@@ -665,86 +669,40 @@ export function createFirestoreHouseholdsDb(
     },
     async listExpenseHistoryPage(input) {
       return withHouseholdAccess('listExpenseHistoryPage', async () => {
-        const beforeCursor =
-          input.beforeMonthStart === undefined
+        const afterCursor =
+          input.after === undefined
             ? []
             : [
-                where(
-                  'expense_date',
-                  '<',
-                  Timestamp.fromDate(input.beforeMonthStart),
+                startAfter(
+                  Timestamp.fromDate(input.after.expenseDate),
+                  Timestamp.fromDate(input.after.createdAt),
                 ),
               ]
 
-        // Which month this page covers is discovered from the data, not
-        // walked month by month: a household with a gap between, say,
-        // August and March would otherwise need a round trip per empty
-        // month in between just to find the next one that has anything.
-        const newestQuery = query(
+        // One row beyond the page size, in the same single query, tells
+        // buildExpenseHistoryPage whether there's more without a second
+        // round trip -- ordered on the household_id/expense_date/created_at
+        // index every other expense query already uses (expense_date alone
+        // would make Firestore append an implicit __name__ sort, a
+        // *different* composite index that fails in production with "The
+        // query requires an index").
+        const historyQuery = query(
           collection(firestore, 'expenses'),
           where('household_id', '==', input.householdId),
-          ...beforeCursor,
           orderBy('expense_date', 'desc'),
           orderBy('created_at', 'desc'),
-          limit(1),
+          ...afterCursor,
+          limit(EXPENSE_HISTORY_PAGE_SIZE + 1),
         )
-        const newestSnap = await getDocs(newestQuery)
-        const newestDoc = newestSnap.docs[0]
-        if (newestDoc === undefined) {
-          return { expenses: [], nextBeforeMonthStart: null }
-        }
-        const newest = parseExpenseDocument({
-          id: newestDoc.id,
-          data: newestDoc.data(),
-        })
-
-        // The whole month, unbounded: the page is a calendar month rather
-        // than a row count, so it is never cut short mid-month no matter
-        // how many expenses that month happens to hold.
-        const pageMonthStart = monthStartOf(newest.expenseDate)
-        const monthQuery = query(
-          collection(firestore, 'expenses'),
-          where('household_id', '==', input.householdId),
-          where('expense_date', '>=', Timestamp.fromDate(pageMonthStart)),
-          where(
-            'expense_date',
-            '<=',
-            Timestamp.fromDate(monthEndOf(newest.expenseDate)),
-          ),
-          orderBy('expense_date', 'desc'),
-          orderBy('created_at', 'desc'),
-        )
-        const monthSnap = await getDocs(monthQuery)
-        const expenses = monthSnap.docs.map((expenseDoc) =>
+        const snap = await getDocs(historyQuery)
+        const expenses = snap.docs.map((expenseDoc) =>
           parseExpenseDocument({
             id: expenseDoc.id,
             data: expenseDoc.data(),
           }),
         )
 
-        // One extra single-row read so the caller can hide "load more"
-        // rather than offering a button that returns nothing.
-        //
-        // The created_at tiebreak is not about ordering -- this only ever asks
-        // "is there anything older" -- it is what keeps the query on the
-        // household_id/expense_date/created_at index every other expense query
-        // already uses. Ordering by expense_date alone makes Firestore append
-        // an implicit __name__ sort, which is a *different* composite index
-        // and fails in production with "The query requires an index".
-        const olderQuery = query(
-          collection(firestore, 'expenses'),
-          where('household_id', '==', input.householdId),
-          where('expense_date', '<', Timestamp.fromDate(pageMonthStart)),
-          orderBy('expense_date', 'desc'),
-          orderBy('created_at', 'desc'),
-          limit(1),
-        )
-        const olderSnap = await getDocs(olderQuery)
-
-        return {
-          expenses,
-          nextBeforeMonthStart: olderSnap.empty ? null : pageMonthStart,
-        }
+        return buildExpenseHistoryPage(expenses)
       })
     },
     async getExpense(input) {

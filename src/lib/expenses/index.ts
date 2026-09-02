@@ -50,5 +50,5 @@ export {
   parseExpenseName,
   parseExpensePrice,
 } from './validate'
-export { monthEndOf, monthStartOf } from './history'
-export type { ExpenseHistoryPage } from './history'
+export { EXPENSE_HISTORY_PAGE_SIZE } from './history'
+export type { ExpenseHistoryCursor, ExpenseHistoryPage } from './history'

@@ -2,7 +2,12 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
-import { createExpense, listCategories } from '@/lib/expenses'
+import {
+  createExpense,
+  EXPENSE_HISTORY_PAGE_SIZE,
+  formatCurrency,
+  listCategories,
+} from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
@@ -104,39 +109,55 @@ describe('HistoricoPage', () => {
     expect(rows[1]).toHaveTextContent('$300,00')
   })
 
-  it('loads one further month at a time and stops offering more at the end', async () => {
+  it('loads a fixed page of expenses at a time, regardless of month, and stops offering more at the end', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
-    await seed({
-      db,
-      householdId,
-      categoryId,
-      name: 'De agosto',
-      date: new Date(2026, 7, 3),
-    })
-    await seed({
-      db,
-      householdId,
-      categoryId,
-      name: 'De julio',
-      date: new Date(2026, 6, 9),
-    })
+    // EXPENSE_HISTORY_PAGE_SIZE in August (newest), plus 3 more in July --
+    // the page boundary lands mid-history, not at the month line.
+    for (let day = 1; day <= EXPENSE_HISTORY_PAGE_SIZE; day += 1) {
+      await seed({
+        db,
+        householdId,
+        categoryId,
+        name: `Ago ${String(day)}`,
+        date: new Date(2026, 7, day),
+      })
+    }
+    for (let day = 1; day <= 3; day += 1) {
+      await seed({
+        db,
+        householdId,
+        categoryId,
+        name: `Jul ${String(day)}`,
+        date: new Date(2026, 6, day),
+      })
+    }
 
     renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
 
-    // Only August at first -- July is behind "Cargar más".
-    expect(await screen.findByText('De agosto')).toBeInTheDocument()
-    expect(screen.queryByText('De julio')).not.toBeInTheDocument()
+    // Only the first page (all of August, the newest EXPENSE_HISTORY_PAGE_SIZE
+    // rows) at first -- July is behind "Cargar más".
+    expect(
+      await screen.findByText(`Ago ${String(EXPENSE_HISTORY_PAGE_SIZE)}`),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Ago 1')).toBeInTheDocument()
+    expect(screen.queryByText('Jul 1')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Cargar más' }))
 
-    expect(await screen.findByText('De julio')).toBeInTheDocument()
-    // Both months are now on screen, each under its own header, rendered once.
+    expect(await screen.findByText('Jul 1')).toBeInTheDocument()
+    // Both months are now on screen, each under its own header, rendered
+    // once even though July only fully arrived on the second page.
     expect(
       screen.getByRole('list', { name: 'Agosto de 2026' }),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('list', { name: 'Julio de 2026' }),
     ).toBeInTheDocument()
+    expect(
+      within(screen.getByRole('list', { name: 'Julio de 2026' })).getAllByRole(
+        'listitem',
+      ),
+    ).toHaveLength(3)
     // Nothing older left, so the button is gone rather than returning empty.
     await waitFor(() => {
       expect(
@@ -244,5 +265,40 @@ describe('HistoricoPage', () => {
     await screen.findByText('Uno')
     const monthHeading = screen.getAllByRole('heading', { level: 2 })[0]
     expect(monthHeading?.parentElement).toHaveTextContent('$100,00')
+  })
+
+  // A page can now land mid-month (see the pagination test above), so the
+  // last month on screen might not be fully loaded yet -- showing its
+  // running total as if it were final would undercount it.
+  it('hides the last month\'s total while more of that month may still be behind "Cargar más"', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    for (let day = 1; day <= EXPENSE_HISTORY_PAGE_SIZE + 3; day += 1) {
+      await seed({
+        db,
+        householdId,
+        categoryId,
+        name: `Ago ${String(day)}`,
+        date: new Date(2026, 7, day),
+      })
+    }
+
+    renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+
+    await screen.findByText(`Ago ${String(EXPENSE_HISTORY_PAGE_SIZE)}`)
+    const monthHeading = screen.getByRole('heading', {
+      name: 'Agosto de 2026',
+    })
+    // No total shown yet -- only 15 of the 18 August expenses have loaded.
+    expect(monthHeading.parentElement).toHaveTextContent('Agosto de 2026')
+    expect(monthHeading.parentElement?.querySelector('span')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cargar más' }))
+
+    // Now the whole month has loaded (nothing older exists), so the total
+    // appears, and is the full month's sum.
+    await screen.findByText(`Ago ${String(EXPENSE_HISTORY_PAGE_SIZE + 3)}`)
+    expect(monthHeading.parentElement).toHaveTextContent(
+      formatCurrency(10 * (EXPENSE_HISTORY_PAGE_SIZE + 3)),
+    )
   })
 })
