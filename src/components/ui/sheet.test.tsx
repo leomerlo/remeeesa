@@ -215,14 +215,17 @@ describe('Sheet', () => {
     )
 
     const content = document.querySelector('[data-slot="sheet-content"]')
-    expect(content).toHaveClass('max-h-[85vh]')
+    expect(content).toHaveClass('max-h-[96vh]')
 
     const body = document.querySelector('[data-slot="sheet-body"]')
-    // `min-h-0` is required alongside `overflow-y-auto` here: without it,
-    // a flex item's default `min-height: auto` keeps it from shrinking
-    // below its content size, so the scroll containment silently breaks
-    // for tall content even though `overflow-y-auto` is present.
-    expect(body).toHaveClass('overflow-y-auto', 'min-h-0')
+    // `min-h-0` is required here: without it, a flex item's default
+    // `min-height: auto` keeps it from shrinking below its content size, so
+    // it silently stops being height-constrained by Dialog.Content's
+    // max-h-[96vh] for tall content. The scrolling itself (and a pinned
+    // action footer) is each Sheet-hosted form's own responsibility -- see
+    // e.g. AddExpenseForm -- rather than this body, so a tall form's submit
+    // button never scrolls out of reach.
+    expect(body).toHaveClass('flex', 'min-h-0', 'flex-col')
   })
 
   it('keeps the close control outside the scrollable body so it never scrolls out of reach', () => {

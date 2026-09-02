@@ -214,7 +214,11 @@ describe('AddPendienteForm', () => {
     submitPendiente()
     expect(screen.getByRole('alert')).toHaveTextContent(/monto/i)
 
-    fillPendiente({ expectedAmount: 'abc' })
+    // A lone "," (decimal separator, no digits either side) is the only
+    // realistic "malformed" value FormattedAmountInput can still produce --
+    // it filters out actual letters keystroke by keystroke, so plain text
+    // like "abc" can no longer land in the field at all.
+    fillPendiente({ expectedAmount: ',' })
     submitPendiente()
     expect(screen.getByRole('alert')).toHaveTextContent(/monto/i)
 

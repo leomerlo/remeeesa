@@ -148,7 +148,10 @@ describe('EditExpenseFlow', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
 
     expect(screen.getByLabelText('Nombre')).toHaveValue('Pizza')
-    expect(screen.getByLabelText('Precio')).toHaveValue('12.5')
+    // FormattedAmountInput displays with es-AR grouping/decimal ("12,5"),
+    // not the raw "12.5" the field's underlying (Number()-parseable) value
+    // actually holds.
+    expect(screen.getByLabelText('Precio')).toHaveValue('12,5')
     expect(screen.getByLabelText('Categoría')).toHaveValue('Comida')
     expect(screen.getByLabelText('Comentario')).toHaveValue('Friday dinner')
     expect(screen.getByLabelText('Fecha')).toHaveValue(

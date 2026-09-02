@@ -3,6 +3,7 @@ import { AlertMessage } from '@/components/ui/alert-message'
 import { useEffect, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
+import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -208,64 +209,70 @@ export function MarkPendientePaidForm({
       : null)
 
   return (
-    <form className="flex w-full flex-col gap-6" noValidate onSubmit={onSubmit}>
-      {/* The Sheet's own title is visually hidden and just says "Marcar
-          pagada" -- with two bills pending at once, nothing in the sheet
-          said which one this was. */}
-      <h2 className="text-title font-semibold">Pagar {pendiente.name}</h2>
+    <form
+      className="flex h-full min-h-0 w-full flex-col"
+      noValidate
+      onSubmit={onSubmit}
+    >
+      {/* Only this part scrolls -- the action buttons below stay pinned at
+          the bottom of the sheet regardless of how tall the field list
+          gets, so Marcar pagado never requires scrolling to reach. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain">
+        {/* The Sheet's own title is visually hidden and just says "Marcar
+            pagada" -- with two bills pending at once, nothing in the sheet
+            said which one this was. */}
+        <h2 className="text-title font-semibold">Pagar {pendiente.name}</h2>
 
-      <div className="flex w-full flex-col gap-2">
-        <Label
-          htmlFor="mark-pendiente-amount"
-          className="text-muted-foreground font-medium"
-        >
-          Monto pagado
-        </Label>
-        <div className="relative">
-          <span
-            aria-hidden="true"
-            className="text-muted-foreground font-display text-display pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
+        <div className="flex w-full flex-col gap-2">
+          <Label
+            htmlFor="mark-pendiente-amount"
+            className="text-muted-foreground font-medium"
           >
-            $
-          </span>
+            Monto pagado
+          </Label>
+          <div className="relative">
+            <span
+              aria-hidden="true"
+              className="text-muted-foreground font-display text-display pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
+            >
+              $
+            </span>
+            <FormattedAmountInput
+              id="mark-pendiente-amount"
+              name="mark-pendiente-amount"
+              className="font-display text-display h-20 pl-12 tracking-tight"
+              value={finalAmount}
+              onChange={setFinalAmount}
+              autoComplete="off"
+            />
+          </div>
+        </div>
+
+        <div className="flex w-full flex-col gap-2">
+          <Label
+            htmlFor="mark-pendiente-payment-date"
+            className="text-muted-foreground font-medium"
+          >
+            Fecha de pago
+          </Label>
           <Input
-            id="mark-pendiente-amount"
-            name="mark-pendiente-amount"
-            className="font-display text-display h-20 pl-12 tracking-tight"
-            value={finalAmount}
+            id="mark-pendiente-payment-date"
+            name="mark-pendiente-payment-date"
+            type="date"
+            value={paymentDate}
+            max={today}
             onChange={(event) => {
-              setFinalAmount(event.target.value)
+              setPaymentDate(event.target.value)
             }}
-            inputMode="decimal"
-            autoComplete="off"
           />
         </div>
+
+        {alertMessage !== null ? (
+          <AlertMessage>{alertMessage}</AlertMessage>
+        ) : null}
       </div>
 
-      <div className="flex w-full flex-col gap-2">
-        <Label
-          htmlFor="mark-pendiente-payment-date"
-          className="text-muted-foreground font-medium"
-        >
-          Fecha de pago
-        </Label>
-        <Input
-          id="mark-pendiente-payment-date"
-          name="mark-pendiente-payment-date"
-          type="date"
-          value={paymentDate}
-          max={today}
-          onChange={(event) => {
-            setPaymentDate(event.target.value)
-          }}
-        />
-      </div>
-
-      {alertMessage !== null ? (
-        <AlertMessage>{alertMessage}</AlertMessage>
-      ) : null}
-
-      <div className="flex w-full flex-col items-center gap-2">
+      <div className="flex w-full shrink-0 flex-col items-center gap-2 pt-6">
         <Button type="submit" disabled={mutation.isPending} className="w-full">
           Marcar pagado
         </Button>

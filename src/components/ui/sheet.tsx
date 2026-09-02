@@ -19,7 +19,7 @@ function Sheet({ open, onOpenChange, title, children }: SheetProps) {
         />
         <Dialog.Content
           data-slot="sheet-content"
-          className="bg-card shadow-raised fixed inset-x-0 bottom-0 z-50 flex max-h-[85vh] w-full flex-col rounded-t-3xl p-6 pt-8 data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom"
+          className="bg-card shadow-raised fixed inset-x-0 bottom-0 z-50 flex max-h-[96vh] w-full flex-col rounded-t-3xl p-6 pt-8 data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom"
         >
           <VisuallyHidden.Root asChild>
             <Dialog.Title>{title}</Dialog.Title>
@@ -31,10 +31,17 @@ function Sheet({ open, onOpenChange, title, children }: SheetProps) {
             <X className="size-5" aria-hidden="true" />
             <span className="sr-only">Cerrar</span>
           </Dialog.Close>
-          {/* Only this body scrolls -- the close button above stays pinned
-              in the non-scrolling part of Dialog.Content so it never
-              scrolls out of reach on tall content. */}
-          <div data-slot="sheet-body" className="min-h-0 overflow-y-auto">
+          {/* This fills the remaining height inside Dialog.Content's
+              max-h-[96vh] cap; the close button above stays pinned in the
+              non-scrolling part of Dialog.Content so it never scrolls out
+              of reach. Content passed in as `children` (each Sheet-hosted
+              form) owns its own internal scroll region (with
+              overscroll-contain, so scrolling past its edge never chains
+              into a background scroll/bounce) + pinned action footer --
+              see e.g. AddExpenseForm -- rather than this div scrolling the
+              whole thing as one block, which used to let a tall form's
+              submit button scroll out of view. */}
+          <div data-slot="sheet-body" className="flex min-h-0 flex-col">
             {children}
           </div>
         </Dialog.Content>

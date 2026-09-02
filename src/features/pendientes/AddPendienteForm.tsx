@@ -3,6 +3,7 @@ import { AlertMessage } from '@/components/ui/alert-message'
 import { useEffect, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
+import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -339,193 +340,201 @@ function PendienteFormBody({
     loadError
 
   return (
-    <form className="flex w-full flex-col gap-6" noValidate onSubmit={onSubmit}>
-      {/* The Sheet's own title is visually hidden (it exists only for the
-          dialog's accessible name), which left this opening onto a bare
-          "Nombre" field with nothing saying what screen it was. */}
-      <h2 className="text-title font-semibold">
-        {isEditing ? 'Editar pendiente' : 'Nuevo pendiente'}
-      </h2>
+    <form
+      className="flex h-full min-h-0 w-full flex-col"
+      noValidate
+      onSubmit={onSubmit}
+    >
+      {/* Only this part scrolls -- the action buttons below stay pinned at
+          the bottom of the sheet regardless of how tall the field list
+          gets, so Guardar/Agregar never requires scrolling to reach. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain">
+        {/* The Sheet's own title is visually hidden (it exists only for the
+            dialog's accessible name), which left this opening onto a bare
+            "Nombre" field with nothing saying what screen it was. */}
+        <h2 className="text-title font-semibold">
+          {isEditing ? 'Editar pendiente' : 'Nuevo pendiente'}
+        </h2>
 
-      {/* Unlike an Expense's price, a Pendiente's amount is optional -- some
-          bills (a variable grocery run) genuinely aren't known yet -- so it
-          leads at the same hero size without being required, rather than
-          forcing a number in before the bill is even known. */}
-      <div className="flex w-full flex-col gap-2">
-        <Label
-          htmlFor="pendiente-expected-amount"
-          className="text-muted-foreground font-medium"
-        >
-          Monto esperado
-        </Label>
-        <div className="relative">
-          <span
-            aria-hidden="true"
-            className="text-muted-foreground font-display text-display pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
+        {/* Unlike an Expense's price, a Pendiente's amount is optional -- some
+            bills (a variable grocery run) genuinely aren't known yet -- so it
+            leads at the same hero size without being required, rather than
+            forcing a number in before the bill is even known. */}
+        <div className="flex w-full flex-col gap-2">
+          <Label
+            htmlFor="pendiente-expected-amount"
+            className="text-muted-foreground font-medium"
           >
-            $
-          </span>
+            Monto esperado
+          </Label>
+          <div className="relative">
+            <span
+              aria-hidden="true"
+              className="text-muted-foreground font-display text-display pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
+            >
+              $
+            </span>
+            <FormattedAmountInput
+              id="pendiente-expected-amount"
+              name="pendiente-expected-amount"
+              className="font-display text-display h-20 pl-12 tracking-tight"
+              value={expectedAmount}
+              onChange={setExpectedAmount}
+              autoComplete="off"
+            />
+          </div>
+        </div>
+
+        <div className="flex w-full flex-col gap-2">
+          <Label
+            htmlFor="pendiente-name"
+            className="text-muted-foreground font-medium"
+          >
+            Nombre
+          </Label>
           <Input
-            id="pendiente-expected-amount"
-            name="pendiente-expected-amount"
-            className="font-display text-display h-20 pl-12 tracking-tight"
-            value={expectedAmount}
+            id="pendiente-name"
+            name="pendiente-name"
+            value={name}
             onChange={(event) => {
-              setExpectedAmount(event.target.value)
+              setName(event.target.value)
             }}
-            inputMode="decimal"
             autoComplete="off"
           />
         </div>
-      </div>
 
-      <div className="flex w-full flex-col gap-2">
-        <Label
-          htmlFor="pendiente-name"
-          className="text-muted-foreground font-medium"
-        >
-          Nombre
-        </Label>
-        <Input
-          id="pendiente-name"
-          name="pendiente-name"
-          value={name}
-          onChange={(event) => {
-            setName(event.target.value)
-          }}
-          autoComplete="off"
-        />
-      </div>
-
-      <div className="flex w-full flex-col gap-2">
-        <Label
-          htmlFor="pendiente-category"
-          className="text-muted-foreground font-medium"
-        >
-          Categoría
-        </Label>
-        <CategoryChips
-          categories={categories}
-          value={category}
-          onChange={setCategory}
-        />
-        <CategoryCombobox
-          id="pendiente-category"
-          categories={categories}
-          value={category}
-          onChange={setCategory}
-          placeholder="O escribí una categoría nueva"
-        />
-      </div>
-
-      <div className="flex w-full flex-col gap-2">
-        <Label
-          htmlFor="pendiente-due-date"
-          className="text-muted-foreground font-medium"
-        >
-          Fecha de vencimiento
-        </Label>
-        {/* Deliberately no `max`/`min` here, unlike the expense form's date
-            input -- a Pendiente's due date is explicitly allowed to be in the
-            past (e.g. logging an overdue bill) or the future. */}
-        <Input
-          id="pendiente-due-date"
-          name="pendiente-due-date"
-          type="date"
-          value={dueDate}
-          onChange={(event) => {
-            setDueDate(event.target.value)
-          }}
-        />
-      </div>
-
-      <div className="flex w-full items-center justify-between gap-2">
-        <Label htmlFor="pendiente-recurring" className="font-medium">
-          Recurrente
-        </Label>
-        <Switch
-          id="pendiente-recurring"
-          checked={recurring}
-          onCheckedChange={setRecurring}
-        />
-      </div>
-
-      {alertMessage !== null ? (
-        <AlertMessage>{alertMessage}</AlertMessage>
-      ) : null}
-
-      {confirmingDelete ? (
-        <div
-          role="alertdialog"
-          aria-labelledby="delete-pendiente-title"
-          className="bg-card shadow-raised flex w-full flex-col gap-4 rounded-2xl border border-border p-4"
-        >
-          <p id="delete-pendiente-title" className="text-sm font-medium">
-            ¿Eliminar el pendiente?
-          </p>
-          <div className="flex w-full gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1"
-              disabled={deleteMutation.isPending}
-              onClick={() => {
-                setConfirmingDelete(false)
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              className="flex-1"
-              disabled={deleteMutation.isPending}
-              onClick={() => {
-                deleteMutation.mutate()
-              }}
-            >
-              Eliminar pendiente
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex w-full flex-col items-center gap-2">
-          <Button
-            type="submit"
-            disabled={mutation.isPending}
-            className="w-full"
+        <div className="flex w-full flex-col gap-2">
+          <Label
+            htmlFor="pendiente-category"
+            className="text-muted-foreground font-medium"
           >
-            {isEditing ? 'Guardar cambios' : 'Agregar pendiente'}
-          </Button>
-          {isEditing ? (
-            <>
+            Categoría
+          </Label>
+          <CategoryChips
+            categories={categories}
+            value={category}
+            onChange={setCategory}
+          />
+          <CategoryCombobox
+            id="pendiente-category"
+            categories={categories}
+            value={category}
+            onChange={setCategory}
+            placeholder="O escribí una categoría nueva"
+          />
+        </div>
+
+        <div className="flex w-full flex-col gap-2">
+          <Label
+            htmlFor="pendiente-due-date"
+            className="text-muted-foreground font-medium"
+          >
+            Fecha de vencimiento
+          </Label>
+          {/* Deliberately no `max`/`min` here, unlike the expense form's date
+              input -- a Pendiente's due date is explicitly allowed to be in the
+              past (e.g. logging an overdue bill) or the future. */}
+          <Input
+            id="pendiente-due-date"
+            name="pendiente-due-date"
+            type="date"
+            value={dueDate}
+            onChange={(event) => {
+              setDueDate(event.target.value)
+            }}
+          />
+        </div>
+
+        <div className="flex w-full items-center justify-between gap-2">
+          <Label htmlFor="pendiente-recurring" className="font-medium">
+            Recurrente
+          </Label>
+          <Switch
+            id="pendiente-recurring"
+            checked={recurring}
+            onCheckedChange={setRecurring}
+          />
+        </div>
+
+        {alertMessage !== null ? (
+          <AlertMessage>{alertMessage}</AlertMessage>
+        ) : null}
+      </div>
+
+      <div className="shrink-0 pt-6">
+        {confirmingDelete ? (
+          <div
+            role="alertdialog"
+            aria-labelledby="delete-pendiente-title"
+            className="bg-card shadow-raised flex w-full flex-col gap-4 rounded-2xl border border-border p-4"
+          >
+            <p id="delete-pendiente-title" className="text-sm font-medium">
+              ¿Eliminar el pendiente?
+            </p>
+            <div className="flex w-full gap-2">
               <Button
                 type="button"
                 variant="outline"
-                disabled={mutation.isPending}
-                className="w-full"
+                className="flex-1"
+                disabled={deleteMutation.isPending}
                 onClick={() => {
-                  setError(null)
-                  onEditFinished?.()
+                  setConfirmingDelete(false)
                 }}
               >
-                Cancelar edición
+                Cancelar
               </Button>
               <Button
                 type="button"
-                variant="ghost"
-                className="text-error hover:text-error"
-                disabled={mutation.isPending}
+                className="flex-1"
+                disabled={deleteMutation.isPending}
                 onClick={() => {
-                  setError(null)
-                  setConfirmingDelete(true)
+                  deleteMutation.mutate()
                 }}
               >
                 Eliminar pendiente
               </Button>
-            </>
-          ) : null}
-        </div>
-      )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex w-full flex-col items-center gap-2">
+            <Button
+              type="submit"
+              disabled={mutation.isPending}
+              className="w-full"
+            >
+              {isEditing ? 'Guardar cambios' : 'Agregar pendiente'}
+            </Button>
+            {isEditing ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={mutation.isPending}
+                  className="w-full"
+                  onClick={() => {
+                    setError(null)
+                    onEditFinished?.()
+                  }}
+                >
+                  Cancelar edición
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="text-error hover:text-error"
+                  disabled={mutation.isPending}
+                  onClick={() => {
+                    setError(null)
+                    setConfirmingDelete(true)
+                  }}
+                >
+                  Eliminar pendiente
+                </Button>
+              </>
+            ) : null}
+          </div>
+        )}
+      </div>
     </form>
   )
 }
