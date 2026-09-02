@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import type { ReactElement } from 'react'
 import { Navigate } from 'react-router-dom'
 import { PageHeader } from '@/components/PageHeader'
@@ -87,9 +88,7 @@ export function EditHouseholdPage({
   if (currentUserId === undefined) {
     return (
       <div className="bg-card shadow-resting w-full rounded-3xl p-8">
-        <p role="status" className="text-sm font-medium">
-          Cargando…
-        </p>
+        <LoadingIndicator />
       </div>
     )
   }
@@ -101,9 +100,7 @@ export function EditHouseholdPage({
   if (membership === undefined) {
     return (
       <div className="bg-card shadow-resting w-full rounded-3xl p-8">
-        <p role="status" className="text-sm font-medium">
-          Cargando…
-        </p>
+        <LoadingIndicator />
       </div>
     )
   }

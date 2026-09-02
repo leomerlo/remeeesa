@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
 import {
@@ -50,11 +51,7 @@ export function CategoryMiniSummary({
   const categories = categoriesQuery.data
 
   if (expenses === undefined || categories === undefined) {
-    return (
-      <p role="status" className="text-sm font-medium">
-        Cargando…
-      </p>
-    )
+    return <LoadingIndicator />
   }
 
   const summary = summarizeByCategory({ expenses, categories }).slice(

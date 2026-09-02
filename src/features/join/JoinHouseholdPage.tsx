@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import { LoadingIndicator } from '@/components/ui/loading-indicator'
+import { AlertMessage } from '@/components/ui/alert-message'
 import type { FormEvent, ReactElement } from 'react'
 import { useParams } from 'react-router-dom'
 import { Lock, Mail } from 'lucide-react'
@@ -128,17 +130,9 @@ export function JoinHouseholdPage({
 
   if (currentUserId !== null) {
     if (error !== null) {
-      return (
-        <p role="alert" className="text-sm font-medium">
-          {error}
-        </p>
-      )
+      return <AlertMessage>{error}</AlertMessage>
     }
-    return (
-      <p role="status" className="text-sm font-medium">
-        Uniéndote…
-      </p>
-    )
+    return <LoadingIndicator label="Uniéndote…" />
   }
 
   return (
@@ -198,11 +192,7 @@ export function JoinHouseholdPage({
             </div>
           </div>
 
-          {error !== null ? (
-            <p role="alert" className="text-sm font-medium">
-              {error}
-            </p>
-          ) : null}
+          {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
 
           <Button type="submit" disabled={pending} className="w-full">
             Crear cuenta

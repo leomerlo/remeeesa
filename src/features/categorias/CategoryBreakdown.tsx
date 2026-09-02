@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
 import { Illustration } from '@/components/Illustration'
+import { Skeleton } from '@/components/ui/skeleton'
 import categoriesCalc from '@/assets/illustrations/categories-calc.webp'
 import {
   categoriesQueryKey,
@@ -55,9 +56,33 @@ export function CategoryBreakdown({
 
   if (expenses === undefined || categories === undefined) {
     return (
-      <p role="status" className="text-sm font-medium">
-        Cargando…
-      </p>
+      <div
+        role="status"
+        aria-label="Cargando…"
+        className="flex w-full flex-col gap-6"
+      >
+        <span className="sr-only">Cargando…</span>
+        <div className="bg-card shadow-resting flex w-full flex-col gap-4 rounded-3xl p-6">
+          <Skeleton className="h-5 w-32" />
+          <div className="flex items-center gap-4">
+            <Skeleton className="size-32 shrink-0 rounded-full" />
+            <div className="flex w-full min-w-0 flex-1 flex-col gap-3">
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} className="h-4 w-full" />
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="bg-card shadow-resting flex w-full flex-col gap-4 rounded-3xl p-6">
+          <Skeleton className="h-5 w-28" />
+          {[0, 1].map((i) => (
+            <div key={i} className="flex flex-col gap-1.5">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-2 w-full rounded-full" />
+            </div>
+          ))}
+        </div>
+      </div>
     )
   }
 

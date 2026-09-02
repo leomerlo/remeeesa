@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
+import { Skeleton } from '@/components/ui/skeleton'
 import { householdQueryKey } from '@/features/household'
 import {
   computePercentUsed,
@@ -43,11 +44,22 @@ export function RemainingBudgetDisplay({
   const expenses = expensesQuery.data
 
   if (household === undefined || expenses === undefined) {
+    // Flat rather than the eventual gradient: a pulsing grey bar over the
+    // bright purple would read as broken, not loading. The gradient (and
+    // the mascot) only appear once there's a real figure to show inside it.
     return (
-      <div className="bg-card shadow-resting flex w-full flex-col items-center gap-2 rounded-3xl p-8">
-        <p role="status" className="text-sm font-medium">
-          Cargando…
-        </p>
+      <div
+        role="status"
+        aria-label="Cargando…"
+        className="bg-card shadow-resting flex w-full flex-col gap-6 rounded-3xl p-6"
+      >
+        <span className="sr-only">Cargando…</span>
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-3 w-28" />
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-11 w-52" />
+        </div>
+        <Skeleton className="h-2 w-full rounded-full" />
       </div>
     )
   }

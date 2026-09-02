@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import type { ReactElement } from 'react'
 import { PageHeader } from '@/components/PageHeader'
 import {
@@ -139,11 +140,7 @@ export function HomePage({
   }, [currentUserId, db, homeEpoch])
 
   if (currentUserId === undefined) {
-    return (
-      <p role="status" className="text-sm font-medium">
-        Cargando…
-      </p>
-    )
+    return <LoadingIndicator />
   }
 
   if (currentUserId === null || membership === null) {
@@ -162,11 +159,7 @@ export function HomePage({
   }
 
   if (membership === undefined) {
-    return (
-      <p role="status" className="text-sm font-medium">
-        Cargando…
-      </p>
-    )
+    return <LoadingIndicator />
   }
 
   const authorDisplayName =

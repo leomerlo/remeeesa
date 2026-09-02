@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
+import { Skeleton } from '@/components/ui/skeleton'
 import { listPendientes } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import { formatBudgetAmount, listCategories } from '@/lib/expenses'
@@ -53,9 +54,24 @@ export function PorPagarSection({
         <h2 id="por-pagar-heading" className="text-title font-semibold">
           Por pagar
         </h2>
-        <p role="status" className="mt-3 text-sm font-medium">
-          Cargando…
-        </p>
+        <div
+          role="status"
+          aria-label="Cargando…"
+          className="mt-3 flex gap-3 overflow-hidden"
+        >
+          <span className="sr-only">Cargando…</span>
+          {[0, 1].map((i) => (
+            <div
+              key={i}
+              className="bg-card shadow-resting flex h-full w-44 shrink-0 flex-col gap-2 rounded-2xl p-4"
+            >
+              <Skeleton className="size-10 shrink-0 rounded-full" />
+              <Skeleton className="mt-auto h-6 w-20" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-3 w-2/3" />
+            </div>
+          ))}
+        </div>
       </section>
     )
   }

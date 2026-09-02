@@ -10,6 +10,7 @@ import { useHouseholdDraft } from './HouseholdDraftContext'
 import { hasReturningUser } from './returningUserStorage'
 import { SignupForm } from './SignupForm'
 import type { SignupAuth } from './signupAuth'
+import { AlertMessage } from '@/components/ui/alert-message'
 
 type OnboardingStep = 'household' | 'signup' | 'login'
 
@@ -140,11 +141,7 @@ export function OnboardingForm({
           </p>
         </div>
 
-        {error !== null ? (
-          <p role="alert" className="text-sm font-medium">
-            {error}
-          </p>
-        ) : null}
+        {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
 
         <Button type="submit" className="w-full">
           Continuar

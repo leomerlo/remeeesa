@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   computeSpentThisMonth,
   currentMonthRange,
@@ -46,11 +47,18 @@ export function SpentThisMonthDisplay({
   const expenses = expensesQuery.data
 
   if (expenses === undefined) {
+    // Shaped like the resolved card (month label / heading / amount, each
+    // its own bar) so nothing jumps in size once the real figure lands.
     return (
-      <div className="bg-card shadow-resting flex w-full flex-col items-center gap-2 rounded-3xl p-8">
-        <p role="status" className="text-sm font-medium">
-          Cargando…
-        </p>
+      <div
+        role="status"
+        aria-label="Cargando…"
+        className="bg-card shadow-resting flex w-full flex-col gap-2 rounded-3xl p-6"
+      >
+        <span className="sr-only">Cargando…</span>
+        <Skeleton className="h-3 w-28" />
+        <Skeleton className="h-4 w-36" />
+        <Skeleton className="h-11 w-48" />
       </div>
     )
   }

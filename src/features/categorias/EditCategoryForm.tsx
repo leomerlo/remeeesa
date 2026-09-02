@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { AlertMessage } from '@/components/ui/alert-message'
 import { useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
@@ -144,11 +145,7 @@ export function EditCategoryForm({
         />
       </div>
 
-      {error !== null ? (
-        <p role="alert" className="text-destructive text-sm font-medium">
-          {error}
-        </p>
-      ) : null}
+      {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
 
       <Button type="submit" className="w-full" disabled={pending}>
         Guardar

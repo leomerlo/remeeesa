@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
+import { AlertMessage } from '@/components/ui/alert-message'
 import type { ReactElement } from 'react'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   formatCurrency,
   listCategories,
@@ -54,9 +56,25 @@ export function RecentExpensesList({
 
   if (expensesQuery.isPending) {
     return (
-      <p role="status" className="text-sm font-medium">
-        Cargando…
-      </p>
+      <div
+        role="status"
+        aria-label="Cargando…"
+        className="flex w-full flex-col gap-3 text-sm"
+      >
+        <span className="sr-only">Cargando…</span>
+        {[0, 1, 2].map((i) => (
+          <div
+            key={i}
+            className="bg-card shadow-resting flex w-full items-center gap-3 rounded-2xl p-4"
+          >
+            <Skeleton className="size-11 shrink-0 rounded-full" />
+            <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <Skeleton className="h-4 w-2/3" />
+              <Skeleton className="h-3 w-1/3" />
+            </div>
+          </div>
+        ))}
+      </div>
     )
   }
 
@@ -65,11 +83,7 @@ export function RecentExpensesList({
       expensesQuery.error instanceof Error
         ? expensesQuery.error.message
         : 'No se pudo cargar los gastos'
-    return (
-      <p role="alert" className="text-sm font-medium">
-        {message}
-      </p>
-    )
+    return <AlertMessage>{message}</AlertMessage>
   }
 
   const { expenses, categories } = expensesQuery.data

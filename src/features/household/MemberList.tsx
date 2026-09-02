@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
+import { Skeleton } from '@/components/ui/skeleton'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { listHouseholdMembers } from '@/lib/households'
 import type { HouseholdMember, HouseholdsDb } from '@/lib/households'
@@ -48,9 +49,22 @@ export function MemberList({
 
   if (members === undefined) {
     return (
-      <p role="status" className="text-sm font-medium">
-        Cargando…
-      </p>
+      <section className="flex w-full flex-col gap-3">
+        <h2 className="text-title font-semibold">Integrantes</h2>
+        <div
+          role="status"
+          aria-label="Cargando…"
+          className="flex flex-col gap-3"
+        >
+          <span className="sr-only">Cargando…</span>
+          {[0, 1].map((i) => (
+            <div key={i} className="flex items-center gap-3">
+              <Skeleton className="size-9 shrink-0 rounded-full" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+          ))}
+        </div>
+      </section>
     )
   }
 

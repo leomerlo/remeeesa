@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { getOrCreateHouseholdInvite } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
+import { AlertMessage } from '@/components/ui/alert-message'
 
 export type InviteClipboard = {
   readonly writeText: (text: string) => Promise<void>
@@ -73,11 +74,7 @@ export function InviteLinkPanel({
           </Button>
         </>
       ) : null}
-      {error !== null ? (
-        <p role="alert" className="text-sm font-medium">
-          {error}
-        </p>
-      ) : null}
+      {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
     </div>
   )
 }

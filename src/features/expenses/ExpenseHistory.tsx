@@ -1,6 +1,8 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
+import { AlertMessage } from '@/components/ui/alert-message'
 import type { ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   formatCurrency,
   listCategories,
@@ -156,9 +158,28 @@ export function ExpenseHistory({
 
   if (historyQuery.isPending) {
     return (
-      <p role="status" className="text-sm font-medium">
-        Cargando…
-      </p>
+      <div
+        role="status"
+        aria-label="Cargando…"
+        className="flex w-full flex-col gap-6"
+      >
+        <span className="sr-only">Cargando…</span>
+        <div className="flex w-full flex-col gap-3">
+          <Skeleton className="h-4 w-32" />
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="bg-card shadow-resting flex w-full items-center gap-3 rounded-2xl p-4"
+            >
+              <Skeleton className="size-11 shrink-0 rounded-full" />
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-3 w-1/3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     )
   }
 
@@ -167,11 +188,7 @@ export function ExpenseHistory({
       historyQuery.error instanceof Error
         ? historyQuery.error.message
         : 'No se pudo cargar el histórico'
-    return (
-      <p role="alert" className="text-sm font-medium">
-        {message}
-      </p>
-    )
+    return <AlertMessage>{message}</AlertMessage>
   }
 
   const pages = historyQuery.data.pages

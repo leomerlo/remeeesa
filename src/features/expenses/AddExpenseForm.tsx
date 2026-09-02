@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { AlertMessage } from '@/components/ui/alert-message'
 import { useEffect, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
@@ -428,9 +429,7 @@ function ExpenseFormBody({
       </div>
 
       {alertMessage !== null ? (
-        <p role="alert" className="text-sm font-medium">
-          {alertMessage}
-        </p>
+        <AlertMessage>{alertMessage}</AlertMessage>
       ) : null}
 
       {confirmingDelete ? (

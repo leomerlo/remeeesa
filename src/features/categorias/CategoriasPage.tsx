@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react'
+import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import { PageHeader } from '@/components/PageHeader'
 import { Illustration } from '@/components/Illustration'
 import categoriesCalc from '@/assets/illustrations/categories-calc.webp'
@@ -32,9 +33,7 @@ export function CategoriasPage({
     return (
       <div className="flex w-full flex-col items-center gap-6">
         {header}
-        <p role="status" className="text-sm font-medium">
-          Cargando…
-        </p>
+        <LoadingIndicator />
       </div>
     )
   }
@@ -55,9 +54,7 @@ export function CategoriasPage({
     return (
       <div className="flex w-full flex-col items-center gap-6">
         {header}
-        <p role="status" className="text-sm font-medium">
-          Cargando…
-        </p>
+        <LoadingIndicator />
       </div>
     )
   }

@@ -13,6 +13,7 @@ import { useHouseholdDraft } from './HouseholdDraftContext'
 import { markReturningUser } from './returningUserStorage'
 import { createFirebaseSignupAuth } from './signupAuth'
 import type { SignupAuth } from './signupAuth'
+import { AlertMessage } from '@/components/ui/alert-message'
 
 export type SignupFormMode = 'signup' | 'login'
 
@@ -172,11 +173,7 @@ export function SignupForm({
             </div>
           </div>
 
-          {error !== null ? (
-            <p role="alert" className="text-sm font-medium">
-              {error}
-            </p>
-          ) : null}
+          {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
 
           <Button type="submit" disabled={pending} className="w-full">
             {submitLabel}

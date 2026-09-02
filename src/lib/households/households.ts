@@ -30,7 +30,14 @@ export class NotSignedInError extends Error {
   }
 }
 
-const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
+// Exported (not just used internally) so a test can walk every operation
+// name the Firestore adapter actually calls withHouseholdAccess with and
+// confirm each has an entry here -- the failure mode a per-message unit
+// test can't catch: a new operation added to the adapter with no matching
+// entry falls through to `input.operation` verbatim (see
+// FirestoreDeniedError below), which is how "No se pudo
+// updateCategoryColor. Volvé a intentar." reached a real screen.
+export const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
   createHouseholdAndMembership: 'crear el hogar',
   getHousehold: 'cargar el hogar',
   listMembers: 'cargar los integrantes',
@@ -41,6 +48,10 @@ const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
   joinHousehold: 'unirse al hogar',
   listCategories: 'cargar las categorías',
   findOrCreateCategory: 'guardar la categoría',
+  updateCategoryColor: 'guardar el color de la categoría',
+  renameCategory: 'renombrar la categoría',
+  deleteCategory: 'borrar la categoría',
+  mergeCategories: 'unir las categorías',
   createExpense: 'agregar el gasto',
   listExpensesInMonth: 'cargar los gastos',
   listRecentExpenses: 'cargar los gastos',
@@ -53,6 +64,7 @@ const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
   listPendientes: 'cargar los pendientes',
   updatePendiente: 'guardar el pendiente',
   deletePendiente: 'eliminar el pendiente',
+  markPendientePaid: 'marcar el pendiente como pagado',
 }
 
 export class FirestoreDeniedError extends Error {

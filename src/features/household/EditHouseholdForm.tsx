@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { AlertMessage } from '@/components/ui/alert-message'
 import { useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
@@ -137,11 +138,7 @@ export function EditHouseholdForm({
         </div>
       </div>
 
-      {error !== null ? (
-        <p role="alert" className="text-sm font-medium">
-          {error}
-        </p>
-      ) : null}
+      {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
 
       <Button type="submit" className="w-full">
         Guardar

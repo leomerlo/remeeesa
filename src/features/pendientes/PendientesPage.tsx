@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import type { ReactElement } from 'react'
 import { Navigate } from 'react-router-dom'
 import { authorDisplayNameFromAuth } from '@/lib/displayName'
@@ -60,11 +61,7 @@ export function PendientesPage({
   }, [markPendienteTarget])
 
   if (currentUserId === undefined) {
-    return (
-      <p role="status" className="text-sm font-medium">
-        Cargando…
-      </p>
-    )
+    return <LoadingIndicator />
   }
 
   if (currentUserId === null) {
@@ -72,11 +69,7 @@ export function PendientesPage({
   }
 
   if (membership === undefined) {
-    return (
-      <p role="status" className="text-sm font-medium">
-        Cargando…
-      </p>
-    )
+    return <LoadingIndicator />
   }
 
   if (membership === null) {

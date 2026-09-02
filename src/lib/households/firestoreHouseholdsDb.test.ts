@@ -2,8 +2,35 @@ import { describe, expect, it } from 'vitest'
 import rules from '../../../firestore.rules?raw'
 import adapterSource from './firestoreHouseholdsDb.ts?raw'
 import indexes from '../../../firestore.indexes.json'
-import { AlreadyInHouseholdError, FirestoreDeniedError } from './households'
+import {
+  AlreadyInHouseholdError,
+  FIRESTORE_OPERATION_ACTIONS,
+  FirestoreDeniedError,
+} from './households'
 import { mapHouseholdFirestoreError } from './firestoreHouseholdsDb'
+
+// "No se pudo updateCategoryColor. Volvé a intentar." reached a real screen
+// because a new adapter operation was added with no matching entry in
+// FIRESTORE_OPERATION_ACTIONS -- FirestoreDeniedError falls back to the raw
+// operation name verbatim when that lookup misses. Per-message unit tests
+// only catch operations someone remembered to write a test for; this walks
+// every withHouseholdAccess('...') call the adapter source actually makes
+// and fails if any of them has no translation, so adding an operation
+// without a Spanish phrase is a build-time failure, not a screenshot from a
+// household member.
+describe('FIRESTORE_OPERATION_ACTIONS', () => {
+  it('has a Spanish phrase for every operation the adapter calls withHouseholdAccess with', () => {
+    const operations = [
+      ...adapterSource.matchAll(/withHouseholdAccess\(\s*\n?\s*'([a-zA-Z]+)'/g),
+    ].map((match) => match[1])
+    expect(operations.length).toBeGreaterThan(10)
+
+    const untranslated = [...new Set(operations)].filter(
+      (operation) => FIRESTORE_OPERATION_ACTIONS[operation] === undefined,
+    )
+    expect(untranslated).toEqual([])
+  })
+})
 
 describe('mapHouseholdFirestoreError', () => {
   it('rethrows permission-denied as FirestoreDeniedError with the operation', () => {
