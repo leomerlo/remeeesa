@@ -3,7 +3,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { HomePage } from '@/features/home'
 import { EditHouseholdPage } from '@/features/household'
 import { JoinHouseholdPage } from '@/features/join'
-import { AppShell } from '@/features/navigation'
+import { AppHeader, AppShell } from '@/features/navigation'
 import { HistoricoPage } from '@/features/historico'
 import { CategoriasPage } from '@/features/categorias'
 import { PendientesPage } from '@/features/pendientes'
@@ -24,6 +24,7 @@ export function AppRoutes({
 }: AppProps): ReactElement {
   return (
     <HouseholdDraftProvider>
+      <AppHeader currentUserId={currentUserId} householdsDb={householdsDb} />
       {/* justify-start (Tailwind's flex default), not justify-center: every
           screen -- including short ones like the Histórico/Categorías
           placeholders -- reads as content starting from the top, not
