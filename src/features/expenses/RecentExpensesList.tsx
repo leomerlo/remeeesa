@@ -129,7 +129,7 @@ export function RecentExpensesList({
 
   return (
     <ul
-      aria-label="Últimos movimientos"
+      aria-label="Últimos movimientos del mes"
       className="flex w-full flex-col gap-3 text-sm"
     >
       {expenses.map((expense) => {
