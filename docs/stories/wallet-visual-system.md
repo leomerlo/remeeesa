@@ -53,7 +53,7 @@ exist today to match. It does not add new screens or functionality — that's co
   `navigation-shell.md`; new features are their own stories).
 - Manual category color override (categories only get the auto-assigned color in this story).
 - Confetti/celebration micro-interactions and other `animate`-skill work tied to specific new
-  actions (e.g. marking a Cuenta paid) — those land with the stories that introduce those actions.
+  actions (e.g. marking a Pendiente paid) — those land with the stories that introduce those actions.
 - Dark mode.
 
 ## Open questions

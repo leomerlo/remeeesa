@@ -3,7 +3,7 @@ import type { ReactElement } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { HouseholdDraftProvider } from '@/features/onboarding'
-import { listPendingCuentas } from '@/lib/cuentas'
+import { listPendientes } from '@/lib/pendientes'
 import { listExpensesInMonth } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
@@ -121,7 +121,7 @@ describe('HomePage', () => {
       screen.queryAllByText('Todavía no hay gastos este mes'),
     ).toHaveLength(0)
     expect(
-      screen.getByRole('button', { name: 'Nueva cuenta' }),
+      screen.getByRole('button', { name: 'Nuevo pendiente' }),
     ).toBeInTheDocument()
     expect(screen.queryByText('Por pagar')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Precio')).not.toBeInTheDocument()
@@ -139,7 +139,7 @@ describe('HomePage', () => {
     expect(screen.queryByLabelText(/author/i)).not.toBeInTheDocument()
   })
 
-  it('opens the Nueva cuenta sheet and creates a pending cuenta', async () => {
+  it('opens the Nuevo pendiente sheet and creates a pending item', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -150,7 +150,9 @@ describe('HomePage', () => {
 
     renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Nueva cuenta' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Nuevo pendiente' }),
+    )
 
     expect(await screen.findByLabelText('Nombre')).toBeInTheDocument()
     expect(screen.getByLabelText('Categoría')).toBeInTheDocument()
@@ -164,17 +166,17 @@ describe('HomePage', () => {
     fireEvent.change(screen.getByLabelText('Categoría'), {
       target: { value: 'Servicios' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Agregar cuenta' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar pendiente' }))
 
     // Sheet closes and the trigger reappears -- no route change, no reload.
     await waitFor(() => {
       expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
     expect(
-      screen.getByRole('button', { name: 'Nueva cuenta' }),
+      screen.getByRole('button', { name: 'Nuevo pendiente' }),
     ).toBeInTheDocument()
 
-    const pending = await listPendingCuentas({ db, householdId: household.id })
+    const pending = await listPendientes({ db, householdId: household.id })
     expect(pending).toEqual([
       expect.objectContaining({
         name: 'Alquiler',

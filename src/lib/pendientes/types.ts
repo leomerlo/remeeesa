@@ -1,6 +1,6 @@
-export type CuentaStatus = 'pending' | 'paid'
+export type PendienteStatus = 'pending' | 'paid'
 
-export type Cuenta = {
+export type Pendiente = {
   readonly id: string
   readonly householdId: string
   readonly categoryId: string
@@ -8,7 +8,7 @@ export type Cuenta = {
   readonly dueDate: Date
   readonly expectedAmount: number | null
   readonly recurring: boolean
-  readonly status: CuentaStatus
+  readonly status: PendienteStatus
   readonly paidExpenseId: string | null
   readonly createdAt: Date
 }

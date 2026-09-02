@@ -58,12 +58,13 @@ export function RemainingBudgetDisplay({
   return (
     <div className="from-primary to-[var(--surface-action-gradient-end)] relative flex w-full flex-col gap-6 rounded-3xl bg-gradient-to-br p-6">
       {/* Deliberately no overflow-hidden: the illustration is meant to poke
-          above the card edge, and clipping it cut off its top half. The
-          overhang is small on purpose -- at -top-14/h-20 it reached 56px above
-          the card and collided with the page title, which sits only one gap
-          (32px) higher. */}
-      <PiggyBankIllustration className="pointer-events-none absolute -top-7 right-2 h-16 w-20" />
-      <div className="flex flex-col gap-2 pr-16">
+          above the card edge, and clipping it cut off its top half. Tucked
+          into the corner (right-0, minimal top overhang) rather than
+          floating further up, since the page wrapper's gap above this card
+          shrank to gap-6 (24px) and a taller overhang would collide with the
+          page title again. */}
+      <PiggyBankIllustration className="pointer-events-none absolute -top-5 right-0 h-20 w-24" />
+      <div className="flex flex-col gap-2 pr-20">
         <span className="text-primary-foreground text-body font-medium">
           Presupuesto restante
         </span>

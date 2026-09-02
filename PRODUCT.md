@@ -42,7 +42,7 @@ household's own tool.
 ## Operating Context
 
 - Multiple quick expense-logging sessions per day, often immediately after a purchase.
-- Monthly review of recurring bills (Cuentas), where the amount is frequently unknown until the
+- Monthly review of recurring bills (Pendientes), where the amount is frequently unknown until the
   bill arrives and varies month to month (inflation-driven — recurring never means "same amount
   auto-charged").
 - Periodic review of remaining budget and category/person spending breakdown.
@@ -57,7 +57,7 @@ household's own tool.
   Tailwind CSS.
 - Domain: `Household` (one shared monthly budget, equal-permission `Member`s, no owner/admin
   role), `Category` (per-household, carries a color), `Expense` (money already spent, counts
-  against the current month's budget), `Cuenta` (a bill — an obligation to pay, tracked before
+  against the current month's budget), `Pendiente` (a bill — an obligation to pay, tracked before
   payment with a due date and optional expected amount, distinct from `Expense`; see CONTEXT.md).
 - No multi-currency handling (implicit local currency, Argentina). No income tracking — expense
   and bill tracking only.

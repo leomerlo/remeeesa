@@ -38,7 +38,7 @@ describe('nextCycleDueDate', () => {
     )
   })
 
-  // The clamp is permanent: a Jan 31 cuenta drifts to Feb 28 and then stays
+  // The clamp is permanent: a Jan 31 pendiente drifts to Feb 28 and then stays
   // on the 28th, since the helper only ever reads the previous cycle's day.
   it('keeps the clamped day on subsequent cycles instead of snapping back', () => {
     const february = nextCycleDueDate(new Date(2026, 0, 31))

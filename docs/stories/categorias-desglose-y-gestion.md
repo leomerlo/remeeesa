@@ -14,7 +14,7 @@ one (explicitly out of scope there). Now that every `Category` carries a color
 what" too, since that was raised directly during the review (e.g. attributing a shared coffee to
 whoever paid). This story is the "Categorías" destination from `navigation-shell.md`. It also
 depends on `cuentas-pendientes.md`, since deleting/merging a category must account for pending
-Cuentas referencing it, not just Expenses. This story bundles two related but distinct jobs
+Pendientes referencing it, not just Expenses. This story bundles two related but distinct jobs
 (category data hygiene, and the by-category/by-person analytics) into one vertical slice
 deliberately, since both need the same `color` field from `wallet-visual-system.md` — split it
 into two if it proves too large during implementation.
@@ -40,14 +40,14 @@ into two if it proves too large during implementation.
       a fixed palette (updates the `color` field added in `wallet-visual-system.md` in place —
       no separate override flag; the stored color is simply no longer only the hash default).
 - [ ] From this screen, a member can merge two categories into one (picks a survivor): every
-      Expense **and every Cuenta** (`cuentas-pendientes.md`) referencing the merged-away category
+      Expense **and every Pendiente** (`cuentas-pendientes.md`) referencing the merged-away category
       is repointed to the survivor, and the merged-away category is removed from the household's
       list. Repointing happens across as many batched writes as needed (Firestore's 500-write
       batch limit) rather than assuming one atomic operation — a category with a very large
       history merges correctly even if it takes multiple batches.
 - [ ] From this screen, a member can delete a category only if it has **no Expenses and no
-      Cuentas** (pending or paid) referencing it — checking Expenses alone isn't enough, since a
-      category could be Expense-free but still have a pending Cuenta pointing at it. A category
+      Pendientes** (pending or paid) referencing it — checking Expenses alone isn't enough, since a
+      category could be Expense-free but still have a pending Pendiente pointing at it. A category
       that fails this check cannot be deleted directly — merge it into another category first
       (previous bullet) if it needs to go away.
 - [ ] Category rename/merge/delete are secondary actions on this screen (e.g. per-category edit

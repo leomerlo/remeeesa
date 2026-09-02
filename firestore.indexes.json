@@ -10,7 +10,7 @@
       ]
     },
     {
-      "collectionGroup": "cuentas",
+      "collectionGroup": "pendientes",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "household_id", "order": "ASCENDING" },

@@ -4,8 +4,8 @@ import {
   parseRequiredString,
   parseTimestamp,
 } from '@/lib/firestore/documentParsing'
-import type { Cuenta, CuentaStatus } from './types'
-import { parseCuentaName } from './validate'
+import type { Pendiente, PendienteStatus } from './types'
+import { parsePendienteName } from './validate'
 
 function parseNullableNumber(value: unknown, field: string): number | null {
   if (value === null) {
@@ -24,7 +24,7 @@ function parseBoolean(value: unknown, field: string): boolean {
   return value
 }
 
-function parseCuentaStatus(value: unknown): CuentaStatus {
+function parsePendienteStatus(value: unknown): PendienteStatus {
   if (value !== 'pending' && value !== 'paid') {
     throw new Error("status must be 'pending' or 'paid'")
   }
@@ -41,15 +41,15 @@ function parseNullableString(value: unknown, field: string): string | null {
   return value
 }
 
-export function parseCuentaDocument(input: {
+export function parsePendienteDocument(input: {
   readonly id: string
   readonly data: unknown
-}): Cuenta {
+}): Pendiente {
   if (input.id.trim() === '') {
-    throw new Error('Cuenta id must be non-empty')
+    throw new Error('Pendiente id must be non-empty')
   }
   if (!isRecord(input.data)) {
-    throw new Error('Cuenta document must be an object')
+    throw new Error('Pendiente document must be an object')
   }
 
   const {
@@ -64,31 +64,31 @@ export function parseCuentaDocument(input: {
     created_at,
   } = input.data
   if (typeof name !== 'string') {
-    throw new Error('Cuenta name must be a string')
+    throw new Error('Pendiente name must be a string')
   }
 
   return {
     id: input.id,
     householdId: parseRequiredString(household_id, 'household_id'),
     categoryId: parseRequiredString(category_id, 'category_id'),
-    name: parseCuentaName(name),
+    name: parsePendienteName(name),
     dueDate: parseTimestamp(due_date, 'due_date'),
     expectedAmount: parseNullableNumber(expected_amount, 'expected_amount'),
     recurring: parseBoolean(recurring, 'recurring'),
-    status: parseCuentaStatus(status),
+    status: parsePendienteStatus(status),
     paidExpenseId: parseNullableString(paid_expense_id, 'paid_expense_id'),
     createdAt: parseTimestamp(created_at, 'created_at'),
   }
 }
 
-export function cuentaToDocument(input: {
+export function pendienteToDocument(input: {
   readonly householdId: string
   readonly categoryId: string
   readonly name: string
   readonly dueDate: Date
   readonly expectedAmount: number | null
   readonly recurring: boolean
-  readonly status: CuentaStatus
+  readonly status: PendienteStatus
   readonly paidExpenseId: string | null
   readonly createdAt: Date
 }): {
@@ -98,7 +98,7 @@ export function cuentaToDocument(input: {
   readonly due_date: Date
   readonly expected_amount: number | null
   readonly recurring: boolean
-  readonly status: CuentaStatus
+  readonly status: PendienteStatus
   readonly paid_expense_id: string | null
   readonly created_at: Date
 } {
@@ -115,6 +115,6 @@ export function cuentaToDocument(input: {
   }
 }
 
-export function toFirestoreCuentaDate(date: Date): Timestamp {
+export function toFirestorePendienteDate(date: Date): Timestamp {
   return Timestamp.fromDate(date)
 }

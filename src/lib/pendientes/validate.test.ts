@@ -1,36 +1,36 @@
 import { describe, expect, it } from 'vitest'
 import {
-  parseCuentaDueDate,
-  parseCuentaName,
+  parsePendienteDueDate,
+  parsePendienteName,
   parseExpectedAmount,
 } from './validate'
 
-describe('parseCuentaName', () => {
+describe('parsePendienteName', () => {
   it('trims surrounding whitespace', () => {
-    expect(parseCuentaName('  Alquiler  ')).toBe('Alquiler')
+    expect(parsePendienteName('  Alquiler  ')).toBe('Alquiler')
   })
 
   it('rejects an empty string', () => {
-    expect(() => parseCuentaName('   ')).toThrow(
-      'El nombre de la cuenta no puede estar vacío',
+    expect(() => parsePendienteName('   ')).toThrow(
+      'El nombre del pendiente no puede estar vacío',
     )
   })
 })
 
-describe('parseCuentaDueDate', () => {
-  it('accepts a past date (past dates are allowed for cuentas)', () => {
+describe('parsePendienteDueDate', () => {
+  it('accepts a past date (past dates are allowed for pendientes)', () => {
     const pastDate = new Date(2020, 0, 1)
-    expect(parseCuentaDueDate(pastDate)).toBe(pastDate)
+    expect(parsePendienteDueDate(pastDate)).toBe(pastDate)
   })
 
   it('accepts a future date', () => {
     const futureDate = new Date(2099, 0, 1)
-    expect(parseCuentaDueDate(futureDate)).toBe(futureDate)
+    expect(parsePendienteDueDate(futureDate)).toBe(futureDate)
   })
 
   it('rejects an invalid date', () => {
-    expect(() => parseCuentaDueDate(new Date(Number.NaN))).toThrow(
-      'La fecha de la cuenta no es válida',
+    expect(() => parsePendienteDueDate(new Date(Number.NaN))).toThrow(
+      'La fecha del pendiente no es válida',
     )
   })
 })
@@ -43,16 +43,16 @@ describe('parseExpectedAmount', () => {
 
   it('rejects NaN, Infinity, and non-positive values', () => {
     expect(() => parseExpectedAmount(Number.NaN)).toThrow(
-      'El monto esperado de la cuenta debe ser un número positivo',
+      'El monto esperado del pendiente debe ser un número positivo',
     )
     expect(() => parseExpectedAmount(Number.POSITIVE_INFINITY)).toThrow(
-      'El monto esperado de la cuenta debe ser un número positivo',
+      'El monto esperado del pendiente debe ser un número positivo',
     )
     expect(() => parseExpectedAmount(0)).toThrow(
-      'El monto esperado de la cuenta debe ser un número positivo',
+      'El monto esperado del pendiente debe ser un número positivo',
     )
     expect(() => parseExpectedAmount(-1)).toThrow(
-      'El monto esperado de la cuenta debe ser un número positivo',
+      'El monto esperado del pendiente debe ser un número positivo',
     )
   })
 
@@ -63,7 +63,7 @@ describe('parseExpectedAmount', () => {
 
   it('rejects a positive value that rounds to zero', () => {
     expect(() => parseExpectedAmount(0.001)).toThrow(
-      'El monto esperado de la cuenta debe ser un número positivo',
+      'El monto esperado del pendiente debe ser un número positivo',
     )
   })
 })

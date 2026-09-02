@@ -1,36 +1,36 @@
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { Sheet } from '@/components/ui/sheet'
-import type { Cuenta } from '@/lib/cuentas'
+import type { Pendiente } from '@/lib/pendientes'
 import type { HouseholdsDb } from '@/lib/households'
-import { MarkCuentaPaidForm } from './MarkCuentaPaidForm'
+import { MarkPendientePaidForm } from './MarkPendientePaidForm'
 
-export type MarkCuentaPaidSheetProps = {
+export type MarkPendientePaidSheetProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly memberId: string
   readonly authorDisplayName: string
-  readonly cuenta: Cuenta | null
-  readonly onOpenChange: (cuenta: Cuenta | null) => void
+  readonly pendiente: Pendiente | null
+  readonly onOpenChange: (pendiente: Pendiente | null) => void
 }
 
-export function MarkCuentaPaidSheet({
+export function MarkPendientePaidSheet({
   db,
   householdId,
   memberId,
   authorDisplayName,
-  cuenta,
+  pendiente,
   onOpenChange,
-}: MarkCuentaPaidSheetProps): ReactElement {
+}: MarkPendientePaidSheetProps): ReactElement {
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const open = cuenta !== null
+  const open = pendiente !== null
 
   function handleOpenChange(next: boolean): void {
     // A submit already in flight must resolve inside the still-mounted
     // form: dismissing (Escape, overlay, close control) while pending would
-    // unmount MarkCuentaPaidForm before its mutation settles, silently
+    // unmount MarkPendientePaidForm before its mutation settles, silently
     // discarding the outcome -- including a failure the user would
-    // otherwise see as an alert. Mirrors AddCuentaSheet's guard.
+    // otherwise see as an alert. Mirrors AddPendienteSheet's guard.
     if (!next && isSubmitting) {
       return
     }
@@ -40,15 +40,15 @@ export function MarkCuentaPaidSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={handleOpenChange} title="Marcar pagada">
-      {cuenta !== null ? (
-        <MarkCuentaPaidForm
-          key={cuenta.id}
+    <Sheet open={open} onOpenChange={handleOpenChange} title="Marcar pagado">
+      {pendiente !== null ? (
+        <MarkPendientePaidForm
+          key={pendiente.id}
           db={db}
           householdId={householdId}
           memberId={memberId}
           authorDisplayName={authorDisplayName}
-          cuenta={cuenta}
+          pendiente={pendiente}
           onDone={() => {
             onOpenChange(null)
           }}

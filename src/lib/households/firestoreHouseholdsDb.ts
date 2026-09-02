@@ -17,15 +17,15 @@ import {
 import type { DocumentReference, Firestore } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
 import {
-  cuentaToDocument,
-  parseCuentaDocument,
-  toFirestoreCuentaDate,
-} from '@/lib/cuentas/converters'
+  pendienteToDocument,
+  parsePendienteDocument,
+  toFirestorePendienteDate,
+} from '@/lib/pendientes/converters'
 import {
-  CuentaAlreadyPaidError,
-  CuentaNotFoundError,
-} from '@/lib/cuentas/cuentas'
-import { nextCycleDueDate } from '@/lib/cuentas/recurrence'
+  PendienteAlreadyPaidError,
+  PendienteNotFoundError,
+} from '@/lib/pendientes/pendientes'
+import { nextCycleDueDate } from '@/lib/pendientes/recurrence'
 import { chunkForWriteBatch } from '@/lib/expenses/batching'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import {
@@ -109,14 +109,14 @@ export function mapHouseholdFirestoreError(
 
 // Every document that stores this category's id, across both collections that
 // can hold one. Rename and merge move all of them; delete refuses while any
-// exist. Cuentas are queried alongside Expenses on purpose -- forgetting them
+// exist. Pendientes are queried alongside Expenses on purpose -- forgetting them
 // is what would leave paid bills pointing at a category that no longer exists.
 async function categoryReferences(
   firestore: Firestore,
   input: { readonly householdId: string; readonly categoryId: string },
 ) {
-  const [expensesSnap, cuentasSnap] = await Promise.all(
-    (['expenses', 'cuentas'] as const).map((collectionName) =>
+  const [expensesSnap, pendientesSnap] = await Promise.all(
+    (['expenses', 'pendientes'] as const).map((collectionName) =>
       getDocs(
         query(
           collection(firestore, collectionName),
@@ -126,7 +126,7 @@ async function categoryReferences(
       ),
     ),
   )
-  return [...(expensesSnap?.docs ?? []), ...(cuentasSnap?.docs ?? [])].map(
+  return [...(expensesSnap?.docs ?? []), ...(pendientesSnap?.docs ?? [])].map(
     (referencing) => referencing.ref,
   )
 }
@@ -817,16 +817,16 @@ export function createFirestoreHouseholdsDb(
         await deleteDoc(expenseRef)
       })
     },
-    async createCuenta(input) {
+    async createPendiente(input) {
       return withHouseholdAccess(
-        'createCuenta',
+        'createPendiente',
         async () => {
           const recurring = input.recurring ?? false
-          const cuentaRef = doc(collection(firestore, 'cuentas'))
+          const pendienteRef = doc(collection(firestore, 'pendientes'))
           const now = Timestamp.now()
           const createdAt = now.toDate()
-          await setDoc(cuentaRef, {
-            ...cuentaToDocument({
+          await setDoc(pendienteRef, {
+            ...pendienteToDocument({
               householdId: input.householdId,
               categoryId: input.categoryId,
               name: input.name,
@@ -837,11 +837,11 @@ export function createFirestoreHouseholdsDb(
               paidExpenseId: null,
               createdAt,
             }),
-            due_date: toFirestoreCuentaDate(input.dueDate),
+            due_date: toFirestorePendienteDate(input.dueDate),
             created_at: now,
           })
           return {
-            id: cuentaRef.id,
+            id: pendienteRef.id,
             householdId: input.householdId,
             categoryId: input.categoryId,
             name: input.name,
@@ -856,68 +856,68 @@ export function createFirestoreHouseholdsDb(
         { householdId: input.householdId, categoryId: input.categoryId },
       )
     },
-    async getCuenta(input) {
-      return withHouseholdAccess('getCuenta', async () => {
-        const cuentaRef = doc(firestore, 'cuentas', input.cuentaId)
-        const existing = await getDoc(cuentaRef)
+    async getPendiente(input) {
+      return withHouseholdAccess('getPendiente', async () => {
+        const pendienteRef = doc(firestore, 'pendientes', input.pendienteId)
+        const existing = await getDoc(pendienteRef)
         if (
           !existing.exists() ||
           existing.data().household_id !== input.householdId
         ) {
           return null
         }
-        return parseCuentaDocument({
+        return parsePendienteDocument({
           id: existing.id,
           data: existing.data(),
         })
       })
     },
-    async listPendingCuentas(input) {
-      return withHouseholdAccess('listPendingCuentas', async () => {
-        const cuentasQuery = query(
-          collection(firestore, 'cuentas'),
+    async listPendientes(input) {
+      return withHouseholdAccess('listPendientes', async () => {
+        const pendientesQuery = query(
+          collection(firestore, 'pendientes'),
           where('household_id', '==', input.householdId),
           where('status', '==', 'pending'),
           orderBy('due_date', 'asc'),
         )
-        const snap = await getDocs(cuentasQuery)
-        return snap.docs.map((cuentaDoc) =>
-          parseCuentaDocument({
-            id: cuentaDoc.id,
-            data: cuentaDoc.data(),
+        const snap = await getDocs(pendientesQuery)
+        return snap.docs.map((pendienteDoc) =>
+          parsePendienteDocument({
+            id: pendienteDoc.id,
+            data: pendienteDoc.data(),
           }),
         )
       })
     },
-    async updateCuenta(input) {
+    async updatePendiente(input) {
       return withHouseholdAccess(
-        'updateCuenta',
+        'updatePendiente',
         async () => {
-          const cuentaRef = doc(firestore, 'cuentas', input.cuentaId)
-          const existing = await getDoc(cuentaRef)
+          const pendienteRef = doc(firestore, 'pendientes', input.pendienteId)
+          const existing = await getDoc(pendienteRef)
           if (
             !existing.exists() ||
             existing.data().household_id !== input.householdId
           ) {
-            throw new CuentaNotFoundError()
+            throw new PendienteNotFoundError()
           }
-          const current = parseCuentaDocument({
+          const current = parsePendienteDocument({
             id: existing.id,
             data: existing.data(),
           })
           // Re-check status against this fresh read (not just the domain
-          // layer's earlier getCuenta) so a cuenta paid by someone else
+          // layer's earlier getPendiente) so a pendiente paid by someone else
           // between that check and this write surfaces the specific
-          // CuentaAlreadyPaidError the UI knows how to handle gracefully,
+          // PendienteAlreadyPaidError the UI knows how to handle gracefully,
           // rather than a generic FirestoreDeniedError from the rules-level
           // rejection that would follow anyway.
           if (current.status !== 'pending') {
-            throw new CuentaAlreadyPaidError()
+            throw new PendienteAlreadyPaidError()
           }
-          await updateDoc(cuentaRef, {
+          await updateDoc(pendienteRef, {
             category_id: input.categoryId,
             name: input.name,
-            due_date: toFirestoreCuentaDate(input.dueDate),
+            due_date: toFirestorePendienteDate(input.dueDate),
             expected_amount: input.expectedAmount,
             recurring: input.recurring,
           })
@@ -931,41 +931,41 @@ export function createFirestoreHouseholdsDb(
           }
         },
         {
-          cuentaId: input.cuentaId,
+          pendienteId: input.pendienteId,
           householdId: input.householdId,
           categoryId: input.categoryId,
         },
       )
     },
-    async deleteCuenta(input) {
-      return withHouseholdAccess('deleteCuenta', async () => {
-        const cuentaRef = doc(firestore, 'cuentas', input.cuentaId)
-        const existing = await getDoc(cuentaRef)
+    async deletePendiente(input) {
+      return withHouseholdAccess('deletePendiente', async () => {
+        const pendienteRef = doc(firestore, 'pendientes', input.pendienteId)
+        const existing = await getDoc(pendienteRef)
         if (
           !existing.exists() ||
           existing.data().household_id !== input.householdId
         ) {
-          throw new CuentaNotFoundError()
+          throw new PendienteNotFoundError()
         }
-        // Same fresh re-check as updateCuenta above -- surfaces
-        // CuentaAlreadyPaidError instead of a generic denial if the cuenta
+        // Same fresh re-check as updatePendiente above -- surfaces
+        // PendienteAlreadyPaidError instead of a generic denial if the pendiente
         // was marked paid by someone else after the domain layer's own
         // pre-check.
         if (
-          parseCuentaDocument({ id: existing.id, data: existing.data() })
+          parsePendienteDocument({ id: existing.id, data: existing.data() })
             .status !== 'pending'
         ) {
-          throw new CuentaAlreadyPaidError()
+          throw new PendienteAlreadyPaidError()
         }
-        await deleteDoc(cuentaRef)
+        await deleteDoc(pendienteRef)
       })
     },
-    async markCuentaPaid(input) {
+    async markPendientePaid(input) {
       return withHouseholdAccess(
-        'markCuentaPaid',
+        'markPendientePaid',
         async () => {
           const memberId = await awaitAuthenticatedUserId(firestore)
-          const cuentaRef = doc(firestore, 'cuentas', input.cuentaId)
+          const pendienteRef = doc(firestore, 'pendientes', input.pendienteId)
           const expenseRef = doc(collection(firestore, 'expenses'))
           // Hoisted out of the transaction callback deliberately: the
           // callback is re-run on contention, and a ref minted inside it
@@ -973,24 +973,24 @@ export function createFirestoreHouseholdsDb(
           // could drift from the one returned to the caller. This only mints
           // a client-side id -- nothing is written -- so leaving it unused on
           // the non-recurring path creates no orphan document.
-          const nextCuentaRef = doc(collection(firestore, 'cuentas'))
+          const nextPendienteRef = doc(collection(firestore, 'pendientes'))
           const now = Timestamp.now()
           const createdAt = now.toDate()
 
           return runTransaction(firestore, async (tx) => {
-            const cuentaSnap = await tx.get(cuentaRef)
+            const pendienteSnap = await tx.get(pendienteRef)
             if (
-              !cuentaSnap.exists() ||
-              cuentaSnap.data().household_id !== input.householdId
+              !pendienteSnap.exists() ||
+              pendienteSnap.data().household_id !== input.householdId
             ) {
-              throw new CuentaNotFoundError()
+              throw new PendienteNotFoundError()
             }
-            const current = parseCuentaDocument({
-              id: cuentaSnap.id,
-              data: cuentaSnap.data(),
+            const current = parsePendienteDocument({
+              id: pendienteSnap.id,
+              data: pendienteSnap.data(),
             })
             if (current.status !== 'pending') {
-              throw new CuentaAlreadyPaidError()
+              throw new PendienteAlreadyPaidError()
             }
 
             tx.set(expenseRef, {
@@ -1008,12 +1008,12 @@ export function createFirestoreHouseholdsDb(
               expense_date: toFirestoreExpenseDate(input.paymentDate),
               created_at: now,
             })
-            tx.update(cuentaRef, {
+            tx.update(pendienteRef, {
               status: 'paid',
               paid_expense_id: expenseRef.id,
             })
 
-            // A recurring cuenta spawns its next cycle in this same
+            // A recurring pendiente spawns its next cycle in this same
             // transaction, so all three writes land together or not at all.
             // The expected amount is deliberately blanked rather than copied
             // from the cycle just paid.
@@ -1021,8 +1021,8 @@ export function createFirestoreHouseholdsDb(
               ? nextCycleDueDate(current.dueDate)
               : null
             if (nextDueDate !== null) {
-              tx.set(nextCuentaRef, {
-                ...cuentaToDocument({
+              tx.set(nextPendienteRef, {
+                ...pendienteToDocument({
                   householdId: input.householdId,
                   categoryId: current.categoryId,
                   name: current.name,
@@ -1033,22 +1033,22 @@ export function createFirestoreHouseholdsDb(
                   paidExpenseId: null,
                   createdAt,
                 }),
-                due_date: toFirestoreCuentaDate(nextDueDate),
+                due_date: toFirestorePendienteDate(nextDueDate),
                 created_at: now,
               })
             }
 
             return {
-              cuenta: {
+              pendiente: {
                 ...current,
                 status: 'paid' as const,
                 paidExpenseId: expenseRef.id,
               },
-              nextCuenta:
+              nextPendiente:
                 nextDueDate === null
                   ? null
                   : {
-                      id: nextCuentaRef.id,
+                      id: nextPendienteRef.id,
                       householdId: input.householdId,
                       categoryId: current.categoryId,
                       name: current.name,
@@ -1075,7 +1075,7 @@ export function createFirestoreHouseholdsDb(
           })
         },
         {
-          cuentaId: input.cuentaId,
+          pendienteId: input.pendienteId,
           householdId: input.householdId,
         },
       )

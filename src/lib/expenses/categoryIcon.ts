@@ -106,7 +106,7 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
 
   // The names this household's own spreadsheet actually uses -- both its
   // category column and the individual line items, since a bill named
-  // "EDENOR" is what shows up on a Cuenta row, not the word "luz".
+  // "EDENOR" is what shows up on a Pendiente row, not the word "luz".
   'gastos personales': Wallet,
   'tarjetas de credito': CreditCard,
   visa: CreditCard,

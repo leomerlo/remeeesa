@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { createCuenta } from '@/lib/cuentas/cuentas'
+import { createPendiente } from '@/lib/pendientes/pendientes'
 import { createExpense, listCategories } from '@/lib/expenses'
 import { CATEGORY_COLOR_PALETTE } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
@@ -165,7 +165,7 @@ describe('CategoryManager', () => {
     expect(after.map((c) => c.id)).toContain(comida.id)
   })
 
-  it('merges a category into another, moving its expenses and cuentas', async () => {
+  it('merges a category into another, moving its expenses and pendientes', async () => {
     const { db, householdId, byName } = await seedHousehold()
     const comida = byName.get('Comida')
     const transporte = byName.get('Transporte')
@@ -177,7 +177,7 @@ describe('CategoryManager', () => {
       householdId,
       categoryId: comida.id,
     })
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db,
       householdId,
       categoryId: comida.id,
@@ -203,7 +203,8 @@ describe('CategoryManager', () => {
       (await db.getExpense({ householdId, expenseId: expense.id }))?.categoryId,
     ).toBe(transporte.id)
     expect(
-      (await db.getCuenta({ householdId, cuentaId: cuenta.id }))?.categoryId,
+      (await db.getPendiente({ householdId, pendienteId: pendiente.id }))
+        ?.categoryId,
     ).toBe(transporte.id)
   })
 

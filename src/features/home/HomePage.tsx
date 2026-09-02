@@ -8,11 +8,11 @@ import {
 } from '@/features/expenses'
 import type { EditExpenseTarget } from '@/features/expenses/AddExpenseForm'
 import {
-  AddCuentaSheet,
-  MarkCuentaPaidSheet,
+  AddPendienteSheet,
+  MarkPendientePaidSheet,
   PorPagarSection,
-} from '@/features/cuentas'
-import type { Cuenta } from '@/lib/cuentas'
+} from '@/features/pendientes'
+import type { Pendiente } from '@/lib/pendientes'
 import { LogoutButton } from '@/features/auth'
 import { OnboardingForm } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
@@ -26,6 +26,7 @@ import {
 } from '@/lib/households'
 import type { Household, HouseholdMember, HouseholdsDb } from '@/lib/households'
 import { CategoryMiniSummary } from './CategoryMiniSummary'
+import { GastoVsPendienteHint } from './GastoVsPendienteHint'
 import { PersonMiniSummary } from './PersonMiniSummary'
 
 export type HomePageProps = {
@@ -61,8 +62,10 @@ export function HomePage({
   const [homeEpoch, setHomeEpoch] = useState(0)
   const [editExpense, setEditExpense] = useState<EditExpenseTarget | null>(null)
   const [isAddExpenseSheetOpen, setIsAddExpenseSheetOpen] = useState(false)
-  const [isAddCuentaSheetOpen, setIsAddCuentaSheetOpen] = useState(false)
-  const [markPaidCuenta, setMarkPaidCuenta] = useState<Cuenta | null>(null)
+  const [isAddPendienteSheetOpen, setIsAddPendienteSheetOpen] = useState(false)
+  const [markPaidPendiente, setMarkPaidPendiente] = useState<Pendiente | null>(
+    null,
+  )
 
   useEffect(() => {
     if (currentUserIdProp !== undefined) {
@@ -190,27 +193,28 @@ export function HomePage({
           }}
         />
         {editExpense === null ? (
-          <AddCuentaSheet
-            open={isAddCuentaSheetOpen}
-            onOpenChange={setIsAddCuentaSheetOpen}
+          <AddPendienteSheet
+            open={isAddPendienteSheetOpen}
+            onOpenChange={setIsAddPendienteSheetOpen}
             db={db}
             householdId={membership.householdId}
             triggerClassName="flex-1"
           />
         ) : null}
       </div>
+      <GastoVsPendienteHint />
       <PorPagarSection
         db={db}
         householdId={membership.householdId}
-        onMarkPaid={setMarkPaidCuenta}
+        onMarkPaid={setMarkPaidPendiente}
       />
-      <MarkCuentaPaidSheet
+      <MarkPendientePaidSheet
         db={db}
         householdId={membership.householdId}
         memberId={currentUserId}
         authorDisplayName={authorDisplayName}
-        cuenta={markPaidCuenta}
-        onOpenChange={setMarkPaidCuenta}
+        pendiente={markPaidPendiente}
+        onOpenChange={setMarkPaidPendiente}
       />
       <div className="flex w-full flex-col gap-3">
         <h2 className="text-title font-semibold self-start">

@@ -1,9 +1,9 @@
 import {
-  CuentaAlreadyPaidError,
-  CuentaNotFoundError,
-} from '@/lib/cuentas/cuentas'
-import { nextCycleDueDate } from '@/lib/cuentas/recurrence'
-import type { Cuenta } from '@/lib/cuentas/types'
+  PendienteAlreadyPaidError,
+  PendienteNotFoundError,
+} from '@/lib/pendientes/pendientes'
+import { nextCycleDueDate } from '@/lib/pendientes/recurrence'
+import type { Pendiente } from '@/lib/pendientes/types'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import {
   CategoryInUseError,
@@ -49,7 +49,7 @@ type MemoryState = {
   invites: Map<string, InviteRecord>
   categories: Map<string, Category>
   expenses: Map<string, Expense>
-  cuentas: Map<string, Cuenta>
+  pendientes: Map<string, Pendiente>
 }
 
 function toHousehold(id: string, record: HouseholdRecord): Household {
@@ -75,7 +75,7 @@ function ownCategory(
 // Every place a category id can be stored. Rename and merge both move
 // references wholesale, and delete refuses while any of them exist, so the two
 // collections are walked from one helper each -- missing one would silently
-// orphan Cuentas, which is exactly the bug the delete guard exists to prevent.
+// orphan Pendientes, which is exactly the bug the delete guard exists to prevent.
 function repointReferences(
   state: MemoryState,
   fromCategoryId: string,
@@ -86,9 +86,9 @@ function repointReferences(
       state.expenses.set(id, { ...expense, categoryId: toCategoryId })
     }
   }
-  for (const [id, cuenta] of state.cuentas) {
-    if (cuenta.categoryId === fromCategoryId) {
-      state.cuentas.set(id, { ...cuenta, categoryId: toCategoryId })
+  for (const [id, pendiente] of state.pendientes) {
+    if (pendiente.categoryId === fromCategoryId) {
+      state.pendientes.set(id, { ...pendiente, categoryId: toCategoryId })
     }
   }
 }
@@ -99,10 +99,10 @@ function assertNoReferences(state: MemoryState, categoryId: string): void {
       throw new CategoryInUseError()
     }
   }
-  // Paid Cuentas count too: they keep pointing at the category forever, so
+  // Paid Pendientes count too: they keep pointing at the category forever, so
   // dropping it would leave the Histórico with unlabelled rows.
-  for (const cuenta of state.cuentas.values()) {
-    if (cuenta.categoryId === categoryId) {
+  for (const pendiente of state.pendientes.values()) {
+    if (pendiente.categoryId === categoryId) {
       throw new CategoryInUseError()
     }
   }
@@ -514,7 +514,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       }
       state.expenses.delete(input.expenseId)
     },
-    async createCuenta(input) {
+    async createPendiente(input) {
       assertMemberOf(state, userId, input.householdId)
       const category = state.categories.get(input.categoryId)
       if (
@@ -523,7 +523,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       ) {
         throw new Error('Category not found')
       }
-      const cuenta: Cuenta = {
+      const pendiente: Pendiente = {
         id: crypto.randomUUID(),
         householdId: input.householdId,
         categoryId: input.categoryId,
@@ -535,48 +535,51 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         paidExpenseId: null,
         createdAt: new Date(),
       }
-      state.cuentas.set(cuenta.id, cuenta)
-      return cuenta
+      state.pendientes.set(pendiente.id, pendiente)
+      return pendiente
     },
-    async getCuenta(input) {
+    async getPendiente(input) {
       assertMemberOf(state, userId, input.householdId)
-      const cuenta = state.cuentas.get(input.cuentaId)
-      if (cuenta === undefined || cuenta.householdId !== input.householdId) {
+      const pendiente = state.pendientes.get(input.pendienteId)
+      if (
+        pendiente === undefined ||
+        pendiente.householdId !== input.householdId
+      ) {
         return null
       }
-      return cuenta
+      return pendiente
     },
-    async listPendingCuentas(input) {
+    async listPendientes(input) {
       assertMemberOf(state, userId, input.householdId)
-      const cuentas: Cuenta[] = []
-      for (const cuenta of state.cuentas.values()) {
+      const pendientes: Pendiente[] = []
+      for (const pendiente of state.pendientes.values()) {
         if (
-          cuenta.householdId === input.householdId &&
-          cuenta.status === 'pending'
+          pendiente.householdId === input.householdId &&
+          pendiente.status === 'pending'
         ) {
-          cuentas.push(cuenta)
+          pendientes.push(pendiente)
         }
       }
-      cuentas.sort(
+      pendientes.sort(
         (left, right) => left.dueDate.getTime() - right.dueDate.getTime(),
       )
-      return cuentas
+      return pendientes
     },
-    async updateCuenta(input) {
+    async updatePendiente(input) {
       assertMemberOf(state, userId, input.householdId)
-      const existing = state.cuentas.get(input.cuentaId)
+      const existing = state.pendientes.get(input.pendienteId)
       if (
         existing === undefined ||
         existing.householdId !== input.householdId
       ) {
-        throw new CuentaNotFoundError()
+        throw new PendienteNotFoundError()
       }
-      // Mirrors firestore.rules' isValidCuentaUpdate() requiring
+      // Mirrors firestore.rules' isValidPendienteUpdate() requiring
       // resource.data.status == 'pending' -- keeps this fixture faithful to
       // the real rule even though the domain layer's own pre-check already
       // covers the sequential case today.
       if (existing.status !== 'pending') {
-        throw new CuentaAlreadyPaidError()
+        throw new PendienteAlreadyPaidError()
       }
       const category = state.categories.get(input.categoryId)
       if (
@@ -585,7 +588,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       ) {
         throw new Error('Category not found')
       }
-      const updated: Cuenta = {
+      const updated: Pendiente = {
         ...existing,
         categoryId: input.categoryId,
         name: input.name,
@@ -593,26 +596,26 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         expectedAmount: input.expectedAmount,
         recurring: input.recurring,
       }
-      state.cuentas.set(input.cuentaId, updated)
+      state.pendientes.set(input.pendienteId, updated)
       return updated
     },
-    async deleteCuenta(input) {
+    async deletePendiente(input) {
       assertMemberOf(state, userId, input.householdId)
-      const existing = state.cuentas.get(input.cuentaId)
+      const existing = state.pendientes.get(input.pendienteId)
       if (
         existing === undefined ||
         existing.householdId !== input.householdId
       ) {
-        throw new CuentaNotFoundError()
+        throw new PendienteNotFoundError()
       }
       // Mirrors firestore.rules' delete rule requiring
       // resource.data.status == 'pending'.
       if (existing.status !== 'pending') {
-        throw new CuentaAlreadyPaidError()
+        throw new PendienteAlreadyPaidError()
       }
-      state.cuentas.delete(input.cuentaId)
+      state.pendientes.delete(input.pendienteId)
     },
-    async markCuentaPaid(input) {
+    async markPendientePaid(input) {
       assertMemberOf(state, userId, input.householdId)
       // Mirrors createExpense's anti-spoof check: the caller must attribute
       // the generated Expense to themselves, not to another household
@@ -623,15 +626,15 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       if (input.memberId !== userId) {
         throw new HouseholdAccessDeniedError()
       }
-      const existing = state.cuentas.get(input.cuentaId)
+      const existing = state.pendientes.get(input.pendienteId)
       if (
         existing === undefined ||
         existing.householdId !== input.householdId
       ) {
-        throw new CuentaNotFoundError()
+        throw new PendienteNotFoundError()
       }
       if (existing.status !== 'pending') {
-        throw new CuentaAlreadyPaidError()
+        throw new PendienteAlreadyPaidError()
       }
       // One instant for every record this call writes, mirroring the real
       // adapter's single hoisted Timestamp.now() -- all of them are created
@@ -649,14 +652,14 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         expenseDate: input.paymentDate,
         createdAt,
       }
-      const updated: Cuenta = {
+      const updated: Pendiente = {
         ...existing,
         status: 'paid',
         paidExpenseId: expense.id,
       }
-      // A recurring cuenta spawns its next cycle with a blank expected amount
+      // A recurring pendiente spawns its next cycle with a blank expected amount
       // -- the previous cycle's amount is deliberately never carried over.
-      const nextCuenta: Cuenta | null = existing.recurring
+      const nextPendiente: Pendiente | null = existing.recurring
         ? {
             id: crypto.randomUUID(),
             householdId: existing.householdId,
@@ -675,11 +678,11 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       // mirroring the all-or-nothing guarantee of the real adapter's
       // Firestore transaction.
       state.expenses.set(expense.id, expense)
-      state.cuentas.set(input.cuentaId, updated)
-      if (nextCuenta !== null) {
-        state.cuentas.set(nextCuenta.id, nextCuenta)
+      state.pendientes.set(input.pendienteId, updated)
+      if (nextPendiente !== null) {
+        state.pendientes.set(nextPendiente.id, nextPendiente)
       }
-      return { cuenta: updated, expense, nextCuenta }
+      return { pendiente: updated, expense, nextPendiente }
     },
   }
 }
@@ -694,7 +697,7 @@ export function createMemoryHouseholdsDb(): {
     readonly userId: string
     readonly householdId: string
   }): void
-  seedCuenta(cuenta: Cuenta): void
+  seedPendiente(pendiente: Pendiente): void
 } {
   const state: MemoryState = {
     households: new Map(),
@@ -702,7 +705,7 @@ export function createMemoryHouseholdsDb(): {
     invites: new Map(),
     categories: new Map(),
     expenses: new Map(),
-    cuentas: new Map(),
+    pendientes: new Map(),
   }
 
   return {
@@ -727,11 +730,11 @@ export function createMemoryHouseholdsDb(): {
         joinedAt: new Date(),
       })
     },
-    // Test-only escape hatch: createCuenta always writes status 'pending',
-    // so this is the only way to get a 'paid' cuenta into the store to
-    // verify listPendingCuentas filters it out.
-    seedCuenta(cuenta) {
-      state.cuentas.set(cuenta.id, cuenta)
+    // Test-only escape hatch: createPendiente always writes status 'pending',
+    // so this is the only way to get a 'paid' pendiente into the store to
+    // verify listPendientes filters it out.
+    seedPendiente(pendiente) {
+      state.pendientes.set(pendiente.id, pendiente)
     },
   }
 }

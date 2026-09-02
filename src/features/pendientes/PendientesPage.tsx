@@ -5,57 +5,59 @@ import { authorDisplayNameFromAuth } from '@/lib/displayName'
 import { useFirebase } from '@/lib/firebaseContext'
 import { useHouseholdMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
-import type { Cuenta } from '@/lib/cuentas'
+import type { Pendiente } from '@/lib/pendientes'
 import { PageHeader } from '@/components/PageHeader'
-import { AddCuentaSheet } from './AddCuentaSheet'
-import type { EditCuentaTarget } from './AddCuentaForm'
-import { MarkCuentaPaidSheet } from './MarkCuentaPaidSheet'
-import { PendingCuentasList } from './PendingCuentasList'
+import { AddPendienteSheet } from './AddPendienteSheet'
+import type { EditPendienteTarget } from './AddPendienteForm'
+import { MarkPendientePaidSheet } from './MarkPendientePaidSheet'
+import { PendientesList } from './PendientesList'
 
-export type CuentasPageProps = {
+export type PendientesPageProps = {
   readonly currentUserId?: string | null
   readonly householdsDb?: HouseholdsDb
 }
 
-export function CuentasPage({
+export function PendientesPage({
   currentUserId: currentUserIdProp,
   householdsDb,
-}: CuentasPageProps): ReactElement {
+}: PendientesPageProps): ReactElement {
   const firebase = useFirebase()
   const { currentUserId, db, membership } = useHouseholdMembership({
     currentUserId: currentUserIdProp,
     householdsDb,
   })
-  const [isAddCuentaSheetOpen, setIsAddCuentaSheetOpen] = useState(false)
-  const [editCuenta, setEditCuenta] = useState<EditCuentaTarget | null>(null)
-  const [markCuentaTarget, setMarkCuentaTarget] = useState<Cuenta | null>(null)
+  const [isAddPendienteSheetOpen, setIsAddPendienteSheetOpen] = useState(false)
+  const [editPendiente, setEditPendiente] =
+    useState<EditPendienteTarget | null>(null)
+  const [markPendienteTarget, setMarkPendienteTarget] =
+    useState<Pendiente | null>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
-  const markCuentaTriggerRef = useRef<HTMLElement | null>(null)
-  const wasMarkCuentaOpenRef = useRef(markCuentaTarget !== null)
+  const markPendienteTriggerRef = useRef<HTMLElement | null>(null)
+  const wasMarkPendienteOpenRef = useRef(markPendienteTarget !== null)
 
-  // Unlike AddCuentaSheet's own "Nueva cuenta" trigger, the mark-paid
-  // sheet's trigger is a per-row "Pagar" button owned by PendingCuentasList
+  // Unlike AddPendienteSheet's own "Nuevo pendiente" trigger, the mark-paid
+  // sheet's trigger is a per-row "Pagar" button owned by PendientesList
   // -- and neither Sheet is wrapped in a Radix Dialog.Trigger (both are
   // fully externally controlled), so there's no automatic close-focus
   // restoration to rely on; it has to be done by hand here, same as
-  // AddCuentaSheet/AddExpenseSheet already do for their own trigger. The
+  // AddPendienteSheet/AddExpenseSheet already do for their own trigger. The
   // extra wrinkle for this sheet: a successful mark-paid (or an
   // already-paid/not-found error, both of which invalidate the
-  // pending-cuentas query) removes the triggering row entirely, so the
+  // pending-pendientes query) removes the triggering row entirely, so the
   // captured element may no longer be in the document by the time the sheet
   // closes -- fall back to the page heading in that case.
   useEffect(() => {
-    if (wasMarkCuentaOpenRef.current && markCuentaTarget === null) {
-      const trigger = markCuentaTriggerRef.current
+    if (wasMarkPendienteOpenRef.current && markPendienteTarget === null) {
+      const trigger = markPendienteTriggerRef.current
       if (trigger !== null && trigger.isConnected) {
         trigger.focus()
       } else {
         headingRef.current?.focus()
       }
-      markCuentaTriggerRef.current = null
+      markPendienteTriggerRef.current = null
     }
-    wasMarkCuentaOpenRef.current = markCuentaTarget !== null
-  }, [markCuentaTarget])
+    wasMarkPendienteOpenRef.current = markPendienteTarget !== null
+  }, [markPendienteTarget])
 
   if (currentUserId === undefined) {
     return (
@@ -87,44 +89,44 @@ export function CuentasPage({
 
   return (
     <div className="flex w-full flex-col gap-6">
-      <PageHeader title="Cuentas" headingRef={headingRef} />
-      <AddCuentaSheet
-        open={isAddCuentaSheetOpen}
-        onOpenChange={setIsAddCuentaSheetOpen}
+      <PageHeader title="Pendientes" headingRef={headingRef} />
+      <AddPendienteSheet
+        open={isAddPendienteSheetOpen}
+        onOpenChange={setIsAddPendienteSheetOpen}
         db={db}
         householdId={membership.householdId}
-        editCuenta={editCuenta}
+        editPendiente={editPendiente}
         onEditFinished={() => {
-          setEditCuenta(null)
+          setEditPendiente(null)
         }}
       />
-      <MarkCuentaPaidSheet
-        cuenta={markCuentaTarget}
-        onOpenChange={setMarkCuentaTarget}
+      <MarkPendientePaidSheet
+        pendiente={markPendienteTarget}
+        onOpenChange={setMarkPendienteTarget}
         db={db}
         householdId={membership.householdId}
         memberId={currentUserId}
         authorDisplayName={authorDisplayName}
       />
-      <PendingCuentasList
+      <PendientesList
         db={db}
         householdId={membership.householdId}
-        onEditCuenta={(cuenta, categoryName) => {
-          setEditCuenta({
-            cuentaId: cuenta.id,
-            name: cuenta.name,
+        onEditPendiente={(pendiente, categoryName) => {
+          setEditPendiente({
+            pendienteId: pendiente.id,
+            name: pendiente.name,
             categoryName,
-            dueDate: cuenta.dueDate,
-            expectedAmount: cuenta.expectedAmount,
-            recurring: cuenta.recurring,
+            dueDate: pendiente.dueDate,
+            expectedAmount: pendiente.expectedAmount,
+            recurring: pendiente.recurring,
           })
         }}
-        onMarkPaid={(cuenta) => {
-          markCuentaTriggerRef.current =
+        onMarkPaid={(pendiente) => {
+          markPendienteTriggerRef.current =
             document.activeElement instanceof HTMLElement
               ? document.activeElement
               : null
-          setMarkCuentaTarget(cuenta)
+          setMarkPendienteTarget(pendiente)
         }}
       />
     </div>

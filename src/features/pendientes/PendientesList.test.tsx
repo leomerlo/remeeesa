@@ -3,18 +3,18 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { createCuenta } from '@/lib/cuentas'
-import type { Cuenta } from '@/lib/cuentas'
+import { createPendiente } from '@/lib/pendientes'
+import type { Pendiente } from '@/lib/pendientes'
 import { listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
-import { AddCuentaSheet } from './AddCuentaSheet'
-import type { AddCuentaSheetProps } from './AddCuentaSheet'
-import { PendingCuentasList } from './PendingCuentasList'
+import { AddPendienteSheet } from './AddPendienteSheet'
+import type { AddPendienteSheetProps } from './AddPendienteSheet'
+import { PendientesList } from './PendientesList'
 
-function formatCuentaDueDate(date: Date): string {
+function formatPendienteDueDate(date: Date): string {
   return date.toLocaleDateString('es-AR', {
     year: 'numeric',
     month: 'short',
@@ -22,11 +22,11 @@ function formatCuentaDueDate(date: Date): string {
   })
 }
 
-function AddCuentaSheetHarness(
-  props: Omit<AddCuentaSheetProps, 'open' | 'onOpenChange'>,
+function AddPendienteSheetHarness(
+  props: Omit<AddPendienteSheetProps, 'open' | 'onOpenChange'>,
 ): ReactElement {
   const [open, setOpen] = useState(false)
-  return <AddCuentaSheet open={open} onOpenChange={setOpen} {...props} />
+  return <AddPendienteSheet open={open} onOpenChange={setOpen} {...props} />
 }
 
 async function findCategoryId(input: {
@@ -45,8 +45,8 @@ async function findCategoryId(input: {
   return found.id
 }
 
-describe('PendingCuentasList', () => {
-  it('shows an empty state when the household has no pending cuentas', async () => {
+describe('PendientesList', () => {
+  it('shows an empty state when the household has no pending pendientes', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -55,17 +55,16 @@ describe('PendingCuentasList', () => {
       monthlyBudget: 100,
     })
 
-    renderWithProviders(
-      <PendingCuentasList db={db} householdId={household.id} />,
-    )
+    renderWithProviders(<PendientesList db={db} householdId={household.id} />)
 
-    expect(
-      await screen.findByText('No hay cuentas pendientes'),
-    ).toHaveAttribute('role', 'status')
+    expect(await screen.findByText('No hay pendientes')).toHaveAttribute(
+      'role',
+      'status',
+    )
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
   })
 
-  it('lists pending cuentas with name, category, due date, and amount, soonest due first', async () => {
+  it('lists pending pendientes with name, category, due date, and amount, soonest due first', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -88,7 +87,7 @@ describe('PendingCuentasList', () => {
     const middleDueDate = new Date(2026, 8, 15)
     const latestDueDate = new Date(2026, 8, 25)
 
-    await createCuenta({
+    await createPendiente({
       db,
       householdId: household.id,
       categoryId: transporteId,
@@ -96,7 +95,7 @@ describe('PendingCuentasList', () => {
       dueDate: latestDueDate,
       expectedAmount: null,
     })
-    await createCuenta({
+    await createPendiente({
       db,
       householdId: household.id,
       categoryId: comidaId,
@@ -104,7 +103,7 @@ describe('PendingCuentasList', () => {
       dueDate: soonestDueDate,
       expectedAmount: 45,
     })
-    await createCuenta({
+    await createPendiente({
       db,
       householdId: household.id,
       categoryId: transporteId,
@@ -113,32 +112,30 @@ describe('PendingCuentasList', () => {
       expectedAmount: 30,
     })
 
-    renderWithProviders(
-      <PendingCuentasList db={db} householdId={household.id} />,
-    )
+    renderWithProviders(<PendientesList db={db} householdId={household.id} />)
 
     const rows = await screen.findAllByRole('listitem')
     expect(rows).toHaveLength(3)
 
     expect(rows[0]).toHaveTextContent('Luz')
     expect(rows[0]).toHaveTextContent('Comida')
-    expect(rows[0]).toHaveTextContent(formatCuentaDueDate(soonestDueDate))
+    expect(rows[0]).toHaveTextContent(formatPendienteDueDate(soonestDueDate))
     expect(rows[0]).toHaveTextContent('$45')
 
     expect(rows[1]).toHaveTextContent('Internet')
     expect(rows[1]).toHaveTextContent('Transporte')
-    expect(rows[1]).toHaveTextContent(formatCuentaDueDate(middleDueDate))
+    expect(rows[1]).toHaveTextContent(formatPendienteDueDate(middleDueDate))
     expect(rows[1]).toHaveTextContent('$30')
 
     expect(rows[2]).toHaveTextContent('Seguro auto')
     expect(rows[2]).toHaveTextContent('Transporte')
-    expect(rows[2]).toHaveTextContent(formatCuentaDueDate(latestDueDate))
+    expect(rows[2]).toHaveTextContent(formatPendienteDueDate(latestDueDate))
     // 'Seguro auto' was created with expectedAmount: null -- no amount should
     // render for it.
     expect(rows[2]).not.toHaveTextContent('$')
   })
 
-  it('does not show a manually-seeded paid cuenta in the same household', async () => {
+  it('does not show a manually-seeded paid pendiente in the same household', async () => {
     const store = createMemoryHouseholdsDb()
     const db = store.asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -152,7 +149,7 @@ describe('PendingCuentasList', () => {
       householdId: household.id,
       name: 'Comida',
     })
-    const pending = await createCuenta({
+    const pending = await createPendiente({
       db,
       householdId: household.id,
       categoryId: comidaId,
@@ -160,8 +157,8 @@ describe('PendingCuentasList', () => {
       dueDate: new Date(2026, 8, 5),
       expectedAmount: 10,
     })
-    const paidCuenta: Cuenta = {
-      id: 'paid-cuenta-1',
+    const paidPendiente: Pendiente = {
+      id: 'paid-pendiente-1',
       householdId: household.id,
       categoryId: comidaId,
       name: 'Ya pagada',
@@ -172,18 +169,16 @@ describe('PendingCuentasList', () => {
       paidExpenseId: 'expense-1',
       createdAt: new Date(),
     }
-    store.seedCuenta(paidCuenta)
+    store.seedPendiente(paidPendiente)
 
-    renderWithProviders(
-      <PendingCuentasList db={db} householdId={household.id} />,
-    )
+    renderWithProviders(<PendientesList db={db} householdId={household.id} />)
 
     expect(await screen.findByText(pending.name)).toBeInTheDocument()
     expect(screen.queryByText('Ya pagada')).not.toBeInTheDocument()
     expect(screen.getAllByRole('listitem')).toHaveLength(1)
   })
 
-  it('does not show a cuenta from a different household', async () => {
+  it('does not show a pendiente from a different household', async () => {
     const store = createMemoryHouseholdsDb()
     const db1 = store.asUser('user-1')
     const household1 = await createHouseholdWithMembership({
@@ -204,26 +199,24 @@ describe('PendingCuentasList', () => {
       householdId: household2.id,
       name: 'Comida',
     })
-    await createCuenta({
+    await createPendiente({
       db: db2,
       householdId: household2.id,
       categoryId: comida2Id,
-      name: 'Cuenta de la otra casa',
+      name: 'Pendiente de la otra casa',
       dueDate: new Date(2026, 8, 5),
       expectedAmount: 15,
     })
 
-    renderWithProviders(
-      <PendingCuentasList db={db1} householdId={household1.id} />,
-    )
+    renderWithProviders(<PendientesList db={db1} householdId={household1.id} />)
 
+    expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
     expect(
-      await screen.findByText('No hay cuentas pendientes'),
-    ).toBeInTheDocument()
-    expect(screen.queryByText('Cuenta de la otra casa')).not.toBeInTheDocument()
+      screen.queryByText('Pendiente de la otra casa'),
+    ).not.toBeInTheDocument()
   })
 
-  it('reflects a newly created cuenta without a manual refetch', async () => {
+  it('reflects a newly created pendiente without a manual refetch', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -237,17 +230,15 @@ describe('PendingCuentasList', () => {
 
     renderWithProviders(
       <>
-        <PendingCuentasList db={db} householdId={household.id} />
-        <AddCuentaSheetHarness db={db} householdId={household.id} />
+        <PendientesList db={db} householdId={household.id} />
+        <AddPendienteSheetHarness db={db} householdId={household.id} />
       </>,
       { queryClient },
     )
 
-    expect(
-      await screen.findByText('No hay cuentas pendientes'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Nueva cuenta' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
     await screen.findByLabelText('Nombre')
 
     fireEvent.change(screen.getByLabelText('Nombre'), {
@@ -262,17 +253,15 @@ describe('PendingCuentasList', () => {
     fireEvent.change(screen.getByLabelText('Monto esperado'), {
       target: { value: '500' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Agregar cuenta' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar pendiente' }))
 
     await waitFor(() => {
       expect(screen.getByText('Alquiler')).toBeInTheDocument()
     })
-    expect(
-      screen.queryByText('No hay cuentas pendientes'),
-    ).not.toBeInTheDocument()
+    expect(screen.queryByText('No hay pendientes')).not.toBeInTheDocument()
   })
 
-  it('shows an error when loading pending cuentas fails', async () => {
+  it('shows an error when loading pending pendientes fails', async () => {
     const base = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db: base,
@@ -282,21 +271,19 @@ describe('PendingCuentasList', () => {
     })
     const db: HouseholdsDb = {
       ...base,
-      listPendingCuentas: async () => {
-        throw new Error('No se pudieron cargar las cuentas')
+      listPendientes: async () => {
+        throw new Error('No se pudieron cargar los pendientes')
       },
     }
 
-    renderWithProviders(
-      <PendingCuentasList db={db} householdId={household.id} />,
-    )
+    renderWithProviders(<PendientesList db={db} householdId={household.id} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'No se pudieron cargar las cuentas',
+      'No se pudieron cargar los pendientes',
     )
   })
 
-  it('renders a plain div with no button when onEditCuenta is omitted', async () => {
+  it('renders a plain div with no button when onEditPendiente is omitted', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -309,7 +296,7 @@ describe('PendingCuentasList', () => {
       householdId: household.id,
       name: 'Comida',
     })
-    await createCuenta({
+    await createPendiente({
       db,
       householdId: household.id,
       categoryId: comidaId,
@@ -318,9 +305,7 @@ describe('PendingCuentasList', () => {
       expectedAmount: 500,
     })
 
-    renderWithProviders(
-      <PendingCuentasList db={db} householdId={household.id} />,
-    )
+    renderWithProviders(<PendientesList db={db} householdId={household.id} />)
 
     expect(await screen.findByText('Alquiler')).toBeInTheDocument()
     expect(
@@ -328,7 +313,7 @@ describe('PendingCuentasList', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('renders each row as a button and calls onEditCuenta with the cuenta and its category name when tapped', async () => {
+  it('renders each row as a button and calls onEditPendiente with the pendiente and its category name when tapped', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -341,7 +326,7 @@ describe('PendingCuentasList', () => {
       householdId: household.id,
       name: 'Comida',
     })
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db,
       householdId: household.id,
       categoryId: comidaId,
@@ -349,24 +334,24 @@ describe('PendingCuentasList', () => {
       dueDate: new Date(2026, 8, 10),
       expectedAmount: 500,
     })
-    const onEditCuenta = vi.fn()
+    const onEditPendiente = vi.fn()
 
     renderWithProviders(
-      <PendingCuentasList
+      <PendientesList
         db={db}
         householdId={household.id}
-        onEditCuenta={onEditCuenta}
+        onEditPendiente={onEditPendiente}
       />,
     )
 
     const row = await screen.findByRole('button', { name: 'Editar Alquiler' })
     fireEvent.click(row)
 
-    expect(onEditCuenta).toHaveBeenCalledTimes(1)
-    expect(onEditCuenta).toHaveBeenCalledWith(cuenta, 'Comida')
+    expect(onEditPendiente).toHaveBeenCalledTimes(1)
+    expect(onEditPendiente).toHaveBeenCalledWith(pendiente, 'Comida')
   })
 
-  it('renders a "Pagar" control per row and calls onMarkPaid with the cuenta when clicked, not onEditCuenta', async () => {
+  it('renders a "Pagar" control per row and calls onMarkPaid with the pendiente when clicked, not onEditPendiente', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -379,7 +364,7 @@ describe('PendingCuentasList', () => {
       householdId: household.id,
       name: 'Comida',
     })
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db,
       householdId: household.id,
       categoryId: comidaId,
@@ -387,29 +372,29 @@ describe('PendingCuentasList', () => {
       dueDate: new Date(2026, 8, 10),
       expectedAmount: 500,
     })
-    const onEditCuenta = vi.fn()
+    const onEditPendiente = vi.fn()
     const onMarkPaid = vi.fn()
 
     renderWithProviders(
-      <PendingCuentasList
+      <PendientesList
         db={db}
         householdId={household.id}
-        onEditCuenta={onEditCuenta}
+        onEditPendiente={onEditPendiente}
         onMarkPaid={onMarkPaid}
       />,
     )
 
     const payButton = await screen.findByRole('button', {
-      name: 'Marcar pagada Alquiler',
+      name: 'Marcar pagado Alquiler',
     })
     fireEvent.click(payButton)
 
     expect(onMarkPaid).toHaveBeenCalledTimes(1)
-    expect(onMarkPaid).toHaveBeenCalledWith(cuenta)
-    expect(onEditCuenta).not.toHaveBeenCalled()
+    expect(onMarkPaid).toHaveBeenCalledWith(pendiente)
+    expect(onEditPendiente).not.toHaveBeenCalled()
   })
 
-  it('still calls onEditCuenta when the row body is tapped, unaffected by the added Pagar button', async () => {
+  it('still calls onEditPendiente when the row body is tapped, unaffected by the added Pagar button', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -422,7 +407,7 @@ describe('PendingCuentasList', () => {
       householdId: household.id,
       name: 'Comida',
     })
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db,
       householdId: household.id,
       categoryId: comidaId,
@@ -430,14 +415,14 @@ describe('PendingCuentasList', () => {
       dueDate: new Date(2026, 8, 10),
       expectedAmount: 500,
     })
-    const onEditCuenta = vi.fn()
+    const onEditPendiente = vi.fn()
     const onMarkPaid = vi.fn()
 
     renderWithProviders(
-      <PendingCuentasList
+      <PendientesList
         db={db}
         householdId={household.id}
-        onEditCuenta={onEditCuenta}
+        onEditPendiente={onEditPendiente}
         onMarkPaid={onMarkPaid}
       />,
     )
@@ -447,12 +432,12 @@ describe('PendingCuentasList', () => {
     })
     fireEvent.click(editButton)
 
-    expect(onEditCuenta).toHaveBeenCalledTimes(1)
-    expect(onEditCuenta).toHaveBeenCalledWith(cuenta, 'Comida')
+    expect(onEditPendiente).toHaveBeenCalledTimes(1)
+    expect(onEditPendiente).toHaveBeenCalledWith(pendiente, 'Comida')
     expect(onMarkPaid).not.toHaveBeenCalled()
   })
 
-  it('renders the row body as a plain div (not a button) when onMarkPaid is supplied without onEditCuenta, and the Pagar control still works', async () => {
+  it('renders the row body as a plain div (not a button) when onMarkPaid is supplied without onEditPendiente, and the Pagar control still works', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -465,7 +450,7 @@ describe('PendingCuentasList', () => {
       householdId: household.id,
       name: 'Comida',
     })
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db,
       householdId: household.id,
       categoryId: comidaId,
@@ -476,7 +461,7 @@ describe('PendingCuentasList', () => {
     const onMarkPaid = vi.fn()
 
     renderWithProviders(
-      <PendingCuentasList
+      <PendientesList
         db={db}
         householdId={household.id}
         onMarkPaid={onMarkPaid}
@@ -489,12 +474,12 @@ describe('PendingCuentasList', () => {
     ).not.toBeInTheDocument()
 
     const payButton = screen.getByRole('button', {
-      name: 'Marcar pagada Alquiler',
+      name: 'Marcar pagado Alquiler',
     })
     fireEvent.click(payButton)
 
     expect(onMarkPaid).toHaveBeenCalledTimes(1)
-    expect(onMarkPaid).toHaveBeenCalledWith(cuenta)
+    expect(onMarkPaid).toHaveBeenCalledWith(pendiente)
   })
 
   // The name, the amount and "Pagar" used to share one line, which at 375px
@@ -513,7 +498,7 @@ describe('PendingCuentasList', () => {
       householdId: household.id,
       name: 'Servicios',
     })
-    await createCuenta({
+    await createPendiente({
       db,
       householdId: household.id,
       categoryId,
@@ -523,7 +508,7 @@ describe('PendingCuentasList', () => {
     })
 
     renderWithProviders(
-      <PendingCuentasList
+      <PendientesList
         db={db}
         householdId={household.id}
         onMarkPaid={() => {}}
@@ -535,7 +520,7 @@ describe('PendingCuentasList', () => {
     expect(row).toHaveTextContent('$145.000,00')
     expect(
       within(row as HTMLElement).getByRole('button', {
-        name: 'Marcar pagada Expensas',
+        name: 'Marcar pagado Expensas',
       }),
     ).toBeInTheDocument()
   })
@@ -555,7 +540,7 @@ describe('PendingCuentasList', () => {
       householdId: household.id,
       name: 'Servicios',
     })
-    await createCuenta({
+    await createPendiente({
       db,
       householdId: household.id,
       categoryId,
@@ -564,9 +549,7 @@ describe('PendingCuentasList', () => {
       expectedAmount: 28000,
     })
 
-    renderWithProviders(
-      <PendingCuentasList db={db} householdId={household.id} />,
-    )
+    renderWithProviders(<PendientesList db={db} householdId={household.id} />)
 
     await screen.findByText('Luz')
     const icon = screen.getByTestId('category-icon')

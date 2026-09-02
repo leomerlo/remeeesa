@@ -2,15 +2,15 @@ import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
-import { createCuenta } from '@/lib/cuentas'
-import type { Cuenta } from '@/lib/cuentas'
+import { createPendiente } from '@/lib/pendientes'
+import type { Pendiente } from '@/lib/pendientes'
 import { listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
-import { MarkCuentaPaidSheet } from './MarkCuentaPaidSheet'
-import type { MarkCuentaPaidSheetProps } from './MarkCuentaPaidSheet'
+import { MarkPendientePaidSheet } from './MarkPendientePaidSheet'
+import type { MarkPendientePaidSheetProps } from './MarkPendientePaidSheet'
 
 function deferred<T>(): {
   readonly promise: Promise<T>
@@ -26,20 +26,26 @@ function deferred<T>(): {
   return { promise, resolve, reject }
 }
 
-function MarkCuentaPaidSheetHarness(
-  props: Omit<MarkCuentaPaidSheetProps, 'cuenta' | 'onOpenChange'> & {
-    readonly initialCuenta: Cuenta | null
+function MarkPendientePaidSheetHarness(
+  props: Omit<MarkPendientePaidSheetProps, 'pendiente' | 'onOpenChange'> & {
+    readonly initialPendiente: Pendiente | null
   },
 ): ReactElement {
-  const { initialCuenta, ...rest } = props
-  const [cuenta, setCuenta] = useState<Cuenta | null>(initialCuenta)
-  return <MarkCuentaPaidSheet cuenta={cuenta} onOpenChange={setCuenta} {...rest} />
+  const { initialPendiente, ...rest } = props
+  const [pendiente, setPendiente] = useState<Pendiente | null>(initialPendiente)
+  return (
+    <MarkPendientePaidSheet
+      pendiente={pendiente}
+      onOpenChange={setPendiente}
+      {...rest}
+    />
+  )
 }
 
-async function seedHouseholdWithCuenta(): Promise<{
+async function seedHouseholdWithPendiente(): Promise<{
   readonly db: HouseholdsDb
   readonly householdId: string
-  readonly cuenta: Cuenta
+  readonly pendiente: Pendiente
 }> {
   const db = createMemoryHouseholdsDb().asUser('user-1')
   const household = await createHouseholdWithMembership({
@@ -53,7 +59,7 @@ async function seedHouseholdWithCuenta(): Promise<{
   if (comida === undefined) {
     throw new Error('expected seeded Comida category')
   }
-  const cuenta = await createCuenta({
+  const pendiente = await createPendiente({
     db,
     householdId: household.id,
     categoryId: comida.id,
@@ -61,16 +67,16 @@ async function seedHouseholdWithCuenta(): Promise<{
     dueDate: new Date(2026, 8, 10),
     expectedAmount: 500,
   })
-  return { db, householdId: household.id, cuenta }
+  return { db, householdId: household.id, pendiente }
 }
 
-describe('MarkCuentaPaidSheet', () => {
-  it('renders nothing when cuenta is null', () => {
+describe('MarkPendientePaidSheet', () => {
+  it('renders nothing when pendiente is null', () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
 
     renderWithProviders(
-      <MarkCuentaPaidSheet
-        cuenta={null}
+      <MarkPendientePaidSheet
+        pendiente={null}
         onOpenChange={() => {}}
         db={db}
         householdId="household-1"
@@ -85,12 +91,12 @@ describe('MarkCuentaPaidSheet', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('opens with the form pre-filled when cuenta is set', async () => {
-    const { db, householdId, cuenta } = await seedHouseholdWithCuenta()
+  it('opens with the form pre-filled when pendiente is set', async () => {
+    const { db, householdId, pendiente } = await seedHouseholdWithPendiente()
 
     renderWithProviders(
-      <MarkCuentaPaidSheet
-        cuenta={cuenta}
+      <MarkPendientePaidSheet
+        pendiente={pendiente}
         onOpenChange={() => {}}
         db={db}
         householdId={householdId}
@@ -101,16 +107,16 @@ describe('MarkCuentaPaidSheet', () => {
 
     expect(await screen.findByLabelText('Monto pagado')).toHaveValue('500')
     expect(
-      screen.getByRole('button', { name: 'Marcar pagada' }),
+      screen.getByRole('button', { name: 'Marcar pagado' }),
     ).toBeInTheDocument()
   })
 
   it('closes when onOpenChange(null) fires from within the form', async () => {
-    const { db, householdId, cuenta } = await seedHouseholdWithCuenta()
+    const { db, householdId, pendiente } = await seedHouseholdWithPendiente()
 
     renderWithProviders(
-      <MarkCuentaPaidSheetHarness
-        initialCuenta={cuenta}
+      <MarkPendientePaidSheetHarness
+        initialPendiente={pendiente}
         db={db}
         householdId={householdId}
         memberId="user-1"
@@ -126,16 +132,16 @@ describe('MarkCuentaPaidSheet', () => {
   })
 
   it('blocks dismiss while a submit is in flight', async () => {
-    const { db, householdId, cuenta } = await seedHouseholdWithCuenta()
+    const { db, householdId, pendiente } = await seedHouseholdWithPendiente()
     const mark = deferred<never>()
     const scopedDb: HouseholdsDb = {
       ...db,
-      markCuentaPaid: async () => mark.promise,
+      markPendientePaid: async () => mark.promise,
     }
 
     renderWithProviders(
-      <MarkCuentaPaidSheetHarness
-        initialCuenta={cuenta}
+      <MarkPendientePaidSheetHarness
+        initialPendiente={pendiente}
         db={scopedDb}
         householdId={householdId}
         memberId="user-1"
@@ -144,7 +150,7 @@ describe('MarkCuentaPaidSheet', () => {
     )
 
     const submitButton = await screen.findByRole('button', {
-      name: 'Marcar pagada',
+      name: 'Marcar pagado',
     })
     fireEvent.click(submitButton)
 

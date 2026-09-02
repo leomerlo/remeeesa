@@ -1,5 +1,5 @@
 // Firestore refuses a write batch of more than 500 operations. Renaming or
-// merging a category has to touch every Expense and Cuenta that references it,
+// merging a category has to touch every Expense and Pendiente that references it,
 // which in a household with years of history is easily more than that, so the
 // writes are split into batches this helper hands out.
 //

@@ -5,26 +5,26 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-  CuentaAlreadyPaidError,
-  CuentaNotFoundError,
-  markCuentaPaid,
-} from '@/lib/cuentas'
-import type { Cuenta } from '@/lib/cuentas'
+  PendienteAlreadyPaidError,
+  PendienteNotFoundError,
+  markPendientePaid,
+} from '@/lib/pendientes'
+import type { Pendiente } from '@/lib/pendientes'
 import { parseExpenseDate, parseExpensePrice } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
-import { cuentasQueryKey } from './queryKeys'
+import { pendientesQueryKey } from './queryKeys'
 
-export type MarkCuentaPaidFormProps = {
+export type MarkPendientePaidFormProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly memberId: string
   readonly authorDisplayName: string
-  readonly cuenta: Cuenta
+  readonly pendiente: Pendiente
   readonly onDone: () => void
   readonly onPendingChange?: (pending: boolean) => void
 }
 
-// Duplicated from AddExpenseForm.tsx/AddCuentaForm.tsx -- this project
+// Duplicated from AddExpenseForm.tsx/AddPendienteForm.tsx -- this project
 // tolerates this kind of small (15-line) helper duplication rather than
 // factoring out a shared module for it.
 function localDateInputValue(date: Date): string {
@@ -53,14 +53,14 @@ function parseDateInput(value: string): Date {
   return date
 }
 
-type ParsedMarkCuentaPaidFields = {
+type ParsedMarkPendientePaidFields = {
   readonly finalAmount: number
   readonly paymentDate: Date
 }
 
 // parseExpensePrice/parseExpenseDate are reused for their validation logic
 // (positive-number rounding; past-or-today-only), but their error wording is
-// written for the expense domain ("gasto") -- wrong for this cuenta/payment
+// written for the expense domain ("gasto") -- wrong for this pendiente/payment
 // context. Rewrap so the user never sees "gasto" here.
 function parsePaymentAmount(rawAmount: string): number {
   // Blank must fail as "required", same idiom AddExpenseForm's price field
@@ -82,23 +82,23 @@ function parsePaymentDate(date: Date): Date {
   }
 }
 
-function parseMarkCuentaPaidFields(input: {
+function parseMarkPendientePaidFields(input: {
   readonly finalAmount: string
   readonly paymentDate: string
-}): ParsedMarkCuentaPaidFields {
+}): ParsedMarkPendientePaidFields {
   return {
     finalAmount: parsePaymentAmount(input.finalAmount),
     paymentDate: parsePaymentDate(parseDateInput(input.paymentDate)),
   }
 }
 
-// markCuentaPaid (the shared @/lib/cuentas function) re-validates finalAmount/
+// markPendientePaid (the shared @/lib/pendientes function) re-validates finalAmount/
 // paymentDate itself via parseExpensePrice/parseExpenseDate, so those
 // expense-worded messages could in principle still reach here directly from
 // the mutation (bypassing parsePaymentAmount/parsePaymentDate above) -- e.g.
 // a razor-thin midnight rollover between this component's and the shared
 // function's own `new Date()` calls. Translate them the same way, so no path
-// can surface "gasto" wording in this cuenta/payment context.
+// can surface "gasto" wording in this pendiente/payment context.
 const EXPENSE_DOMAIN_MESSAGE_TRANSLATIONS: Readonly<Record<string, string>> = {
   'El precio del gasto debe ser un número positivo':
     'El monto pagado debe ser un número positivo',
@@ -108,31 +108,31 @@ const EXPENSE_DOMAIN_MESSAGE_TRANSLATIONS: Readonly<Record<string, string>> = {
 }
 
 function mutationErrorMessage(error: unknown): string {
-  if (error instanceof CuentaAlreadyPaidError) {
-    return 'Esta cuenta ya fue pagada'
+  if (error instanceof PendienteAlreadyPaidError) {
+    return 'Este pendiente ya fue pagado'
   }
-  if (error instanceof CuentaNotFoundError) {
-    return 'Esta cuenta ya no existe'
+  if (error instanceof PendienteNotFoundError) {
+    return 'Este pendiente ya no existe'
   }
   if (error instanceof Error) {
     return EXPENSE_DOMAIN_MESSAGE_TRANSLATIONS[error.message] ?? error.message
   }
-  return 'No se pudo marcar la cuenta como pagada'
+  return 'No se pudo marcar el pendiente como pagado'
 }
 
-export function MarkCuentaPaidForm({
+export function MarkPendientePaidForm({
   db,
   householdId,
   memberId,
   authorDisplayName,
-  cuenta,
+  pendiente,
   onDone,
   onPendingChange,
-}: MarkCuentaPaidFormProps): ReactElement {
+}: MarkPendientePaidFormProps): ReactElement {
   const queryClient = useQueryClient()
-  const cuentasKey = cuentasQueryKey({ householdId })
+  const pendientesKey = pendientesQueryKey({ householdId })
   const [finalAmount, setFinalAmount] = useState(
-    cuenta.expectedAmount === null ? '' : String(cuenta.expectedAmount),
+    pendiente.expectedAmount === null ? '' : String(pendiente.expectedAmount),
   )
   const [paymentDate, setPaymentDate] = useState(
     localDateInputValue(new Date()),
@@ -141,11 +141,11 @@ export function MarkCuentaPaidForm({
   const today = localDateInputValue(new Date())
 
   const mutation = useMutation({
-    mutationFn: (fields: ParsedMarkCuentaPaidFields) =>
-      markCuentaPaid({
+    mutationFn: (fields: ParsedMarkPendientePaidFields) =>
+      markPendientePaid({
         db,
         householdId,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
         memberId,
         authorDisplayName,
         finalAmount: fields.finalAmount,
@@ -153,28 +153,28 @@ export function MarkCuentaPaidForm({
       }),
     onSuccess: async () => {
       setError(null)
-      await queryClient.invalidateQueries({ queryKey: cuentasKey })
+      await queryClient.invalidateQueries({ queryKey: pendientesKey })
       onDone()
     },
-    // A Cuenta that was already paid or deleted (e.g. by another household
+    // A Pendiente that was already paid or deleted (e.g. by another household
     // member a moment earlier) can't be marked paid again -- show a clear
     // message instead of a false-success state, and refresh the pending
     // list so the stale row disappears once the sheet is dismissed. Unlike
-    // AddCuentaForm's edit-mutation precedent (which auto-closes on this
+    // AddPendienteForm's edit-mutation precedent (which auto-closes on this
     // outcome), the sheet stays open here so the user actually sees the
     // message -- mirrors AddExpenseForm's ExpenseNotFoundError handling.
     onError: async (caught) => {
       if (
-        caught instanceof CuentaAlreadyPaidError ||
-        caught instanceof CuentaNotFoundError
+        caught instanceof PendienteAlreadyPaidError ||
+        caught instanceof PendienteNotFoundError
       ) {
         setError(mutationErrorMessage(caught))
-        await queryClient.invalidateQueries({ queryKey: cuentasKey })
+        await queryClient.invalidateQueries({ queryKey: pendientesKey })
       }
     },
   })
 
-  // Lets a container (e.g. MarkCuentaPaidSheet) keep the form mounted while
+  // Lets a container (e.g. MarkPendientePaidSheet) keep the form mounted while
   // a submit is in flight, so a dismiss can't abandon a pending mutation and
   // silently swallow its result.
   useEffect(() => {
@@ -184,14 +184,14 @@ export function MarkCuentaPaidForm({
   function onSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault()
     try {
-      const fields = parseMarkCuentaPaidFields({ finalAmount, paymentDate })
+      const fields = parseMarkPendientePaidFields({ finalAmount, paymentDate })
       setError(null)
       mutation.mutate(fields)
     } catch (caught) {
       const message =
         caught instanceof Error
           ? caught.message
-          : 'No se pudo marcar la cuenta como pagada'
+          : 'No se pudo marcar el pendiente como pagado'
       setError(message)
     }
   }
@@ -200,8 +200,8 @@ export function MarkCuentaPaidForm({
     error ??
     (mutation.isError &&
     !(
-      mutation.error instanceof CuentaAlreadyPaidError ||
-      mutation.error instanceof CuentaNotFoundError
+      mutation.error instanceof PendienteAlreadyPaidError ||
+      mutation.error instanceof PendienteNotFoundError
     )
       ? mutationErrorMessage(mutation.error)
       : null)
@@ -211,11 +211,11 @@ export function MarkCuentaPaidForm({
       {/* The Sheet's own title is visually hidden and just says "Marcar
           pagada" -- with two bills pending at once, nothing in the sheet
           said which one this was. */}
-      <h2 className="text-title font-semibold">Pagar {cuenta.name}</h2>
+      <h2 className="text-title font-semibold">Pagar {pendiente.name}</h2>
 
       <div className="flex w-full flex-col gap-2">
         <Label
-          htmlFor="mark-cuenta-amount"
+          htmlFor="mark-pendiente-amount"
           className="text-muted-foreground font-medium"
         >
           Monto pagado
@@ -228,8 +228,8 @@ export function MarkCuentaPaidForm({
             $
           </span>
           <Input
-            id="mark-cuenta-amount"
-            name="mark-cuenta-amount"
+            id="mark-pendiente-amount"
+            name="mark-pendiente-amount"
             className="font-display text-display h-20 pl-12 tracking-tight"
             value={finalAmount}
             onChange={(event) => {
@@ -243,14 +243,14 @@ export function MarkCuentaPaidForm({
 
       <div className="flex w-full flex-col gap-2">
         <Label
-          htmlFor="mark-cuenta-payment-date"
+          htmlFor="mark-pendiente-payment-date"
           className="text-muted-foreground font-medium"
         >
           Fecha de pago
         </Label>
         <Input
-          id="mark-cuenta-payment-date"
-          name="mark-cuenta-payment-date"
+          id="mark-pendiente-payment-date"
+          name="mark-pendiente-payment-date"
           type="date"
           value={paymentDate}
           max={today}
@@ -268,7 +268,7 @@ export function MarkCuentaPaidForm({
 
       <div className="flex w-full flex-col items-center gap-2">
         <Button type="submit" disabled={mutation.isPending} className="w-full">
-          Marcar pagada
+          Marcar pagado
         </Button>
         <Button
           type="button"

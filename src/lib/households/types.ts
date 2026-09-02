@@ -1,4 +1,4 @@
-import type { Cuenta } from '@/lib/cuentas/types'
+import type { Pendiente } from '@/lib/pendientes/types'
 import type { Category, Expense } from '@/lib/expenses/types'
 
 export type HouseholdDraft = {
@@ -65,7 +65,7 @@ export type HouseholdsDb = {
     readonly color: string
   }): Promise<Category>
   // Creates a doc at the new name's id (carrying over color and createdAt),
-  // repoints every referencing Expense and Cuenta, then deletes the old doc.
+  // repoints every referencing Expense and Pendiente, then deletes the old doc.
   // Rejects -- writing nothing -- when the new name already belongs to another
   // category; that case is a merge, not a rename.
   renameCategory(input: {
@@ -73,7 +73,7 @@ export type HouseholdsDb = {
     readonly categoryId: string
     readonly name: string
   }): Promise<Category>
-  // Refuses while any Expense or Cuenta still points at the category, so
+  // Refuses while any Expense or Pendiente still points at the category, so
   // deleting can never orphan a reference.
   deleteCategory(input: {
     readonly householdId: string
@@ -135,44 +135,48 @@ export type HouseholdsDb = {
     readonly householdId: string
     readonly expenseId: string
   }): Promise<void>
-  createCuenta(input: {
+  createPendiente(input: {
     readonly householdId: string
     readonly categoryId: string
     readonly name: string
     readonly dueDate: Date
     readonly expectedAmount: number | null
     readonly recurring?: boolean
-  }): Promise<Cuenta>
-  getCuenta(input: {
+  }): Promise<Pendiente>
+  getPendiente(input: {
     readonly householdId: string
-    readonly cuentaId: string
-  }): Promise<Cuenta | null>
-  listPendingCuentas(input: {
+    readonly pendienteId: string
+  }): Promise<Pendiente | null>
+  listPendientes(input: {
     readonly householdId: string
-  }): Promise<readonly Cuenta[]>
-  updateCuenta(input: {
+  }): Promise<readonly Pendiente[]>
+  updatePendiente(input: {
     readonly householdId: string
-    readonly cuentaId: string
+    readonly pendienteId: string
     readonly categoryId: string
     readonly name: string
     readonly dueDate: Date
     readonly expectedAmount: number | null
     readonly recurring: boolean
-  }): Promise<Cuenta>
-  deleteCuenta(input: {
+  }): Promise<Pendiente>
+  deletePendiente(input: {
     readonly householdId: string
-    readonly cuentaId: string
+    readonly pendienteId: string
   }): Promise<void>
-  markCuentaPaid(input: {
+  markPendientePaid(input: {
     readonly householdId: string
-    readonly cuentaId: string
+    readonly pendienteId: string
     readonly memberId: string
     readonly authorDisplayName: string
     readonly finalAmount: number
     readonly paymentDate: Date
-    // nextCuenta is the auto-created next cycle for a recurring Cuenta,
+    // nextPendiente is the auto-created next cycle for a recurring Pendiente,
     // written in the same transaction; null for a non-recurring one. Declared
-    // as `Cuenta | null` rather than an optional property so every adapter has
+    // as `Pendiente | null` rather than an optional property so every adapter has
     // to state the non-recurring case explicitly instead of omitting it.
-  }): Promise<{ cuenta: Cuenta; expense: Expense; nextCuenta: Cuenta | null }>
+  }): Promise<{
+    pendiente: Pendiente
+    expense: Expense
+    nextPendiente: Pendiente | null
+  }>
 }

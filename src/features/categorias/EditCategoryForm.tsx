@@ -13,7 +13,7 @@ import {
   updateCategoryColor,
 } from '@/lib/expenses'
 import type { Category } from '@/lib/expenses'
-import { cuentasQueryKey } from '@/features/cuentas'
+import { pendientesQueryKey } from '@/features/pendientes'
 import type { HouseholdsDb } from '@/lib/households'
 import { CategoryColorPicker } from './CategoryColorPicker'
 
@@ -43,7 +43,7 @@ export function EditCategoryForm({
   const [error, setError] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
-  // Renaming or merging moves category ids on Expenses and Cuentas, so every
+  // Renaming or merging moves category ids on Expenses and Pendientes, so every
   // screen that reads either has to refetch -- not just the category list.
   async function invalidateAll(): Promise<void> {
     await Promise.all([
@@ -54,7 +54,7 @@ export function EditCategoryForm({
         queryKey: expensesQueryKey({ householdId }),
       }),
       queryClient.invalidateQueries({
-        queryKey: cuentasQueryKey({ householdId }),
+        queryKey: pendientesQueryKey({ householdId }),
       }),
     ])
   }
@@ -177,8 +177,8 @@ export function EditCategoryForm({
             ))}
           </select>
           <p className="text-muted-foreground text-xs">
-            Los gastos y cuentas de «{category.name}» pasan a la categoría que
-            elijas, y «{category.name}» se borra.
+            Los gastos y pendientes de «{category.name}» pasan a la categoría
+            que elijas, y «{category.name}» se borra.
           </p>
           <Button
             type="button"

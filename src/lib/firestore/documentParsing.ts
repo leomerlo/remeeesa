@@ -1,6 +1,6 @@
 // Shared low-level parsing helpers for turning raw Firestore document data
 // into typed domain values. Used by every `*/converters.ts` module that
-// reads documents back out of Firestore (households, expenses, cuentas).
+// reads documents back out of Firestore (households, expenses, pendientes).
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)

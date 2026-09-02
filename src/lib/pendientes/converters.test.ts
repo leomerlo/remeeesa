@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { cuentaToDocument, parseCuentaDocument } from './converters'
+import { pendienteToDocument, parsePendienteDocument } from './converters'
 
-describe('parseCuentaDocument', () => {
-  it('maps snake_case Firestore fields to a Cuenta', () => {
+describe('parsePendienteDocument', () => {
+  it('maps snake_case Firestore fields to a Pendiente', () => {
     expect(
-      parseCuentaDocument({
+      parsePendienteDocument({
         id: 'q1',
         data: {
           household_id: 'h1',
@@ -35,7 +35,7 @@ describe('parseCuentaDocument', () => {
   it('reads due_date and created_at via toDate', () => {
     const dueDate = new Date('2026-09-10T12:00:00.000Z')
     const createdAt = new Date('2026-08-31T12:00:00.000Z')
-    const cuenta = parseCuentaDocument({
+    const pendiente = parsePendienteDocument({
       id: 'q1',
       data: {
         household_id: 'h1',
@@ -49,12 +49,12 @@ describe('parseCuentaDocument', () => {
         created_at: { toDate: () => createdAt },
       },
     })
-    expect(cuenta.dueDate).toBe(dueDate)
-    expect(cuenta.createdAt).toBe(createdAt)
+    expect(pendiente.dueDate).toBe(dueDate)
+    expect(pendiente.createdAt).toBe(createdAt)
   })
 
   it('maps a null expected_amount and paid_expense_id', () => {
-    const cuenta = parseCuentaDocument({
+    const pendiente = parsePendienteDocument({
       id: 'q1',
       data: {
         household_id: 'h1',
@@ -68,15 +68,15 @@ describe('parseCuentaDocument', () => {
         created_at: new Date('2026-08-31T12:00:00.000Z'),
       },
     })
-    expect(cuenta.expectedAmount).toBeNull()
-    expect(cuenta.recurring).toBe(true)
-    expect(cuenta.status).toBe('paid')
-    expect(cuenta.paidExpenseId).toBe('e1')
+    expect(pendiente.expectedAmount).toBeNull()
+    expect(pendiente.recurring).toBe(true)
+    expect(pendiente.status).toBe('paid')
+    expect(pendiente.paidExpenseId).toBe('e1')
   })
 
   it('rejects an empty name', () => {
     expect(() =>
-      parseCuentaDocument({
+      parsePendienteDocument({
         id: 'q1',
         data: {
           household_id: 'h1',
@@ -90,12 +90,12 @@ describe('parseCuentaDocument', () => {
           created_at: new Date('2026-08-31T12:00:00.000Z'),
         },
       }),
-    ).toThrow('El nombre de la cuenta no puede estar vacío')
+    ).toThrow('El nombre del pendiente no puede estar vacío')
   })
 
   it('rejects a non-number expected_amount', () => {
     expect(() =>
-      parseCuentaDocument({
+      parsePendienteDocument({
         id: 'q1',
         data: {
           household_id: 'h1',
@@ -114,7 +114,7 @@ describe('parseCuentaDocument', () => {
 
   it('rejects a non-boolean recurring', () => {
     expect(() =>
-      parseCuentaDocument({
+      parsePendienteDocument({
         id: 'q1',
         data: {
           household_id: 'h1',
@@ -133,7 +133,7 @@ describe('parseCuentaDocument', () => {
 
   it('rejects an invalid status', () => {
     expect(() =>
-      parseCuentaDocument({
+      parsePendienteDocument({
         id: 'q1',
         data: {
           household_id: 'h1',
@@ -152,7 +152,7 @@ describe('parseCuentaDocument', () => {
 
   it('rejects a non-string non-null paid_expense_id', () => {
     expect(() =>
-      parseCuentaDocument({
+      parsePendienteDocument({
         id: 'q1',
         data: {
           household_id: 'h1',
@@ -171,7 +171,7 @@ describe('parseCuentaDocument', () => {
 
   it('rejects an empty document id', () => {
     expect(() =>
-      parseCuentaDocument({
+      parsePendienteDocument({
         id: '   ',
         data: {
           household_id: 'h1',
@@ -185,20 +185,20 @@ describe('parseCuentaDocument', () => {
           created_at: new Date('2026-08-31T12:00:00.000Z'),
         },
       }),
-    ).toThrow('Cuenta id must be non-empty')
+    ).toThrow('Pendiente id must be non-empty')
   })
 
   it('rejects a document that is not an object', () => {
     for (const data of [null, 'not-an-object', 42, ['a', 'b']]) {
-      expect(() => parseCuentaDocument({ id: 'q1', data })).toThrow(
-        'Cuenta document must be an object',
+      expect(() => parsePendienteDocument({ id: 'q1', data })).toThrow(
+        'Pendiente document must be an object',
       )
     }
   })
 
   it('rejects a missing or non-string household_id', () => {
     expect(() =>
-      parseCuentaDocument({
+      parsePendienteDocument({
         id: 'q1',
         data: {
           category_id: 'c1',
@@ -216,7 +216,7 @@ describe('parseCuentaDocument', () => {
 
   it('rejects a missing or non-string category_id', () => {
     expect(() =>
-      parseCuentaDocument({
+      parsePendienteDocument({
         id: 'q1',
         data: {
           household_id: 'h1',
@@ -235,7 +235,7 @@ describe('parseCuentaDocument', () => {
 
   it('rejects a non-string name', () => {
     expect(() =>
-      parseCuentaDocument({
+      parsePendienteDocument({
         id: 'q1',
         data: {
           household_id: 'h1',
@@ -249,12 +249,12 @@ describe('parseCuentaDocument', () => {
           created_at: new Date('2026-08-31T12:00:00.000Z'),
         },
       }),
-    ).toThrow('Cuenta name must be a string')
+    ).toThrow('Pendiente name must be a string')
   })
 
   it('rejects a due_date that is neither a Date nor a Firestore timestamp', () => {
     expect(() =>
-      parseCuentaDocument({
+      parsePendienteDocument({
         id: 'q1',
         data: {
           household_id: 'h1',
@@ -273,7 +273,7 @@ describe('parseCuentaDocument', () => {
 
   it('rejects an invalid Date instance for due_date', () => {
     expect(() =>
-      parseCuentaDocument({
+      parsePendienteDocument({
         id: 'q1',
         data: {
           household_id: 'h1',
@@ -292,7 +292,7 @@ describe('parseCuentaDocument', () => {
 
   it('rejects a missing or invalid created_at', () => {
     expect(() =>
-      parseCuentaDocument({
+      parsePendienteDocument({
         id: 'q1',
         data: {
           household_id: 'h1',
@@ -310,12 +310,12 @@ describe('parseCuentaDocument', () => {
   })
 })
 
-describe('cuentaToDocument', () => {
-  it('maps a Cuenta draft to snake_case Firestore fields', () => {
+describe('pendienteToDocument', () => {
+  it('maps a Pendiente draft to snake_case Firestore fields', () => {
     const dueDate = new Date('2026-09-10T12:00:00.000Z')
     const createdAt = new Date('2026-08-31T12:00:00.000Z')
     expect(
-      cuentaToDocument({
+      pendienteToDocument({
         householdId: 'h1',
         categoryId: 'c1',
         name: 'Alquiler',

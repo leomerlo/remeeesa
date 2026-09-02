@@ -9,8 +9,8 @@ export type PageHeaderProps = {
 }
 
 // The one page-level header every top-level screen (Home, Histórico,
-// Categorías, Cuentas, Ajustes) uses -- before this, each screen invented its
-// own: Home had an unlabeled floating <p>, Ajustes had none at all, Cuentas
+// Categorías, Pendientes, Ajustes) uses -- before this, each screen invented its
+// own: Home had an unlabeled floating <p>, Ajustes had none at all, Pendientes
 // centred a bare <h1> while everything else was left-aligned. All of them are
 // primary destinations, not drill-down sub-pages, so this stays a plain title
 // -- no back-link, since the nav already covers navigation in one tap.

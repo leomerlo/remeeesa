@@ -3,37 +3,37 @@ import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { createCuenta, listPendingCuentas } from '@/lib/cuentas'
+import { createPendiente, listPendientes } from '@/lib/pendientes'
 import { listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
-import type { EditCuentaTarget } from './AddCuentaForm'
-import { AddCuentaSheet } from './AddCuentaSheet'
-import type { AddCuentaSheetProps } from './AddCuentaSheet'
-import { cuentasQueryKey } from './queryKeys'
+import type { EditPendienteTarget } from './AddPendienteForm'
+import { AddPendienteSheet } from './AddPendienteSheet'
+import type { AddPendienteSheetProps } from './AddPendienteSheet'
+import { pendientesQueryKey } from './queryKeys'
 
-function PendingCuentasCount(props: {
+function PendingPendientesCount(props: {
   readonly db: HouseholdsDb
   readonly householdId: string
 }): ReactElement {
   const query = useQuery({
-    queryKey: cuentasQueryKey({ householdId: props.householdId }),
+    queryKey: pendientesQueryKey({ householdId: props.householdId }),
     queryFn: () =>
-      listPendingCuentas({ db: props.db, householdId: props.householdId }),
+      listPendientes({ db: props.db, householdId: props.householdId }),
   })
   if (query.data === undefined) {
-    return <p>Loading cuentas</p>
+    return <p>Loading pendientes</p>
   }
-  return <p>{`Pending cuentas: ${String(query.data.length)}`}</p>
+  return <p>{`Pending pendientes: ${String(query.data.length)}`}</p>
 }
 
-function AddCuentaSheetHarness(
-  props: Omit<AddCuentaSheetProps, 'open' | 'onOpenChange'>,
+function AddPendienteSheetHarness(
+  props: Omit<AddPendienteSheetProps, 'open' | 'onOpenChange'>,
 ): ReactElement {
   const [open, setOpen] = useState(false)
-  return <AddCuentaSheet open={open} onOpenChange={setOpen} {...props} />
+  return <AddPendienteSheet open={open} onOpenChange={setOpen} {...props} />
 }
 
 function deferred<T>(): {
@@ -61,12 +61,12 @@ async function seedHousehold() {
   return { db, householdId: household.id }
 }
 
-describe('AddCuentaSheet', () => {
+describe('AddPendienteSheet', () => {
   it('renders only the trigger button when closed', async () => {
     const { db, householdId } = await seedHousehold()
 
     renderWithProviders(
-      <AddCuentaSheet
+      <AddPendienteSheet
         open={false}
         onOpenChange={() => {}}
         db={db}
@@ -75,7 +75,7 @@ describe('AddCuentaSheet', () => {
     )
 
     expect(
-      screen.getByRole('button', { name: 'Nueva cuenta' }),
+      screen.getByRole('button', { name: 'Nuevo pendiente' }),
     ).toBeInTheDocument()
     expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     expect(
@@ -87,20 +87,20 @@ describe('AddCuentaSheet', () => {
     const { db, householdId } = await seedHousehold()
 
     renderWithProviders(
-      <AddCuentaSheetHarness db={db} householdId={householdId} />,
+      <AddPendienteSheetHarness db={db} householdId={householdId} />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Nueva cuenta' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
 
     expect(await screen.findByLabelText('Nombre')).toBeInTheDocument()
     expect(screen.getByLabelText('Categoría')).toBeInTheDocument()
     expect(screen.getByLabelText('Fecha de vencimiento')).toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: 'Nueva cuenta' }),
+      screen.queryByRole('button', { name: 'Nuevo pendiente' }),
     ).not.toBeInTheDocument()
   })
 
-  it('closes the sheet and invalidates the cuentas query after a successful add', async () => {
+  it('closes the sheet and invalidates the pendientes query after a successful add', async () => {
     const { db, householdId } = await seedHousehold()
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
@@ -108,15 +108,15 @@ describe('AddCuentaSheet', () => {
 
     renderWithProviders(
       <>
-        <AddCuentaSheetHarness db={db} householdId={householdId} />
-        <PendingCuentasCount db={db} householdId={householdId} />
+        <AddPendienteSheetHarness db={db} householdId={householdId} />
+        <PendingPendientesCount db={db} householdId={householdId} />
       </>,
       { queryClient },
     )
 
-    expect(await screen.findByText('Pending cuentas: 0')).toBeInTheDocument()
+    expect(await screen.findByText('Pending pendientes: 0')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Nueva cuenta' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
     fireEvent.change(await screen.findByLabelText('Nombre'), {
       target: { value: 'Alquiler' },
     })
@@ -126,19 +126,19 @@ describe('AddCuentaSheet', () => {
     fireEvent.change(screen.getByLabelText('Fecha de vencimiento'), {
       target: { value: '2026-09-10' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Agregar cuenta' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar pendiente' }))
 
     await waitFor(() => {
       expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
     expect(
-      screen.getByRole('button', { name: 'Nueva cuenta' }),
+      screen.getByRole('button', { name: 'Nuevo pendiente' }),
     ).toBeInTheDocument()
-    // A sibling consumer of the same query key sees the new cuenta once the
+    // A sibling consumer of the same query key sees the new pendiente once the
     // sheet's mutation invalidates it -- proving invalidation actually
     // happened, not just that the sheet closed.
     await waitFor(() => {
-      expect(screen.getByText('Pending cuentas: 1')).toBeInTheDocument()
+      expect(screen.getByText('Pending pendientes: 1')).toBeInTheDocument()
     })
   })
 
@@ -146,10 +146,10 @@ describe('AddCuentaSheet', () => {
     const { db, householdId } = await seedHousehold()
 
     renderWithProviders(
-      <AddCuentaSheetHarness db={db} householdId={householdId} />,
+      <AddPendienteSheetHarness db={db} householdId={householdId} />,
     )
 
-    const trigger = screen.getByRole('button', { name: 'Nueva cuenta' })
+    const trigger = screen.getByRole('button', { name: 'Nuevo pendiente' })
     trigger.focus()
     expect(trigger).toHaveFocus()
 
@@ -162,7 +162,9 @@ describe('AddCuentaSheet', () => {
     await waitFor(() => {
       expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
-    expect(screen.getByRole('button', { name: 'Nueva cuenta' })).toHaveFocus()
+    expect(
+      screen.getByRole('button', { name: 'Nuevo pendiente' }),
+    ).toHaveFocus()
   })
 
   it('keeps the sheet open while a submit is in flight, so a failure that arrives after a dismiss attempt is still shown', async () => {
@@ -176,21 +178,21 @@ describe('AddCuentaSheet', () => {
     const create = deferred<never>()
     const db: HouseholdsDb = {
       ...base,
-      createCuenta: async () => create.promise,
+      createPendiente: async () => create.promise,
     }
 
     renderWithProviders(
-      <AddCuentaSheetHarness db={db} householdId={household.id} />,
+      <AddPendienteSheetHarness db={db} householdId={household.id} />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Nueva cuenta' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
     fireEvent.change(await screen.findByLabelText('Nombre'), {
       target: { value: 'Alquiler' },
     })
     fireEvent.change(screen.getByRole('combobox', { name: 'Categoría' }), {
       target: { value: 'Servicios' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Agregar cuenta' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar pendiente' }))
 
     // The mutation is still pending: an Escape dismiss attempt must be a
     // no-op rather than unmounting the form out from under it.
@@ -213,8 +215,8 @@ describe('AddCuentaSheet', () => {
 
   it('opens editing through the same sheet used for adding, even if open is false', async () => {
     const { db, householdId } = await seedHousehold()
-    const editCuenta: EditCuentaTarget = {
-      cuentaId: 'cuenta-1',
+    const editPendiente: EditPendienteTarget = {
+      pendienteId: 'pendiente-1',
       name: 'Alquiler',
       categoryName: 'Servicios',
       dueDate: new Date(2026, 8, 10),
@@ -223,12 +225,12 @@ describe('AddCuentaSheet', () => {
     }
 
     renderWithProviders(
-      <AddCuentaSheet
+      <AddPendienteSheet
         open={false}
         onOpenChange={() => {}}
         db={db}
         householdId={householdId}
-        editCuenta={editCuenta}
+        editPendiente={editPendiente}
         onEditFinished={() => {}}
       />,
     )
@@ -241,12 +243,12 @@ describe('AddCuentaSheet', () => {
     ).toBeInTheDocument()
     const sheetContent = document.querySelector('[data-slot="sheet-content"]')
     expect(sheetContent).not.toBeNull()
-    expect(sheetContent).toHaveTextContent('Editar cuenta')
+    expect(sheetContent).toHaveTextContent('Editar pendiente')
 
-    // No "Nueva cuenta" trigger while the sheet is open editing: the two
+    // No "Nuevo pendiente" trigger while the sheet is open editing: the two
     // flows never coexist on screen, so there's no name collision.
     expect(
-      screen.queryByRole('button', { name: 'Nueva cuenta' }),
+      screen.queryByRole('button', { name: 'Nuevo pendiente' }),
     ).not.toBeInTheDocument()
   })
 
@@ -257,7 +259,7 @@ describe('AddCuentaSheet', () => {
     if (comida === undefined) {
       throw new Error('expected Comida category')
     }
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db,
       householdId,
       categoryId: comida.id,
@@ -266,8 +268,8 @@ describe('AddCuentaSheet', () => {
       expectedAmount: 500,
     })
     const onEditFinished = vi.fn()
-    const editCuenta: EditCuentaTarget = {
-      cuentaId: cuenta.id,
+    const editPendiente: EditPendienteTarget = {
+      pendienteId: pendiente.id,
       name: 'Alquiler',
       categoryName: 'Comida',
       dueDate: new Date(2026, 8, 10),
@@ -276,12 +278,12 @@ describe('AddCuentaSheet', () => {
     }
 
     renderWithProviders(
-      <AddCuentaSheet
+      <AddPendienteSheet
         open={false}
         onOpenChange={() => {}}
         db={db}
         householdId={householdId}
-        editCuenta={editCuenta}
+        editPendiente={editPendiente}
         onEditFinished={onEditFinished}
       />,
     )
@@ -294,7 +296,7 @@ describe('AddCuentaSheet', () => {
     await waitFor(() => {
       expect(onEditFinished).toHaveBeenCalledTimes(1)
     })
-    const listed = await listPendingCuentas({ db, householdId })
+    const listed = await listPendientes({ db, householdId })
     expect(listed).toEqual([
       expect.objectContaining({ name: 'Alquiler nuevo' }),
     ])
@@ -303,8 +305,8 @@ describe('AddCuentaSheet', () => {
   it('calls onEditFinished when the edit sheet is dismissed without saving', async () => {
     const { db, householdId } = await seedHousehold()
     const onEditFinished = vi.fn()
-    const editCuenta: EditCuentaTarget = {
-      cuentaId: 'cuenta-1',
+    const editPendiente: EditPendienteTarget = {
+      pendienteId: 'pendiente-1',
       name: 'Alquiler',
       categoryName: 'Servicios',
       dueDate: new Date(2026, 8, 10),
@@ -313,12 +315,12 @@ describe('AddCuentaSheet', () => {
     }
 
     renderWithProviders(
-      <AddCuentaSheet
+      <AddPendienteSheet
         open={false}
         onOpenChange={() => {}}
         db={db}
         householdId={householdId}
-        editCuenta={editCuenta}
+        editPendiente={editPendiente}
         onEditFinished={onEditFinished}
       />,
     )

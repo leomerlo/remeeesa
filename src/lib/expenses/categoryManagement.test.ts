@@ -12,7 +12,7 @@ import {
   renameCategory,
   updateCategoryColor,
 } from './categoryManagement'
-import { createCuenta } from '@/lib/cuentas/cuentas'
+import { createPendiente } from '@/lib/pendientes/pendientes'
 import { createExpense, listCategories } from './expenses'
 
 async function seedHousehold() {
@@ -129,10 +129,10 @@ describe('renameCategory', () => {
     expect(moved?.categoryId).toBe(renamed.id)
   })
 
-  it('repoints Cuentas as well as Expenses', async () => {
+  it('repoints Pendientes as well as Expenses', async () => {
     const { db, householdId, byName } = await seedHousehold()
     const comida = categoryOrThrow(byName, 'Comida')
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db,
       householdId,
       categoryId: comida.id,
@@ -148,7 +148,10 @@ describe('renameCategory', () => {
       name: 'Mercado',
     })
 
-    const moved = await db.getCuenta({ householdId, cuentaId: cuenta.id })
+    const moved = await db.getPendiente({
+      householdId,
+      pendienteId: pendiente.id,
+    })
     expect(moved?.categoryId).toBe(renamed.id)
   })
 
@@ -231,10 +234,10 @@ describe('deleteCategory', () => {
 
   // The orphaning guard people forget: a category with no expenses at all can
   // still be the category of a bill.
-  it('refuses for a Cuenta even when the category has zero Expenses', async () => {
+  it('refuses for a Pendiente even when the category has zero Expenses', async () => {
     const { db, householdId, byName } = await seedHousehold()
     const servicios = categoryOrThrow(byName, 'Servicios')
-    await createCuenta({
+    await createPendiente({
       db,
       householdId,
       categoryId: servicios.id,
@@ -253,7 +256,7 @@ describe('deleteCategory', () => {
 })
 
 describe('mergeCategories', () => {
-  it('moves every Expense and Cuenta onto the survivor and drops the source', async () => {
+  it('moves every Expense and Pendiente onto the survivor and drops the source', async () => {
     const { db, householdId, byName } = await seedHousehold()
     const source = categoryOrThrow(byName, 'Comida')
     const survivor = categoryOrThrow(byName, 'Transporte')
@@ -262,7 +265,7 @@ describe('mergeCategories', () => {
       householdId,
       categoryId: source.id,
     })
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db,
       householdId,
       categoryId: source.id,
@@ -282,7 +285,8 @@ describe('mergeCategories', () => {
       (await db.getExpense({ householdId, expenseId: expense.id }))?.categoryId,
     ).toBe(survivor.id)
     expect(
-      (await db.getCuenta({ householdId, cuentaId: cuenta.id }))?.categoryId,
+      (await db.getPendiente({ householdId, pendienteId: pendiente.id }))
+        ?.categoryId,
     ).toBe(survivor.id)
 
     const categories = await listCategories({ db, householdId })

@@ -4,36 +4,36 @@ import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet } from '@/components/ui/sheet'
 import type { HouseholdsDb } from '@/lib/households'
-import { AddCuentaForm } from './AddCuentaForm'
-import type { EditCuentaTarget } from './AddCuentaForm'
+import { AddPendienteForm } from './AddPendienteForm'
+import type { EditPendienteTarget } from './AddPendienteForm'
 
-export type AddCuentaSheetProps = {
+export type AddPendienteSheetProps = {
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
   readonly db: HouseholdsDb
   readonly householdId: string
-  readonly editCuenta?: EditCuentaTarget | null
+  readonly editPendiente?: EditPendienteTarget | null
   readonly onEditFinished?: () => void
   // Home puts this trigger beside "Agregar gasto" in a two-up row, where both
-  // have to be flex-1 or they come out visibly different widths; /cuentas
+  // have to be flex-1 or they come out visibly different widths; /pendientes
   // gives it the full width on its own.
   readonly triggerClassName?: string
 }
 
-export function AddCuentaSheet({
+export function AddPendienteSheet({
   open,
   onOpenChange,
   db,
   householdId,
-  editCuenta = null,
+  editPendiente = null,
   onEditFinished,
   triggerClassName = 'w-full',
-}: AddCuentaSheetProps): ReactElement {
+}: AddPendienteSheetProps): ReactElement {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const isEditing = editCuenta !== null
+  const isEditing = editPendiente !== null
   // Editing shares the exact same sheet as adding -- tapping a row (which
-  // sets editCuenta, not `open`) opens it too, matching AddExpenseSheet's
+  // sets editPendiente, not `open`) opens it too, matching AddExpenseSheet's
   // convention.
   const sheetOpen = open || isEditing
   const wasOpenRef = useRef(sheetOpen)
@@ -52,7 +52,7 @@ export function AddCuentaSheet({
   function handleOpenChange(next: boolean): void {
     // A submit already in flight must resolve inside the still-mounted
     // form: dismissing (Escape, overlay, close control) while pending
-    // would unmount AddCuentaForm before its mutation settles, silently
+    // would unmount AddPendienteForm before its mutation settles, silently
     // discarding the outcome -- including a failure the user would
     // otherwise see as an alert. Opening is never blocked.
     if (!next && isSubmitting) {
@@ -78,18 +78,18 @@ export function AddCuentaSheet({
           }}
         >
           <Plus aria-hidden="true" />
-          Nueva cuenta
+          Nuevo pendiente
         </Button>
       ) : null}
       <Sheet
         open={sheetOpen}
         onOpenChange={handleOpenChange}
-        title={isEditing ? 'Editar cuenta' : 'Nueva cuenta'}
+        title={isEditing ? 'Editar pendiente' : 'Nuevo pendiente'}
       >
-        <AddCuentaForm
+        <AddPendienteForm
           db={db}
           householdId={householdId}
-          editCuenta={editCuenta}
+          editPendiente={editPendiente}
           onEditFinished={onEditFinished}
           onAdded={() => {
             onOpenChange(false)

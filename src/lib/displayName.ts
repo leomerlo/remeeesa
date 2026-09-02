@@ -1,6 +1,6 @@
 // The name a member is shown as: their Google display name, else the local
 // part of their email, else a generic word. Lived as a private copy in
-// HomePage and CuentasPage; Ajustes needing it too made three copies, which
+// HomePage and PendientesPage; Ajustes needing it too made three copies, which
 // is where "tolerate the duplication" stops paying.
 export function authorDisplayNameFromAuth(
   user:

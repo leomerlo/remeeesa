@@ -14,7 +14,7 @@ export class CategoryNameTakenError extends Error {
   }
 }
 
-// Deleting a referenced category would orphan every Expense and Cuenta
+// Deleting a referenced category would orphan every Expense and Pendiente
 // pointing at it -- they would render with no name and no color. Merge is the
 // operation that actually gets rid of a category that is still in use.
 export class CategoryInUseError extends Error {
@@ -23,7 +23,7 @@ export class CategoryInUseError extends Error {
 
   constructor() {
     super(
-      'La categoría tiene gastos o cuentas. Uníla con otra en vez de borrarla.',
+      'La categoría tiene gastos o pendientes. Uníla con otra en vez de borrarla.',
     )
   }
 }

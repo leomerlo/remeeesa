@@ -1,45 +1,45 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
-import { listPendingCuentas } from '@/lib/cuentas'
-import type { Cuenta } from '@/lib/cuentas'
+import { listPendientes } from '@/lib/pendientes'
+import type { Pendiente } from '@/lib/pendientes'
 import { formatBudgetAmount, listCategories } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { formatShortDate } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
-import { cuentasQueryKey } from './queryKeys'
+import { pendientesQueryKey } from './queryKeys'
 
 export type PorPagarSectionProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
-  readonly onMarkPaid: (cuenta: Cuenta) => void
+  readonly onMarkPaid: (pendiente: Pendiente) => void
 }
 
 const HOME_PREVIEW_LIMIT = 5
 
-// Home's "Por pagar" preview: the soonest-due pending Cuentas as a
+// Home's "Por pagar" preview: the soonest-due pending Pendientes as a
 // horizontally-scrollable row of compact cards, matching the approved Home
-// comp. Deliberately a separate component from PendingCuentasList rather
+// comp. Deliberately a separate component from PendientesList rather
 // than a parameterization of it -- that one is the full vertical list on
-// /cuentas, with edit and pay affordances per row; this one is a glanceable
+// /pendientes, with edit and pay affordances per row; this one is a glanceable
 // preview whose whole card is a single tap target into the mark-paid flow.
 //
-// Reads the same cuentasQueryKey every other Cuenta view reads, so a
+// Reads the same pendientesQueryKey every other Pendiente view reads, so a
 // mutation from any screen refreshes this section with no extra wiring.
 export function PorPagarSection({
   db,
   householdId,
   onMarkPaid,
 }: PorPagarSectionProps): ReactElement | null {
-  const cuentasQuery = useQuery({
-    queryKey: cuentasQueryKey({ householdId }),
+  const pendientesQuery = useQuery({
+    queryKey: pendientesQueryKey({ householdId }),
     queryFn: async () => {
-      const [cuentas, categories] = await Promise.all([
-        listPendingCuentas({ db, householdId }),
+      const [pendientes, categories] = await Promise.all([
+        listPendientes({ db, householdId }),
         listCategories({ db, householdId }),
       ])
-      return { cuentas, categories }
+      return { pendientes, categories }
     },
   })
 
@@ -47,7 +47,7 @@ export function PorPagarSection({
   // between the budget hero and the movements list, both of which load
   // independently, so a single blocking spinner for all three would make the
   // whole screen feel slower than it is.
-  if (cuentasQuery.isPending) {
+  if (pendientesQuery.isPending) {
     return (
       <section aria-labelledby="por-pagar-heading" className="w-full">
         <h2 id="por-pagar-heading" className="text-title font-semibold">
@@ -63,24 +63,24 @@ export function PorPagarSection({
   // A failed preview must not take Home down with it -- the budget and the
   // movements list are still perfectly usable, so this degrades to nothing
   // rather than to a page-level error.
-  if (cuentasQuery.isError) {
+  if (pendientesQuery.isError) {
     return null
   }
 
-  const { cuentas, categories } = cuentasQuery.data
+  const { pendientes, categories } = pendientesQuery.data
 
   // Nothing pending: render nothing at all, not an empty box.
-  if (cuentas.length === 0) {
+  if (pendientes.length === 0) {
     return null
   }
 
   const categoryById = new Map(
     categories.map((category) => [category.id, category]),
   )
-  // listPendingCuentas already returns soonest-due-first, so this is a plain
+  // listPendientes already returns soonest-due-first, so this is a plain
   // head slice, not a re-sort.
-  const preview = cuentas.slice(0, HOME_PREVIEW_LIMIT)
-  const hasOverflow = cuentas.length > HOME_PREVIEW_LIMIT
+  const preview = pendientes.slice(0, HOME_PREVIEW_LIMIT)
+  const hasOverflow = pendientes.length > HOME_PREVIEW_LIMIT
 
   return (
     <section aria-labelledby="por-pagar-heading" className="w-full">
@@ -90,7 +90,7 @@ export function PorPagarSection({
         </h2>
         {hasOverflow ? (
           <Link
-            to="/cuentas"
+            to="/pendientes"
             className="text-primary text-sm font-medium underline-offset-4 hover:underline"
           >
             Ver todas
@@ -108,11 +108,11 @@ export function PorPagarSection({
           under the cards on desktop; the row is swipeable and the partially
           visible next card is the affordance. */}
       <ul
-        aria-label="Cuentas por pagar"
+        aria-label="Pendientes por pagar"
         className="-mx-6 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-6 px-6 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {preview.map((cuenta) => {
-          const category = categoryById.get(cuenta.categoryId)
+        {preview.map((pendiente) => {
+          const category = categoryById.get(pendiente.categoryId)
           const categoryName = category?.name ?? 'Categoría desconocida'
           const categoryColor =
             category?.color ?? colorForCategoryName(categoryName)
@@ -124,13 +124,13 @@ export function PorPagarSection({
             // below an actual bottom edge to anchor to via mt-auto. Without
             // it each card is only as tall as its own content and nothing
             // lines up across the row.
-            <li key={cuenta.id} className="flex snap-start">
+            <li key={pendiente.id} className="flex snap-start">
               <button
                 type="button"
-                aria-label={`Marcar pagada ${cuenta.name}`}
+                aria-label={`Marcar pagado ${pendiente.name}`}
                 className="bg-card shadow-resting flex h-full w-44 shrink-0 flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
                 onClick={() => {
-                  onMarkPaid(cuenta)
+                  onMarkPaid(pendiente)
                 }}
               >
                 <span
@@ -143,9 +143,9 @@ export function PorPagarSection({
                     aria-hidden="true"
                   />
                 </span>
-                {cuenta.expectedAmount !== null ? (
+                {pendiente.expectedAmount !== null ? (
                   <span className="font-display text-lg text-foreground">
-                    {formatBudgetAmount(cuenta.expectedAmount)}
+                    {formatBudgetAmount(pendiente.expectedAmount)}
                   </span>
                 ) : null}
                 {/* mt-auto bottom-anchors the name/date block: the expected
@@ -154,7 +154,7 @@ export function PorPagarSection({
                     show their price, and nothing would line up across the
                     row. */}
                 <span className="text-foreground mt-auto truncate font-medium">
-                  {cuenta.name}
+                  {pendiente.name}
                 </span>
                 {/* Two lines rather than one truncated one: at w-44
                     "Servicios · 4 de sept de 2026" clipped to
@@ -162,7 +162,7 @@ export function PorPagarSection({
                 <span className="text-muted-foreground flex flex-col text-xs">
                   <span className="truncate">{categoryName}</span>
                   <span className="truncate">
-                    {formatShortDate(cuenta.dueDate)}
+                    {formatShortDate(pendiente.dueDate)}
                   </span>
                 </span>
               </button>

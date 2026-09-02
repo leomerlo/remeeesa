@@ -5,22 +5,22 @@ import {
   parseExpensePrice,
 } from '@/lib/expenses'
 import type { Expense } from '@/lib/expenses/types'
-import type { Cuenta } from './types'
+import type { Pendiente } from './types'
 import {
-  parseCuentaDueDate,
-  parseCuentaName,
+  parsePendienteDueDate,
+  parsePendienteName,
   parseExpectedAmount,
 } from './validate'
 
-export class CuentaNotFoundError extends Error {
-  override readonly name = 'CuentaNotFoundError'
+export class PendienteNotFoundError extends Error {
+  override readonly name = 'PendienteNotFoundError'
 }
 
-export class CuentaAlreadyPaidError extends Error {
-  override readonly name = 'CuentaAlreadyPaidError'
+export class PendienteAlreadyPaidError extends Error {
+  override readonly name = 'PendienteAlreadyPaidError'
 }
 
-export async function createCuenta(input: {
+export async function createPendiente(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly categoryId: string
@@ -28,77 +28,77 @@ export async function createCuenta(input: {
   readonly dueDate: Date
   readonly expectedAmount: number | null
   readonly recurring?: boolean
-}): Promise<Cuenta> {
-  return input.db.createCuenta({
+}): Promise<Pendiente> {
+  return input.db.createPendiente({
     householdId: input.householdId,
     categoryId: input.categoryId,
-    name: parseCuentaName(input.name),
-    dueDate: parseCuentaDueDate(input.dueDate),
+    name: parsePendienteName(input.name),
+    dueDate: parsePendienteDueDate(input.dueDate),
     expectedAmount: parseExpectedAmount(input.expectedAmount),
     recurring: input.recurring,
   })
 }
 
-export async function getCuenta(input: {
+export async function getPendiente(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
-  readonly cuentaId: string
-}): Promise<Cuenta | null> {
-  return input.db.getCuenta({
+  readonly pendienteId: string
+}): Promise<Pendiente | null> {
+  return input.db.getPendiente({
     householdId: input.householdId,
-    cuentaId: input.cuentaId,
+    pendienteId: input.pendienteId,
   })
 }
 
-export async function listPendingCuentas(input: {
+export async function listPendientes(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
-}): Promise<readonly Cuenta[]> {
-  return input.db.listPendingCuentas({ householdId: input.householdId })
+}): Promise<readonly Pendiente[]> {
+  return input.db.listPendientes({ householdId: input.householdId })
 }
 
-async function getPendingCuentaOrThrow(input: {
+async function getPendienteOrThrow(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
-  readonly cuentaId: string
-}): Promise<Cuenta> {
-  const existing = await input.db.getCuenta({
+  readonly pendienteId: string
+}): Promise<Pendiente> {
+  const existing = await input.db.getPendiente({
     householdId: input.householdId,
-    cuentaId: input.cuentaId,
+    pendienteId: input.pendienteId,
   })
   if (existing === null) {
-    throw new CuentaNotFoundError()
+    throw new PendienteNotFoundError()
   }
   if (existing.status !== 'pending') {
-    throw new CuentaAlreadyPaidError()
+    throw new PendienteAlreadyPaidError()
   }
   return existing
 }
 
 // Category is not re-resolved here -- the caller resolves a category name to
 // a categoryId via findOrCreateCategory first, same as the create flow.
-export async function updateCuenta(input: {
+export async function updatePendiente(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
-  readonly cuentaId: string
+  readonly pendienteId: string
   readonly categoryId?: string
   readonly name?: string
   readonly dueDate?: Date
   readonly expectedAmount?: number | null
   readonly recurring?: boolean
-}): Promise<Cuenta> {
-  const existing = await getPendingCuentaOrThrow({
+}): Promise<Pendiente> {
+  const existing = await getPendienteOrThrow({
     db: input.db,
     householdId: input.householdId,
-    cuentaId: input.cuentaId,
+    pendienteId: input.pendienteId,
   })
 
   const categoryId = input.categoryId ?? existing.categoryId
   const name =
-    input.name !== undefined ? parseCuentaName(input.name) : existing.name
+    input.name !== undefined ? parsePendienteName(input.name) : existing.name
   const dueDate =
     input.dueDate !== undefined
-      ? parseCuentaDueDate(input.dueDate)
+      ? parsePendienteDueDate(input.dueDate)
       : existing.dueDate
   const expectedAmount =
     input.expectedAmount !== undefined
@@ -106,9 +106,9 @@ export async function updateCuenta(input: {
       : existing.expectedAmount
   const recurring = input.recurring ?? existing.recurring
 
-  return input.db.updateCuenta({
+  return input.db.updatePendiente({
     householdId: input.householdId,
-    cuentaId: input.cuentaId,
+    pendienteId: input.pendienteId,
     categoryId,
     name,
     dueDate,
@@ -117,18 +117,22 @@ export async function updateCuenta(input: {
   })
 }
 
-export async function markCuentaPaid(input: {
+export async function markPendientePaid(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
-  readonly cuentaId: string
+  readonly pendienteId: string
   readonly memberId: string
   readonly authorDisplayName: string
   readonly finalAmount: number
   readonly paymentDate: Date
-}): Promise<{ cuenta: Cuenta; expense: Expense; nextCuenta: Cuenta | null }> {
-  return input.db.markCuentaPaid({
+}): Promise<{
+  pendiente: Pendiente
+  expense: Expense
+  nextPendiente: Pendiente | null
+}> {
+  return input.db.markPendientePaid({
     householdId: input.householdId,
-    cuentaId: input.cuentaId,
+    pendienteId: input.pendienteId,
     memberId: input.memberId,
     authorDisplayName: parseAuthorDisplayName(input.authorDisplayName),
     finalAmount: parseExpensePrice(input.finalAmount),
@@ -136,19 +140,19 @@ export async function markCuentaPaid(input: {
   })
 }
 
-export async function deleteCuenta(input: {
+export async function deletePendiente(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
-  readonly cuentaId: string
+  readonly pendienteId: string
 }): Promise<void> {
-  await getPendingCuentaOrThrow({
+  await getPendienteOrThrow({
     db: input.db,
     householdId: input.householdId,
-    cuentaId: input.cuentaId,
+    pendienteId: input.pendienteId,
   })
 
-  return input.db.deleteCuenta({
+  return input.db.deletePendiente({
     householdId: input.householdId,
-    cuentaId: input.cuentaId,
+    pendienteId: input.pendienteId,
   })
 }

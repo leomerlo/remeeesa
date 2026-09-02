@@ -150,9 +150,9 @@ service cloud.firestore {
     }
 
     // status must be 'pending' on create -- this is what blocks a client
-    // from creating a Cuenta that is already marked paid. Editing, deleting,
-    // and marking a cuenta paid are handled by later tickets in this feature.
-    function isValidCuenta(data) {
+    // from creating a Pendiente that is already marked paid. Editing, deleting,
+    // and marking a pendiente paid are handled by later tickets in this feature.
+    function isValidPendiente(data) {
       return data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'status', 'paid_expense_id', 'created_at'])
         && data.household_id is string
         && data.household_id.size() > 0
@@ -171,25 +171,25 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/categories/$(data.category_id)).data.household_id == data.household_id;
     }
 
-    // Editing is only allowed while the cuenta is still pending -- once paid,
+    // Editing is only allowed while the pendiente is still pending -- once paid,
     // it is frozen at the rules level (mirrors isValidExpenseUpdate's shape,
-    // adapted to the cuenta field set). A future category-merge feature may
+    // adapted to the pendiente field set). A future category-merge feature may
     // need a category-only update allowed regardless of status; that is not
     // implemented here.
-    // A deliberate exception to isValidCuentaUpdate's "paid Cuentas are
+    // A deliberate exception to isValidPendienteUpdate's "paid Pendientes are
     // frozen" rule. Renaming or merging a category has to repoint every
-    // Cuenta that references it, paid ones included -- a paid Cuenta that kept
+    // Pendiente that references it, paid ones included -- a paid Pendiente that kept
     // pointing at a deleted category would render with no name and no color in
     // the Histórico. Narrow on purpose: category_id is the only key that may
     // move, and it must land on a category that exists.
-    function isCuentaCategoryRepoint() {
+    function isPendienteCategoryRepoint() {
       return request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['category_id'])
         && request.resource.data.category_id is string
         && exists(/databases/$(database)/documents/categories/$(request.resource.data.category_id));
     }
 
-    function isValidCuentaUpdate() {
+    function isValidPendienteUpdate() {
       return resource.data.status == 'pending'
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['name', 'category_id', 'due_date', 'expected_amount', 'recurring'])
@@ -216,7 +216,7 @@ service cloud.firestore {
     // points at an Expense in the same household, so this write can't fake a
     // paid status against a missing or cross-household Expense id -- it does
     // not, and cannot, verify the Expense's amount/category/member match.
-    function isValidCuentaMarkPaid() {
+    function isValidPendienteMarkPaid() {
       return resource.data.status == 'pending'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paid_expense_id'])
         && request.resource.data.status == 'paid'
@@ -302,7 +302,7 @@ service cloud.firestore {
       // color swap and the name-casing tweak that lands on the same id.
       allow update: if isMemberOf(resource.data.household_id)
         && isValidCategoryUpdate();
-      // Guarded in the client, which refuses while any Expense or Cuenta still
+      // Guarded in the client, which refuses while any Expense or Pendiente still
       // points here. Rules cannot run that query, so this line only checks
       // membership; a member with a raw console can still orphan references.
       allow delete: if isMemberOf(resource.data.household_id);
@@ -318,12 +318,12 @@ service cloud.firestore {
       allow delete: if isMemberOf(resource.data.household_id);
     }
 
-    match /cuentas/{cuentaId} {
+    match /pendientes/{pendienteId} {
       allow read: if isMemberOf(resource.data.household_id);
       allow create: if isMemberOf(request.resource.data.household_id)
-        && isValidCuenta(request.resource.data);
+        && isValidPendiente(request.resource.data);
       allow update: if isMemberOf(resource.data.household_id)
-        && (isValidCuentaUpdate() || isValidCuentaMarkPaid() || isCuentaCategoryRepoint());
+        && (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint());
       allow delete: if isMemberOf(resource.data.household_id)
         && resource.data.status == 'pending';
     }

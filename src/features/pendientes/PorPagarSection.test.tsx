@@ -3,8 +3,8 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { createCuenta } from '@/lib/cuentas'
-import type { Cuenta } from '@/lib/cuentas'
+import { createPendiente } from '@/lib/pendientes'
+import type { Pendiente } from '@/lib/pendientes'
 import { listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
@@ -35,15 +35,15 @@ async function seedHousehold() {
 }
 
 // Due dates are days apart so ordering assertions are unambiguous.
-async function seedCuenta(input: {
+async function seedPendiente(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly categoryId: string
   readonly name: string
   readonly dayOfMonth: number
   readonly expectedAmount?: number | null
-}): Promise<Cuenta> {
-  return createCuenta({
+}): Promise<Pendiente> {
+  return createPendiente({
     db: input.db,
     householdId: input.householdId,
     categoryId: input.categoryId,
@@ -54,7 +54,7 @@ async function seedCuenta(input: {
 }
 
 describe('PorPagarSection', () => {
-  it('renders nothing at all when there are no pending cuentas', async () => {
+  it('renders nothing at all when there are no pending pendientes', async () => {
     const { db, householdId } = await seedHousehold()
 
     const { container } = renderSection(
@@ -73,9 +73,9 @@ describe('PorPagarSection', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('shows its own loading skeleton before the cuentas resolve', async () => {
+  it('shows its own loading skeleton before the pendientes resolve', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
-    await seedCuenta({
+    await seedPendiente({
       db,
       householdId,
       categoryId,
@@ -95,9 +95,9 @@ describe('PorPagarSection', () => {
     expect(await screen.findByText('Internet')).toBeInTheDocument()
   })
 
-  it('lists pending cuentas soonest-due-first with name, category, date and amount', async () => {
+  it('lists pending pendientes soonest-due-first with name, category, date and amount', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
-    await seedCuenta({
+    await seedPendiente({
       db,
       householdId,
       categoryId,
@@ -105,7 +105,7 @@ describe('PorPagarSection', () => {
       dayOfMonth: 20,
       expectedAmount: 78.25,
     })
-    await seedCuenta({
+    await seedPendiente({
       db,
       householdId,
       categoryId,
@@ -123,7 +123,7 @@ describe('PorPagarSection', () => {
     )
 
     const list = await screen.findByRole('list', {
-      name: 'Cuentas por pagar',
+      name: 'Pendientes por pagar',
     })
     const items = within(list).getAllByRole('listitem')
     expect(items).toHaveLength(2)
@@ -134,9 +134,9 @@ describe('PorPagarSection', () => {
     expect(items[1]).toHaveTextContent('$78,25')
   })
 
-  it('omits the amount for a cuenta with no expected amount, without breaking the card', async () => {
+  it('omits the amount for a pendiente with no expected amount, without breaking the card', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
-    await seedCuenta({
+    await seedPendiente({
       db,
       householdId,
       categoryId,
@@ -154,7 +154,7 @@ describe('PorPagarSection', () => {
     )
 
     const card = await screen.findByRole('button', {
-      name: 'Marcar pagada Expensas',
+      name: 'Marcar pagado Expensas',
     })
     expect(card).toHaveTextContent('Expensas')
     expect(card).not.toHaveTextContent('$')
@@ -163,11 +163,11 @@ describe('PorPagarSection', () => {
   it('caps the preview at 5 and only then offers the overflow link', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
     for (let day = 1; day <= 5; day += 1) {
-      await seedCuenta({
+      await seedPendiente({
         db,
         householdId,
         categoryId,
-        name: `Cuenta ${String(day)}`,
+        name: `Pendiente ${String(day)}`,
         dayOfMonth: day,
       })
     }
@@ -180,7 +180,9 @@ describe('PorPagarSection', () => {
       />,
     )
 
-    const list = await screen.findByRole('list', { name: 'Cuentas por pagar' })
+    const list = await screen.findByRole('list', {
+      name: 'Pendientes por pagar',
+    })
     expect(within(list).getAllByRole('listitem')).toHaveLength(5)
     // Exactly at the cap, nothing is hidden, so no overflow link.
     expect(
@@ -191,11 +193,11 @@ describe('PorPagarSection', () => {
   it('shows only the 5 soonest and links to the full list when more are pending', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
     for (let day = 1; day <= 7; day += 1) {
-      await seedCuenta({
+      await seedPendiente({
         db,
         householdId,
         categoryId,
-        name: `Cuenta ${String(day)}`,
+        name: `Pendiente ${String(day)}`,
         dayOfMonth: day,
       })
     }
@@ -208,22 +210,24 @@ describe('PorPagarSection', () => {
       />,
     )
 
-    const list = await screen.findByRole('list', { name: 'Cuentas por pagar' })
+    const list = await screen.findByRole('list', {
+      name: 'Pendientes por pagar',
+    })
     expect(within(list).getAllByRole('listitem')).toHaveLength(5)
     // The two latest-due ones are the ones dropped.
-    expect(screen.getByText('Cuenta 1')).toBeInTheDocument()
-    expect(screen.getByText('Cuenta 5')).toBeInTheDocument()
-    expect(screen.queryByText('Cuenta 6')).not.toBeInTheDocument()
-    expect(screen.queryByText('Cuenta 7')).not.toBeInTheDocument()
+    expect(screen.getByText('Pendiente 1')).toBeInTheDocument()
+    expect(screen.getByText('Pendiente 5')).toBeInTheDocument()
+    expect(screen.queryByText('Pendiente 6')).not.toBeInTheDocument()
+    expect(screen.queryByText('Pendiente 7')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Ver todas' })).toHaveAttribute(
       'href',
-      '/cuentas',
+      '/pendientes',
     )
   })
 
-  it('hands the tapped cuenta to onMarkPaid', async () => {
+  it('hands the tapped pendiente to onMarkPaid', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
-    const cuenta = await seedCuenta({
+    const pendiente = await seedPendiente({
       db,
       householdId,
       categoryId,
@@ -242,12 +246,12 @@ describe('PorPagarSection', () => {
     )
 
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Marcar pagada Agua' }),
+      await screen.findByRole('button', { name: 'Marcar pagado Agua' }),
     )
 
     expect(onMarkPaid).toHaveBeenCalledTimes(1)
     expect(onMarkPaid.mock.calls[0]?.[0]).toMatchObject({
-      id: cuenta.id,
+      id: pendiente.id,
       name: 'Agua',
     })
   })
@@ -265,7 +269,7 @@ describe('PorPagarSection', () => {
       defaultOptions: { queries: { retry: false } },
     })
 
-    // A non-member db makes listPendingCuentas reject.
+    // A non-member db makes listPendientes reject.
     const { container } = renderSection(
       <PorPagarSection
         db={store.asUser('user-2')}
@@ -293,7 +297,7 @@ describe('PorPagarSection', () => {
   // on Home.
   it('keeps the scroller aligned to the page gutter under scroll snapping', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
-    await seedCuenta({
+    await seedPendiente({
       db,
       householdId,
       categoryId,
@@ -311,7 +315,7 @@ describe('PorPagarSection', () => {
     )
 
     const list = await screen.findByRole('list', {
-      name: 'Cuentas por pagar',
+      name: 'Pendientes por pagar',
     })
     expect(list.className).toContain('snap-mandatory')
     expect(list.className).toContain('scroll-px-6')

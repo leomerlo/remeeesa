@@ -1,41 +1,44 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
-import { listPendingCuentas } from '@/lib/cuentas'
-import type { Cuenta } from '@/lib/cuentas'
+import { listPendientes } from '@/lib/pendientes'
+import type { Pendiente } from '@/lib/pendientes'
 import { EmptyExpensesIllustration } from '@/features/expenses'
 import { formatBudgetAmount, listCategories } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { formatShortDate } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
-import { cuentasQueryKey } from './queryKeys'
+import { pendientesQueryKey } from './queryKeys'
 
-export type PendingCuentasListProps = {
+export type PendientesListProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
-  readonly onEditCuenta?: (cuenta: Cuenta, categoryName: string) => void
-  readonly onMarkPaid?: (cuenta: Cuenta) => void
+  readonly onEditPendiente?: (
+    pendiente: Pendiente,
+    categoryName: string,
+  ) => void
+  readonly onMarkPaid?: (pendiente: Pendiente) => void
 }
 
-export function PendingCuentasList({
+export function PendientesList({
   db,
   householdId,
-  onEditCuenta,
+  onEditPendiente,
   onMarkPaid,
-}: PendingCuentasListProps): ReactElement {
-  const cuentasQuery = useQuery({
-    queryKey: cuentasQueryKey({ householdId }),
+}: PendientesListProps): ReactElement {
+  const pendientesQuery = useQuery({
+    queryKey: pendientesQueryKey({ householdId }),
     queryFn: async () => {
-      const [cuentas, categories] = await Promise.all([
-        listPendingCuentas({ db, householdId }),
+      const [pendientes, categories] = await Promise.all([
+        listPendientes({ db, householdId }),
         listCategories({ db, householdId }),
       ])
-      return { cuentas, categories }
+      return { pendientes, categories }
     },
   })
 
-  if (cuentasQuery.isPending) {
+  if (pendientesQuery.isPending) {
     return (
       <p role="status" className="text-sm font-medium">
         Cargando…
@@ -43,11 +46,11 @@ export function PendingCuentasList({
     )
   }
 
-  if (cuentasQuery.isError) {
+  if (pendientesQuery.isError) {
     const message =
-      cuentasQuery.error instanceof Error
-        ? cuentasQuery.error.message
-        : 'No se pudieron cargar las cuentas'
+      pendientesQuery.error instanceof Error
+        ? pendientesQuery.error.message
+        : 'No se pudieron cargar los pendientes'
     return (
       <p role="alert" className="text-sm font-medium">
         {message}
@@ -55,8 +58,8 @@ export function PendingCuentasList({
     )
   }
 
-  const { cuentas, categories } = cuentasQuery.data
-  if (cuentas.length === 0) {
+  const { pendientes, categories } = pendientesQuery.data
+  if (pendientes.length === 0) {
     // The mascot-with-notepad illustration every other empty state on the
     // app uses (Home's movements list, Histórico) -- plain text here was the
     // one empty state with no illustration at all.
@@ -64,7 +67,7 @@ export function PendingCuentasList({
       <div className="flex w-full flex-col items-center gap-4">
         <EmptyExpensesIllustration className="mx-auto h-32 w-40" />
         <p role="status" className="text-sm font-medium">
-          No hay cuentas pendientes
+          No hay pendientes
         </p>
       </div>
     )
@@ -75,12 +78,9 @@ export function PendingCuentasList({
   )
 
   return (
-    <ul
-      aria-label="Cuentas pendientes"
-      className="flex w-full flex-col gap-3 text-sm"
-    >
-      {cuentas.map((cuenta) => {
-        const category = categoryById.get(cuenta.categoryId)
+    <ul aria-label="Pendientes" className="flex w-full flex-col gap-3 text-sm">
+      {pendientes.map((pendiente) => {
+        const category = categoryById.get(pendiente.categoryId)
         const categoryName = category?.name ?? 'Categoría desconocida'
         const categoryColor =
           category?.color ?? colorForCategoryName(categoryName)
@@ -100,18 +100,18 @@ export function PendingCuentasList({
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="truncate text-foreground font-medium">
-                  {cuenta.name}
+                  {pendiente.name}
                 </span>
-                {cuenta.expectedAmount !== null ? (
+                {pendiente.expectedAmount !== null ? (
                   <span className="font-display text-lg text-foreground">
-                    {formatBudgetAmount(cuenta.expectedAmount)}
+                    {formatBudgetAmount(pendiente.expectedAmount)}
                   </span>
                 ) : null}
               </div>
               <div className="flex flex-wrap gap-x-1.5 text-xs text-muted-foreground">
                 <span>{categoryName}</span>
                 <span aria-hidden="true">·</span>
-                <span>{formatShortDate(cuenta.dueDate)}</span>
+                <span>{formatShortDate(pendiente.dueDate)}</span>
               </div>
             </div>
           </>
@@ -122,15 +122,15 @@ export function PendingCuentasList({
         // truncated to "Expen…" at 375px, and squeezed the button into a
         // flattened oval.
         return (
-          <li key={cuenta.id}>
+          <li key={pendiente.id}>
             <div className="bg-card shadow-resting flex flex-col gap-3 rounded-2xl p-4">
-              {onEditCuenta !== undefined ? (
+              {onEditPendiente !== undefined ? (
                 <button
                   type="button"
                   className="flex w-full min-w-0 items-center gap-3 text-left transition-transform active:scale-[0.98]"
-                  aria-label={`Editar ${cuenta.name}`}
+                  aria-label={`Editar ${pendiente.name}`}
                   onClick={() => {
-                    onEditCuenta(cuenta, category?.name ?? '')
+                    onEditPendiente(pendiente, category?.name ?? '')
                   }}
                 >
                   {rowContent}
@@ -145,9 +145,9 @@ export function PendingCuentasList({
                   type="button"
                   variant="outline"
                   className="w-full"
-                  aria-label={`Marcar pagada ${cuenta.name}`}
+                  aria-label={`Marcar pagado ${pendiente.name}`}
                   onClick={() => {
-                    onMarkPaid(cuenta)
+                    onMarkPaid(pendiente)
                   }}
                 >
                   Pagar

@@ -155,7 +155,7 @@ describe('App', () => {
     },
   )
 
-  it('renders /cuentas for a signed-in member with a household, unlinked from the nav', async () => {
+  it('renders /pendientes for a signed-in member with a household, unlinked from the nav', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     await createHouseholdWithMembership({
       db,
@@ -165,24 +165,24 @@ describe('App', () => {
     })
 
     renderWithProviders(
-      <MemoryRouter initialEntries={['/cuentas']}>
+      <MemoryRouter initialEntries={['/pendientes']}>
         <AppRoutes currentUserId="user-1" householdsDb={db} />
       </MemoryRouter>,
     )
 
     expect(
-      await screen.findByRole('heading', { name: 'Cuentas' }),
+      await screen.findByRole('heading', { name: 'Pendientes' }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Nueva cuenta' }),
+      screen.getByRole('button', { name: 'Nuevo pendiente' }),
     ).toBeInTheDocument()
 
-    // /cuentas is intentionally unlinked from Home in this ticket -- the nav
+    // /pendientes is intentionally unlinked from Home in this ticket -- the nav
     // must not grow a 5th entry pointing at it.
     const nav = await screen.findByRole('navigation')
     expect(within(nav).getAllByRole('link')).toHaveLength(4)
     expect(
-      within(nav).queryByRole('link', { name: /cuentas/i }),
+      within(nav).queryByRole('link', { name: /pendientes/i }),
     ).not.toBeInTheDocument()
   })
 

@@ -12,18 +12,18 @@ import {
 } from '@/lib/expenses/expenses'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import {
-  createCuenta,
-  CuentaAlreadyPaidError,
-  CuentaNotFoundError,
-  deleteCuenta,
-  getCuenta,
-  listPendingCuentas,
-  markCuentaPaid,
-  updateCuenta,
-} from './cuentas'
+  createPendiente,
+  PendienteAlreadyPaidError,
+  PendienteNotFoundError,
+  deletePendiente,
+  getPendiente,
+  listPendientes,
+  markPendientePaid,
+  updatePendiente,
+} from './pendientes'
 
-describe('createCuenta', () => {
-  it('creates a pending, non-recurring cuenta with no paid expense', async () => {
+describe('createPendiente', () => {
+  it('creates a pending, non-recurring pendiente with no paid expense', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -39,7 +39,7 @@ describe('createCuenta', () => {
     }
     const dueDate = new Date(2026, 8, 10)
 
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db,
       householdId: household.id,
       categoryId: comida.id,
@@ -48,7 +48,7 @@ describe('createCuenta', () => {
       expectedAmount: 500,
     })
 
-    expect(cuenta).toEqual({
+    expect(pendiente).toEqual({
       id: expect.any(String),
       householdId: household.id,
       categoryId: comida.id,
@@ -62,7 +62,7 @@ describe('createCuenta', () => {
     })
   })
 
-  it('creates a recurring cuenta when recurring is passed as true', async () => {
+  it('creates a recurring pendiente when recurring is passed as true', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -77,7 +77,7 @@ describe('createCuenta', () => {
       throw new Error('expected Comida category')
     }
 
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db,
       householdId: household.id,
       categoryId: comida.id,
@@ -87,7 +87,7 @@ describe('createCuenta', () => {
       recurring: true,
     })
 
-    expect(cuenta.recurring).toBe(true)
+    expect(pendiente.recurring).toBe(true)
   })
 
   it('allows a null expected amount', async () => {
@@ -105,7 +105,7 @@ describe('createCuenta', () => {
       throw new Error('expected a seeded category')
     }
 
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db,
       householdId: household.id,
       categoryId: comida.id,
@@ -114,7 +114,7 @@ describe('createCuenta', () => {
       expectedAmount: null,
     })
 
-    expect(cuenta.expectedAmount).toBeNull()
+    expect(pendiente.expectedAmount).toBeNull()
   })
 
   it('allows a due date in the past', async () => {
@@ -133,7 +133,7 @@ describe('createCuenta', () => {
     }
     const pastDate = new Date(2020, 0, 1)
 
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db,
       householdId: household.id,
       categoryId: comida.id,
@@ -142,10 +142,10 @@ describe('createCuenta', () => {
       expectedAmount: null,
     })
 
-    expect(cuenta.dueDate).toEqual(pastDate)
+    expect(pendiente.dueDate).toEqual(pastDate)
   })
 
-  it('trims the cuenta name and rejects a blank one', async () => {
+  it('trims the pendiente name and rejects a blank one', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -160,7 +160,7 @@ describe('createCuenta', () => {
       throw new Error('expected a seeded category')
     }
 
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db,
       householdId: household.id,
       categoryId: comida.id,
@@ -168,10 +168,10 @@ describe('createCuenta', () => {
       dueDate: new Date(2026, 8, 10),
       expectedAmount: null,
     })
-    expect(cuenta.name).toBe('Alquiler')
+    expect(pendiente.name).toBe('Alquiler')
 
     await expect(
-      createCuenta({
+      createPendiente({
         db,
         householdId: household.id,
         categoryId: comida.id,
@@ -179,7 +179,7 @@ describe('createCuenta', () => {
         dueDate: new Date(2026, 8, 10),
         expectedAmount: null,
       }),
-    ).rejects.toThrow('El nombre de la cuenta no puede estar vacío')
+    ).rejects.toThrow('El nombre del pendiente no puede estar vacío')
   })
 
   it('rejects a non-positive expected amount', async () => {
@@ -198,7 +198,7 @@ describe('createCuenta', () => {
     }
 
     await expect(
-      createCuenta({
+      createPendiente({
         db,
         householdId: household.id,
         categoryId: comida.id,
@@ -207,7 +207,7 @@ describe('createCuenta', () => {
         expectedAmount: 0,
       }),
     ).rejects.toThrow(
-      'El monto esperado de la cuenta debe ser un número positivo',
+      'El monto esperado del pendiente debe ser un número positivo',
     )
   })
 
@@ -221,7 +221,7 @@ describe('createCuenta', () => {
     })
 
     await expect(
-      createCuenta({
+      createPendiente({
         db,
         householdId: household.id,
         categoryId: 'missing-category',
@@ -253,7 +253,7 @@ describe('createCuenta', () => {
     const strangerDb = store.asUser('user-2')
 
     await expect(
-      createCuenta({
+      createPendiente({
         db: strangerDb,
         householdId: household.id,
         categoryId: comida.id,
@@ -290,7 +290,7 @@ describe('createCuenta', () => {
     }
 
     await expect(
-      createCuenta({
+      createPendiente({
         db: ownerDb,
         householdId: household.id,
         categoryId: otherComida.id,
@@ -315,7 +315,7 @@ describe('createCuenta', () => {
       name: 'Suscripciones',
     })
 
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db,
       householdId: household.id,
       categoryId: category.id,
@@ -324,12 +324,12 @@ describe('createCuenta', () => {
       expectedAmount: 15,
     })
 
-    expect(cuenta.categoryId).toBe(category.id)
+    expect(pendiente.categoryId).toBe(category.id)
   })
 })
 
-describe('getCuenta', () => {
-  it('returns the created cuenta by id', async () => {
+describe('getPendiente', () => {
+  it('returns the created pendiente by id', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -343,7 +343,7 @@ describe('getCuenta', () => {
     if (comida === undefined) {
       throw new Error('expected a seeded category')
     }
-    const created = await createCuenta({
+    const created = await createPendiente({
       db,
       householdId: household.id,
       categoryId: comida.id,
@@ -352,16 +352,16 @@ describe('getCuenta', () => {
       expectedAmount: 500,
     })
 
-    const fetched = await getCuenta({
+    const fetched = await getPendiente({
       db,
       householdId: household.id,
-      cuentaId: created.id,
+      pendienteId: created.id,
     })
 
     expect(fetched).toEqual(created)
   })
 
-  it('returns null for a missing cuenta id', async () => {
+  it('returns null for a missing pendiente id', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -371,11 +371,11 @@ describe('getCuenta', () => {
     })
 
     await expect(
-      getCuenta({ db, householdId: household.id, cuentaId: 'missing' }),
+      getPendiente({ db, householdId: household.id, pendienteId: 'missing' }),
     ).resolves.toBeNull()
   })
 
-  it('returns null for a cuenta that belongs to another household', async () => {
+  it('returns null for a pendiente that belongs to another household', async () => {
     const store = createMemoryHouseholdsDb()
     const ownerDb = store.asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -399,7 +399,7 @@ describe('getCuenta', () => {
     if (comida === undefined) {
       throw new Error('expected a seeded category')
     }
-    const created = await createCuenta({
+    const created = await createPendiente({
       db: ownerDb,
       householdId: household.id,
       categoryId: comida.id,
@@ -409,10 +409,10 @@ describe('getCuenta', () => {
     })
 
     await expect(
-      getCuenta({
+      getPendiente({
         db: store.asUser('user-2'),
         householdId: other.id,
-        cuentaId: created.id,
+        pendienteId: created.id,
       }),
     ).resolves.toBeNull()
   })
@@ -428,17 +428,17 @@ describe('getCuenta', () => {
     })
 
     await expect(
-      getCuenta({
+      getPendiente({
         db: store.asUser('user-2'),
         householdId: household.id,
-        cuentaId: 'anything',
+        pendienteId: 'anything',
       }),
     ).rejects.toThrow(HouseholdAccessDeniedError)
   })
 })
 
-describe('listPendingCuentas', () => {
-  it('returns only pending cuentas for that household, ordered by due date ascending', async () => {
+describe('listPendientes', () => {
+  it('returns only pending pendientes for that household, ordered by due date ascending', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -452,7 +452,7 @@ describe('listPendingCuentas', () => {
     if (comida === undefined) {
       throw new Error('expected a seeded category')
     }
-    const later = await createCuenta({
+    const later = await createPendiente({
       db,
       householdId: household.id,
       categoryId: comida.id,
@@ -460,7 +460,7 @@ describe('listPendingCuentas', () => {
       dueDate: new Date(2026, 8, 20),
       expectedAmount: null,
     })
-    const earlier = await createCuenta({
+    const earlier = await createPendiente({
       db,
       householdId: household.id,
       categoryId: comida.id,
@@ -469,12 +469,15 @@ describe('listPendingCuentas', () => {
       expectedAmount: null,
     })
 
-    const listed = await listPendingCuentas({ db, householdId: household.id })
+    const listed = await listPendientes({ db, householdId: household.id })
 
-    expect(listed.map((cuenta) => cuenta.id)).toEqual([earlier.id, later.id])
+    expect(listed.map((pendiente) => pendiente.id)).toEqual([
+      earlier.id,
+      later.id,
+    ])
   })
 
-  it('excludes paid cuentas', async () => {
+  it('excludes paid pendientes', async () => {
     const store = createMemoryHouseholdsDb()
     const db = store.asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -489,7 +492,7 @@ describe('listPendingCuentas', () => {
     if (comida === undefined) {
       throw new Error('expected a seeded category')
     }
-    const pending = await createCuenta({
+    const pending = await createPendiente({
       db,
       householdId: household.id,
       categoryId: comida.id,
@@ -497,7 +500,7 @@ describe('listPendingCuentas', () => {
       dueDate: new Date(2026, 8, 5),
       expectedAmount: null,
     })
-    store.seedCuenta({
+    store.seedPendiente({
       id: 'paid-1',
       householdId: household.id,
       categoryId: comida.id,
@@ -510,12 +513,12 @@ describe('listPendingCuentas', () => {
       createdAt: new Date(),
     })
 
-    const listed = await listPendingCuentas({ db, householdId: household.id })
+    const listed = await listPendientes({ db, householdId: household.id })
 
-    expect(listed.map((cuenta) => cuenta.id)).toEqual([pending.id])
+    expect(listed.map((pendiente) => pendiente.id)).toEqual([pending.id])
   })
 
-  it('returns an empty list for a household with no cuentas', async () => {
+  it('returns an empty list for a household with no pendientes', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -525,11 +528,11 @@ describe('listPendingCuentas', () => {
     })
 
     await expect(
-      listPendingCuentas({ db, householdId: household.id }),
+      listPendientes({ db, householdId: household.id }),
     ).resolves.toEqual([])
   })
 
-  it('does not include another household cuentas', async () => {
+  it('does not include another household pendientes', async () => {
     const store = createMemoryHouseholdsDb()
     const ownerDb = store.asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -553,7 +556,7 @@ describe('listPendingCuentas', () => {
     if (otherComida === undefined) {
       throw new Error('expected a seeded category')
     }
-    await createCuenta({
+    await createPendiente({
       db: store.asUser('user-2'),
       householdId: other.id,
       categoryId: otherComida.id,
@@ -562,7 +565,7 @@ describe('listPendingCuentas', () => {
       expectedAmount: null,
     })
 
-    const listed = await listPendingCuentas({
+    const listed = await listPendientes({
       db: ownerDb,
       householdId: household.id,
     })
@@ -581,7 +584,7 @@ describe('listPendingCuentas', () => {
     })
 
     await expect(
-      listPendingCuentas({
+      listPendientes({
         db: store.asUser('user-2'),
         householdId: household.id,
       }),
@@ -589,7 +592,7 @@ describe('listPendingCuentas', () => {
   })
 })
 
-async function seedPendingCuenta(input?: {
+async function seedPendingPendiente(input?: {
   readonly expectedAmount?: number | null
   readonly recurring?: boolean
 }) {
@@ -605,7 +608,7 @@ async function seedPendingCuenta(input?: {
   if (comida === undefined) {
     throw new Error('expected Comida category')
   }
-  const cuenta = await createCuenta({
+  const pendiente = await createPendiente({
     db,
     householdId: household.id,
     categoryId: comida.id,
@@ -614,38 +617,38 @@ async function seedPendingCuenta(input?: {
     expectedAmount: input?.expectedAmount ?? 500,
     recurring: input?.recurring ?? false,
   })
-  return { db, household, comida, cuenta }
+  return { db, household, comida, pendiente }
 }
 
-describe('updateCuenta', () => {
+describe('updatePendiente', () => {
   it('updates the name only, leaving other fields as stored', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta()
+    const { db, household, pendiente } = await seedPendingPendiente()
 
-    const updated = await updateCuenta({
+    const updated = await updatePendiente({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
       name: 'Alquiler nuevo',
     })
 
     expect(updated).toEqual({
-      ...cuenta,
+      ...pendiente,
       name: 'Alquiler nuevo',
     })
   })
 
   it('updates the category only', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta()
+    const { db, household, pendiente } = await seedPendingPendiente()
     const otherCategory = await findOrCreateCategory({
       db,
       householdId: household.id,
       name: 'Suscripciones',
     })
 
-    const updated = await updateCuenta({
+    const updated = await updatePendiente({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
       categoryId: otherCategory.id,
     })
 
@@ -653,13 +656,13 @@ describe('updateCuenta', () => {
   })
 
   it('updates the due date only', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta()
+    const { db, household, pendiente } = await seedPendingPendiente()
     const newDueDate = new Date(2026, 9, 1)
 
-    const updated = await updateCuenta({
+    const updated = await updatePendiente({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
       dueDate: newDueDate,
     })
 
@@ -667,46 +670,46 @@ describe('updateCuenta', () => {
   })
 
   it('updates the expected amount only, including setting it to null', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta({
+    const { db, household, pendiente } = await seedPendingPendiente({
       expectedAmount: 500,
     })
 
-    const updated = await updateCuenta({
+    const updated = await updatePendiente({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
       expectedAmount: null,
     })
 
     expect(updated.expectedAmount).toBeNull()
   })
 
-  it('toggles recurring via updateCuenta', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta({
+  it('toggles recurring via updatePendiente', async () => {
+    const { db, household, pendiente } = await seedPendingPendiente({
       recurring: false,
     })
-    expect(cuenta.recurring).toBe(false)
+    expect(pendiente.recurring).toBe(false)
 
-    const updated = await updateCuenta({
+    const updated = await updatePendiente({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
       recurring: true,
     })
 
     expect(updated.recurring).toBe(true)
   })
 
-  it('toggles recurring off via updateCuenta', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta({
+  it('toggles recurring off via updatePendiente', async () => {
+    const { db, household, pendiente } = await seedPendingPendiente({
       recurring: true,
     })
-    expect(cuenta.recurring).toBe(true)
+    expect(pendiente.recurring).toBe(true)
 
-    const updated = await updateCuenta({
+    const updated = await updatePendiente({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
       recurring: false,
     })
 
@@ -714,7 +717,7 @@ describe('updateCuenta', () => {
   })
 
   it('updates all fields together with the same validation as create', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta()
+    const { db, household, pendiente } = await seedPendingPendiente()
     const transporte = await findOrCreateCategory({
       db,
       householdId: household.id,
@@ -722,10 +725,10 @@ describe('updateCuenta', () => {
     })
     const newDueDate = new Date(2026, 9, 1)
 
-    const updated = await updateCuenta({
+    const updated = await updatePendiente({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
       name: '  Alquiler nuevo  ',
       categoryId: transporte.id,
       dueDate: newDueDate,
@@ -734,7 +737,7 @@ describe('updateCuenta', () => {
     })
 
     expect(updated).toEqual({
-      ...cuenta,
+      ...pendiente,
       name: 'Alquiler nuevo',
       categoryId: transporte.id,
       dueDate: newDueDate,
@@ -743,24 +746,24 @@ describe('updateCuenta', () => {
     })
   })
 
-  it('rejects an unknown category id on update, leaving the cuenta unchanged', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta()
+  it('rejects an unknown category id on update, leaving the pendiente unchanged', async () => {
+    const { db, household, pendiente } = await seedPendingPendiente()
 
     await expect(
-      updateCuenta({
+      updatePendiente({
         db,
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
         categoryId: 'missing-category',
       }),
     ).rejects.toThrow('Category not found')
 
-    const unchanged = await getCuenta({
+    const unchanged = await getPendiente({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
     })
-    expect(unchanged).toEqual(cuenta)
+    expect(unchanged).toEqual(pendiente)
   })
 
   it('rejects a category that belongs to another household on update', async () => {
@@ -780,7 +783,7 @@ describe('updateCuenta', () => {
     if (comida === undefined) {
       throw new Error('expected a seeded category')
     }
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db: ownerDb,
       householdId: household.id,
       categoryId: comida.id,
@@ -804,44 +807,44 @@ describe('updateCuenta', () => {
     }
 
     await expect(
-      updateCuenta({
+      updatePendiente({
         db: ownerDb,
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
         categoryId: otherComida.id,
       }),
     ).rejects.toThrow('Category not found')
   })
 
   it('rejects an invalid due date on update', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta()
+    const { db, household, pendiente } = await seedPendingPendiente()
 
     await expect(
-      updateCuenta({
+      updatePendiente({
         db,
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
         dueDate: new Date(Number.NaN),
       }),
-    ).rejects.toThrow('La fecha de la cuenta no es válida')
+    ).rejects.toThrow('La fecha del pendiente no es válida')
   })
 
   it('lets a concurrent edit to a different field overwrite the whole record -- last write wins, no merge', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta({
+    const { db, household, pendiente } = await seedPendingPendiente({
       expectedAmount: 500,
     })
 
     const [renamed, repriced] = await Promise.all([
-      updateCuenta({
+      updatePendiente({
         db,
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
         name: 'Renamed by member A',
       }),
-      updateCuenta({
+      updatePendiente({
         db,
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
         expectedAmount: 700,
       }),
     ])
@@ -854,18 +857,18 @@ describe('updateCuenta', () => {
     // underneath it, so it writes the original name back, silently
     // discarding member A's rename. This is the "last write wins, no
     // merge/conflict UI" behavior from the issue.
-    const final = await getCuenta({
+    const final = await getPendiente({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
     })
     expect(final).toEqual({
-      ...cuenta,
+      ...pendiente,
       expectedAmount: 700,
     })
   })
 
-  it('throws CuentaNotFoundError when another member deleted the cuenta before edit', async () => {
+  it('throws PendienteNotFoundError when another member deleted the pendiente before edit', async () => {
     const store = createMemoryHouseholdsDb()
     const db = store.asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -880,7 +883,7 @@ describe('updateCuenta', () => {
     if (comida === undefined) {
       throw new Error('expected a seeded category')
     }
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db,
       householdId: household.id,
       categoryId: comida.id,
@@ -889,64 +892,64 @@ describe('updateCuenta', () => {
       expectedAmount: null,
     })
 
-    await deleteCuenta({
+    await deletePendiente({
       db: store.asUser('user-2'),
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
     })
 
     await expect(
-      updateCuenta({
+      updatePendiente({
         db,
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
         name: 'Stale edit',
       }),
-    ).rejects.toThrow(CuentaNotFoundError)
+    ).rejects.toThrow(PendienteNotFoundError)
   })
 
   it('re-validates a changed name, rejecting a blank one', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta()
+    const { db, household, pendiente } = await seedPendingPendiente()
 
     await expect(
-      updateCuenta({
+      updatePendiente({
         db,
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
         name: '   ',
       }),
-    ).rejects.toThrow('El nombre de la cuenta no puede estar vacío')
+    ).rejects.toThrow('El nombre del pendiente no puede estar vacío')
   })
 
   it('re-validates a changed expected amount, rejecting a non-positive one', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta()
+    const { db, household, pendiente } = await seedPendingPendiente()
 
     await expect(
-      updateCuenta({
+      updatePendiente({
         db,
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
         expectedAmount: 0,
       }),
     ).rejects.toThrow(
-      'El monto esperado de la cuenta debe ser un número positivo',
+      'El monto esperado del pendiente debe ser un número positivo',
     )
   })
 
-  it('throws CuentaNotFoundError for a missing id', async () => {
-    const { db, household } = await seedPendingCuenta()
+  it('throws PendienteNotFoundError for a missing id', async () => {
+    const { db, household } = await seedPendingPendiente()
 
     await expect(
-      updateCuenta({
+      updatePendiente({
         db,
         householdId: household.id,
-        cuentaId: 'missing',
+        pendienteId: 'missing',
         name: 'Nuevo nombre',
       }),
-    ).rejects.toThrow(CuentaNotFoundError)
+    ).rejects.toThrow(PendienteNotFoundError)
   })
 
-  it('throws CuentaAlreadyPaidError when the cuenta is no longer pending', async () => {
+  it('throws PendienteAlreadyPaidError when the pendiente is no longer pending', async () => {
     const store = createMemoryHouseholdsDb()
     const db = store.asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -960,7 +963,7 @@ describe('updateCuenta', () => {
     if (comida === undefined) {
       throw new Error('expected a seeded category')
     }
-    store.seedCuenta({
+    store.seedPendiente({
       id: 'paid-1',
       householdId: household.id,
       categoryId: comida.id,
@@ -974,13 +977,13 @@ describe('updateCuenta', () => {
     })
 
     await expect(
-      updateCuenta({
+      updatePendiente({
         db,
         householdId: household.id,
-        cuentaId: 'paid-1',
+        pendienteId: 'paid-1',
         name: 'Intento de edición',
       }),
-    ).rejects.toThrow(CuentaAlreadyPaidError)
+    ).rejects.toThrow(PendienteAlreadyPaidError)
   })
 
   it('denies a non-member', async () => {
@@ -1000,7 +1003,7 @@ describe('updateCuenta', () => {
     if (comida === undefined) {
       throw new Error('expected a seeded category')
     }
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db: ownerDb,
       householdId: household.id,
       categoryId: comida.id,
@@ -1010,44 +1013,48 @@ describe('updateCuenta', () => {
     })
 
     await expect(
-      updateCuenta({
+      updatePendiente({
         db: store.asUser('user-2'),
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
         name: 'Intento ajeno',
       }),
     ).rejects.toThrow(HouseholdAccessDeniedError)
   })
 })
 
-describe('deleteCuenta', () => {
-  it('deletes a pending cuenta', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta()
+describe('deletePendiente', () => {
+  it('deletes a pending pendiente', async () => {
+    const { db, household, pendiente } = await seedPendingPendiente()
 
-    await deleteCuenta({
+    await deletePendiente({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
     })
 
     await expect(
-      getCuenta({ db, householdId: household.id, cuentaId: cuenta.id }),
+      getPendiente({
+        db,
+        householdId: household.id,
+        pendienteId: pendiente.id,
+      }),
     ).resolves.toBeNull()
   })
 
-  it('returns CuentaNotFoundError to the loser when two members concurrently delete the same cuenta', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta()
+  it('returns PendienteNotFoundError to the loser when two members concurrently delete the same pendiente', async () => {
+    const { db, household, pendiente } = await seedPendingPendiente()
 
     const [first, second] = await Promise.allSettled([
-      deleteCuenta({
+      deletePendiente({
         db,
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
       }),
-      deleteCuenta({
+      deletePendiente({
         db,
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
       }),
     ])
 
@@ -1060,11 +1067,11 @@ describe('deleteCuenta', () => {
         outcome.status === 'rejected',
     )
     expect(rejected).toHaveLength(1)
-    expect(rejected[0]?.reason).toBeInstanceOf(CuentaNotFoundError)
+    expect(rejected[0]?.reason).toBeInstanceOf(PendienteNotFoundError)
   })
 
   it('never creates, deletes, or otherwise touches any Expense', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta()
+    const { db, household, pendiente } = await seedPendingPendiente()
     const categories = await listCategories({ db, householdId: household.id })
     const comida = categories.find((category) => category.name === 'Comida')
     if (comida === undefined) {
@@ -1072,7 +1079,7 @@ describe('deleteCuenta', () => {
     }
     const monthStart = new Date(2026, 7, 1)
     const monthEnd = new Date(2026, 9, 0, 23, 59, 59, 999)
-    // A pre-existing, unrelated Expense acts as the witness: if deleteCuenta
+    // A pre-existing, unrelated Expense acts as the witness: if deletePendiente
     // ever touched the Expense store (create or delete), this snapshot
     // would change.
     const seededExpense = await createExpense({
@@ -1094,10 +1101,10 @@ describe('deleteCuenta', () => {
     })
     expect(before).toEqual([seededExpense])
 
-    await deleteCuenta({
+    await deletePendiente({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
     })
 
     const after = await listExpensesInMonth({
@@ -1109,19 +1116,19 @@ describe('deleteCuenta', () => {
     expect(after).toEqual(before)
   })
 
-  it('throws CuentaNotFoundError for a missing id', async () => {
-    const { db, household } = await seedPendingCuenta()
+  it('throws PendienteNotFoundError for a missing id', async () => {
+    const { db, household } = await seedPendingPendiente()
 
     await expect(
-      deleteCuenta({
+      deletePendiente({
         db,
         householdId: household.id,
-        cuentaId: 'missing',
+        pendienteId: 'missing',
       }),
-    ).rejects.toThrow(CuentaNotFoundError)
+    ).rejects.toThrow(PendienteNotFoundError)
   })
 
-  it('throws CuentaAlreadyPaidError when the cuenta is no longer pending', async () => {
+  it('throws PendienteAlreadyPaidError when the pendiente is no longer pending', async () => {
     const store = createMemoryHouseholdsDb()
     const db = store.asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -1135,7 +1142,7 @@ describe('deleteCuenta', () => {
     if (comida === undefined) {
       throw new Error('expected a seeded category')
     }
-    store.seedCuenta({
+    store.seedPendiente({
       id: 'paid-1',
       householdId: household.id,
       categoryId: comida.id,
@@ -1149,12 +1156,12 @@ describe('deleteCuenta', () => {
     })
 
     await expect(
-      deleteCuenta({
+      deletePendiente({
         db,
         householdId: household.id,
-        cuentaId: 'paid-1',
+        pendienteId: 'paid-1',
       }),
-    ).rejects.toThrow(CuentaAlreadyPaidError)
+    ).rejects.toThrow(PendienteAlreadyPaidError)
   })
 
   it('denies a non-member', async () => {
@@ -1174,7 +1181,7 @@ describe('deleteCuenta', () => {
     if (comida === undefined) {
       throw new Error('expected a seeded category')
     }
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db: ownerDb,
       householdId: household.id,
       categoryId: comida.id,
@@ -1184,26 +1191,26 @@ describe('deleteCuenta', () => {
     })
 
     await expect(
-      deleteCuenta({
+      deletePendiente({
         db: store.asUser('user-2'),
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
       }),
     ).rejects.toThrow(HouseholdAccessDeniedError)
   })
 })
 
-// Every scenario above goes through the domain-layer updateCuenta/deleteCuenta
-// wrapper, whose own getPendingCuentaOrThrow pre-check always intercepts a
-// paid cuenta first -- so the HouseholdsDb implementation's own status
+// Every scenario above goes through the domain-layer updatePendiente/deletePendiente
+// wrapper, whose own getPendienteOrThrow pre-check always intercepts a
+// paid pendiente first -- so the HouseholdsDb implementation's own status
 // re-check (added specifically to narrow the TOCTOU window between that
 // domain pre-check and the actual write, mirroring firestore.rules'
-// isValidCuentaUpdate()/delete-rule requiring status == 'pending') is never
-// otherwise exercised. These tests call db.updateCuenta/db.deleteCuenta
+// isValidPendienteUpdate()/delete-rule requiring status == 'pending') is never
+// otherwise exercised. These tests call db.updatePendiente/db.deletePendiente
 // directly, bypassing the domain wrapper, to prove the fixture's own guard
 // works standalone.
-describe('memoryHouseholdsDb updateCuenta/deleteCuenta (bypassing the domain wrapper)', () => {
-  it('updateCuenta throws CuentaAlreadyPaidError when the stored cuenta is no longer pending', async () => {
+describe('memoryHouseholdsDb updatePendiente/deletePendiente (bypassing the domain wrapper)', () => {
+  it('updatePendiente throws PendienteAlreadyPaidError when the stored pendiente is no longer pending', async () => {
     const store = createMemoryHouseholdsDb()
     const db = store.asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -1217,7 +1224,7 @@ describe('memoryHouseholdsDb updateCuenta/deleteCuenta (bypassing the domain wra
     if (comida === undefined) {
       throw new Error('expected a seeded category')
     }
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db,
       householdId: household.id,
       categoryId: comida.id,
@@ -1226,23 +1233,27 @@ describe('memoryHouseholdsDb updateCuenta/deleteCuenta (bypassing the domain wra
       expectedAmount: 500,
     })
     // Simulates another member marking it paid between this test's earlier
-    // read and the write below -- store.seedCuenta overwrites the same id.
-    store.seedCuenta({ ...cuenta, status: 'paid', paidExpenseId: 'expense-1' })
+    // read and the write below -- store.seedPendiente overwrites the same id.
+    store.seedPendiente({
+      ...pendiente,
+      status: 'paid',
+      paidExpenseId: 'expense-1',
+    })
 
     await expect(
-      db.updateCuenta({
+      db.updatePendiente({
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
         categoryId: comida.id,
         name: 'Intento tardío',
-        dueDate: cuenta.dueDate,
-        expectedAmount: cuenta.expectedAmount,
+        dueDate: pendiente.dueDate,
+        expectedAmount: pendiente.expectedAmount,
         recurring: false,
       }),
-    ).rejects.toThrow(CuentaAlreadyPaidError)
+    ).rejects.toThrow(PendienteAlreadyPaidError)
   })
 
-  it('deleteCuenta throws CuentaAlreadyPaidError when the stored cuenta is no longer pending', async () => {
+  it('deletePendiente throws PendienteAlreadyPaidError when the stored pendiente is no longer pending', async () => {
     const store = createMemoryHouseholdsDb()
     const db = store.asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -1256,7 +1267,7 @@ describe('memoryHouseholdsDb updateCuenta/deleteCuenta (bypassing the domain wra
     if (comida === undefined) {
       throw new Error('expected a seeded category')
     }
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db,
       householdId: household.id,
       categoryId: comida.id,
@@ -1264,23 +1275,30 @@ describe('memoryHouseholdsDb updateCuenta/deleteCuenta (bypassing the domain wra
       dueDate: new Date(2026, 8, 10),
       expectedAmount: 500,
     })
-    store.seedCuenta({ ...cuenta, status: 'paid', paidExpenseId: 'expense-1' })
+    store.seedPendiente({
+      ...pendiente,
+      status: 'paid',
+      paidExpenseId: 'expense-1',
+    })
 
     await expect(
-      db.deleteCuenta({ householdId: household.id, cuentaId: cuenta.id }),
-    ).rejects.toThrow(CuentaAlreadyPaidError)
+      db.deletePendiente({
+        householdId: household.id,
+        pendienteId: pendiente.id,
+      }),
+    ).rejects.toThrow(PendienteAlreadyPaidError)
   })
 })
 
-describe('markCuentaPaid', () => {
-  it('marks a pending cuenta paid, creating an expense with the final amount, payment date, cuenta category, and paying member', async () => {
-    const { db, household, comida, cuenta } = await seedPendingCuenta()
+describe('markPendientePaid', () => {
+  it('marks a pending pendiente paid, creating an expense with the final amount, payment date, pendiente category, and paying member', async () => {
+    const { db, household, comida, pendiente } = await seedPendingPendiente()
     const paymentDate = new Date(2026, 7, 28)
 
-    const { cuenta: paid, expense } = await markCuentaPaid({
+    const { pendiente: paid, expense } = await markPendientePaid({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
       memberId: 'user-1',
       authorDisplayName: 'Ada',
       finalAmount: 480,
@@ -1298,45 +1316,45 @@ describe('markCuentaPaid', () => {
     expect(expense.name).toBe('Alquiler')
   })
 
-  it('removes the cuenta from listPendingCuentas once marked paid', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta()
+  it('removes the pendiente from listPendientes once marked paid', async () => {
+    const { db, household, pendiente } = await seedPendingPendiente()
 
-    await markCuentaPaid({
+    await markPendientePaid({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
       memberId: 'user-1',
       authorDisplayName: 'Ada',
       finalAmount: 480,
       paymentDate: new Date(2026, 7, 28),
     })
 
-    const pending = await listPendingCuentas({ db, householdId: household.id })
-    expect(pending.find((entry) => entry.id === cuenta.id)).toBeUndefined()
+    const pending = await listPendientes({ db, householdId: household.id })
+    expect(pending.find((entry) => entry.id === pendiente.id)).toBeUndefined()
   })
 
-  it('rejects a second mark-paid attempt with CuentaAlreadyPaidError and creates exactly one Expense when marked paid twice back-to-back', async () => {
-    // memoryHouseholdsDb's markCuentaPaid has no internal await, so these
+  it('rejects a second mark-paid attempt with PendienteAlreadyPaidError and creates exactly one Expense when marked paid twice back-to-back', async () => {
+    // memoryHouseholdsDb's markPendientePaid has no internal await, so these
     // two calls run to completion sequentially rather than truly racing --
     // this proves idempotency on repeated calls, not concurrent-write safety
     // under real interleaving (that guarantee comes from the Firestore
     // transaction itself, checked structurally in firestoreHouseholdsDb.test.ts).
-    const { db, household, cuenta } = await seedPendingCuenta()
+    const { db, household, pendiente } = await seedPendingPendiente()
 
     const [first, second] = await Promise.allSettled([
-      markCuentaPaid({
+      markPendientePaid({
         db,
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
         memberId: 'user-1',
         authorDisplayName: 'Ada',
         finalAmount: 480,
         paymentDate: new Date(2026, 7, 28),
       }),
-      markCuentaPaid({
+      markPendientePaid({
         db,
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
         memberId: 'user-1',
         authorDisplayName: 'Ada',
         finalAmount: 480,
@@ -1353,7 +1371,7 @@ describe('markCuentaPaid', () => {
         outcome.status === 'rejected',
     )
     expect(rejected).toHaveLength(1)
-    expect(rejected[0]?.reason).toBeInstanceOf(CuentaAlreadyPaidError)
+    expect(rejected[0]?.reason).toBeInstanceOf(PendienteAlreadyPaidError)
 
     const expenses = await listRecentExpenses({
       db,
@@ -1364,7 +1382,7 @@ describe('markCuentaPaid', () => {
   })
 
   it('leaves no orphaned state when a failure strikes between the status check and the writes', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta()
+    const { db, household, pendiente } = await seedPendingPendiente()
     const randomUUIDSpy = vi
       .spyOn(crypto, 'randomUUID')
       .mockImplementationOnce(() => {
@@ -1372,10 +1390,10 @@ describe('markCuentaPaid', () => {
       })
 
     await expect(
-      markCuentaPaid({
+      markPendientePaid({
         db,
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
         memberId: 'user-1',
         authorDisplayName: 'Ada',
         finalAmount: 480,
@@ -1384,10 +1402,10 @@ describe('markCuentaPaid', () => {
     ).rejects.toThrow('boom')
     randomUUIDSpy.mockRestore()
 
-    const stillPending = await getCuenta({
+    const stillPending = await getPendiente({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
     })
     expect(stillPending?.status).toBe('pending')
     expect(stillPending?.paidExpenseId).toBeNull()
@@ -1400,14 +1418,14 @@ describe('markCuentaPaid', () => {
     expect(expenses).toHaveLength(0)
   })
 
-  // The recurring path builds three records (expense, paid cuenta, next
+  // The recurring path builds three records (expense, paid pendiente, next
   // cycle) and must still commit all-or-nothing. The failure is planted on
   // the *second* id generation, so it lands after the expense id already
   // exists but before any store mutation -- the worst spot for a partial
   // write, and the one a naive "set as you go" implementation would leak
   // both a paid original and a dangling next cycle from.
   it('leaves no orphaned state -- not even a dangling next cycle -- when a recurring mark-paid fails midway', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta({
+    const { db, household, pendiente } = await seedPendingPendiente({
       recurring: true,
     })
     const randomUUIDSpy = vi
@@ -1419,10 +1437,10 @@ describe('markCuentaPaid', () => {
 
     try {
       await expect(
-        markCuentaPaid({
+        markPendientePaid({
           db,
           householdId: household.id,
-          cuentaId: cuenta.id,
+          pendienteId: pendiente.id,
           memberId: 'user-1',
           authorDisplayName: 'Ada',
           finalAmount: 480,
@@ -1435,10 +1453,10 @@ describe('markCuentaPaid', () => {
       randomUUIDSpy.mockRestore()
     }
 
-    const stillPending = await getCuenta({
+    const stillPending = await getPendiente({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
     })
     expect(stillPending?.status).toBe('pending')
     expect(stillPending?.paidExpenseId).toBeNull()
@@ -1450,28 +1468,28 @@ describe('markCuentaPaid', () => {
     })
     expect(expenses).toHaveLength(0)
 
-    const pending = await listPendingCuentas({ db, householdId: household.id })
+    const pending = await listPendientes({ db, householdId: household.id })
     expect(pending).toHaveLength(1)
-    expect(pending[0]?.id).toBe(cuenta.id)
+    expect(pending[0]?.id).toBe(pendiente.id)
   })
 
-  it('throws CuentaNotFoundError for a missing cuenta id', async () => {
-    const { db, household } = await seedPendingCuenta()
+  it('throws PendienteNotFoundError for a missing pendiente id', async () => {
+    const { db, household } = await seedPendingPendiente()
 
     await expect(
-      markCuentaPaid({
+      markPendientePaid({
         db,
         householdId: household.id,
-        cuentaId: 'missing',
+        pendienteId: 'missing',
         memberId: 'user-1',
         authorDisplayName: 'Ada',
         finalAmount: 480,
         paymentDate: new Date(2026, 7, 28),
       }),
-    ).rejects.toThrow(CuentaNotFoundError)
+    ).rejects.toThrow(PendienteNotFoundError)
   })
 
-  it('throws CuentaNotFoundError for a cuenta id belonging to a different household', async () => {
+  it('throws PendienteNotFoundError for a pendiente id belonging to a different household', async () => {
     const store = createMemoryHouseholdsDb()
     const ownerDb = store.asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -1495,7 +1513,7 @@ describe('markCuentaPaid', () => {
     if (otherComida === undefined) {
       throw new Error('expected a seeded category')
     }
-    const otherCuenta = await createCuenta({
+    const otherPendiente = await createPendiente({
       db: otherDb,
       householdId: otherHousehold.id,
       categoryId: otherComida.id,
@@ -1505,26 +1523,26 @@ describe('markCuentaPaid', () => {
     })
 
     await expect(
-      markCuentaPaid({
+      markPendientePaid({
         db: ownerDb,
         householdId: household.id,
-        cuentaId: otherCuenta.id,
+        pendienteId: otherPendiente.id,
         memberId: 'user-1',
         authorDisplayName: 'Ada',
         finalAmount: 480,
         paymentDate: new Date(2026, 7, 28),
       }),
-    ).rejects.toThrow(CuentaNotFoundError)
+    ).rejects.toThrow(PendienteNotFoundError)
   })
 
-  it('rejects a non-positive finalAmount before touching the cuenta or creating an expense', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta()
+  it('rejects a non-positive finalAmount before touching the pendiente or creating an expense', async () => {
+    const { db, household, pendiente } = await seedPendingPendiente()
 
     await expect(
-      markCuentaPaid({
+      markPendientePaid({
         db,
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
         memberId: 'user-1',
         authorDisplayName: 'Ada',
         finalAmount: 0,
@@ -1532,10 +1550,10 @@ describe('markCuentaPaid', () => {
       }),
     ).rejects.toThrow('El precio del gasto debe ser un número positivo')
 
-    const stillPending = await getCuenta({
+    const stillPending = await getPendiente({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
     })
     expect(stillPending?.status).toBe('pending')
     const expenses = await listRecentExpenses({
@@ -1546,14 +1564,14 @@ describe('markCuentaPaid', () => {
     expect(expenses).toHaveLength(0)
   })
 
-  it('rejects a future paymentDate before touching the cuenta or creating an expense', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta()
+  it('rejects a future paymentDate before touching the pendiente or creating an expense', async () => {
+    const { db, household, pendiente } = await seedPendingPendiente()
 
     await expect(
-      markCuentaPaid({
+      markPendientePaid({
         db,
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
         memberId: 'user-1',
         authorDisplayName: 'Ada',
         finalAmount: 480,
@@ -1561,10 +1579,10 @@ describe('markCuentaPaid', () => {
       }),
     ).rejects.toThrow('La fecha del gasto no puede ser futura')
 
-    const stillPending = await getCuenta({
+    const stillPending = await getPendiente({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
     })
     expect(stillPending?.status).toBe('pending')
     const expenses = await listRecentExpenses({
@@ -1576,13 +1594,13 @@ describe('markCuentaPaid', () => {
   })
 
   it('allows a paymentDate of exactly today', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta()
+    const { db, household, pendiente } = await seedPendingPendiente()
     const today = new Date()
 
-    const { expense } = await markCuentaPaid({
+    const { expense } = await markPendientePaid({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
       memberId: 'user-1',
       authorDisplayName: 'Ada',
       finalAmount: 480,
@@ -1593,12 +1611,12 @@ describe('markCuentaPaid', () => {
   })
 
   it('rounds finalAmount to 2 decimal places, same as parseExpensePrice', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta()
+    const { db, household, pendiente } = await seedPendingPendiente()
 
-    const { expense } = await markCuentaPaid({
+    const { expense } = await markPendientePaid({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
       memberId: 'user-1',
       authorDisplayName: 'Ada',
       finalAmount: 480.456,
@@ -1608,70 +1626,70 @@ describe('markCuentaPaid', () => {
     expect(expense.price).toBe(480.46)
   })
 
-  it('spawns the next cycle for a recurring cuenta: same name and category, still recurring, pending, one month later, with a fresh id', async () => {
-    const { db, household, comida, cuenta } = await seedPendingCuenta({
+  it('spawns the next cycle for a recurring pendiente: same name and category, still recurring, pending, one month later, with a fresh id', async () => {
+    const { db, household, comida, pendiente } = await seedPendingPendiente({
       recurring: true,
     })
 
-    const { nextCuenta } = await markCuentaPaid({
+    const { nextPendiente } = await markPendientePaid({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
       memberId: 'user-1',
       authorDisplayName: 'Ada',
       finalAmount: 480,
       paymentDate: new Date(2026, 7, 28),
     })
 
-    expect(nextCuenta).not.toBeNull()
-    expect(nextCuenta?.id).not.toBe(cuenta.id)
-    expect(nextCuenta?.householdId).toBe(household.id)
-    expect(nextCuenta?.categoryId).toBe(comida.id)
-    expect(nextCuenta?.name).toBe('Alquiler')
-    expect(nextCuenta?.recurring).toBe(true)
-    expect(nextCuenta?.status).toBe('pending')
-    expect(nextCuenta?.paidExpenseId).toBeNull()
-    expect(nextCuenta?.dueDate).toEqual(new Date(2026, 9, 10))
+    expect(nextPendiente).not.toBeNull()
+    expect(nextPendiente?.id).not.toBe(pendiente.id)
+    expect(nextPendiente?.householdId).toBe(household.id)
+    expect(nextPendiente?.categoryId).toBe(comida.id)
+    expect(nextPendiente?.name).toBe('Alquiler')
+    expect(nextPendiente?.recurring).toBe(true)
+    expect(nextPendiente?.status).toBe('pending')
+    expect(nextPendiente?.paidExpenseId).toBeNull()
+    expect(nextPendiente?.dueDate).toEqual(new Date(2026, 9, 10))
   })
 
   it('never carries the previous cycle expected amount over to the next cycle', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta({
+    const { db, household, pendiente } = await seedPendingPendiente({
       recurring: true,
       expectedAmount: 480,
     })
-    expect(cuenta.expectedAmount).toBe(480)
+    expect(pendiente.expectedAmount).toBe(480)
 
-    const { nextCuenta } = await markCuentaPaid({
+    const { nextPendiente } = await markPendientePaid({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
       memberId: 'user-1',
       authorDisplayName: 'Ada',
       finalAmount: 480,
       paymentDate: new Date(2026, 7, 28),
     })
 
-    expect(nextCuenta?.expectedAmount).toBeNull()
+    expect(nextPendiente?.expectedAmount).toBeNull()
   })
 
-  it('leaves the next cycle as the only pending cuenta right after a recurring mark-paid', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta({
+  it('leaves the next cycle as the only pending pendiente right after a recurring mark-paid', async () => {
+    const { db, household, pendiente } = await seedPendingPendiente({
       recurring: true,
     })
 
-    const { nextCuenta } = await markCuentaPaid({
+    const { nextPendiente } = await markPendientePaid({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
       memberId: 'user-1',
       authorDisplayName: 'Ada',
       finalAmount: 480,
       paymentDate: new Date(2026, 7, 28),
     })
 
-    const pending = await listPendingCuentas({ db, householdId: household.id })
+    const pending = await listPendientes({ db, householdId: household.id })
     expect(pending).toHaveLength(1)
-    expect(pending[0]?.id).toBe(nextCuenta?.id)
+    expect(pending[0]?.id).toBe(nextPendiente?.id)
   })
 
   // The single strongest guarantee that recurrence actually recurs: the
@@ -1679,14 +1697,14 @@ describe('markCuentaPaid', () => {
   // cycle of its own. A next cycle written with recurring: false would pass
   // every other test here and only fail this one.
   it('keeps the series going: the auto-created cycle can itself be marked paid and spawns a third cycle', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta({
+    const { db, household, pendiente } = await seedPendingPendiente({
       recurring: true,
     })
 
-    const { nextCuenta: second } = await markCuentaPaid({
+    const { nextPendiente: second } = await markPendientePaid({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
       memberId: 'user-1',
       authorDisplayName: 'Ada',
       finalAmount: 480,
@@ -1696,10 +1714,10 @@ describe('markCuentaPaid', () => {
       throw new Error('expected a second cycle')
     }
 
-    const { nextCuenta: third } = await markCuentaPaid({
+    const { nextPendiente: third } = await markPendientePaid({
       db,
       householdId: household.id,
-      cuentaId: second.id,
+      pendienteId: second.id,
       memberId: 'user-1',
       authorDisplayName: 'Ada',
       finalAmount: 500,
@@ -1708,7 +1726,7 @@ describe('markCuentaPaid', () => {
 
     expect(third?.dueDate).toEqual(new Date(2026, 10, 10))
     expect(third?.recurring).toBe(true)
-    const pending = await listPendingCuentas({ db, householdId: household.id })
+    const pending = await listPendientes({ db, householdId: household.id })
     expect(pending).toHaveLength(1)
     expect(pending[0]?.id).toBe(third?.id)
   })
@@ -1717,9 +1735,9 @@ describe('markCuentaPaid', () => {
   // so paying a long-overdue bill lands the member on the next *missed*
   // cycle rather than skipping ahead to a future one -- they mark each stale
   // cycle paid to catch up. Pinned here so the choice is deliberate.
-  it('derives the next due date from the stored due date, not the payment date, for an overdue cuenta', async () => {
-    const { db, household, comida } = await seedPendingCuenta()
-    const overdue = await createCuenta({
+  it('derives the next due date from the stored due date, not the payment date, for an overdue pendiente', async () => {
+    const { db, household, comida } = await seedPendingPendiente()
+    const overdue = await createPendiente({
       db,
       householdId: household.id,
       categoryId: comida.id,
@@ -1729,22 +1747,22 @@ describe('markCuentaPaid', () => {
       recurring: true,
     })
 
-    const { nextCuenta } = await markCuentaPaid({
+    const { nextPendiente } = await markPendientePaid({
       db,
       householdId: household.id,
-      cuentaId: overdue.id,
+      pendienteId: overdue.id,
       memberId: 'user-1',
       authorDisplayName: 'Ada',
       finalAmount: 480,
       paymentDate: new Date(2026, 7, 28),
     })
 
-    expect(nextCuenta?.dueDate).toEqual(new Date(2026, 2, 10))
+    expect(nextPendiente?.dueDate).toEqual(new Date(2026, 2, 10))
   })
 
   it('clamps the next due date to the last day of a shorter target month', async () => {
-    const { db, household, comida } = await seedPendingCuenta()
-    const recurring = await createCuenta({
+    const { db, household, comida } = await seedPendingPendiente()
+    const recurring = await createPendiente({
       db,
       householdId: household.id,
       categoryId: comida.id,
@@ -1754,36 +1772,36 @@ describe('markCuentaPaid', () => {
       recurring: true,
     })
 
-    const { nextCuenta } = await markCuentaPaid({
+    const { nextPendiente } = await markPendientePaid({
       db,
       householdId: household.id,
-      cuentaId: recurring.id,
+      pendienteId: recurring.id,
       memberId: 'user-1',
       authorDisplayName: 'Ada',
       finalAmount: 480,
       paymentDate: new Date(2026, 7, 28),
     })
 
-    expect(nextCuenta?.dueDate).toEqual(new Date(2026, 1, 28))
+    expect(nextPendiente?.dueDate).toEqual(new Date(2026, 1, 28))
   })
 
-  it('creates no next cycle for a non-recurring cuenta', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta({
+  it('creates no next cycle for a non-recurring pendiente', async () => {
+    const { db, household, pendiente } = await seedPendingPendiente({
       recurring: false,
     })
 
-    const { nextCuenta } = await markCuentaPaid({
+    const { nextPendiente } = await markPendientePaid({
       db,
       householdId: household.id,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
       memberId: 'user-1',
       authorDisplayName: 'Ada',
       finalAmount: 480,
       paymentDate: new Date(2026, 7, 28),
     })
 
-    expect(nextCuenta).toBeNull()
-    const pending = await listPendingCuentas({ db, householdId: household.id })
+    expect(nextPendiente).toBeNull()
+    const pending = await listPendientes({ db, householdId: household.id })
     expect(pending).toHaveLength(0)
   })
 
@@ -1791,28 +1809,28 @@ describe('markCuentaPaid', () => {
   // above: a double submit (or two members hitting Pagar at once) must not
   // leave the household with two next cycles for the same bill, which would
   // duplicate every following cycle too. Same caveat as that test --
-  // memoryHouseholdsDb's markCuentaPaid has no internal await, so these run
+  // memoryHouseholdsDb's markPendientePaid has no internal await, so these run
   // sequentially rather than truly interleaved; the concurrent-write
   // guarantee itself comes from the Firestore transaction.
-  it('spawns exactly one next cycle when a recurring cuenta is marked paid twice back-to-back', async () => {
-    const { db, household, cuenta } = await seedPendingCuenta({
+  it('spawns exactly one next cycle when a recurring pendiente is marked paid twice back-to-back', async () => {
+    const { db, household, pendiente } = await seedPendingPendiente({
       recurring: true,
     })
 
     const outcomes = await Promise.allSettled([
-      markCuentaPaid({
+      markPendientePaid({
         db,
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
         memberId: 'user-1',
         authorDisplayName: 'Ada',
         finalAmount: 480,
         paymentDate: new Date(2026, 7, 28),
       }),
-      markCuentaPaid({
+      markPendientePaid({
         db,
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
         memberId: 'user-1',
         authorDisplayName: 'Ada',
         finalAmount: 480,
@@ -1825,16 +1843,16 @@ describe('markCuentaPaid', () => {
         outcome.status === 'rejected',
     )
     expect(rejected).toHaveLength(1)
-    expect(rejected[0]?.reason).toBeInstanceOf(CuentaAlreadyPaidError)
+    expect(rejected[0]?.reason).toBeInstanceOf(PendienteAlreadyPaidError)
 
-    const pending = await listPendingCuentas({ db, householdId: household.id })
+    const pending = await listPendientes({ db, householdId: household.id })
     expect(pending).toHaveLength(1)
-    expect(pending[0]?.id).not.toBe(cuenta.id)
+    expect(pending[0]?.id).not.toBe(pendiente.id)
     expect(pending[0]?.dueDate).toEqual(new Date(2026, 9, 10))
 
     // Also assert the Expense count on this path specifically. The
     // "exactly one Expense" idempotency test above seeds a non-recurring
-    // cuenta (seedPendingCuenta defaults recurring: false), so without this
+    // pendiente (seedPendingPendiente defaults recurring: false), so without this
     // the recurring path -- the one this ticket actually changed, and the
     // one that now performs three writes instead of two -- would have no
     // coverage against double-counting a real household expense.
@@ -1863,7 +1881,7 @@ describe('markCuentaPaid', () => {
     if (comida === undefined) {
       throw new Error('expected a seeded category')
     }
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db: ownerDb,
       householdId: household.id,
       categoryId: comida.id,
@@ -1873,10 +1891,10 @@ describe('markCuentaPaid', () => {
     })
 
     await expect(
-      markCuentaPaid({
+      markPendientePaid({
         db: store.asUser('user-2'),
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
         memberId: 'user-2',
         authorDisplayName: 'Intento ajeno',
         finalAmount: 480,
@@ -1886,17 +1904,17 @@ describe('markCuentaPaid', () => {
   })
 })
 
-// Every markCuentaPaid scenario above goes through the domain wrapper, which
+// Every markPendientePaid scenario above goes through the domain wrapper, which
 // forwards memberId straight through without checking it against the
 // authenticated caller. The real Firestore adapter never trusts
 // input.memberId either way -- it resolves the actual member id itself via
-// awaitAuthenticatedUserId (see the "markCuentaPaid adapter" describe block
+// awaitAuthenticatedUserId (see the "markPendientePaid adapter" describe block
 // in firestoreHouseholdsDb.test.ts) -- so this fixture's own anti-spoof
 // check (mirroring createExpense's) is what stands between a malicious
 // caller and impersonating a housemate in this test double. These tests
-// call db.markCuentaPaid directly, bypassing the domain wrapper, to prove
+// call db.markPendientePaid directly, bypassing the domain wrapper, to prove
 // the fixture's own guards work standalone.
-describe('memoryHouseholdsDb markCuentaPaid (bypassing the domain wrapper)', () => {
+describe('memoryHouseholdsDb markPendientePaid (bypassing the domain wrapper)', () => {
   it('throws HouseholdAccessDeniedError when a member spoofs memberId to impersonate a different member of the same household', async () => {
     const store = createMemoryHouseholdsDb()
     const db = store.asUser('user-1')
@@ -1912,7 +1930,7 @@ describe('memoryHouseholdsDb markCuentaPaid (bypassing the domain wrapper)', () 
     if (comida === undefined) {
       throw new Error('expected a seeded category')
     }
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db,
       householdId: household.id,
       categoryId: comida.id,
@@ -1927,9 +1945,9 @@ describe('memoryHouseholdsDb markCuentaPaid (bypassing the domain wrapper)', () 
     // would let this through since user-1 IS a member; only the explicit
     // memberId === userId check catches the impersonation.
     await expect(
-      db.markCuentaPaid({
+      db.markPendientePaid({
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
         memberId: 'user-2',
         authorDisplayName: 'Spoofed as user-2',
         finalAmount: 480,
@@ -1938,7 +1956,7 @@ describe('memoryHouseholdsDb markCuentaPaid (bypassing the domain wrapper)', () 
     ).rejects.toThrow(HouseholdAccessDeniedError)
   })
 
-  it('throws CuentaAlreadyPaidError when the stored cuenta is no longer pending, even with paidExpenseId already set', async () => {
+  it('throws PendienteAlreadyPaidError when the stored pendiente is no longer pending, even with paidExpenseId already set', async () => {
     const store = createMemoryHouseholdsDb()
     const db = store.asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -1952,7 +1970,7 @@ describe('memoryHouseholdsDb markCuentaPaid (bypassing the domain wrapper)', () 
     if (comida === undefined) {
       throw new Error('expected a seeded category')
     }
-    const cuenta = await createCuenta({
+    const pendiente = await createPendiente({
       db,
       householdId: household.id,
       categoryId: comida.id,
@@ -1961,19 +1979,23 @@ describe('memoryHouseholdsDb markCuentaPaid (bypassing the domain wrapper)', () 
       expectedAmount: 500,
     })
     // Simulates another member marking it paid between this test's earlier
-    // read and the write below -- store.seedCuenta overwrites the same id,
+    // read and the write below -- store.seedPendiente overwrites the same id,
     // leaving paidExpenseId already populated from that earlier mark-paid.
-    store.seedCuenta({ ...cuenta, status: 'paid', paidExpenseId: 'expense-1' })
+    store.seedPendiente({
+      ...pendiente,
+      status: 'paid',
+      paidExpenseId: 'expense-1',
+    })
 
     await expect(
-      db.markCuentaPaid({
+      db.markPendientePaid({
         householdId: household.id,
-        cuentaId: cuenta.id,
+        pendienteId: pendiente.id,
         memberId: 'user-1',
         authorDisplayName: 'Intento tardío',
         finalAmount: 480,
         paymentDate: new Date(2026, 7, 28),
       }),
-    ).rejects.toThrow(CuentaAlreadyPaidError)
+    ).rejects.toThrow(PendienteAlreadyPaidError)
   })
 })

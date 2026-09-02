@@ -8,21 +8,25 @@ import {
   FirestoreDeniedError,
 } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
-import { createCuenta, deleteCuenta, listPendingCuentas } from '@/lib/cuentas'
-import type { Cuenta } from '@/lib/cuentas'
+import {
+  createPendiente,
+  deletePendiente,
+  listPendientes,
+} from '@/lib/pendientes'
+import type { Pendiente } from '@/lib/pendientes'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
-import { AddCuentaForm } from './AddCuentaForm'
-import type { EditCuentaTarget } from './AddCuentaForm'
-import { AddCuentaSheet } from './AddCuentaSheet'
-import type { AddCuentaSheetProps } from './AddCuentaSheet'
-import { PendingCuentasList } from './PendingCuentasList'
+import { AddPendienteForm } from './AddPendienteForm'
+import type { EditPendienteTarget } from './AddPendienteForm'
+import { AddPendienteSheet } from './AddPendienteSheet'
+import type { AddPendienteSheetProps } from './AddPendienteSheet'
+import { PendientesList } from './PendientesList'
 
-function AddCuentaSheetHarness(
-  props: Omit<AddCuentaSheetProps, 'open' | 'onOpenChange'>,
+function AddPendienteSheetHarness(
+  props: Omit<AddPendienteSheetProps, 'open' | 'onOpenChange'>,
 ): ReactElement {
   const [open, setOpen] = useState(false)
-  return <AddCuentaSheet open={open} onOpenChange={setOpen} {...props} />
+  return <AddPendienteSheet open={open} onOpenChange={setOpen} {...props} />
 }
 
 async function renderForm() {
@@ -34,14 +38,14 @@ async function renderForm() {
     monthlyBudget: 100,
   })
   renderWithProviders(
-    <AddCuentaSheetHarness db={db} householdId={household.id} />,
+    <AddPendienteSheetHarness db={db} householdId={household.id} />,
   )
-  fireEvent.click(screen.getByRole('button', { name: 'Nueva cuenta' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
   await screen.findByLabelText('Nombre')
   return { db, householdId: household.id }
 }
 
-function fillCuenta(fields: {
+function fillPendiente(fields: {
   readonly name?: string
   readonly category?: string
   readonly dueDate?: string
@@ -69,24 +73,24 @@ function fillCuenta(fields: {
   }
 }
 
-function submitCuenta(): void {
-  fireEvent.click(screen.getByRole('button', { name: 'Agregar cuenta' }))
+function submitPendiente(): void {
+  fireEvent.click(screen.getByRole('button', { name: 'Agregar pendiente' }))
 }
 
-describe('AddCuentaForm', () => {
-  it('stores a pending cuenta for the household', async () => {
+describe('AddPendienteForm', () => {
+  it('stores a pending pendiente for the household', async () => {
     const { db, householdId } = await renderForm()
 
-    fillCuenta({
+    fillPendiente({
       name: 'Alquiler',
       category: 'Servicios',
       dueDate: '2026-09-10',
       expectedAmount: '500',
     })
-    submitCuenta()
+    submitPendiente()
 
     await waitFor(async () => {
-      const listed = await listPendingCuentas({ db, householdId })
+      const listed = await listPendientes({ db, householdId })
       expect(listed).toEqual([
         expect.objectContaining({
           householdId,
@@ -103,7 +107,7 @@ describe('AddCuentaForm', () => {
     await waitFor(() => {
       expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
       expect(
-        screen.queryByRole('button', { name: 'Nueva cuenta' }),
+        screen.queryByRole('button', { name: 'Nuevo pendiente' }),
       ).toBeInTheDocument()
     })
   })
@@ -111,43 +115,41 @@ describe('AddCuentaForm', () => {
   it('rejects an empty name', async () => {
     const { db, householdId } = await renderForm()
 
-    fillCuenta({ name: '', category: 'Comida', dueDate: '2026-09-10' })
-    submitCuenta()
+    fillPendiente({ name: '', category: 'Comida', dueDate: '2026-09-10' })
+    submitPendiente()
 
     expect(screen.getByRole('alert')).toHaveTextContent(/nombre/i)
-    expect(
-      await listPendingCuentas({ db, householdId }),
-    ).toEqual([])
+    expect(await listPendientes({ db, householdId })).toEqual([])
   })
 
   it('rejects a whitespace-only name', async () => {
     const { db, householdId } = await renderForm()
 
-    fillCuenta({ name: '   ', category: 'Comida', dueDate: '2026-09-10' })
-    submitCuenta()
+    fillPendiente({ name: '   ', category: 'Comida', dueDate: '2026-09-10' })
+    submitPendiente()
 
     expect(screen.getByRole('alert')).toHaveTextContent(/nombre/i)
-    expect(await listPendingCuentas({ db, householdId })).toEqual([])
+    expect(await listPendientes({ db, householdId })).toEqual([])
   })
 
   it('rejects an empty category', async () => {
     const { db, householdId } = await renderForm()
 
-    fillCuenta({ name: 'Alquiler', category: '   ', dueDate: '2026-09-10' })
-    submitCuenta()
+    fillPendiente({ name: 'Alquiler', category: '   ', dueDate: '2026-09-10' })
+    submitPendiente()
 
     expect(screen.getByRole('alert')).toHaveTextContent(/categoría/i)
-    expect(await listPendingCuentas({ db, householdId })).toEqual([])
+    expect(await listPendientes({ db, householdId })).toEqual([])
   })
 
   it('rejects an empty due date', async () => {
     const { db, householdId } = await renderForm()
 
-    fillCuenta({ name: 'Alquiler', category: 'Comida', dueDate: '' })
-    submitCuenta()
+    fillPendiente({ name: 'Alquiler', category: 'Comida', dueDate: '' })
+    submitPendiente()
 
     expect(screen.getByRole('alert')).toHaveTextContent(/fecha/i)
-    expect(await listPendingCuentas({ db, householdId })).toEqual([])
+    expect(await listPendientes({ db, householdId })).toEqual([])
   })
 
   it('accepts a due date in the past with no validation error, unlike the expense form', async () => {
@@ -160,15 +162,15 @@ describe('AddCuentaForm', () => {
       'min',
     )
 
-    fillCuenta({
+    fillPendiente({
       name: 'Vieja deuda',
       category: 'Comida',
       dueDate: '2020-01-01',
     })
-    submitCuenta()
+    submitPendiente()
 
     await waitFor(async () => {
-      const listed = await listPendingCuentas({ db, householdId })
+      const listed = await listPendientes({ db, householdId })
       expect(listed).toEqual([
         expect.objectContaining({
           name: 'Vieja deuda',
@@ -181,15 +183,15 @@ describe('AddCuentaForm', () => {
   it('leaves expectedAmount as null, not 0, when the field is left blank', async () => {
     const { db, householdId } = await renderForm()
 
-    fillCuenta({
+    fillPendiente({
       name: 'Luz',
       category: 'Servicios',
       dueDate: '2026-09-05',
     })
-    submitCuenta()
+    submitPendiente()
 
     await waitFor(async () => {
-      const listed = await listPendingCuentas({ db, householdId })
+      const listed = await listPendientes({ db, householdId })
       expect(listed).toEqual([
         expect.objectContaining({ name: 'Luz', expectedAmount: null }),
       ])
@@ -199,39 +201,39 @@ describe('AddCuentaForm', () => {
   it('rejects a negative, zero, or non-numeric expected amount when one is provided', async () => {
     const { db, householdId } = await renderForm()
 
-    fillCuenta({
+    fillPendiente({
       name: 'Alquiler',
       category: 'Comida',
       dueDate: '2026-09-10',
       expectedAmount: '-1',
     })
-    submitCuenta()
+    submitPendiente()
     expect(screen.getByRole('alert')).toHaveTextContent(/monto/i)
 
-    fillCuenta({ expectedAmount: '0' })
-    submitCuenta()
+    fillPendiente({ expectedAmount: '0' })
+    submitPendiente()
     expect(screen.getByRole('alert')).toHaveTextContent(/monto/i)
 
-    fillCuenta({ expectedAmount: 'abc' })
-    submitCuenta()
+    fillPendiente({ expectedAmount: 'abc' })
+    submitPendiente()
     expect(screen.getByRole('alert')).toHaveTextContent(/monto/i)
 
-    expect(await listPendingCuentas({ db, householdId })).toEqual([])
+    expect(await listPendientes({ db, householdId })).toEqual([])
   })
 
   it('creates a new category from free text, reusing the same pick-or-create behavior as the Expense form', async () => {
     const { db, householdId } = await renderForm()
 
-    fillCuenta({
+    fillPendiente({
       name: 'Streaming',
       category: 'Suscripciones',
       dueDate: '2026-09-12',
       expectedAmount: '15',
     })
-    submitCuenta()
+    submitPendiente()
 
     await waitFor(async () => {
-      const listed = await listPendingCuentas({ db, householdId })
+      const listed = await listPendientes({ db, householdId })
       expect(listed).toHaveLength(1)
       const categories = await listCategories({ db, householdId })
       const created = categories.find(
@@ -250,15 +252,15 @@ describe('AddCuentaForm', () => {
     )
     expect(comida).toBeDefined()
 
-    fillCuenta({
+    fillPendiente({
       name: 'Supermercado',
       category: '  comida  ',
       dueDate: '2026-09-05',
     })
-    submitCuenta()
+    submitPendiente()
 
     await waitFor(async () => {
-      const listed = await listPendingCuentas({ db, householdId })
+      const listed = await listPendientes({ db, householdId })
       expect(listed).toEqual([
         expect.objectContaining({ categoryId: comida?.id }),
       ])
@@ -279,16 +281,16 @@ describe('AddCuentaForm', () => {
       'unchecked',
     )
 
-    fillCuenta({
+    fillPendiente({
       name: 'Internet',
       category: 'Servicios',
       dueDate: '2026-09-08',
       expectedAmount: '30',
     })
-    submitCuenta()
+    submitPendiente()
 
     await waitFor(async () => {
-      const listed = await listPendingCuentas({ db, householdId })
+      const listed = await listPendientes({ db, householdId })
       expect(listed).toEqual([
         expect.objectContaining({
           name: 'Internet',
@@ -302,7 +304,7 @@ describe('AddCuentaForm', () => {
   it('passes recurring: true when the toggle is switched on, without affecting expectedAmount', async () => {
     const { db, householdId } = await renderForm()
 
-    fillCuenta({
+    fillPendiente({
       name: 'Gimnasio',
       category: 'Servicios',
       dueDate: '2026-09-15',
@@ -313,10 +315,10 @@ describe('AddCuentaForm', () => {
       'data-state',
       'checked',
     )
-    submitCuenta()
+    submitPendiente()
 
     await waitFor(async () => {
-      const listed = await listPendingCuentas({ db, householdId })
+      const listed = await listPendientes({ db, householdId })
       expect(listed).toEqual([
         expect.objectContaining({
           name: 'Gimnasio',
@@ -346,24 +348,24 @@ describe('AddCuentaForm', () => {
       },
     }
     renderWithProviders(
-      <AddCuentaSheetHarness db={db} householdId={household.id} />,
+      <AddPendienteSheetHarness db={db} householdId={household.id} />,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Nueva cuenta' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
     await screen.findByLabelText('Nombre')
 
-    fillCuenta({
+    fillPendiente({
       name: 'Alquiler',
       category: 'Servicios',
       dueDate: '2026-09-10',
     })
-    submitCuenta()
+    submitPendiente()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'No se pudo guardar la categoría. Volvé a intentar.',
     )
   })
 
-  it('shows which Firestore operation was denied when adding the cuenta', async () => {
+  it('shows which Firestore operation was denied when adding the pendiente', async () => {
     const base = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db: base,
@@ -373,29 +375,29 @@ describe('AddCuentaForm', () => {
     })
     const db: HouseholdsDb = {
       ...base,
-      createCuenta: async () => {
+      createPendiente: async () => {
         throw new FirestoreDeniedError({
-          operation: 'createCuenta',
+          operation: 'createPendiente',
           code: 'permission-denied',
           detail: 'Missing or insufficient permissions.',
         })
       },
     }
     renderWithProviders(
-      <AddCuentaSheetHarness db={db} householdId={household.id} />,
+      <AddPendienteSheetHarness db={db} householdId={household.id} />,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Nueva cuenta' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
     await screen.findByLabelText('Nombre')
 
-    fillCuenta({
+    fillPendiente({
       name: 'Alquiler',
       category: 'Servicios',
       dueDate: '2026-09-10',
     })
-    submitCuenta()
+    submitPendiente()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'No se pudo agregar la cuenta. Volvé a intentar.',
+      'No se pudo agregar el pendiente. Volvé a intentar.',
     )
   })
 
@@ -419,9 +421,9 @@ describe('AddCuentaForm', () => {
     }
 
     renderWithProviders(
-      <AddCuentaSheetHarness db={db} householdId={household.id} />,
+      <AddPendienteSheetHarness db={db} householdId={household.id} />,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Nueva cuenta' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'No se pudo cargar las categorías. Volvé a intentar.',
@@ -429,33 +431,34 @@ describe('AddCuentaForm', () => {
   })
 })
 
-function EditCuentaHarness(props: {
+function EditPendienteHarness(props: {
   readonly db: HouseholdsDb
   readonly householdId: string
 }): ReactElement {
-  const [editCuenta, setEditCuenta] = useState<EditCuentaTarget | null>(null)
+  const [editPendiente, setEditPendiente] =
+    useState<EditPendienteTarget | null>(null)
 
   return (
     <>
-      <AddCuentaForm
+      <AddPendienteForm
         db={props.db}
         householdId={props.householdId}
-        editCuenta={editCuenta}
+        editPendiente={editPendiente}
         onEditFinished={() => {
-          setEditCuenta(null)
+          setEditPendiente(null)
         }}
       />
-      <PendingCuentasList
+      <PendientesList
         db={props.db}
         householdId={props.householdId}
-        onEditCuenta={(cuenta, categoryName) => {
-          setEditCuenta({
-            cuentaId: cuenta.id,
-            name: cuenta.name,
+        onEditPendiente={(pendiente, categoryName) => {
+          setEditPendiente({
+            pendienteId: pendiente.id,
+            name: pendiente.name,
             categoryName,
-            dueDate: cuenta.dueDate,
-            expectedAmount: cuenta.expectedAmount,
-            recurring: cuenta.recurring,
+            dueDate: pendiente.dueDate,
+            expectedAmount: pendiente.expectedAmount,
+            recurring: pendiente.recurring,
           })
         }}
       />
@@ -463,7 +466,7 @@ function EditCuentaHarness(props: {
   )
 }
 
-async function seedPendingCuenta(input?: {
+async function seedPendingPendiente(input?: {
   readonly name?: string
   readonly expectedAmount?: number | null
   readonly recurring?: boolean
@@ -471,7 +474,7 @@ async function seedPendingCuenta(input?: {
   readonly store: ReturnType<typeof createMemoryHouseholdsDb>
   readonly db: HouseholdsDb
   readonly householdId: string
-  readonly cuenta: Cuenta
+  readonly pendiente: Pendiente
 }> {
   const store = createMemoryHouseholdsDb()
   const db = store.asUser('user-1')
@@ -486,7 +489,7 @@ async function seedPendingCuenta(input?: {
   if (comida === undefined) {
     throw new Error('expected Comida category')
   }
-  const cuenta = await createCuenta({
+  const pendiente = await createPendiente({
     db,
     householdId: household.id,
     categoryId: comida.id,
@@ -496,18 +499,20 @@ async function seedPendingCuenta(input?: {
       input?.expectedAmount !== undefined ? input.expectedAmount : 500,
     recurring: input?.recurring ?? false,
   })
-  return { store, db, householdId: household.id, cuenta }
+  return { store, db, householdId: household.id, pendiente }
 }
 
-describe('EditCuentaFlow', () => {
+describe('EditPendienteFlow', () => {
   it('opens a pre-filled form when a list row is tapped, including recurring', async () => {
-    const { db, householdId } = await seedPendingCuenta({
+    const { db, householdId } = await seedPendingPendiente({
       name: 'Alquiler',
       expectedAmount: 500,
       recurring: true,
     })
 
-    renderWithProviders(<EditCuentaHarness db={db} householdId={householdId} />)
+    renderWithProviders(
+      <EditPendienteHarness db={db} householdId={householdId} />,
+    )
 
     fireEvent.click(
       await screen.findByRole('button', { name: 'Editar Alquiler' }),
@@ -528,14 +533,16 @@ describe('EditCuentaFlow', () => {
     ).toBeInTheDocument()
   })
 
-  it('pre-fills a blank expected amount and unchecked recurring when the stored cuenta has them', async () => {
-    const { db, householdId } = await seedPendingCuenta({
+  it('pre-fills a blank expected amount and unchecked recurring when the stored pendiente has them', async () => {
+    const { db, householdId } = await seedPendingPendiente({
       name: 'Luz',
       expectedAmount: null,
       recurring: false,
     })
 
-    renderWithProviders(<EditCuentaHarness db={db} householdId={householdId} />)
+    renderWithProviders(
+      <EditPendienteHarness db={db} householdId={householdId} />,
+    )
 
     fireEvent.click(await screen.findByRole('button', { name: 'Editar Luz' }))
 
@@ -547,13 +554,15 @@ describe('EditCuentaFlow', () => {
   })
 
   it('saves edited fields, including toggling recurring on, and refetches the list', async () => {
-    const { db, householdId } = await seedPendingCuenta({
+    const { db, householdId } = await seedPendingPendiente({
       name: 'Alquiler',
       expectedAmount: 500,
       recurring: false,
     })
 
-    renderWithProviders(<EditCuentaHarness db={db} householdId={householdId} />)
+    renderWithProviders(
+      <EditPendienteHarness db={db} householdId={householdId} />,
+    )
 
     fireEvent.click(
       await screen.findByRole('button', { name: 'Editar Alquiler' }),
@@ -575,7 +584,7 @@ describe('EditCuentaFlow', () => {
       screen.queryByRole('button', { name: 'Guardar cambios' }),
     ).not.toBeInTheDocument()
 
-    const listed = await listPendingCuentas({ db, householdId })
+    const listed = await listPendientes({ db, householdId })
     expect(listed).toEqual([
       expect.objectContaining({
         name: 'Alquiler nuevo',
@@ -585,43 +594,45 @@ describe('EditCuentaFlow', () => {
     ])
   })
 
-  it('deletes the cuenta from within the edit form after confirming, and refetches the list', async () => {
-    const { db, householdId } = await seedPendingCuenta({ name: 'Alquiler' })
+  it('deletes the pendiente from within the edit form after confirming, and refetches the list', async () => {
+    const { db, householdId } = await seedPendingPendiente({ name: 'Alquiler' })
 
-    renderWithProviders(<EditCuentaHarness db={db} householdId={householdId} />)
+    renderWithProviders(
+      <EditPendienteHarness db={db} householdId={householdId} />,
+    )
 
     fireEvent.click(
       await screen.findByRole('button', { name: 'Editar Alquiler' }),
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Eliminar cuenta' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar pendiente' }))
 
     const dialog = screen.getByRole('alertdialog')
-    expect(dialog).toHaveTextContent('¿Eliminar la cuenta?')
+    expect(dialog).toHaveTextContent('¿Eliminar el pendiente?')
     fireEvent.click(
-      within(dialog).getByRole('button', { name: 'Eliminar cuenta' }),
+      within(dialog).getByRole('button', { name: 'Eliminar pendiente' }),
     )
 
     await waitFor(() => {
       expect(screen.queryByText('Alquiler')).not.toBeInTheDocument()
     })
-    expect(
-      await screen.findByText('No hay cuentas pendientes'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Guardar cambios' }),
     ).not.toBeInTheDocument()
-    expect(await listPendingCuentas({ db, householdId })).toEqual([])
+    expect(await listPendientes({ db, householdId })).toEqual([])
   })
 
-  it('cancels the delete confirmation and keeps the cuenta', async () => {
-    const { db, householdId } = await seedPendingCuenta({ name: 'Alquiler' })
+  it('cancels the delete confirmation and keeps the pendiente', async () => {
+    const { db, householdId } = await seedPendingPendiente({ name: 'Alquiler' })
 
-    renderWithProviders(<EditCuentaHarness db={db} householdId={householdId} />)
+    renderWithProviders(
+      <EditPendienteHarness db={db} householdId={householdId} />,
+    )
 
     fireEvent.click(
       await screen.findByRole('button', { name: 'Editar Alquiler' }),
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Eliminar cuenta' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar pendiente' }))
     fireEvent.click(
       within(screen.getByRole('alertdialog')).getByRole('button', {
         name: 'Cancelar',
@@ -633,13 +644,15 @@ describe('EditCuentaFlow', () => {
       screen.getByRole('button', { name: 'Guardar cambios' }),
     ).toBeInTheDocument()
     expect(screen.getByText('Alquiler')).toBeInTheDocument()
-    expect(await listPendingCuentas({ db, householdId })).toHaveLength(1)
+    expect(await listPendientes({ db, householdId })).toHaveLength(1)
   })
 
-  it('discards edits and leaves the cuenta unchanged via "Cancelar edición"', async () => {
-    const { db, householdId } = await seedPendingCuenta({ name: 'Alquiler' })
+  it('discards edits and leaves the pendiente unchanged via "Cancelar edición"', async () => {
+    const { db, householdId } = await seedPendingPendiente({ name: 'Alquiler' })
 
-    renderWithProviders(<EditCuentaHarness db={db} householdId={householdId} />)
+    renderWithProviders(
+      <EditPendienteHarness db={db} householdId={householdId} />,
+    )
 
     fireEvent.click(
       await screen.findByRole('button', { name: 'Editar Alquiler' }),
@@ -653,34 +666,36 @@ describe('EditCuentaFlow', () => {
       screen.queryByRole('button', { name: 'Guardar cambios' }),
     ).not.toBeInTheDocument()
     expect(screen.getByText('Alquiler')).toBeInTheDocument()
-    const listed = await listPendingCuentas({ db, householdId })
+    const listed = await listPendientes({ db, householdId })
     expect(listed).toEqual([expect.objectContaining({ name: 'Alquiler' })])
   })
 
-  it('closes the edit form with no alert when the cuenta was deleted elsewhere before saving', async () => {
-    const { store, db, householdId, cuenta } = await seedPendingCuenta({
+  it('closes the edit form with no alert when the pendiente was deleted elsewhere before saving', async () => {
+    const { store, db, householdId, pendiente } = await seedPendingPendiente({
       name: 'Alquiler',
     })
     store.seedMembership({ userId: 'user-2', householdId })
 
-    renderWithProviders(<EditCuentaHarness db={db} householdId={householdId} />)
+    renderWithProviders(
+      <EditPendienteHarness db={db} householdId={householdId} />,
+    )
 
     fireEvent.click(
       await screen.findByRole('button', { name: 'Editar Alquiler' }),
     )
-    // Simulates a second household member deleting the same cuenta while
+    // Simulates a second household member deleting the same pendiente while
     // this member's edit form is still open.
-    await deleteCuenta({
+    await deletePendiente({
       db: store.asUser('user-2'),
       householdId,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
     })
     fireEvent.change(screen.getByLabelText('Nombre'), {
       target: { value: 'Stale edit' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
-    // Unlike the Expense form's stale-edit case, a gone Cuenta closes
+    // Unlike the Expense form's stale-edit case, a gone Pendiente closes
     // silently with no alert -- there is nothing left to save over or retry.
     await waitFor(() => {
       expect(
@@ -688,24 +703,28 @@ describe('EditCuentaFlow', () => {
       ).not.toBeInTheDocument()
     })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(
-      await screen.findByText('No hay cuentas pendientes'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
   })
 
-  it('closes the edit form with no alert when the cuenta was marked paid elsewhere before saving', async () => {
-    const { store, db, householdId, cuenta } = await seedPendingCuenta({
+  it('closes the edit form with no alert when the pendiente was marked paid elsewhere before saving', async () => {
+    const { store, db, householdId, pendiente } = await seedPendingPendiente({
       name: 'Alquiler',
     })
 
-    renderWithProviders(<EditCuentaHarness db={db} householdId={householdId} />)
+    renderWithProviders(
+      <EditPendienteHarness db={db} householdId={householdId} />,
+    )
 
     fireEvent.click(
       await screen.findByRole('button', { name: 'Editar Alquiler' }),
     )
-    // Simulates the cuenta being marked paid (out of scope of this issue)
+    // Simulates the pendiente being marked paid (out of scope of this issue)
     // by someone else while this member's edit form is still open.
-    store.seedCuenta({ ...cuenta, status: 'paid', paidExpenseId: 'expense-1' })
+    store.seedPendiente({
+      ...pendiente,
+      status: 'paid',
+      paidExpenseId: 'expense-1',
+    })
     fireEvent.change(screen.getByLabelText('Nombre'), {
       target: { value: 'Stale edit' },
     })
@@ -717,31 +736,31 @@ describe('EditCuentaFlow', () => {
       ).not.toBeInTheDocument()
     })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(
-      await screen.findByText('No hay cuentas pendientes'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
   })
 
-  it('closes the confirmation with no persistent error when deleting a cuenta already deleted elsewhere', async () => {
-    const { store, db, householdId, cuenta } = await seedPendingCuenta({
+  it('closes the confirmation with no persistent error when deleting a pendiente already deleted elsewhere', async () => {
+    const { store, db, householdId, pendiente } = await seedPendingPendiente({
       name: 'Alquiler',
     })
     store.seedMembership({ userId: 'user-2', householdId })
 
-    renderWithProviders(<EditCuentaHarness db={db} householdId={householdId} />)
+    renderWithProviders(
+      <EditPendienteHarness db={db} householdId={householdId} />,
+    )
 
     fireEvent.click(
       await screen.findByRole('button', { name: 'Editar Alquiler' }),
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Eliminar cuenta' }))
-    await deleteCuenta({
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar pendiente' }))
+    await deletePendiente({
       db: store.asUser('user-2'),
       householdId,
-      cuentaId: cuenta.id,
+      pendienteId: pendiente.id,
     })
     fireEvent.click(
       within(screen.getByRole('alertdialog')).getByRole('button', {
-        name: 'Eliminar cuenta',
+        name: 'Eliminar pendiente',
       }),
     )
 
@@ -749,18 +768,16 @@ describe('EditCuentaFlow', () => {
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(
-      await screen.findByText('No hay cuentas pendientes'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
   })
 
   it('shows an alert and keeps the edit form open when deleting fails for another reason', async () => {
-    const { db, householdId } = await seedPendingCuenta({ name: 'Alquiler' })
+    const { db, householdId } = await seedPendingPendiente({ name: 'Alquiler' })
     const failingDb: HouseholdsDb = {
       ...db,
-      deleteCuenta: async () => {
+      deletePendiente: async () => {
         throw new FirestoreDeniedError({
-          operation: 'deleteCuenta',
+          operation: 'deletePendiente',
           code: 'permission-denied',
           detail: 'Missing or insufficient permissions.',
         })
@@ -768,21 +785,21 @@ describe('EditCuentaFlow', () => {
     }
 
     renderWithProviders(
-      <EditCuentaHarness db={failingDb} householdId={householdId} />,
+      <EditPendienteHarness db={failingDb} householdId={householdId} />,
     )
 
     fireEvent.click(
       await screen.findByRole('button', { name: 'Editar Alquiler' }),
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Eliminar cuenta' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar pendiente' }))
     fireEvent.click(
       within(screen.getByRole('alertdialog')).getByRole('button', {
-        name: 'Eliminar cuenta',
+        name: 'Eliminar pendiente',
       }),
     )
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'No se pudo eliminar la cuenta',
+      'No se pudo eliminar el pendiente',
     )
     // The confirmation dialog closes, but the edit form itself stays open
     // so the failed delete can be retried.
