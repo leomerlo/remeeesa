@@ -535,6 +535,8 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         price: input.price,
         comments: input.comments,
         expenseDate: input.expenseDate,
+        memberId: input.memberId,
+        authorDisplayName: input.authorDisplayName,
       }
       state.expenses.set(input.expenseId, updated)
       return updated

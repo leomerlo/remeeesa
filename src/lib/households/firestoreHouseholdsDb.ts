@@ -763,6 +763,8 @@ export function createFirestoreHouseholdsDb(
             price: input.price,
             comments: input.comments,
             expense_date: toFirestoreExpenseDate(input.expenseDate),
+            member_id: input.memberId,
+            author_display_name: input.authorDisplayName,
           })
           return {
             ...current,
@@ -771,6 +773,8 @@ export function createFirestoreHouseholdsDb(
             price: input.price,
             comments: input.comments,
             expenseDate: input.expenseDate,
+            memberId: input.memberId,
+            authorDisplayName: input.authorDisplayName,
           }
         },
         {

@@ -287,11 +287,15 @@ describe('firestore.rules expenses', () => {
       /match \/expenses\/\{expenseId\}[\s\S]*allow create: if isMemberOf\(request\.resource\.data\.household_id\)/,
     )
     expect(rules).toContain('function isValidExpenseUpdate()')
+    // member_id/author_display_name may change together now (reassigning
+    // an Expense's author), validated by isValidExpenseReassign rather
+    // than frozen unchanged the way they used to be.
+    expect(rules).toContain('function isValidExpenseReassign()')
     expect(rules).toContain(
-      'request.resource.data.author_display_name == resource.data.author_display_name',
+      'exists(/databases/$(database)/documents/household_members/$(request.resource.data.member_id))',
     )
     expect(rules).toContain(
-      'request.resource.data.member_id == resource.data.member_id',
+      'get(/databases/$(database)/documents/household_members/$(request.resource.data.member_id)).data.household_id == request.resource.data.household_id',
     )
     expect(rules).toMatch(
       /match \/expenses\/\{expenseId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)/,
@@ -304,8 +308,11 @@ describe('firestore.rules expenses', () => {
     expect(rules).not.toContain('request.time.year')
     expect(rules).not.toContain('request.time.month')
     expect(rules).not.toContain('request.time.day')
+    expect(rules).toContain(
+      "hasOnly(['name', 'price', 'category_id', 'comments', 'expense_date', 'member_id', 'author_display_name'])",
+    )
     expect(rules).toMatch(
-      /!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'member_id', 'author_display_name', 'created_at'\]\)/,
+      /!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'created_at'\]\)/,
     )
     expect(rules).toMatch(
       /allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& isValidExpenseUpdate\(\);/,
@@ -446,7 +453,19 @@ describe('markPendientePaid adapter', () => {
     expect(adapterSource).toMatch(
       /async markPendientePaid\(input\) \{[\s\S]*?const memberId = await awaitAuthenticatedUserId\(firestore\)/,
     )
-    expect(adapterSource).not.toMatch(/memberId: input\.memberId/)
+    // Scoped to markPendientePaid's own body (it's the adapter's last
+    // method, so slicing from its declaration to EOF captures exactly
+    // that) rather than the whole file -- updateExpense legitimately
+    // writes `memberId: input.memberId` elsewhere now, for reassigning an
+    // Expense's author (rules-validated, see isValidExpenseReassign), and
+    // that is not the same trust boundary this guards: markPendientePaid's
+    // memberId must always come from the authenticated caller, never from
+    // client input, since it attributes a brand-new Expense rather than
+    // reassigning an existing one under an explicit membership check.
+    const markPendientePaidSource = adapterSource.slice(
+      adapterSource.indexOf('async markPendientePaid(input) {'),
+    )
+    expect(markPendientePaidSource).not.toMatch(/memberId: input\.memberId/)
   })
 
   it('runs the status transition and expense creation inside a single Firestore transaction', () => {

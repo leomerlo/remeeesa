@@ -21,6 +21,8 @@ import {
   updateExpense,
 } from '@/lib/expenses'
 import type { Category } from '@/lib/expenses'
+import { membersQueryKey } from '@/features/household'
+import { listHouseholdMembers } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { categoriesQueryKey, expensesQueryKey } from './queryKeys'
 
@@ -31,6 +33,9 @@ export type EditExpenseTarget = {
   readonly categoryName: string
   readonly comments: string
   readonly expenseDate: Date
+  // Who this Expense is currently attributed to -- lets the edit form
+  // pre-select the right row in the author picker.
+  readonly memberId: string
 }
 
 export type AddExpenseFormProps = {
@@ -174,9 +179,22 @@ function ExpenseFormBody({
   const [category, setCategory] = useState(initialFields.category)
   const [comments, setComments] = useState(initialFields.comments)
   const [date, setDate] = useState(initialFields.date)
+  const [authorMemberId, setAuthorMemberId] = useState(
+    editExpense?.memberId ?? memberId,
+  )
   const [error, setError] = useState<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const today = localDateInputValue(new Date())
+
+  // Only fetched for reassigning an existing Expense's author -- adding one
+  // always attributes it to whoever is signed in, same as before this
+  // feature existed.
+  const membersQuery = useQuery({
+    queryKey: membersQueryKey({ householdId }),
+    queryFn: () => listHouseholdMembers({ db, householdId }),
+    enabled: isEditing,
+  })
+  const members = membersQuery.data ?? []
 
   async function invalidateExpenseViews(): Promise<void> {
     // Categories are a separate entity from expenses, so they keep their
@@ -194,6 +212,14 @@ function ExpenseFormBody({
         name: fields.categoryName,
       })
       if (editExpense !== null) {
+        // Falls back to leaving attribution unchanged if the member list
+        // hasn't resolved yet by the time this submits (the query starts
+        // fetching the moment the edit form mounts, so this is a narrow
+        // window) -- updateExpense's memberId/authorDisplayName are
+        // optional precisely for this "nothing to reassign to yet" case.
+        const selectedAuthor = members.find(
+          (member) => member.userId === authorMemberId,
+        )
         return updateExpense({
           db,
           householdId,
@@ -203,6 +229,12 @@ function ExpenseFormBody({
           price: fields.price,
           comments: fields.comments,
           expenseDate: fields.expenseDate,
+          ...(selectedAuthor === undefined
+            ? {}
+            : {
+                memberId: selectedAuthor.userId,
+                authorDisplayName: selectedAuthor.displayName,
+              }),
         })
       }
       return createExpense({
@@ -433,6 +465,35 @@ function ExpenseFormBody({
             }}
           />
         </div>
+
+        {/* Editing only -- adding always attributes the expense to
+            whoever is signed in. Lets a member fix an expense that was
+            logged under the wrong name, without deleting and re-adding it. */}
+        {isEditing && members.length > 0 ? (
+          <div className="flex w-full flex-col gap-2">
+            <Label
+              htmlFor="expense-author"
+              className="text-muted-foreground font-medium"
+            >
+              Autor
+            </Label>
+            <select
+              id="expense-author"
+              name="expense-author"
+              value={authorMemberId}
+              onChange={(event) => {
+                setAuthorMemberId(event.target.value)
+              }}
+              className="border-input bg-background h-12 rounded-lg border px-3 text-sm"
+            >
+              {members.map((member) => (
+                <option key={member.userId} value={member.userId}>
+                  {member.displayName}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
 
         {alertMessage !== null ? (
           <AlertMessage>{alertMessage}</AlertMessage>

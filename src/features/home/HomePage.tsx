@@ -245,6 +245,7 @@ export function HomePage({
               categoryName,
               comments: expense.comments,
               expenseDate: expense.expenseDate,
+              memberId: expense.memberId,
             })
           }}
         />

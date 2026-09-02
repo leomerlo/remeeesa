@@ -131,19 +131,27 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/categories/$(data.category_id)).data.household_id == data.household_id;
     }
 
-    function authorDisplayNameUnchanged() {
-      return !resource.data.keys().hasAll(['author_display_name'])
-        || request.resource.data.author_display_name == resource.data.author_display_name;
+    // A reassigned author's member_id and author_display_name must land
+    // together, both matching a real member of this same household -- the
+    // client always sends both from the same listHouseholdMembers row, so
+    // an update where they disagree (or point at someone else's
+    // household) is not one this UI could have produced.
+    function isValidExpenseReassign() {
+      return request.resource.data.member_id is string
+        && request.resource.data.member_id.size() > 0
+        && request.resource.data.author_display_name is string
+        && request.resource.data.author_display_name.size() > 0
+        && exists(/databases/$(database)/documents/household_members/$(request.resource.data.member_id))
+        && get(/databases/$(database)/documents/household_members/$(request.resource.data.member_id)).data.household_id == request.resource.data.household_id;
     }
 
     function isValidExpenseUpdate() {
       return request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'price', 'category_id', 'comments', 'expense_date'])
+          .hasOnly(['name', 'price', 'category_id', 'comments', 'expense_date', 'member_id', 'author_display_name'])
         && !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['household_id', 'member_id', 'author_display_name', 'created_at'])
+          .hasAny(['household_id', 'created_at'])
         && request.resource.data.household_id == resource.data.household_id
-        && request.resource.data.member_id == resource.data.member_id
-        && authorDisplayNameUnchanged()
+        && isValidExpenseReassign()
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.price is number

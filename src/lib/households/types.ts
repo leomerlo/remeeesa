@@ -146,6 +146,8 @@ export type HouseholdsDb = {
     readonly price: number
     readonly comments: string
     readonly expenseDate: Date
+    readonly memberId: string
+    readonly authorDisplayName: string
   }): Promise<Expense>
   deleteExpense(input: {
     readonly householdId: string
