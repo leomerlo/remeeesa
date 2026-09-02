@@ -123,6 +123,17 @@ export function PendientesList({
                   <span className="font-display text-lg text-foreground">
                     {formatBudgetAmount(pendiente.expectedAmount)}
                   </span>
+                ) : pendiente.recurring ? (
+                  // A recurring bill with no amount yet reads as
+                  // incomplete/broken with nothing where a price usually
+                  // is -- a placeholder says "not filled in yet" instead of
+                  // looking like a rendering bug. A one-off Pendiente with
+                  // no amount is a different, deliberate case (see
+                  // AddPendienteForm's "Monto esperado" comment) and stays
+                  // blank.
+                  <span className="font-display text-muted-foreground text-lg">
+                    $ --,--
+                  </span>
                 ) : null}
               </div>
               <div className="flex flex-wrap gap-x-1.5 text-xs text-muted-foreground">

@@ -42,6 +42,7 @@ async function seedPendiente(input: {
   readonly name: string
   readonly dayOfMonth: number
   readonly expectedAmount?: number | null
+  readonly recurring?: boolean
 }): Promise<Pendiente> {
   return createPendiente({
     db: input.db,
@@ -50,6 +51,7 @@ async function seedPendiente(input: {
     name: input.name,
     dueDate: new Date(2026, 10, input.dayOfMonth),
     expectedAmount: input.expectedAmount ?? null,
+    recurring: input.recurring ?? false,
   })
 }
 
@@ -161,6 +163,32 @@ describe('PorPagarSection', () => {
     })
     expect(card).toHaveTextContent('Expensas')
     expect(card).not.toHaveTextContent('$')
+  })
+
+  it('shows a placeholder amount for a recurring pendiente with no expected amount yet', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    await seedPendiente({
+      db,
+      householdId,
+      categoryId,
+      name: 'Gimnasio',
+      dayOfMonth: 9,
+      expectedAmount: null,
+      recurring: true,
+    })
+
+    renderSection(
+      <PorPagarSection
+        db={db}
+        householdId={householdId}
+        onMarkPaid={vi.fn()}
+      />,
+    )
+
+    const card = await screen.findByRole('button', {
+      name: 'Marcar pagado Gimnasio',
+    })
+    expect(card).toHaveTextContent('$ --,--')
   })
 
   it('caps the preview at 5 and only then offers the overflow link', async () => {

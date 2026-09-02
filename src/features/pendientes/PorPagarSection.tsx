@@ -163,6 +163,16 @@ export function PorPagarSection({
                   <span className="font-display text-base text-foreground">
                     {formatBudgetAmount(pendiente.expectedAmount)}
                   </span>
+                ) : pendiente.recurring ? (
+                  // A recurring bill with no amount yet reads as
+                  // incomplete/broken with nothing where a price usually
+                  // is -- a placeholder says "not filled in yet" instead of
+                  // looking like a rendering bug. A one-off Pendiente with
+                  // no amount is a different, deliberate case and stays
+                  // blank.
+                  <span className="font-display text-muted-foreground text-base">
+                    $ --,--
+                  </span>
                 ) : null}
                 {/* mt-auto bottom-anchors the name/date block: the expected
                     amount above is optional, so without this a card that

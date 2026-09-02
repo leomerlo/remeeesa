@@ -300,8 +300,9 @@ describe('PendientesPage', () => {
       screen.queryByText(formatPendienteDueDate(paidDueDate)),
     ).not.toBeInTheDocument()
     // The paid cycle's $500 must not be carried over: the next cycle has a
-    // blank expected amount, so its row renders no amount at all.
-    expect(rows[0]).not.toHaveTextContent('$')
+    // blank expected amount. It's still recurring, so the row shows the
+    // "not filled in yet" placeholder rather than the real $500.
+    expect(rows[0]).toHaveTextContent('$ --,--')
   })
 
   it('keeps the mark-paid sheet open with a clear alert and refreshes the stale row out of the pending list when the pendiente was already paid', async () => {

@@ -135,6 +135,35 @@ describe('PendientesList', () => {
     expect(rows[2]).not.toHaveTextContent('$')
   })
 
+  it('shows a placeholder amount for a recurring pendiente with no expected amount yet', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const comidaId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Comida',
+    })
+    await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: comidaId,
+      name: 'Gimnasio',
+      dueDate: new Date(2026, 8, 5),
+      expectedAmount: null,
+      recurring: true,
+    })
+
+    renderWithProviders(<PendientesList db={db} householdId={household.id} />)
+
+    const row = await screen.findByText('Gimnasio')
+    expect(row.closest('li')).toHaveTextContent('$ --,--')
+  })
+
   it('does not show a manually-seeded paid pendiente in the same household', async () => {
     const store = createMemoryHouseholdsDb()
     const db = store.asUser('user-1')
