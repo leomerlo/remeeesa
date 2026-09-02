@@ -140,8 +140,51 @@ describe('firestore.rules categories', () => {
     expect(rules).toContain(
       '&& canWriteCategoryFor(request.resource.data.household_id)',
     )
+  })
+
+  it('lets a member change only a category’s color or name, never its household or createdAt', () => {
+    expect(rules).toContain('function isValidCategoryUpdate()')
+    expect(rules).toContain("hasOnly(['color', 'name'])")
+    expect(rules).toContain(
+      'request.resource.data.household_id == resource.data.household_id\n        && request.resource.data.created_at == resource.data.created_at',
+    )
+    // isValidCategory is re-run on the result, so the color still has to look
+    // like a hex color and the name still has to be non-blank after the edit.
+    expect(rules).toContain('&& isValidCategory(request.resource.data);')
     expect(rules).toMatch(
-      /match \/categories\/\{categoryId\}[\s\S]*allow update, delete: if false;/,
+      /match \/categories\/\{categoryId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\n\s*&& isValidCategoryUpdate\(\);/,
+    )
+  })
+
+  it('lets a member delete a category', () => {
+    expect(rules).toMatch(
+      /match \/categories\/\{categoryId\}[\s\S]*allow delete: if isMemberOf\(resource\.data\.household_id\);/,
+    )
+  })
+})
+
+describe('firestore.rules cuenta category repoint', () => {
+  // Renaming or merging a category has to move every Cuenta that references
+  // it, paid ones included -- otherwise a paid bill would keep pointing at a
+  // category that no longer exists. This is the one exception to "paid Cuentas
+  // are frozen", and it is deliberately narrow.
+  it('permits a category_id-only update even on a paid Cuenta', () => {
+    expect(rules).toContain('function isCuentaCategoryRepoint()')
+    expect(rules).toContain("hasOnly(['category_id'])")
+    expect(rules).toContain(
+      '&& (isValidCuentaUpdate() || isValidCuentaMarkPaid() || isCuentaCategoryRepoint());',
+    )
+  })
+
+  it('requires the destination category to exist', () => {
+    expect(rules).toMatch(
+      /function isCuentaCategoryRepoint\(\)[\s\S]*exists\(\/databases\/\$\(database\)\/documents\/categories\/\$\(request\.resource\.data\.category_id\)\);/,
+    )
+  })
+
+  it('does not let the repoint carry any other field along', () => {
+    expect(rules).toMatch(
+      /function isCuentaCategoryRepoint\(\)[\s\S]*affectedKeys\(\)\n\s*\.hasOnly\(\['category_id'\]\)/,
     )
   })
 })
@@ -263,7 +306,7 @@ describe('firestore.rules cuentas', () => {
       /function isValidCuentaUpdate\(\) \{[\s\S]*?!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'status', 'paid_expense_id', 'created_at'\]\)/,
     )
     expect(rules).toMatch(
-      /match \/cuentas\/\{cuentaId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidCuentaUpdate\(\) \|\| isValidCuentaMarkPaid\(\)\);/,
+      /match \/cuentas\/\{cuentaId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidCuentaUpdate\(\) \|\| isValidCuentaMarkPaid\(\) \|\| isCuentaCategoryRepoint\(\)\);/,
     )
   })
 
@@ -319,7 +362,7 @@ describe('firestore.rules cuentas mark-paid', () => {
 
   it('ORs isValidCuentaMarkPaid into the cuenta update rule alongside isValidCuentaUpdate', () => {
     expect(rules).toMatch(
-      /match \/cuentas\/\{cuentaId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidCuentaUpdate\(\) \|\| isValidCuentaMarkPaid\(\)\);/,
+      /match \/cuentas\/\{cuentaId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidCuentaUpdate\(\) \|\| isValidCuentaMarkPaid\(\) \|\| isCuentaCategoryRepoint\(\)\);/,
     )
   })
 })

@@ -5,7 +5,13 @@ import {
 import { nextCycleDueDate } from '@/lib/cuentas/recurrence'
 import type { Cuenta } from '@/lib/cuentas/types'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
+import {
+  CategoryInUseError,
+  CategoryNameTakenError,
+  CategoryNotFoundError,
+} from '@/lib/expenses/categoryManagement'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
+import { parseCategoryColor, parseCategoryName } from '@/lib/expenses/validate'
 import { ExpenseNotFoundError } from '@/lib/expenses/expenses'
 import { buildExpenseHistoryPage } from '@/lib/expenses/history'
 import type { Category, Expense } from '@/lib/expenses/types'
@@ -52,6 +58,53 @@ function toHousehold(id: string, record: HouseholdRecord): Household {
     name: record.name,
     monthlyBudget: record.monthlyBudget,
     createdAt: record.createdAt,
+  }
+}
+
+function ownCategory(
+  state: MemoryState,
+  input: { readonly householdId: string; readonly categoryId: string },
+): Category {
+  const category = state.categories.get(input.categoryId)
+  if (category === undefined || category.householdId !== input.householdId) {
+    throw new CategoryNotFoundError()
+  }
+  return category
+}
+
+// Every place a category id can be stored. Rename and merge both move
+// references wholesale, and delete refuses while any of them exist, so the two
+// collections are walked from one helper each -- missing one would silently
+// orphan Cuentas, which is exactly the bug the delete guard exists to prevent.
+function repointReferences(
+  state: MemoryState,
+  fromCategoryId: string,
+  toCategoryId: string,
+): void {
+  for (const [id, expense] of state.expenses) {
+    if (expense.categoryId === fromCategoryId) {
+      state.expenses.set(id, { ...expense, categoryId: toCategoryId })
+    }
+  }
+  for (const [id, cuenta] of state.cuentas) {
+    if (cuenta.categoryId === fromCategoryId) {
+      state.cuentas.set(id, { ...cuenta, categoryId: toCategoryId })
+    }
+  }
+}
+
+function assertNoReferences(state: MemoryState, categoryId: string): void {
+  for (const expense of state.expenses.values()) {
+    if (expense.categoryId === categoryId) {
+      throw new CategoryInUseError()
+    }
+  }
+  // Paid Cuentas count too: they keep pointing at the category forever, so
+  // dropping it would leave the Histórico with unlabelled rows.
+  for (const cuenta of state.cuentas.values()) {
+    if (cuenta.categoryId === categoryId) {
+      throw new CategoryInUseError()
+    }
   }
 }
 
@@ -268,6 +321,59 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       }
       state.categories.set(id, category)
       return category
+    },
+    async updateCategoryColor(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const existing = ownCategory(state, input)
+      const updated: Category = {
+        ...existing,
+        color: parseCategoryColor(input.color),
+      }
+      state.categories.set(existing.id, updated)
+      return updated
+    },
+    async renameCategory(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const existing = ownCategory(state, input)
+      const name = parseCategoryName(input.name)
+      const newId = categoryDocumentId({
+        householdId: input.householdId,
+        name,
+      })
+      if (newId !== existing.id && state.categories.has(newId)) {
+        throw new CategoryNameTakenError()
+      }
+      // Renaming to the same id (only the casing or spacing changed) is a
+      // plain field update: there is no second doc to move anything to.
+      const renamed: Category = { ...existing, id: newId, name }
+      state.categories.set(newId, renamed)
+      if (newId !== existing.id) {
+        repointReferences(state, existing.id, newId)
+        state.categories.delete(existing.id)
+      }
+      return renamed
+    },
+    async deleteCategory(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const existing = ownCategory(state, input)
+      assertNoReferences(state, existing.id)
+      state.categories.delete(existing.id)
+    },
+    async mergeCategories(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const source = ownCategory(state, {
+        householdId: input.householdId,
+        categoryId: input.sourceCategoryId,
+      })
+      const survivor = ownCategory(state, {
+        householdId: input.householdId,
+        categoryId: input.survivorCategoryId,
+      })
+      if (source.id === survivor.id) {
+        throw new Error('No se puede unir una categoría consigo misma')
+      }
+      repointReferences(state, source.id, survivor.id)
+      state.categories.delete(source.id)
     },
     async createExpense(input) {
       assertMemberOf(state, userId, input.householdId)

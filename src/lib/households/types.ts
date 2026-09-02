@@ -56,6 +56,36 @@ export type HouseholdsDb = {
     readonly householdId: string
     readonly name: string
   }): Promise<Category>
+  // Color is the one part of a Category that changes in place: a doc's id is
+  // derived from its name, so a color swap is a plain field update while a
+  // rename is a create-repoint-delete (see renameCategory).
+  updateCategoryColor(input: {
+    readonly householdId: string
+    readonly categoryId: string
+    readonly color: string
+  }): Promise<Category>
+  // Creates a doc at the new name's id (carrying over color and createdAt),
+  // repoints every referencing Expense and Cuenta, then deletes the old doc.
+  // Rejects -- writing nothing -- when the new name already belongs to another
+  // category; that case is a merge, not a rename.
+  renameCategory(input: {
+    readonly householdId: string
+    readonly categoryId: string
+    readonly name: string
+  }): Promise<Category>
+  // Refuses while any Expense or Cuenta still points at the category, so
+  // deleting can never orphan a reference.
+  deleteCategory(input: {
+    readonly householdId: string
+    readonly categoryId: string
+  }): Promise<void>
+  // Repoints everything from the source onto an existing survivor and deletes
+  // the source. The survivor's own name and color are left alone.
+  mergeCategories(input: {
+    readonly householdId: string
+    readonly sourceCategoryId: string
+    readonly survivorCategoryId: string
+  }): Promise<void>
   createExpense(input: {
     readonly householdId: string
     readonly categoryId: string
@@ -63,15 +93,6 @@ export type HouseholdsDb = {
     readonly authorDisplayName: string
     readonly name: string
     readonly price: number
-    readonly comments: string
-    readonly expenseDate: Date
-  }): Promise<Expense>
-  updateExpense(input: {
-    readonly expenseId: string
-    readonly householdId: string
-    readonly name: string
-    readonly price: number
-    readonly categoryId: string
     readonly comments: string
     readonly expenseDate: Date
   }): Promise<Expense>

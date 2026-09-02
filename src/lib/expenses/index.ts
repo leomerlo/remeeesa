@@ -11,6 +11,16 @@ export {
   updateExpense,
 } from './expenses'
 export {
+  CategoryInUseError,
+  CategoryNameTakenError,
+  CategoryNotFoundError,
+  deleteCategory,
+  mergeCategories,
+  renameCategory,
+  updateCategoryColor,
+} from './categoryManagement'
+export { CATEGORY_COLOR_PALETTE } from './categoryColor'
+export {
   computePercentUsed,
   computeRemainingBudget,
   currentMonthRange,
@@ -33,6 +43,7 @@ export {
 } from './converters'
 export {
   parseAuthorDisplayName,
+  parseCategoryColor,
   parseCategoryName,
   parseExpenseDate,
   parseExpenseName,

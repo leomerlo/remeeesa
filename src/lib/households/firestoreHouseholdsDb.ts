@@ -2,6 +2,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  writeBatch,
   getDoc,
   getDocs,
   limit,
@@ -13,7 +14,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore'
-import type { Firestore } from 'firebase/firestore'
+import type { DocumentReference, Firestore } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
 import {
   cuentaToDocument,
@@ -25,6 +26,7 @@ import {
   CuentaNotFoundError,
 } from '@/lib/cuentas/cuentas'
 import { nextCycleDueDate } from '@/lib/cuentas/recurrence'
+import { chunkForWriteBatch } from '@/lib/expenses/batching'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import {
   categoryToDocument,
@@ -33,10 +35,15 @@ import {
   parseExpenseDocument,
   toFirestoreExpenseDate,
 } from '@/lib/expenses/converters'
+import {
+  CategoryInUseError,
+  CategoryNameTakenError,
+  CategoryNotFoundError,
+} from '@/lib/expenses/categoryManagement'
 import { ExpenseNotFoundError } from '@/lib/expenses/expenses'
 import { monthEndOf, monthStartOf } from '@/lib/expenses/history'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
-import { parseCategoryName } from '@/lib/expenses/validate'
+import { parseCategoryColor, parseCategoryName } from '@/lib/expenses/validate'
 import { logFirebaseError } from '@/lib/firebaseDevLog'
 import {
   householdToDocument,
@@ -98,6 +105,64 @@ export function mapHouseholdFirestoreError(
     })
   }
   throw error
+}
+
+// Every document that stores this category's id, across both collections that
+// can hold one. Rename and merge move all of them; delete refuses while any
+// exist. Cuentas are queried alongside Expenses on purpose -- forgetting them
+// is what would leave paid bills pointing at a category that no longer exists.
+async function categoryReferences(
+  firestore: Firestore,
+  input: { readonly householdId: string; readonly categoryId: string },
+) {
+  const [expensesSnap, cuentasSnap] = await Promise.all(
+    (['expenses', 'cuentas'] as const).map((collectionName) =>
+      getDocs(
+        query(
+          collection(firestore, collectionName),
+          where('household_id', '==', input.householdId),
+          where('category_id', '==', input.categoryId),
+        ),
+      ),
+    ),
+  )
+  return [...(expensesSnap?.docs ?? []), ...(cuentasSnap?.docs ?? [])].map(
+    (referencing) => referencing.ref,
+  )
+}
+
+// Batched rather than transactional: a household can accumulate more
+// references than one transaction may touch. The repoint therefore runs before
+// the old category doc is deleted, so an interrupted run leaves references
+// split across two categories that both still exist -- untidy, and fixable by
+// repeating the operation, but never an orphan pointing at a missing doc.
+async function repointCategoryReferences(
+  firestore: Firestore,
+  refs: readonly DocumentReference[],
+  toCategoryId: string,
+): Promise<void> {
+  for (const chunk of chunkForWriteBatch(refs)) {
+    const batch = writeBatch(firestore)
+    for (const ref of chunk) {
+      batch.update(ref, { category_id: toCategoryId })
+    }
+    await batch.commit()
+  }
+}
+
+async function readOwnCategory(
+  firestore: Firestore,
+  input: { readonly householdId: string; readonly categoryId: string },
+) {
+  const snap = await getDoc(doc(firestore, 'categories', input.categoryId))
+  if (!snap.exists()) {
+    throw new CategoryNotFoundError()
+  }
+  const category = parseCategoryDocument({ id: snap.id, data: snap.data() })
+  if (category.householdId !== input.householdId) {
+    throw new CategoryNotFoundError()
+  }
+  return category
 }
 
 async function withHouseholdAccess<T>(
@@ -412,6 +477,110 @@ export function createFirestoreHouseholdsDb(
           }
         },
         { householdId: input.householdId, categoryName: input.name },
+      )
+    },
+    async updateCategoryColor(input) {
+      return withHouseholdAccess(
+        'updateCategoryColor',
+        async () => {
+          const existing = await readOwnCategory(firestore, input)
+          const color = parseCategoryColor(input.color)
+          await updateDoc(doc(firestore, 'categories', existing.id), { color })
+          return { ...existing, color }
+        },
+        { householdId: input.householdId, categoryId: input.categoryId },
+      )
+    },
+    async renameCategory(input) {
+      return withHouseholdAccess(
+        'renameCategory',
+        async () => {
+          const existing = await readOwnCategory(firestore, input)
+          const name = parseCategoryName(input.name)
+          const newId = categoryDocumentId({
+            householdId: input.householdId,
+            name,
+          })
+
+          // Same id means only the casing or spacing changed, so there is
+          // nothing to repoint -- just rewrite the name on the doc in place.
+          if (newId === existing.id) {
+            await updateDoc(doc(firestore, 'categories', existing.id), { name })
+            return { ...existing, name }
+          }
+
+          // Checked before a single write, so a rejected rename leaves no
+          // half-moved references behind.
+          const collision = await getDoc(doc(firestore, 'categories', newId))
+          if (collision.exists()) {
+            throw new CategoryNameTakenError()
+          }
+
+          const renamed = { ...existing, id: newId, name }
+          await setDoc(doc(firestore, 'categories', newId), {
+            ...categoryToDocument({
+              householdId: existing.householdId,
+              name,
+              color: existing.color,
+              createdAt: existing.createdAt,
+            }),
+            created_at: Timestamp.fromDate(existing.createdAt),
+          })
+          const refs = await categoryReferences(firestore, input)
+          await repointCategoryReferences(firestore, refs, newId)
+          await deleteDoc(doc(firestore, 'categories', existing.id))
+          return renamed
+        },
+        { householdId: input.householdId, categoryId: input.categoryId },
+      )
+    },
+    async deleteCategory(input) {
+      return withHouseholdAccess(
+        'deleteCategory',
+        async () => {
+          const existing = await readOwnCategory(firestore, input)
+          const refs = await categoryReferences(firestore, input)
+          if (refs.length > 0) {
+            throw new CategoryInUseError()
+          }
+          await deleteDoc(doc(firestore, 'categories', existing.id))
+        },
+        { householdId: input.householdId, categoryId: input.categoryId },
+      )
+    },
+    async mergeCategories(input) {
+      return withHouseholdAccess(
+        'mergeCategories',
+        async () => {
+          const source = await readOwnCategory(firestore, {
+            householdId: input.householdId,
+            categoryId: input.sourceCategoryId,
+          })
+          // Read for its side effect: merging into a category that is missing
+          // or belongs to another household would orphan every reference we
+          // are about to move onto it.
+          await readOwnCategory(firestore, {
+            householdId: input.householdId,
+            categoryId: input.survivorCategoryId,
+          })
+          if (source.id === input.survivorCategoryId) {
+            throw new Error('No se puede unir una categoría consigo misma')
+          }
+          const refs = await categoryReferences(firestore, {
+            householdId: input.householdId,
+            categoryId: input.sourceCategoryId,
+          })
+          await repointCategoryReferences(
+            firestore,
+            refs,
+            input.survivorCategoryId,
+          )
+          await deleteDoc(doc(firestore, 'categories', source.id))
+        },
+        {
+          householdId: input.householdId,
+          sourceCategoryId: input.sourceCategoryId,
+        },
       )
     },
     async createExpense(input) {
