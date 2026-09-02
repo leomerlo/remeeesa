@@ -13,6 +13,7 @@ function pendiente(overrides: Partial<Pendiente>): Pendiente {
     recurring: true,
     status: 'pending',
     paidExpenseId: null,
+    paidAt: null,
     createdAt: new Date(2026, 7, 1),
     ...overrides,
   }

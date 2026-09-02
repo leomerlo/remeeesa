@@ -816,6 +816,7 @@ export function createFirestoreHouseholdsDb(
               recurring,
               status: 'pending',
               paidExpenseId: null,
+              paidAt: null,
               createdAt,
             }),
             due_date: toFirestorePendienteDate(input.dueDate),
@@ -831,6 +832,7 @@ export function createFirestoreHouseholdsDb(
             recurring,
             status: 'pending',
             paidExpenseId: null,
+            paidAt: null,
             createdAt,
           }
         },
@@ -992,12 +994,15 @@ export function createFirestoreHouseholdsDb(
             tx.update(pendienteRef, {
               status: 'paid',
               paid_expense_id: expenseRef.id,
+              paid_at: toFirestorePendienteDate(input.paymentDate),
             })
 
             // A recurring pendiente spawns its next cycle in this same
             // transaction, so all three writes land together or not at all.
-            // The expected amount is deliberately blanked rather than copied
-            // from the cycle just paid.
+            // The expected amount carries over from the cycle just paid --
+            // most recurring bills (rent, subscriptions) cost the same
+            // amount next cycle too, so this is a pre-fill the user can
+            // still edit, not a guess pulled from nowhere.
             const nextDueDate = current.recurring
               ? nextCycleDueDate(current.dueDate)
               : null
@@ -1008,10 +1013,11 @@ export function createFirestoreHouseholdsDb(
                   categoryId: current.categoryId,
                   name: current.name,
                   dueDate: nextDueDate,
-                  expectedAmount: null,
+                  expectedAmount: input.finalAmount,
                   recurring: true,
                   status: 'pending',
                   paidExpenseId: null,
+                  paidAt: null,
                   createdAt,
                 }),
                 due_date: toFirestorePendienteDate(nextDueDate),
@@ -1024,6 +1030,7 @@ export function createFirestoreHouseholdsDb(
                 ...current,
                 status: 'paid' as const,
                 paidExpenseId: expenseRef.id,
+                paidAt: input.paymentDate,
               },
               nextPendiente:
                 nextDueDate === null
@@ -1034,10 +1041,11 @@ export function createFirestoreHouseholdsDb(
                       categoryId: current.categoryId,
                       name: current.name,
                       dueDate: nextDueDate,
-                      expectedAmount: null,
+                      expectedAmount: input.finalAmount,
                       recurring: true,
                       status: 'pending' as const,
                       paidExpenseId: null,
+                      paidAt: null,
                       createdAt,
                     },
               expense: {

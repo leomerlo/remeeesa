@@ -245,7 +245,7 @@ describe('PendientesPage', () => {
   // row appear -- a lib-level assertion on listPendientes would still
   // pass with a stale query cache, so the "appears immediately" guarantee
   // has to be checked here, on what the member actually sees.
-  it('replaces a paid recurring pendiente with its next cycle in the pending list, dated a month later and with a blank amount', async () => {
+  it('replaces a paid recurring pendiente with its next cycle in the pending list, dated a month later and pre-filled with the amount just paid', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -299,10 +299,9 @@ describe('PendientesPage', () => {
     expect(
       screen.queryByText(formatPendienteDueDate(paidDueDate)),
     ).not.toBeInTheDocument()
-    // The paid cycle's $500 must not be carried over: the next cycle has a
-    // blank expected amount. It's still recurring, so the row shows the
-    // "not filled in yet" placeholder rather than the real $500.
-    expect(rows[0]).toHaveTextContent('$ --,--')
+    // The next cycle is pre-filled with the amount just paid, an editable
+    // starting point rather than a blank "$ --,--" placeholder.
+    expect(rows[0]).toHaveTextContent('$500,00')
   })
 
   it('keeps the mark-paid sheet open with a clear alert and refreshes the stale row out of the pending list when the pendiente was already paid', async () => {

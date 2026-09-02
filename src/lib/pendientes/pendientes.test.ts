@@ -58,6 +58,7 @@ describe('createPendiente', () => {
       recurring: false,
       status: 'pending',
       paidExpenseId: null,
+      paidAt: null,
       createdAt: expect.any(Date),
     })
   })
@@ -510,6 +511,7 @@ describe('listPendientes', () => {
       recurring: false,
       status: 'paid',
       paidExpenseId: 'expense-1',
+      paidAt: new Date(),
       createdAt: new Date(),
     })
 
@@ -973,6 +975,7 @@ describe('updatePendiente', () => {
       recurring: false,
       status: 'paid',
       paidExpenseId: 'expense-1',
+      paidAt: new Date(),
       createdAt: new Date(),
     })
 
@@ -1152,6 +1155,7 @@ describe('deletePendiente', () => {
       recurring: false,
       status: 'paid',
       paidExpenseId: 'expense-1',
+      paidAt: new Date(),
       createdAt: new Date(),
     })
 
@@ -1307,6 +1311,7 @@ describe('markPendientePaid', () => {
 
     expect(paid.status).toBe('paid')
     expect(paid.paidExpenseId).toBe(expense.id)
+    expect(paid.paidAt).toEqual(paymentDate)
     expect(expense.categoryId).toBe(comida.id)
     expect(expense.price).toBe(480)
     expect(expense.expenseDate).toEqual(paymentDate)
@@ -1652,7 +1657,25 @@ describe('markPendientePaid', () => {
     expect(nextPendiente?.dueDate).toEqual(new Date(2026, 9, 10))
   })
 
-  it('never carries the previous cycle expected amount over to the next cycle', async () => {
+  it('leaves the next cycle unpaid, with paidAt still null', async () => {
+    const { db, household, pendiente } = await seedPendingPendiente({
+      recurring: true,
+    })
+
+    const { nextPendiente } = await markPendientePaid({
+      db,
+      householdId: household.id,
+      pendienteId: pendiente.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 480,
+      paymentDate: new Date(2026, 7, 28),
+    })
+
+    expect(nextPendiente?.paidAt).toBeNull()
+  })
+
+  it('pre-fills the next cycle expected amount with the amount just paid, not the earlier estimate', async () => {
     const { db, household, pendiente } = await seedPendingPendiente({
       recurring: true,
       expectedAmount: 480,
@@ -1665,11 +1688,14 @@ describe('markPendientePaid', () => {
       pendienteId: pendiente.id,
       memberId: 'user-1',
       authorDisplayName: 'Ada',
-      finalAmount: 480,
+      // Paid a different amount than originally expected -- the next
+      // cycle should carry the real, just-paid figure, not the stale 480
+      // estimate from before.
+      finalAmount: 500,
       paymentDate: new Date(2026, 7, 28),
     })
 
-    expect(nextPendiente?.expectedAmount).toBeNull()
+    expect(nextPendiente?.expectedAmount).toBe(500)
   })
 
   it('leaves the next cycle as the only pending pendiente right after a recurring mark-paid', async () => {

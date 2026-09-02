@@ -28,6 +28,16 @@ export function parseTimestamp(value: unknown, field: string): Date {
   throw new Error(`${field} must be a timestamp`)
 }
 
+export function parseOptionalTimestamp(
+  value: unknown,
+  field: string,
+): Date | null {
+  if (value === null || value === undefined) {
+    return null
+  }
+  return parseTimestamp(value, field)
+}
+
 export function parseRequiredString(value: unknown, field: string): string {
   if (typeof value !== 'string' || value.trim() === '') {
     throw new Error(`${field} must be a non-empty string`)

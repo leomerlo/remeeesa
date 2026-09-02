@@ -174,7 +174,7 @@ service cloud.firestore {
     // from creating a Pendiente that is already marked paid. Editing, deleting,
     // and marking a pendiente paid are handled by later tickets in this feature.
     function isValidPendiente(data) {
-      return data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'status', 'paid_expense_id', 'created_at'])
+      return data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'status', 'paid_expense_id', 'paid_at', 'created_at'])
         && data.household_id is string
         && data.household_id.size() > 0
         && data.category_id is string
@@ -187,6 +187,7 @@ service cloud.firestore {
         && data.recurring is bool
         && data.status == 'pending'
         && data.paid_expense_id == null
+        && data.paid_at == null
         && data.created_at is timestamp
         && exists(/databases/$(database)/documents/categories/$(data.category_id))
         && get(/databases/$(database)/documents/categories/$(data.category_id)).data.household_id == data.household_id;
@@ -215,7 +216,7 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['name', 'category_id', 'due_date', 'expected_amount', 'recurring'])
         && !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['household_id', 'status', 'paid_expense_id', 'created_at'])
+          .hasAny(['household_id', 'status', 'paid_expense_id', 'paid_at', 'created_at'])
         && request.resource.data.household_id == resource.data.household_id
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
@@ -229,21 +230,24 @@ service cloud.firestore {
     }
 
     // Mark-paid transition -- the rules-level backstop for idempotency. The
-    // diff is limited to exactly status+paid_expense_id, and resource.data.status
-    // must still be 'pending' -- a second mark-paid attempt has a stored status
-    // of 'paid' already, so this independently rejects it even if application
-    // logic were ever bypassed. existsAfter/getAfter (evaluated once every
-    // write in the same commit has landed) confirm paid_expense_id actually
-    // points at an Expense in the same household, so this write can't fake a
-    // paid status against a missing or cross-household Expense id -- it does
-    // not, and cannot, verify the Expense's amount/category/member match.
+    // diff is limited to exactly status+paid_expense_id+paid_at, and
+    // resource.data.status must still be 'pending' -- a second mark-paid
+    // attempt has a stored status of 'paid' already, so this independently
+    // rejects it even if application logic were ever bypassed.
+    // existsAfter/getAfter (evaluated once every write in the same commit has
+    // landed) confirm paid_expense_id actually points at an Expense in the
+    // same household, so this write can't fake a paid status against a
+    // missing or cross-household Expense id -- it does not, and cannot,
+    // verify the Expense's amount/category/member match.
     function isValidPendienteMarkPaid() {
       return resource.data.status == 'pending'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paid_expense_id'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paid_expense_id', 'paid_at'])
         && request.resource.data.status == 'paid'
         && resource.data.paid_expense_id == null
         && request.resource.data.paid_expense_id is string
         && request.resource.data.paid_expense_id.size() > 0
+        && resource.data.paid_at == null
+        && request.resource.data.paid_at is timestamp
         && existsAfter(/databases/$(database)/documents/expenses/$(request.resource.data.paid_expense_id))
         && getAfter(/databases/$(database)/documents/expenses/$(request.resource.data.paid_expense_id)).data.household_id == resource.data.household_id;
     }

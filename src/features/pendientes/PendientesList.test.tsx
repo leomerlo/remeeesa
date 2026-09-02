@@ -196,6 +196,7 @@ describe('PendientesList', () => {
       recurring: false,
       status: 'paid',
       paidExpenseId: 'expense-1',
+      paidAt: new Date(),
       createdAt: new Date(),
     }
     store.seedPendiente(paidPendiente)

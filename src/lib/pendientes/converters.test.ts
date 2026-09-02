@@ -28,8 +28,47 @@ describe('parsePendienteDocument', () => {
       recurring: false,
       status: 'pending',
       paidExpenseId: null,
+      paidAt: null,
       createdAt: new Date('2026-08-31T12:00:00.000Z'),
     })
+  })
+
+  it('defaults paidAt to null when paid_at is missing, e.g. a Pendiente doc written before the field existed', () => {
+    const pendiente = parsePendienteDocument({
+      id: 'q1',
+      data: {
+        household_id: 'h1',
+        category_id: 'c1',
+        name: 'Alquiler',
+        due_date: new Date('2026-09-10T12:00:00.000Z'),
+        expected_amount: 500,
+        recurring: false,
+        status: 'pending',
+        paid_expense_id: null,
+        created_at: new Date('2026-08-31T12:00:00.000Z'),
+      },
+    })
+    expect(pendiente.paidAt).toBeNull()
+  })
+
+  it('reads a present paid_at into paidAt', () => {
+    const paidAt = new Date('2026-09-05T12:00:00.000Z')
+    const pendiente = parsePendienteDocument({
+      id: 'q1',
+      data: {
+        household_id: 'h1',
+        category_id: 'c1',
+        name: 'Alquiler',
+        due_date: new Date('2026-09-10T12:00:00.000Z'),
+        expected_amount: 500,
+        recurring: false,
+        status: 'paid',
+        paid_expense_id: 'e1',
+        paid_at: paidAt,
+        created_at: new Date('2026-08-31T12:00:00.000Z'),
+      },
+    })
+    expect(pendiente.paidAt).toEqual(paidAt)
   })
 
   it('reads due_date and created_at via toDate', () => {
@@ -324,6 +363,7 @@ describe('pendienteToDocument', () => {
         recurring: false,
         status: 'pending',
         paidExpenseId: null,
+        paidAt: null,
         createdAt,
       }),
     ).toEqual({
@@ -335,6 +375,7 @@ describe('pendienteToDocument', () => {
       recurring: false,
       status: 'pending',
       paid_expense_id: null,
+      paid_at: null,
       created_at: createdAt,
     })
   })

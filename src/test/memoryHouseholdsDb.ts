@@ -568,6 +568,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         recurring: input.recurring ?? false,
         status: 'pending',
         paidExpenseId: null,
+        paidAt: null,
         createdAt: new Date(),
       }
       state.pendientes.set(pendiente.id, pendiente)
@@ -691,9 +692,11 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         ...existing,
         status: 'paid',
         paidExpenseId: expense.id,
+        paidAt: input.paymentDate,
       }
-      // A recurring pendiente spawns its next cycle with a blank expected amount
-      // -- the previous cycle's amount is deliberately never carried over.
+      // A recurring pendiente spawns its next cycle with the amount just
+      // paid pre-filled -- most recurring bills cost the same next cycle
+      // too, so this is an editable pre-fill, not a stale carried-over value.
       const nextPendiente: Pendiente | null = existing.recurring
         ? {
             id: crypto.randomUUID(),
@@ -701,10 +704,11 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
             categoryId: existing.categoryId,
             name: existing.name,
             dueDate: nextCycleDueDate(existing.dueDate),
-            expectedAmount: null,
+            expectedAmount: input.finalAmount,
             recurring: true,
             status: 'pending',
             paidExpenseId: null,
+            paidAt: null,
             createdAt,
           }
         : null

@@ -333,7 +333,7 @@ describe('firestore.rules pendientes', () => {
   it('requires the exact field set and a category belonging to the same household', () => {
     expect(rules).toContain('function isValidPendiente(data)')
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'status', 'paid_expense_id', 'created_at'])",
+      "data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'status', 'paid_expense_id', 'paid_at', 'created_at'])",
     )
     expect(rules).toContain('data.due_date is timestamp')
     expect(rules).toContain(
@@ -384,7 +384,7 @@ describe('firestore.rules pendientes', () => {
       /function isValidPendienteUpdate\(\) \{[\s\S]*?request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasOnly\(\['name', 'category_id', 'due_date', 'expected_amount', 'recurring'\]\)/,
     )
     expect(rules).toMatch(
-      /function isValidPendienteUpdate\(\) \{[\s\S]*?!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'status', 'paid_expense_id', 'created_at'\]\)/,
+      /function isValidPendienteUpdate\(\) \{[\s\S]*?!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'status', 'paid_expense_id', 'paid_at', 'created_at'\]\)/,
     )
     expect(rules).toMatch(
       /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\)\);/,
@@ -413,13 +413,13 @@ describe('firestore.rules pendientes', () => {
 // test in pendientes.test.ts is what actually behaviorally proves the
 // idempotency logic.
 describe('firestore.rules pendientes mark-paid', () => {
-  it('defines isValidPendienteMarkPaid with a diff restricted to status and paid_expense_id, requiring the stored status to still be pending', () => {
+  it('defines isValidPendienteMarkPaid with a diff restricted to status, paid_expense_id, and paid_at, requiring the stored status to still be pending', () => {
     expect(rules).toContain('function isValidPendienteMarkPaid()')
     expect(rules).toMatch(
       /function isValidPendienteMarkPaid\(\) \{[\s\S]*?resource\.data\.status == 'pending'/,
     )
     expect(rules).toMatch(
-      /function isValidPendienteMarkPaid\(\) \{[\s\S]*?request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\.hasOnly\(\['status', 'paid_expense_id'\]\)/,
+      /function isValidPendienteMarkPaid\(\) \{[\s\S]*?request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\.hasOnly\(\['status', 'paid_expense_id', 'paid_at'\]\)/,
     )
     expect(rules).toMatch(
       /function isValidPendienteMarkPaid\(\) \{[\s\S]*?request\.resource\.data\.status == 'paid'/,
@@ -429,6 +429,12 @@ describe('firestore.rules pendientes mark-paid', () => {
     )
     expect(rules).toMatch(
       /function isValidPendienteMarkPaid\(\) \{[\s\S]*?request\.resource\.data\.paid_expense_id is string[\s\S]*?request\.resource\.data\.paid_expense_id\.size\(\) > 0/,
+    )
+    expect(rules).toMatch(
+      /function isValidPendienteMarkPaid\(\) \{[\s\S]*?resource\.data\.paid_at == null/,
+    )
+    expect(rules).toMatch(
+      /function isValidPendienteMarkPaid\(\) \{[\s\S]*?request\.resource\.data\.paid_at is timestamp/,
     )
   })
 
@@ -504,12 +510,9 @@ describe('markPendientePaid adapter', () => {
     )
   })
 
-  it('blanks the next cycle expected amount instead of copying the paid cycle amount', () => {
+  it('carries the just-paid amount into the next cycle as its pre-filled expected amount', () => {
     expect(adapterSource).toMatch(
-      /tx\.set\(nextPendienteRef, \{[\s\S]*?expectedAmount: null,/,
-    )
-    expect(adapterSource).not.toContain(
-      'expectedAmount: current.expectedAmount',
+      /tx\.set\(nextPendienteRef, \{[\s\S]*?expectedAmount: input\.finalAmount,/,
     )
   })
 
