@@ -1,6 +1,19 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { afterEach, beforeAll, vi } from 'vitest'
+
+// Testing Library's default 1s budget for waitFor/findBy is fine for a
+// single file but too tight for the whole suite: several screens chain two
+// awaited reads (membership, then the entity) before they render anything,
+// and under full-suite parallelism those occasionally overrun 1s and fail
+// intermittently -- always passing again in isolation and on re-run.
+//
+// Raised once here rather than per assertion: two separate tests had already
+// been patched individually with their own timeout, which is whack-a-mole
+// for a whole class of flake. This only extends how long a truthy condition
+// is *allowed* to take; a genuinely broken assertion still fails, just a few
+// seconds later.
+configure({ asyncUtilTimeout: 5000 })
 
 function createLocalStorageMock(): Storage {
   const store = new Map<string, string>()

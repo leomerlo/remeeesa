@@ -60,21 +60,11 @@ describe('App', () => {
     // No "remeeesa" wordmark here -- that hero belongs to the unauthenticated
     // sign-up/log-in/join flow (AuthHero), not an authenticated screen like
     // Ajustes.
-    //
-    // Explicit timeout: this screen chains two awaited reads (getMembership,
-    // then getHousehold) before it renders the form at all, so under the full
-    // suite's parallel load the default 1s waitFor budget is occasionally
-    // exceeded and the assertion lands while "Cargando…" is still showing.
-    // Verified intermittent, not a regression: the file passes in isolation
-    // and the full suite passes on re-run.
-    await waitFor(
-      () => {
-        expect(screen.getByLabelText('Nombre del hogar')).toHaveValue(
-          'Casa Verde',
-        )
-      },
-      { timeout: 5000 },
-    )
+    await waitFor(() => {
+      expect(screen.getByLabelText('Nombre del hogar')).toHaveValue(
+        'Casa Verde',
+      )
+    })
     expect(screen.getByLabelText('Presupuesto mensual')).toHaveValue('100')
     expect(
       await screen.findByRole('heading', { name: 'Integrantes' }),
