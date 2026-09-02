@@ -34,6 +34,7 @@ function monthLabel(date: Date): string {
 type MonthGroup = {
   readonly key: string
   readonly label: string
+  readonly total: number
   readonly expenses: readonly Expense[]
 }
 
@@ -50,6 +51,7 @@ function groupByMonth(expenses: readonly Expense[]): readonly MonthGroup[] {
     if (last !== undefined && last.key === key) {
       groups[groups.length - 1] = {
         ...last,
+        total: last.total + expense.price,
         expenses: [...last.expenses, expense],
       }
       continue
@@ -57,6 +59,7 @@ function groupByMonth(expenses: readonly Expense[]): readonly MonthGroup[] {
     groups.push({
       key,
       label: monthLabel(expense.expenseDate),
+      total: expense.price,
       expenses: [expense],
     })
   }
@@ -204,9 +207,16 @@ export function ExpenseHistory({
     <div className="flex w-full flex-col gap-6">
       {groupByMonth(expenses).map((group) => (
         <section key={group.key} className="flex w-full flex-col gap-3">
-          <h2 className="text-muted-foreground text-sm font-semibold">
-            {group.label}
-          </h2>
+          {/* The month's own total sits in its header. A history that only
+              lists rows makes "what did we spend in July" a manual sum. */}
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="text-muted-foreground text-sm font-semibold">
+              {group.label}
+            </h2>
+            <span className="text-foreground shrink-0 text-sm font-semibold">
+              {formatCurrency(group.total)}
+            </span>
+          </div>
           <ul aria-label={group.label} className="flex flex-col gap-3 text-sm">
             {group.expenses.map((expense) => {
               const category = categoryById.get(expense.categoryId)
@@ -228,8 +238,8 @@ export function ExpenseHistory({
       {historyQuery.hasNextPage ? (
         <Button
           type="button"
-          variant="outline"
-          className="w-full"
+          variant="ghost"
+          className="mx-auto"
           disabled={historyQuery.isFetchingNextPage}
           onClick={() => {
             void historyQuery.fetchNextPage()

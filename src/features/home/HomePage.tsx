@@ -17,6 +17,7 @@ import { LogoutButton } from '@/features/auth'
 import { OnboardingForm } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
 import { markReturningUser } from '@/features/onboarding/returningUserStorage'
+import { authorDisplayNameFromAuth } from '@/lib/displayName'
 import { useFirebase } from '@/lib/firebaseContext'
 import {
   createFirestoreHouseholdsDb,
@@ -32,29 +33,6 @@ export type HomePageProps = {
   readonly authorDisplayName?: string
   readonly signupAuth?: SignupAuth
   readonly householdsDb?: HouseholdsDb
-}
-
-function authorDisplayNameFromAuth(
-  user:
-    | {
-        readonly displayName?: string | null
-        readonly email?: string | null
-      }
-    | null
-    | undefined,
-): string {
-  const displayName = user?.displayName?.trim()
-  if (displayName !== undefined && displayName !== '') {
-    return displayName
-  }
-  const email = user?.email?.trim()
-  if (email !== undefined && email !== '') {
-    const localPart = email.split('@')[0]?.trim()
-    if (localPart !== undefined && localPart !== '') {
-      return localPart
-    }
-  }
-  return 'Miembro'
 }
 
 export function HomePage({
@@ -217,6 +195,7 @@ export function HomePage({
             onOpenChange={setIsAddCuentaSheetOpen}
             db={db}
             householdId={membership.householdId}
+            triggerClassName="flex-1"
           />
         ) : null}
       </div>

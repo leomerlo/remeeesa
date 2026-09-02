@@ -1,5 +1,9 @@
 import {
   Bike,
+  Droplet,
+  Flame,
+  Landmark,
+  ShieldCheck,
   Bus,
   Car,
   Coffee,
@@ -99,6 +103,33 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   suscripciones: CreditCard,
   tarjeta: CreditCard,
   otros: Tag,
+
+  // The names this household's own spreadsheet actually uses -- both its
+  // category column and the individual line items, since a bill named
+  // "EDENOR" is what shows up on a Cuenta row, not the word "luz".
+  'gastos personales': Wallet,
+  'tarjetas de credito': CreditCard,
+  visa: CreditCard,
+  amex: CreditCard,
+  santander: CreditCard,
+  // Utilities and taxes, by provider name
+  naturgy: Flame,
+  edenor: Zap,
+  aysa: Droplet,
+  claro: Wifi,
+  personal: Smartphone,
+  prosegur: ShieldCheck,
+  arba: Landmark,
+  afip: Landmark,
+  patente: Landmark,
+  impuesto: Landmark,
+  municipal: Landmark,
+  // Car and health
+  seguro: ShieldCheck,
+  'seguro auto': ShieldCheck,
+  aca: Car,
+  osde: Heart,
+  entrenamiento: Dumbbell,
 }
 
 // Unmapped names hash across several visually distinct icons rather than

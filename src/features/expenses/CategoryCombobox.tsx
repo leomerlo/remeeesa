@@ -10,6 +10,10 @@ export type CategoryComboboxProps = {
   readonly categories: readonly Category[]
   readonly value: string
   readonly onChange: (value: string) => void
+  // Below the chips this field is only for a name that does not exist yet,
+  // and without a hint it read as an unlabelled box floating between
+  // "Categoría" and "Comentario".
+  readonly placeholder?: string
 }
 
 function normalize(value: string): string {
@@ -53,6 +57,7 @@ export function CategoryCombobox({
   categories,
   value,
   onChange,
+  placeholder,
 }: CategoryComboboxProps): ReactElement {
   const listboxId = `${id}-listbox`
   const [open, setOpen] = useState(false)
@@ -173,6 +178,7 @@ export function CategoryCombobox({
               open && activeIndex >= 0 ? optionId(activeIndex) : undefined
             }
             autoComplete="off"
+            {...(placeholder === undefined ? {} : { placeholder })}
             value={value}
             className={selectedColor !== null ? 'pl-7' : undefined}
             onChange={(event) => {

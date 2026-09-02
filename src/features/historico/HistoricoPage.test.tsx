@@ -194,4 +194,55 @@ describe('HistoricoPage', () => {
     expect(await screen.findByText('Gasto corregido')).toBeInTheDocument()
     expect(screen.queryByText('Gasto viejo')).not.toBeInTheDocument()
   })
+
+  // Histórico has no "add" entry point of its own -- it reuses the expense
+  // sheet purely to edit a row it was handed. The sheet rendered its trigger
+  // regardless, leaving an "Agregar gasto" button floating under the page
+  // title with nothing around it.
+  it('does not offer an add-expense button', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    await seed({
+      db,
+      householdId,
+      categoryId,
+      name: 'Gasto',
+      date: new Date(),
+    })
+
+    renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+
+    await screen.findByText('Gasto')
+    expect(
+      screen.queryByRole('button', { name: 'Agregar gasto' }),
+    ).not.toBeInTheDocument()
+  })
+
+  // A history that only lists rows makes "what did we spend that month" a
+  // manual sum.
+  it('totals each month in its header', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    const now = new Date()
+    await seed({
+      db,
+      householdId,
+      categoryId,
+      name: 'Uno',
+      date: now,
+      price: 75,
+    })
+    await seed({
+      db,
+      householdId,
+      categoryId,
+      name: 'Dos',
+      date: now,
+      price: 25,
+    })
+
+    renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+
+    await screen.findByText('Uno')
+    const monthHeading = screen.getAllByRole('heading', { level: 2 })[0]
+    expect(monthHeading?.parentElement).toHaveTextContent('$100,00')
+  })
 })

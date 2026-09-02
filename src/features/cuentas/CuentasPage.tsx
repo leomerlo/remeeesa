@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import { Navigate } from 'react-router-dom'
+import { authorDisplayNameFromAuth } from '@/lib/displayName'
 import { useFirebase } from '@/lib/firebaseContext'
 import { useHouseholdMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import type { Cuenta } from '@/lib/cuentas'
+import { PageHeader } from '@/components/PageHeader'
 import { AddCuentaSheet } from './AddCuentaSheet'
 import type { EditCuentaTarget } from './AddCuentaForm'
 import { MarkCuentaPaidSheet } from './MarkCuentaPaidSheet'
@@ -13,32 +15,6 @@ import { PendingCuentasList } from './PendingCuentasList'
 export type CuentasPageProps = {
   readonly currentUserId?: string | null
   readonly householdsDb?: HouseholdsDb
-}
-
-// Duplicated from HomePage.tsx -- this project tolerates this kind of small
-// helper duplication rather than factoring out a shared module for it (see
-// e.g. localDateInputValue's duplication across the expense/cuenta forms).
-function authorDisplayNameFromAuth(
-  user:
-    | {
-        readonly displayName?: string | null
-        readonly email?: string | null
-      }
-    | null
-    | undefined,
-): string {
-  const displayName = user?.displayName?.trim()
-  if (displayName !== undefined && displayName !== '') {
-    return displayName
-  }
-  const email = user?.email?.trim()
-  if (email !== undefined && email !== '') {
-    const localPart = email.split('@')[0]?.trim()
-    if (localPart !== undefined && localPart !== '') {
-      return localPart
-    }
-  }
-  return 'Miembro'
 }
 
 export function CuentasPage({
@@ -52,9 +28,7 @@ export function CuentasPage({
   })
   const [isAddCuentaSheetOpen, setIsAddCuentaSheetOpen] = useState(false)
   const [editCuenta, setEditCuenta] = useState<EditCuentaTarget | null>(null)
-  const [markCuentaTarget, setMarkCuentaTarget] = useState<Cuenta | null>(
-    null,
-  )
+  const [markCuentaTarget, setMarkCuentaTarget] = useState<Cuenta | null>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
   const markCuentaTriggerRef = useRef<HTMLElement | null>(null)
   const wasMarkCuentaOpenRef = useRef(markCuentaTarget !== null)
@@ -107,13 +81,13 @@ export function CuentasPage({
     return <Navigate to="/" replace />
   }
 
-  const authorDisplayName = authorDisplayNameFromAuth(firebase.auth?.currentUser)
+  const authorDisplayName = authorDisplayNameFromAuth(
+    firebase.auth?.currentUser,
+  )
 
   return (
-    <div className="flex w-full flex-col items-center gap-8">
-      <h1 ref={headingRef} tabIndex={-1} className="text-title outline-none">
-        Cuentas
-      </h1>
+    <div className="flex w-full flex-col gap-6">
+      <PageHeader title="Cuentas" headingRef={headingRef} />
       <AddCuentaSheet
         open={isAddCuentaSheetOpen}
         onOpenChange={setIsAddCuentaSheetOpen}

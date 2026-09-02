@@ -99,10 +99,17 @@ export function PorPagarSection({
       </div>
       {/* Horizontal scroll, per the comp. -mx-6/px-6 lets the row bleed to
           the screen edges while the cards still align with the page's
-          content gutter. */}
+          content gutter.
+          scroll-px-6 is what makes that actually hold: snap-mandatory snaps
+          to the first card's own start edge, which scrolled the 24px of left
+          padding away and left the first card flush against the screen edge,
+          a gutter out of line with every other section on Home.
+          The scrollbar is hidden because it rendered as a grey bar sitting
+          under the cards on desktop; the row is swipeable and the partially
+          visible next card is the affordance. */}
       <ul
         aria-label="Cuentas por pagar"
-        className="-mx-6 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto px-6 pb-1"
+        className="-mx-6 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-6 px-6 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {preview.map((cuenta) => {
           const category = categoryById.get(cuenta.categoryId)
@@ -149,8 +156,14 @@ export function PorPagarSection({
                 <span className="text-foreground mt-auto truncate font-medium">
                   {cuenta.name}
                 </span>
-                <span className="text-muted-foreground truncate text-xs">
-                  {categoryName} · {formatShortDate(cuenta.dueDate)}
+                {/* Two lines rather than one truncated one: at w-44
+                    "Servicios · 4 de sept de 2026" clipped to
+                    "Servicios · 4 de sept de 2…", hiding the year. */}
+                <span className="text-muted-foreground flex flex-col text-xs">
+                  <span className="truncate">{categoryName}</span>
+                  <span className="truncate">
+                    {formatShortDate(cuenta.dueDate)}
+                  </span>
                 </span>
               </button>
             </li>

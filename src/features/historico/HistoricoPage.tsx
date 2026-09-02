@@ -36,7 +36,7 @@ export function HistoricoPage({
   // permanently instead of showing its empty state.
   if (currentUserId === undefined) {
     return (
-      <div className="flex w-full flex-col items-center gap-8">
+      <div className="flex w-full flex-col gap-6">
         {header}
         <p role="status" className="text-sm font-medium">
           Cargando…
@@ -47,7 +47,7 @@ export function HistoricoPage({
 
   if (currentUserId === null || membership === null) {
     return (
-      <div className="flex w-full flex-col items-center gap-8">
+      <div className="flex w-full flex-col gap-6">
         {header}
         <p role="status" className="text-sm font-medium">
           Todavía no hay gastos
@@ -58,7 +58,7 @@ export function HistoricoPage({
 
   if (membership === undefined) {
     return (
-      <div className="flex w-full flex-col items-center gap-8">
+      <div className="flex w-full flex-col gap-6">
         {header}
         <p role="status" className="text-sm font-medium">
           Cargando…
@@ -68,7 +68,7 @@ export function HistoricoPage({
   }
 
   return (
-    <div className="flex w-full flex-col items-center gap-8">
+    <div className="flex w-full flex-col gap-6">
       {header}
       {/* Editing from here reuses the very same sheet as Home, so correcting
           an expense from an old month behaves identically to correcting one
@@ -78,6 +78,7 @@ export function HistoricoPage({
           editExpense was set by tapping a row. */}
       <AddExpenseSheet
         open={false}
+        showTrigger={false}
         onOpenChange={() => {}}
         db={db}
         householdId={membership.householdId}

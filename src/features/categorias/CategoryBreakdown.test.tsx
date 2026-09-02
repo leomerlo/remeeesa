@@ -98,11 +98,18 @@ describe('CategoryBreakdown', () => {
   it("shows the month's total outside the donut", async () => {
     const { db, householdId, byName } = await seedHousehold()
     const comida = byName.get('Comida')
-    if (comida === undefined) {
-      throw new Error('expected seeded category')
+    const transporte = byName.get('Transporte')
+    if (comida === undefined || transporte === undefined) {
+      throw new Error('expected seeded categories')
     }
     await seed({ db, householdId, categoryId: comida.id, name: 'A', price: 75 })
-    await seed({ db, householdId, categoryId: comida.id, name: 'B', price: 25 })
+    await seed({
+      db,
+      householdId,
+      categoryId: transporte.id,
+      name: 'B',
+      price: 25,
+    })
 
     const { container } = renderWithProviders(
       <CategoryBreakdown db={db} householdId={householdId} />,
@@ -113,6 +120,27 @@ describe('CategoryBreakdown', () => {
     })
     expect(heading.parentElement).toHaveTextContent('$100,00')
     expect(container.querySelector('svg')?.textContent).toBe('')
+  })
+
+  // One slice draws as a plain filled ring whose only message is "100%",
+  // which the row beneath already says in words.
+  it('draws no donut at all when a single category holds the whole month', async () => {
+    const { db, householdId, byName } = await seedHousehold()
+    const comida = byName.get('Comida')
+    if (comida === undefined) {
+      throw new Error('expected the seeded Comida category')
+    }
+    await seed({ db, householdId, categoryId: comida.id, name: 'A', price: 75 })
+    await seed({ db, householdId, categoryId: comida.id, name: 'B', price: 25 })
+
+    const { container } = renderWithProviders(
+      <CategoryBreakdown db={db} householdId={householdId} />,
+    )
+
+    await screen.findByRole('list', { name: 'Gastos por categoría' })
+    expect(container.querySelector('svg')).toBeNull()
+    // The numbers themselves are still all there.
+    expect(screen.getByText('100%')).toBeInTheDocument()
   })
 
   it('draws one donut arc per category, in the category colour', async () => {
@@ -230,5 +258,62 @@ describe('CategoryBreakdown', () => {
     expect(items[0]).toHaveTextContent('$70,00')
     expect(items[1]).toHaveTextContent('Flor')
     expect(items[1]).toHaveTextContent('$30,00')
+  })
+
+  // Same reason the single-category donut goes: a bar comparing one person
+  // against nobody is always full.
+  it('drops the comparison bar when one person spent everything', async () => {
+    const { db, householdId, byName } = await seedHousehold()
+    const comida = byName.get('Comida')
+    if (comida === undefined) {
+      throw new Error('expected the seeded Comida category')
+    }
+    await seed({
+      db,
+      householdId,
+      categoryId: comida.id,
+      name: 'Super',
+      price: 70,
+      author: 'Flor',
+    })
+
+    const { container } = renderWithProviders(
+      <CategoryBreakdown db={db} householdId={householdId} />,
+    )
+
+    await screen.findByRole('list', { name: 'Gastos por persona' })
+    expect(screen.getByText('Flor')).toBeInTheDocument()
+    expect(container.querySelector('[role="presentation"]')).toBeNull()
+  })
+
+  it('keeps the bars once there is somebody to compare against', async () => {
+    const { db, householdId, byName } = await seedHousehold()
+    const comida = byName.get('Comida')
+    if (comida === undefined) {
+      throw new Error('expected the seeded Comida category')
+    }
+    await seed({
+      db,
+      householdId,
+      categoryId: comida.id,
+      name: 'Super',
+      price: 70,
+      author: 'Flor',
+    })
+    await seed({
+      db,
+      householdId,
+      categoryId: comida.id,
+      name: 'Nafta',
+      price: 30,
+      author: 'Leo',
+    })
+
+    const { container } = renderWithProviders(
+      <CategoryBreakdown db={db} householdId={householdId} />,
+    )
+
+    await screen.findByRole('list', { name: 'Gastos por persona' })
+    expect(container.querySelectorAll('[role="presentation"]')).toHaveLength(2)
   })
 })

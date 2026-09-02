@@ -4,6 +4,7 @@ import type { FormEvent, ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { CategoryChips } from './CategoryChips'
 import { CategoryCombobox } from './CategoryCombobox'
 import {
   createExpense,
@@ -310,11 +311,44 @@ function ExpenseFormBody({
     loadError
 
   return (
-    <form
-      className="flex w-full flex-col items-center gap-8"
-      noValidate
-      onSubmit={onSubmit}
-    >
+    <form className="flex w-full flex-col gap-6" noValidate onSubmit={onSubmit}>
+      {/* The Sheet's title is visually hidden (it exists for the dialog's
+          accessible name), which left the sheet opening onto a bare "Nombre"
+          field with nothing saying what it was. */}
+      <h2 className="text-title font-semibold">
+        {isEditing ? 'Editar gasto' : 'Agregar gasto'}
+      </h2>
+      {/* The amount leads, at hero size. It is the one field every single
+          expense has to fill, and it used to be the fourth identical grey box
+          down the sheet -- indistinguishable from "Comentario". */}
+      <div className="flex w-full flex-col gap-2">
+        <Label
+          htmlFor="expense-price"
+          className="text-muted-foreground font-medium"
+        >
+          Precio
+        </Label>
+        <div className="relative">
+          <span
+            aria-hidden="true"
+            className="text-muted-foreground font-display text-display pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
+          >
+            $
+          </span>
+          <Input
+            id="expense-price"
+            name="expense-price"
+            className="font-display text-display h-20 pl-12 tracking-tight"
+            value={price}
+            onChange={(event) => {
+              setPrice(event.target.value)
+            }}
+            inputMode="decimal"
+            autoComplete="off"
+          />
+        </div>
+      </div>
+
       <div className="flex w-full flex-col gap-2">
         <Label
           htmlFor="expense-name"
@@ -335,35 +369,24 @@ function ExpenseFormBody({
 
       <div className="flex w-full flex-col gap-2">
         <Label
-          htmlFor="expense-price"
-          className="text-muted-foreground font-medium"
-        >
-          Precio
-        </Label>
-        <Input
-          id="expense-price"
-          name="expense-price"
-          value={price}
-          onChange={(event) => {
-            setPrice(event.target.value)
-          }}
-          inputMode="decimal"
-          autoComplete="off"
-        />
-      </div>
-
-      <div className="flex w-full flex-col gap-2">
-        <Label
           htmlFor="expense-category"
           className="text-muted-foreground font-medium"
         >
           Categoría
         </Label>
+        <CategoryChips
+          categories={categories}
+          value={category}
+          onChange={setCategory}
+        />
+        {/* Still here, and still the only way to create a category that does
+            not exist yet -- the chips above cover the common case. */}
         <CategoryCombobox
           id="expense-category"
           categories={categories}
           value={category}
           onChange={setCategory}
+          placeholder="O escribí una categoría nueva"
         />
       </div>
 

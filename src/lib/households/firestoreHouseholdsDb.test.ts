@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import rules from '../../../firestore.rules?raw'
 import adapterSource from './firestoreHouseholdsDb.ts?raw'
+import indexes from '../../../firestore.indexes.json'
 import { AlreadyInHouseholdError, FirestoreDeniedError } from './households'
 import { mapHouseholdFirestoreError } from './firestoreHouseholdsDb'
 
@@ -160,6 +161,35 @@ describe('firestore.rules categories', () => {
     expect(rules).toMatch(
       /match \/categories\/\{categoryId\}[\s\S]*allow delete: if isMemberOf\(resource\.data\.household_id\);/,
     )
+  })
+})
+
+describe('firestore.indexes.json covers the expense queries', () => {
+  // Firestore appends an implicit __name__ sort to any ordered query, so a
+  // query ordering by expense_date alone needs a *different* composite index
+  // than one ordering by expense_date then created_at. Shipping the first kind
+  // fails only in production, with "The query requires an index" -- exactly
+  // what Histórico hit. Every expense query therefore carries both orders, so
+  // one declared index serves all of them.
+  it('orders every expense query by expense_date and then created_at', () => {
+    const orderings = [
+      ...adapterSource.matchAll(/orderBy\('expense_date', 'desc'\),\s*(\S+)/g),
+    ]
+    expect(orderings.length).toBeGreaterThan(0)
+    for (const [, next] of orderings) {
+      expect(next).toBe("orderBy('created_at',")
+    }
+  })
+
+  it('declares the composite index those queries need', () => {
+    const expenseIndex = indexes.indexes.find(
+      (index) => index.collectionGroup === 'expenses',
+    )
+    expect(expenseIndex?.fields).toEqual([
+      { fieldPath: 'household_id', order: 'ASCENDING' },
+      { fieldPath: 'expense_date', order: 'DESCENDING' },
+      { fieldPath: 'created_at', order: 'DESCENDING' },
+    ])
   })
 })
 

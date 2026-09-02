@@ -57,24 +57,20 @@ export function RemainingBudgetDisplay({
 
   return (
     <div className="from-primary to-[var(--surface-action-gradient-end)] relative flex w-full flex-col gap-6 rounded-3xl bg-gradient-to-br p-6">
-      {/* No overflow-hidden on this card: it was clipping the illustration's
-          top half wherever it poked above the card edge (the only thing
-          overflow-hidden was actually protecting -- the gradient background
-          already clips to its own border-radius with no help needed, and
-          nothing else here escapes the card bounds). Floating fully visible
-          above the card, per the approved comp, needs the opposite of what
-          was there. Positioned so its bottom edge lands right where the
-          label+amount block starts (card padding p-6 = 24px), clearing
-          "Presupuesto restante" without relying on clipping. */}
-      <PiggyBankIllustration className="pointer-events-none absolute -top-14 right-2 h-20 w-24" />
-      <div className="flex flex-col gap-2 pr-20">
-        <span className="text-primary-foreground text-body font-medium [text-shadow:0_1px_3px_rgba(0,0,0,0.35)]">
+      {/* Deliberately no overflow-hidden: the illustration is meant to poke
+          above the card edge, and clipping it cut off its top half. The
+          overhang is small on purpose -- at -top-14/h-20 it reached 56px above
+          the card and collided with the page title, which sits only one gap
+          (32px) higher. */}
+      <PiggyBankIllustration className="pointer-events-none absolute -top-7 right-2 h-16 w-20" />
+      <div className="flex flex-col gap-2 pr-16">
+        <span className="text-primary-foreground text-body font-medium">
           Presupuesto restante
         </span>
         <p
           role="status"
           aria-label={`Presupuesto restante ${formattedRemaining}`}
-          className="text-primary-foreground font-display text-display tracking-tight [text-shadow:0_1px_4px_rgba(0,0,0,0.35)]"
+          className="text-primary-foreground font-display text-display tracking-tight"
         >
           {formattedRemaining}
         </p>
@@ -93,7 +89,7 @@ export function RemainingBudgetDisplay({
             style={{ width: `${String(percentUsed)}%` }}
           />
         </div>
-        <span className="text-primary-foreground self-end text-xs font-medium [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]">
+        <span className="text-primary-foreground text-xs font-medium">
           {percentUsed}% usado
         </span>
       </div>

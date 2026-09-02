@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
+import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet } from '@/components/ui/sheet'
 import type { HouseholdsDb } from '@/lib/households'
@@ -13,6 +14,10 @@ export type AddCuentaSheetProps = {
   readonly householdId: string
   readonly editCuenta?: EditCuentaTarget | null
   readonly onEditFinished?: () => void
+  // Home puts this trigger beside "Agregar gasto" in a two-up row, where both
+  // have to be flex-1 or they come out visibly different widths; /cuentas
+  // gives it the full width on its own.
+  readonly triggerClassName?: string
 }
 
 export function AddCuentaSheet({
@@ -22,6 +27,7 @@ export function AddCuentaSheet({
   householdId,
   editCuenta = null,
   onEditFinished,
+  triggerClassName = 'w-full',
 }: AddCuentaSheetProps): ReactElement {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -66,10 +72,12 @@ export function AddCuentaSheet({
       {!sheetOpen ? (
         <Button
           ref={triggerRef}
+          className={`gap-1.5 ${triggerClassName}`}
           onClick={() => {
             onOpenChange(true)
           }}
         >
+          <Plus aria-hidden="true" />
           Nueva cuenta
         </Button>
       ) : null}

@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
@@ -59,10 +59,9 @@ describe('PendingCuentasList', () => {
       <PendingCuentasList db={db} householdId={household.id} />,
     )
 
-    expect(await screen.findByText('No hay cuentas pendientes')).toHaveAttribute(
-      'role',
-      'status',
-    )
+    expect(
+      await screen.findByText('No hay cuentas pendientes'),
+    ).toHaveAttribute('role', 'status')
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
   })
 
@@ -221,9 +220,7 @@ describe('PendingCuentasList', () => {
     expect(
       await screen.findByText('No hay cuentas pendientes'),
     ).toBeInTheDocument()
-    expect(
-      screen.queryByText('Cuenta de la otra casa'),
-    ).not.toBeInTheDocument()
+    expect(screen.queryByText('Cuenta de la otra casa')).not.toBeInTheDocument()
   })
 
   it('reflects a newly created cuenta without a manual refetch', async () => {
@@ -498,5 +495,81 @@ describe('PendingCuentasList', () => {
 
     expect(onMarkPaid).toHaveBeenCalledTimes(1)
     expect(onMarkPaid).toHaveBeenCalledWith(cuenta)
+  })
+
+  // The name, the amount and "Pagar" used to share one line, which at 375px
+  // clipped "Expensas" to "Expen…" and squashed the button into a flattened
+  // oval. The button gets its own row now.
+  it('shows a long bill name in full, alongside its amount', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categoryId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Servicios',
+    })
+    await createCuenta({
+      db,
+      householdId: household.id,
+      categoryId,
+      name: 'Expensas',
+      dueDate: new Date('2026-12-09T12:00:00'),
+      expectedAmount: 145000,
+    })
+
+    renderWithProviders(
+      <PendingCuentasList
+        db={db}
+        householdId={household.id}
+        onMarkPaid={() => {}}
+      />,
+    )
+
+    const row = (await screen.findByText('Expensas')).closest('li')
+    expect(row).toHaveTextContent('Expensas')
+    expect(row).toHaveTextContent('$145.000,00')
+    expect(
+      within(row as HTMLElement).getByRole('button', {
+        name: 'Marcar pagada Expensas',
+      }),
+    ).toBeInTheDocument()
+  })
+
+  // The circles were empty colour blobs here while every other list in the
+  // app puts the category's icon inside them.
+  it('puts the category icon inside the coloured circle', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categoryId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Servicios',
+    })
+    await createCuenta({
+      db,
+      householdId: household.id,
+      categoryId,
+      name: 'Luz',
+      dueDate: new Date('2026-12-04T12:00:00'),
+      expectedAmount: 28000,
+    })
+
+    renderWithProviders(
+      <PendingCuentasList db={db} householdId={household.id} />,
+    )
+
+    await screen.findByText('Luz')
+    const icon = screen.getByTestId('category-icon')
+    expect(icon.querySelector('svg')).not.toBeNull()
   })
 })

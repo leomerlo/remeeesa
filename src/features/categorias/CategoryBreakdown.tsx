@@ -99,7 +99,13 @@ export function CategoryBreakdown({
             row at 375px left the names with so little width that `truncate`
             ate them entirely, leaving rows of a colour dot and a number. */}
         <div className="flex flex-col items-center gap-4 sm:flex-row">
-          <CategoryDonut summary={byCategory} />
+          {/* A donut needs at least two slices to say anything. With one
+              category it renders as a plain filled ring -- a big graphic
+              whose only message is "100%", which the row underneath already
+              states in words. */}
+          {byCategory.length > 1 ? (
+            <CategoryDonut summary={byCategory} />
+          ) : null}
           <ul
             aria-label="Gastos por categoría"
             className="flex w-full min-w-0 flex-1 flex-col gap-2 text-sm"
@@ -156,19 +162,24 @@ export function CategoryBreakdown({
                   {formatCurrency(entry.total)}
                 </span>
               </div>
-              <div
-                role="presentation"
-                className="bg-muted h-2 w-full overflow-hidden rounded-full"
-              >
+              {/* A bar compares one person against another. With a single
+                  spender it is always full, which says nothing the amount
+                  beside the name has not already said. */}
+              {byPerson.length > 1 ? (
                 <div
-                  className="bg-primary h-full rounded-full"
-                  style={{
-                    width: `${String(
-                      total > 0 ? Math.round((entry.total / total) * 100) : 0,
-                    )}%`,
-                  }}
-                />
-              </div>
+                  role="presentation"
+                  className="bg-muted h-2 w-full overflow-hidden rounded-full"
+                >
+                  <div
+                    className="bg-primary h-full rounded-full"
+                    style={{
+                      width: `${String(
+                        total > 0 ? Math.round((entry.total / total) * 100) : 0,
+                      )}%`,
+                    }}
+                  />
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>

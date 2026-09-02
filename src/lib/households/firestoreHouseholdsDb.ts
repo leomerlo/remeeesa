@@ -724,11 +724,19 @@ export function createFirestoreHouseholdsDb(
 
         // One extra single-row read so the caller can hide "load more"
         // rather than offering a button that returns nothing.
+        //
+        // The created_at tiebreak is not about ordering -- this only ever asks
+        // "is there anything older" -- it is what keeps the query on the
+        // household_id/expense_date/created_at index every other expense query
+        // already uses. Ordering by expense_date alone makes Firestore append
+        // an implicit __name__ sort, which is a *different* composite index
+        // and fails in production with "The query requires an index".
         const olderQuery = query(
           collection(firestore, 'expenses'),
           where('household_id', '==', input.householdId),
           where('expense_date', '<', Timestamp.fromDate(pageMonthStart)),
           orderBy('expense_date', 'desc'),
+          orderBy('created_at', 'desc'),
           limit(1),
         )
         const olderSnap = await getDocs(olderQuery)

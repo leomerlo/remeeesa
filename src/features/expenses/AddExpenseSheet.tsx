@@ -16,6 +16,10 @@ export type AddExpenseSheetProps = {
   readonly authorDisplayName: string
   readonly editExpense?: EditExpenseTarget | null
   readonly onEditFinished?: () => void
+  // Histórico reuses this sheet purely to *edit* a row it was handed; it has
+  // no "add" entry point of its own. Without this the trigger rendered there
+  // anyway, as a button floating under the page title with nothing around it.
+  readonly showTrigger?: boolean
 }
 
 export function AddExpenseSheet({
@@ -27,6 +31,7 @@ export function AddExpenseSheet({
   authorDisplayName,
   editExpense = null,
   onEditFinished,
+  showTrigger = true,
 }: AddExpenseSheetProps): ReactElement {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -69,7 +74,7 @@ export function AddExpenseSheet({
 
   return (
     <>
-      {!sheetOpen ? (
+      {showTrigger && !sheetOpen ? (
         <Button
           ref={triggerRef}
           className="flex-1 gap-1.5"

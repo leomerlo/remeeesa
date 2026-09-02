@@ -286,4 +286,34 @@ describe('PorPagarSection', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(container).toBeEmptyDOMElement()
   })
+
+  // scroll-px-6 is load-bearing: snap-mandatory snaps to the first card's own
+  // start edge, scrolling the row's 24px left padding away and leaving that
+  // card flush against the screen edge, out of line with every other section
+  // on Home.
+  it('keeps the scroller aligned to the page gutter under scroll snapping', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    await seedCuenta({
+      db,
+      householdId,
+      categoryId,
+      name: 'Luz',
+      dayOfMonth: 4,
+      expectedAmount: 28000,
+    })
+
+    renderSection(
+      <PorPagarSection
+        db={db}
+        householdId={householdId}
+        onMarkPaid={vi.fn()}
+      />,
+    )
+
+    const list = await screen.findByRole('list', {
+      name: 'Cuentas por pagar',
+    })
+    expect(list.className).toContain('snap-mandatory')
+    expect(list.className).toContain('scroll-px-6')
+  })
 })

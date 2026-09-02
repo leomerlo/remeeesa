@@ -5,6 +5,7 @@ import { listPendingCuentas } from '@/lib/cuentas'
 import type { Cuenta } from '@/lib/cuentas'
 import { formatBudgetAmount, listCategories } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
+import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { formatShortDate } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
 import { cuentasQueryKey } from './queryKeys'
@@ -69,7 +70,7 @@ export function PendingCuentasList({
   return (
     <ul
       aria-label="Cuentas pendientes"
-      className="flex w-full flex-col gap-8 text-sm"
+      className="flex w-full flex-col gap-3 text-sm"
     >
       {cuentas.map((cuenta) => {
         const category = categoryById.get(cuenta.categoryId)
@@ -77,13 +78,18 @@ export function PendingCuentasList({
         const categoryColor =
           category?.color ?? colorForCategoryName(categoryName)
 
+        const CategoryIcon = iconForCategoryName(categoryName)
+
         const rowContent = (
           <>
             <span
               aria-hidden="true"
-              className="size-10 shrink-0 rounded-full"
+              data-testid="category-icon"
+              className="flex size-11 shrink-0 items-center justify-center rounded-full"
               style={{ backgroundColor: categoryColor }}
-            />
+            >
+              <CategoryIcon className="size-5 text-white" aria-hidden="true" />
+            </span>
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="truncate text-foreground font-medium">
@@ -104,23 +110,17 @@ export function PendingCuentasList({
           </>
         )
 
-        if (onEditCuenta === undefined && onMarkPaid === undefined) {
-          return (
-            <li key={cuenta.id}>
-              <div className="bg-card shadow-resting flex items-center gap-3 rounded-2xl p-4">
-                {rowContent}
-              </div>
-            </li>
-          )
-        }
-
+        // "Pagar" sits on its own row rather than beside the amount. Sharing
+        // one line with the name and the amount left names like "Expensas"
+        // truncated to "Expen…" at 375px, and squeezed the button into a
+        // flattened oval.
         return (
           <li key={cuenta.id}>
-            <div className="bg-card shadow-resting flex items-center gap-3 rounded-2xl p-4">
+            <div className="bg-card shadow-resting flex flex-col gap-3 rounded-2xl p-4">
               {onEditCuenta !== undefined ? (
                 <button
                   type="button"
-                  className="flex min-w-0 flex-1 items-center gap-3 text-left transition-transform active:scale-[0.98]"
+                  className="flex w-full min-w-0 items-center gap-3 text-left transition-transform active:scale-[0.98]"
                   aria-label={`Editar ${cuenta.name}`}
                   onClick={() => {
                     onEditCuenta(cuenta, category?.name ?? '')
@@ -129,7 +129,7 @@ export function PendingCuentasList({
                   {rowContent}
                 </button>
               ) : (
-                <div className="flex min-w-0 flex-1 items-center gap-3">
+                <div className="flex w-full min-w-0 items-center gap-3">
                   {rowContent}
                 </div>
               )}
@@ -137,8 +137,7 @@ export function PendingCuentasList({
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
-                  className="shrink-0"
+                  className="w-full"
                   aria-label={`Marcar pagada ${cuenta.name}`}
                   onClick={() => {
                     onMarkPaid(cuenta)
