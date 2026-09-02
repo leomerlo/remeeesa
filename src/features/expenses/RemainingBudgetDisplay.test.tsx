@@ -70,7 +70,7 @@ describe('RemainingBudgetDisplay', () => {
     expect(progressbar).toHaveAttribute('aria-valuenow', '0')
     expect(progressbar).toHaveAttribute('aria-valuemin', '0')
     expect(progressbar).toHaveAttribute('aria-valuemax', '100')
-    expect(container.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
+    expect(container.querySelector('img[aria-hidden="true"]')).not.toBeNull()
   })
 
   it('updates the progress bar to reflect the percent of budget used', async () => {

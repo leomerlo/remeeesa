@@ -44,7 +44,7 @@ describe('RecentExpensesList', () => {
 
     expect(await screen.findByText('Todavía no hay gastos')).toBeInTheDocument()
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
-    expect(container.querySelector('svg[aria-hidden="true"]')).not.toBeNull()
+    expect(container.querySelector('img[aria-hidden="true"]')).not.toBeNull()
   })
 
   it('lists recent expenses with name, price, category, date, and author, newest first', async () => {

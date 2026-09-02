@@ -66,8 +66,8 @@ export function RemainingBudgetDisplay({
           was there. Positioned so its bottom edge lands right where the
           label+amount block starts (card padding p-6 = 24px), clearing
           "Presupuesto restante" without relying on clipping. */}
-      <PiggyBankIllustration className="pointer-events-none absolute -top-10 right-2 h-16 w-20" />
-      <div className="flex flex-col gap-2 pr-16">
+      <PiggyBankIllustration className="pointer-events-none absolute -top-14 right-2 h-20 w-24" />
+      <div className="flex flex-col gap-2 pr-20">
         <span className="text-primary-foreground text-body font-medium [text-shadow:0_1px_3px_rgba(0,0,0,0.35)]">
           Presupuesto restante
         </span>
