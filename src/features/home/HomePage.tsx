@@ -7,7 +7,12 @@ import {
   RemainingBudgetDisplay,
 } from '@/features/expenses'
 import type { EditExpenseTarget } from '@/features/expenses/AddExpenseForm'
-import { AddCuentaSheet } from '@/features/cuentas'
+import {
+  AddCuentaSheet,
+  MarkCuentaPaidSheet,
+  PorPagarSection,
+} from '@/features/cuentas'
+import type { Cuenta } from '@/lib/cuentas'
 import { LogoutButton } from '@/features/auth'
 import { OnboardingForm } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
@@ -79,6 +84,7 @@ export function HomePage({
   const [editExpense, setEditExpense] = useState<EditExpenseTarget | null>(null)
   const [isAddExpenseSheetOpen, setIsAddExpenseSheetOpen] = useState(false)
   const [isAddCuentaSheetOpen, setIsAddCuentaSheetOpen] = useState(false)
+  const [markPaidCuenta, setMarkPaidCuenta] = useState<Cuenta | null>(null)
 
   useEffect(() => {
     if (currentUserIdProp !== undefined) {
@@ -214,6 +220,19 @@ export function HomePage({
           />
         ) : null}
       </div>
+      <PorPagarSection
+        db={db}
+        householdId={membership.householdId}
+        onMarkPaid={setMarkPaidCuenta}
+      />
+      <MarkCuentaPaidSheet
+        db={db}
+        householdId={membership.householdId}
+        memberId={currentUserId}
+        authorDisplayName={authorDisplayName}
+        cuenta={markPaidCuenta}
+        onOpenChange={setMarkPaidCuenta}
+      />
       <div className="flex w-full flex-col gap-3">
         <h2 className="text-title font-semibold self-start">
           Últimos movimientos
