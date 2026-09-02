@@ -313,7 +313,9 @@ describe('EditExpenseFlow', () => {
     )
     await waitFor(() => {
       expect(screen.queryByText('Pizza')).not.toBeInTheDocument()
-      expect(screen.getByText('Todavía no hay gastos')).toBeInTheDocument()
+      expect(
+        screen.getByText('Todavía no hay gastos este mes'),
+      ).toBeInTheDocument()
     })
   })
 
@@ -415,7 +417,9 @@ describe('EditExpenseFlow', () => {
     await waitFor(() => {
       expect(screen.queryByText('Pizza')).not.toBeInTheDocument()
     })
-    expect(await screen.findByText('Todavía no hay gastos')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Todavía no hay gastos este mes'),
+    ).toBeInTheDocument()
     expect(
       screen.getByRole('status', { name: 'Presupuesto restante $100,00' }),
     ).toBeInTheDocument()

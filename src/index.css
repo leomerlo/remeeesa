@@ -157,7 +157,7 @@
      numeral down to captions) rather than t-shirt size, matching how the
      approved Home comp actually uses type -- one huge bold numeral, section
      headers, card titles, and small muted metadata, nothing in between. */
-  --text-display: 2.75rem; /* 44px -- the hero "$284.50" numeral */
+  --text-display: 2rem; /* 32px -- the hero "$284.50" numeral */
   --text-display--line-height: 1.05;
   --text-title: 1.25rem; /* 20px -- section headers ("Por pagar") */
   --text-title--line-height: 1.3;

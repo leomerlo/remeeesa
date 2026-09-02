@@ -103,7 +103,9 @@ describe('HomePage', () => {
     expect(
       screen.getByRole('status', { name: 'Gastado este mes $0,00' }),
     ).toHaveTextContent('$0,00')
-    expect(await screen.findByText('Todavía no hay gastos')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Todavía no hay gastos este mes'),
+    ).toBeInTheDocument()
     expect(
       screen.getByRole('progressbar', { name: '% usado' }),
     ).toHaveAttribute('aria-valuenow', '0')
@@ -115,8 +117,9 @@ describe('HomePage', () => {
       screen.getByRole('button', { name: 'Agregar gasto' }),
     ).toBeInTheDocument()
     // Neither mini-summary renders anything on an empty month: each would
-    // otherwise be its own card repeating "Todavía no hay gastos este mes",
-    // on top of the movements list's own illustrated empty state above them.
+    // otherwise be its own card repeating "Todavía no hay gastos este mes"
+    // a second and third time, on top of the movements list's own (the one
+    // legitimate instance, asserted above).
     expect(
       screen.queryByRole('heading', { name: 'Categorías' }),
     ).not.toBeInTheDocument()
@@ -125,7 +128,7 @@ describe('HomePage', () => {
     ).not.toBeInTheDocument()
     expect(
       screen.queryAllByText('Todavía no hay gastos este mes'),
-    ).toHaveLength(0)
+    ).toHaveLength(1)
     expect(
       screen.getByRole('button', { name: 'Nuevo pendiente' }),
     ).toBeInTheDocument()
@@ -303,7 +306,9 @@ describe('HomePage', () => {
         name: /presupuesto restante \$100/i,
       }),
     ).toHaveTextContent('$100,00')
-    expect(await screen.findByText('Todavía no hay gastos')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Todavía no hay gastos este mes'),
+    ).toBeInTheDocument()
 
     fireEvent.click(
       await screen.findByRole('button', { name: 'Agregar gasto' }),

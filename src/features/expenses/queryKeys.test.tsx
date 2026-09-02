@@ -131,7 +131,9 @@ describe('expenses prefix invalidation', () => {
         name: 'Presupuesto restante $100,00',
       }),
     ).toHaveTextContent('$100,00')
-    expect(await screen.findByText('Todavía no hay gastos')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Todavía no hay gastos este mes'),
+    ).toBeInTheDocument()
 
     fireEvent.change(await screen.findByLabelText('Nombre'), {
       target: { value: 'Pizza' },
@@ -152,7 +154,9 @@ describe('expenses prefix invalidation', () => {
       ).toHaveTextContent('$90,00')
     })
     expect(await screen.findByText('Pizza')).toBeInTheDocument()
-    expect(screen.queryByText('Todavía no hay gastos')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('Todavía no hay gastos este mes'),
+    ).not.toBeInTheDocument()
   })
 
   // AddExpenseForm's delete mutation (reached by tapping a row open, then

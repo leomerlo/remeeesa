@@ -1,11 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
 import { AlertMessage } from '@/components/ui/alert-message'
+import { useMemo } from 'react'
 import type { ReactElement } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { categoriesQueryKey } from '@/features/expenses'
 import {
+  currentMonthRange,
   formatCurrency,
   listCategories,
-  listRecentExpenses,
+  listExpensesInMonth,
 } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
@@ -13,7 +16,7 @@ import { formatShortDate } from '@/lib/format'
 import type { Expense } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
 import { EmptyExpensesIllustration } from './EmptyExpensesIllustration'
-import { recentExpensesQueryKey } from './queryKeys'
+import { expensesInMonthQueryKey } from './queryKeys'
 
 export type RecentExpensesListProps = {
   readonly db: HouseholdsDb
@@ -23,38 +26,44 @@ export type RecentExpensesListProps = {
 
 const RECENT_EXPENSES_LIMIT = 10
 
-// All-time recent-movements list ("Últimos movimientos" on Home). Matches
-// the approved comp's plain, buttonless cards -- there is no edit/delete
+// This month's movements ("Últimos movimientos" on Home), most recent
+// first, capped so an active month doesn't turn Home into a second
+// Histórico -- that screen is where "see everything" belongs. Matches the
+// approved comp's plain, buttonless cards -- there is no edit/delete
 // affordance on the row itself. Tapping a row opens it for editing
 // (onEditExpense), and deleting lives inside that edit form
-// (AddExpenseForm) instead, since HistoricoPage is still a bare placeholder
-// and editing can't be dropped from the app entirely.
+// (AddExpenseForm) instead.
+//
+// Two separate queries, not one combined fetch: CategoryMiniSummary,
+// PersonMiniSummary and MonthNavigator's current-month card all read
+// expensesInMonthQueryKey/categoriesQueryKey with a queryFn that resolves
+// to a plain array. A combined { expenses, categories } shape under the
+// same key would collide with theirs -- same key, different data shape --
+// and whichever query populated the cache first would feed the wrong
+// shape to every other subscriber. Matching their exact shape is what
+// makes Tanstack Query's cache dedupe the fetch instead of corrupting it.
 export function RecentExpensesList({
   db,
   householdId,
   onEditExpense,
 }: RecentExpensesListProps): ReactElement {
-  const recentExpensesKey = recentExpensesQueryKey({
-    householdId,
-    limit: RECENT_EXPENSES_LIMIT,
-  })
-
+  const monthRange = useMemo(() => currentMonthRange(), [])
   const expensesQuery = useQuery({
-    queryKey: recentExpensesKey,
-    queryFn: async () => {
-      const [expenses, categories] = await Promise.all([
-        listRecentExpenses({
-          db,
-          householdId,
-          limit: RECENT_EXPENSES_LIMIT,
-        }),
-        listCategories({ db, householdId }),
-      ])
-      return { expenses, categories }
-    },
+    queryKey: expensesInMonthQueryKey({ householdId }),
+    queryFn: () =>
+      listExpensesInMonth({
+        db,
+        householdId,
+        monthStart: monthRange.monthStart,
+        monthEnd: monthRange.monthEnd,
+      }),
+  })
+  const categoriesQuery = useQuery({
+    queryKey: categoriesQueryKey({ householdId }),
+    queryFn: () => listCategories({ db, householdId }),
   })
 
-  if (expensesQuery.isPending) {
+  if (expensesQuery.isPending || categoriesQuery.isPending) {
     return (
       <div
         role="status"
@@ -78,21 +87,23 @@ export function RecentExpensesList({
     )
   }
 
-  if (expensesQuery.isError) {
+  if (expensesQuery.isError || categoriesQuery.isError) {
+    const failed = expensesQuery.isError
+      ? expensesQuery.error
+      : categoriesQuery.error
     const message =
-      expensesQuery.error instanceof Error
-        ? expensesQuery.error.message
-        : 'No se pudo cargar los gastos'
+      failed instanceof Error ? failed.message : 'No se pudo cargar los gastos'
     return <AlertMessage>{message}</AlertMessage>
   }
 
-  const { expenses, categories } = expensesQuery.data
+  const expenses = expensesQuery.data.slice(0, RECENT_EXPENSES_LIMIT)
+  const categories = categoriesQuery.data
   if (expenses.length === 0) {
     return (
       <>
         <EmptyExpensesIllustration className="mx-auto h-32 w-40" />
         <p role="status" className="text-sm font-medium">
-          Todavía no hay gastos
+          Todavía no hay gastos este mes
         </p>
       </>
     )

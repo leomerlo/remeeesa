@@ -42,7 +42,9 @@ describe('RecentExpensesList', () => {
       <RecentExpensesList db={db} householdId={household.id} />,
     )
 
-    expect(await screen.findByText('Todavía no hay gastos')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Todavía no hay gastos este mes'),
+    ).toBeInTheDocument()
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
     expect(container.querySelector('img[aria-hidden="true"]')).not.toBeNull()
   })
@@ -124,14 +126,17 @@ describe('RecentExpensesList', () => {
       expect(rows[1]).toHaveTextContent(formatExpenseDate(earlierDate))
       expect(rows[1]).toHaveTextContent('Ada')
       expect(
-        screen.queryByText('Todavía no hay gastos'),
+        screen.queryByText('Todavía no hay gastos este mes'),
       ).not.toBeInTheDocument()
     } finally {
       vi.useRealTimers()
     }
   })
 
-  it('includes an expense dated last month, ahead of nothing newer', async () => {
+  // Scoped to the current month, not all-time: a household mid-way through
+  // an active month with nothing yet logged should see the empty state, not
+  // last month's movements standing in for it.
+  it('excludes an expense dated last month and shows the empty state instead', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -162,8 +167,10 @@ describe('RecentExpensesList', () => {
       <RecentExpensesList db={db} householdId={household.id} />,
     )
 
-    expect(await screen.findByText('Old rent')).toBeInTheDocument()
-    expect(screen.queryByText('Todavía no hay gastos')).not.toBeInTheDocument()
+    expect(
+      await screen.findByText('Todavía no hay gastos este mes'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Old rent')).not.toBeInTheDocument()
   })
 
   it('caps the list at the 10 most recent expenses', async () => {
@@ -181,17 +188,22 @@ describe('RecentExpensesList', () => {
       throw new Error('expected Comida category')
     }
 
-    for (let day = 1; day <= 12; day += 1) {
+    // All dated "now" (today, current month) rather than spread across 12
+    // distinct days -- the household's calendar could be early enough in
+    // the month that 12 distinct valid days don't exist yet. Creation
+    // order (expense_date/created_at desc) still gives a stable "most
+    // recent 10" without depending on the day of the month this test runs.
+    for (let i = 1; i <= 12; i += 1) {
       await createExpense({
         db,
         householdId: household.id,
         categoryId: comida.id,
         memberId: 'user-1',
         authorDisplayName: 'Ada',
-        name: `Expense ${String(day)}`,
+        name: `Expense ${String(i)}`,
         price: 5,
         comments: '',
-        expenseDate: new Date(2026, 6, day),
+        expenseDate: new Date(),
       })
     }
 
