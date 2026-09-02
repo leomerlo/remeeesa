@@ -30,7 +30,12 @@ export function CategoryChips({
   const selected = normalize(value)
 
   return (
-    <div className="flex flex-wrap gap-2">
+    // One scrollable row instead of wrapping -- per direct feedback, a
+    // household with enough categories to wrap onto several lines pushed
+    // the rest of the form down further than a swipeable row does.
+    // Scrollbar hidden: the row itself, plus a partially-cut-off chip at
+    // the edge, is the affordance.
+    <div className="flex flex-nowrap gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {categories.map((category) => {
         const Icon = iconForCategoryName(category.name)
         const isSelected = normalize(category.name) === selected
@@ -45,7 +50,7 @@ export function CategoryChips({
               onChange(isSelected ? '' : category.name)
             }}
             className={cn(
-              'focus-visible:ring-ring/50 flex h-11 items-center gap-2 rounded-full border px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-3',
+              'focus-visible:ring-ring/50 flex h-11 shrink-0 items-center gap-2 rounded-full border px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-3',
               isSelected
                 ? 'border-transparent text-white'
                 : 'border-border bg-background text-foreground',
