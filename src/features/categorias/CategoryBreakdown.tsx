@@ -95,11 +95,14 @@ export function CategoryBreakdown({
             {formatCurrency(total)}
           </span>
         </div>
-        <div className="flex items-center gap-4">
+        {/* Stacked on a phone, side by side once there is room. Sharing one
+            row at 375px left the names with so little width that `truncate`
+            ate them entirely, leaving rows of a colour dot and a number. */}
+        <div className="flex flex-col items-center gap-4 sm:flex-row">
           <CategoryDonut summary={byCategory} />
           <ul
             aria-label="Gastos por categoría"
-            className="flex min-w-0 flex-1 flex-col gap-2 text-sm"
+            className="flex w-full min-w-0 flex-1 flex-col gap-2 text-sm"
           >
             {byCategory.map((entry) => (
               <li

@@ -5,6 +5,7 @@ import categoriesCalc from '@/assets/illustrations/categories-calc.webp'
 import { useHouseholdMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { CategoryBreakdown } from './CategoryBreakdown'
+import { CategoryManager } from './CategoryManager'
 
 export type CategoriasPageProps = {
   readonly currentUserId?: string | null
@@ -65,6 +66,7 @@ export function CategoriasPage({
     <div className="flex w-full flex-col items-center gap-8">
       {header}
       <CategoryBreakdown db={db} householdId={membership.householdId} />
+      <CategoryManager db={db} householdId={membership.householdId} />
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
@@ -66,7 +66,32 @@ describe('CategoriasPage', () => {
     expect(
       screen.getByRole('heading', { name: 'Por persona' }),
     ).toBeInTheDocument()
-    expect(screen.getByText('Comida')).toBeInTheDocument()
     expect(screen.getByText('Ada')).toBeInTheDocument()
+
+    // "Comida" appears twice on this screen -- once in the breakdown and once
+    // in the management list below it -- so each is asserted in its own list.
+    const breakdown = screen.getByRole('list', { name: 'Gastos por categoría' })
+    expect(within(breakdown).getByText('Comida')).toBeInTheDocument()
+    const manager = screen.getByRole('list', { name: 'Todas las categorías' })
+    expect(within(manager).getByText('Comida')).toBeInTheDocument()
+  })
+
+  it('offers the management actions on the same screen, not a separate one', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 1000,
+    })
+
+    renderPage(<CategoriasPage currentUserId="user-1" householdsDb={db} />)
+
+    expect(
+      await screen.findByRole('heading', { name: 'Tus categorías' }),
+    ).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: 'Editar Comida' }),
+    ).toBeInTheDocument()
   })
 })
