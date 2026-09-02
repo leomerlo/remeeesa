@@ -22,6 +22,12 @@ export type RecentExpensesListProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly onEditExpense?: (expense: Expense, categoryName: string) => void
+  // Defaults to the current month. MonthNavigator's viewed month flows down
+  // to this (and every other Home section that reads a month of Expenses)
+  // so paging back a month moves the whole page together, not just the two
+  // budget cards.
+  readonly monthStart?: Date
+  readonly monthEnd?: Date
 }
 
 const RECENT_EXPENSES_LIMIT = 10
@@ -40,22 +46,30 @@ const RECENT_EXPENSES_LIMIT = 10
 // to a plain array. A combined { expenses, categories } shape under the
 // same key would collide with theirs -- same key, different data shape --
 // and whichever query populated the cache first would feed the wrong
-// shape to every other subscriber. Matching their exact shape is what
-// makes Tanstack Query's cache dedupe the fetch instead of corrupting it.
+// shape to every other subscriber. Matching their exact shape (and the
+// same month-timestamp key suffix) is what makes Tanstack Query's cache
+// dedupe the fetch instead of corrupting it.
 export function RecentExpensesList({
   db,
   householdId,
   onEditExpense,
+  monthStart: monthStartProp,
+  monthEnd: monthEndProp,
 }: RecentExpensesListProps): ReactElement {
-  const monthRange = useMemo(() => currentMonthRange(), [])
+  const defaultRange = useMemo(() => currentMonthRange(), [])
+  const monthStart = monthStartProp ?? defaultRange.monthStart
+  const monthEnd = monthEndProp ?? defaultRange.monthEnd
   const expensesQuery = useQuery({
-    queryKey: expensesInMonthQueryKey({ householdId }),
+    queryKey: [
+      ...expensesInMonthQueryKey({ householdId }),
+      monthStart.getTime(),
+    ],
     queryFn: () =>
       listExpensesInMonth({
         db,
         householdId,
-        monthStart: monthRange.monthStart,
-        monthEnd: monthRange.monthEnd,
+        monthStart,
+        monthEnd,
       }),
   })
   const categoriesQuery = useQuery({

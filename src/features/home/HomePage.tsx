@@ -15,6 +15,7 @@ import {
 } from '@/features/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import { LogoutButton } from '@/features/auth'
+import { currentMonthRange } from '@/lib/expenses'
 import { OnboardingForm } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
 import { markReturningUser } from '@/features/onboarding/returningUserStorage'
@@ -67,6 +68,13 @@ export function HomePage({
   const [markPaidPendiente, setMarkPaidPendiente] = useState<Pendiente | null>(
     null,
   )
+  // Owned here (not inside MonthNavigator) so every month-scoped section on
+  // the page -- not just its own two budget cards -- moves together when
+  // the user pages to a different month.
+  const [viewedMonth, setViewedMonth] = useState(
+    () => currentMonthRange().monthStart,
+  )
+  const { monthStart, monthEnd } = currentMonthRange(viewedMonth)
 
   useEffect(() => {
     if (currentUserIdProp !== undefined) {
@@ -171,7 +179,12 @@ export function HomePage({
           bottom nav, so a second icon-link to the same destination is
           redundant. */}
       <PageHeader title={household?.name ?? 'Hogar'} />
-      <MonthNavigator db={db} householdId={membership.householdId} />
+      <MonthNavigator
+        db={db}
+        householdId={membership.householdId}
+        viewedMonth={viewedMonth}
+        onViewedMonthChange={setViewedMonth}
+      />
       <div className="flex w-full gap-3">
         <AddExpenseSheet
           open={isAddExpenseSheetOpen}
@@ -216,6 +229,8 @@ export function HomePage({
         <RecentExpensesList
           db={db}
           householdId={membership.householdId}
+          monthStart={monthStart}
+          monthEnd={monthEnd}
           onEditExpense={(expense, categoryName) => {
             setEditExpense({
               expenseId: expense.id,
@@ -228,8 +243,18 @@ export function HomePage({
           }}
         />
       </div>
-      <CategoryMiniSummary db={db} householdId={membership.householdId} />
-      <PersonMiniSummary db={db} householdId={membership.householdId} />
+      <CategoryMiniSummary
+        db={db}
+        householdId={membership.householdId}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />
+      <PersonMiniSummary
+        db={db}
+        householdId={membership.householdId}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />
     </div>
   )
 }

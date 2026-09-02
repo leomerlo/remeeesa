@@ -11,6 +11,11 @@ import { SpentThisMonthDisplay } from './SpentThisMonthDisplay'
 export type MonthNavigatorProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
+  // Uncontrolled by default (owns its own month via internal state, as
+  // before). Pass both to control it -- HomePage does, so paging the
+  // month here also moves every other month-scoped section on the page.
+  readonly viewedMonth?: Date
+  readonly onViewedMonthChange?: (month: Date) => void
 }
 
 function startOfMonth(date: Date): Date {
@@ -33,8 +38,14 @@ function isSameMonth(a: Date, b: Date): boolean {
 export function MonthNavigator({
   db,
   householdId,
+  viewedMonth: viewedMonthProp,
+  onViewedMonthChange,
 }: MonthNavigatorProps): ReactElement {
-  const [viewedMonth, setViewedMonth] = useState(() => startOfMonth(new Date()))
+  const [internalViewedMonth, setInternalViewedMonth] = useState(() =>
+    startOfMonth(new Date()),
+  )
+  const viewedMonth = viewedMonthProp ?? internalViewedMonth
+  const setViewedMonth = onViewedMonthChange ?? setInternalViewedMonth
   const { monthStart, monthEnd } = currentMonthRange(viewedMonth)
   const isCurrentMonth = isSameMonth(viewedMonth, new Date())
 
@@ -47,7 +58,7 @@ export function MonthNavigator({
           size="icon"
           aria-label="Mes anterior"
           onClick={() => {
-            setViewedMonth((month) => addMonths(month, -1))
+            setViewedMonth(addMonths(viewedMonth, -1))
           }}
         >
           <ChevronLeft aria-hidden="true" />
@@ -66,7 +77,7 @@ export function MonthNavigator({
           aria-label="Mes siguiente"
           disabled={isCurrentMonth}
           onClick={() => {
-            setViewedMonth((month) => addMonths(month, 1))
+            setViewedMonth(addMonths(viewedMonth, 1))
           }}
         >
           <ChevronRight aria-hidden="true" />
