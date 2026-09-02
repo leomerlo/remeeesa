@@ -1831,6 +1831,19 @@ describe('markCuentaPaid', () => {
     expect(pending).toHaveLength(1)
     expect(pending[0]?.id).not.toBe(cuenta.id)
     expect(pending[0]?.dueDate).toEqual(new Date(2026, 9, 10))
+
+    // Also assert the Expense count on this path specifically. The
+    // "exactly one Expense" idempotency test above seeds a non-recurring
+    // cuenta (seedPendingCuenta defaults recurring: false), so without this
+    // the recurring path -- the one this ticket actually changed, and the
+    // one that now performs three writes instead of two -- would have no
+    // coverage against double-counting a real household expense.
+    const expenses = await listRecentExpenses({
+      db,
+      householdId: household.id,
+      limit: 10,
+    })
+    expect(expenses).toHaveLength(1)
   })
 
   it('denies a non-member', async () => {

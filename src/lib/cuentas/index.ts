@@ -9,7 +9,6 @@ export {
   markCuentaPaid,
   updateCuenta,
 } from './cuentas'
-export { nextCycleDueDate } from './recurrence'
 export {
   parseCuentaDueDate,
   parseCuentaName,
