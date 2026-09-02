@@ -424,6 +424,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         price: input.price,
         comments: input.comments,
         expenseDate: input.expenseDate,
+        pendienteId: null,
         createdAt: new Date(),
       }
       state.expenses.set(expense.id, expense)
@@ -706,6 +707,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         price: input.finalAmount,
         comments: '',
         expenseDate: input.paymentDate,
+        pendienteId: input.pendienteId,
         createdAt,
       }
       const updated: Pendiente = {

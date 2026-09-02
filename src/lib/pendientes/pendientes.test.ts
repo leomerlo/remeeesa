@@ -1433,6 +1433,9 @@ describe('markPendientePaid', () => {
     expect(expense.authorDisplayName).toBe('Ada')
     expect(expense.comments).toBe('')
     expect(expense.name).toBe('Alquiler')
+    // Marks the Expense as a "servicio" (a bill paid through Pendientes),
+    // not a plain Gasto -- lets Histórico tell the two apart.
+    expect(expense.pendienteId).toBe(pendiente.id)
   })
 
   it('removes the pendiente from listPendientes once marked paid', async () => {

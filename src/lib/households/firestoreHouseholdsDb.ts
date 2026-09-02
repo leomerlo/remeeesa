@@ -624,6 +624,7 @@ export function createFirestoreHouseholdsDb(
               price: input.price,
               comments: input.comments,
               expenseDate: input.expenseDate,
+              pendienteId: null,
               createdAt,
             }),
             expense_date: toFirestoreExpenseDate(input.expenseDate),
@@ -639,6 +640,7 @@ export function createFirestoreHouseholdsDb(
             price: input.price,
             comments: input.comments,
             expenseDate: input.expenseDate,
+            pendienteId: null,
             createdAt,
           }
         },
@@ -1005,6 +1007,7 @@ export function createFirestoreHouseholdsDb(
                 price: input.finalAmount,
                 comments: '',
                 expenseDate: input.paymentDate,
+                pendienteId: input.pendienteId,
                 createdAt,
               }),
               expense_date: toFirestoreExpenseDate(input.paymentDate),
@@ -1077,6 +1080,7 @@ export function createFirestoreHouseholdsDb(
                 price: input.finalAmount,
                 comments: '',
                 expenseDate: input.paymentDate,
+                pendienteId: input.pendienteId,
                 createdAt,
               },
             }

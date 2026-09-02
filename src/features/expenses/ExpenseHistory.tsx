@@ -102,7 +102,19 @@ function ExpenseRow({
             {formatCurrency(expense.price)}
           </span>
         </div>
-        <div className="text-muted-foreground flex flex-wrap gap-x-1.5 text-xs">
+        <div className="text-muted-foreground flex flex-wrap items-center gap-x-1.5 text-xs">
+          {/* "Servicio" marks an Expense created by paying a Pendiente
+              (a bill), so it reads apart from a plain Gasto logged
+              directly -- there was previously no way to tell them apart in
+              Histórico. */}
+          {expense.pendienteId !== null ? (
+            <>
+              <span className="bg-primary/10 text-primary rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
+                Servicio
+              </span>
+              <span aria-hidden="true">·</span>
+            </>
+          ) : null}
           <span>{categoryName}</span>
           <span aria-hidden="true">·</span>
           <span>{formatShortDate(expense.expenseDate)}</span>

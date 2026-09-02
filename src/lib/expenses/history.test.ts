@@ -56,6 +56,7 @@ function fixtureExpenses(count: number) {
     price: 10,
     comments: '',
     expenseDate: new Date(base - index * 1000),
+    pendienteId: null,
     createdAt: new Date(base - index * 1000),
   }))
 }

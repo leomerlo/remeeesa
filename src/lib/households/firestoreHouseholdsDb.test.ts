@@ -273,7 +273,7 @@ describe('firestore.rules expenses', () => {
   it('lets members create expenses attributed to themselves with price and date checks', () => {
     expect(rules).toContain('function isValidExpense(data)')
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'category_id', 'member_id', 'name', 'price', 'comments', 'expense_date', 'created_at', 'author_display_name'])",
+      "data.keys().hasOnly(['household_id', 'category_id', 'member_id', 'name', 'price', 'comments', 'expense_date', 'pendiente_id', 'created_at', 'author_display_name'])",
     )
     expect(rules).toContain('data.price is number')
     expect(rules).toContain('data.price > 0')
@@ -302,6 +302,15 @@ describe('firestore.rules expenses', () => {
     )
     expect(rules).toContain('function isValidExpenseUpdate()')
     expect(rules).toContain('function expenseDateNotInFuture(expenseDate)')
+    // pendiente_id: null for a plain Gasto, or a real Pendiente in this same
+    // household for a "servicio" Expense created by markPendientePaid.
+    expect(rules).toContain('data.pendiente_id == null')
+    expect(rules).toContain(
+      'exists(/databases/$(database)/documents/pendientes/$(data.pendiente_id))',
+    )
+    expect(rules).toContain(
+      'get(/databases/$(database)/documents/pendientes/$(data.pendiente_id)).data.household_id == data.household_id',
+    )
     expect(rules).toContain(
       "expenseDate < request.time + duration.value(1, 'd')",
     )

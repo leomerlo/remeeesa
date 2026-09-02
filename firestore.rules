@@ -108,7 +108,7 @@ service cloud.firestore {
     }
 
     function isValidExpense(data) {
-      return data.keys().hasOnly(['household_id', 'category_id', 'member_id', 'name', 'price', 'comments', 'expense_date', 'created_at', 'author_display_name'])
+      return data.keys().hasOnly(['household_id', 'category_id', 'member_id', 'name', 'price', 'comments', 'expense_date', 'pendiente_id', 'created_at', 'author_display_name'])
         && data.household_id is string
         && data.household_id.size() > 0
         && data.category_id is string
@@ -123,6 +123,15 @@ service cloud.firestore {
         && data.comments is string
         && data.expense_date is timestamp
         && expenseDateNotInFuture(data.expense_date)
+        // null for a plain Gasto (createExpense); set for a "servicio" --
+        // the markPendientePaid transaction creates the Expense in the same
+        // commit that marks its own Pendiente paid, so it must reference a
+        // real Pendiente in this same household, not an arbitrary id.
+        && (data.pendiente_id == null
+          || (data.pendiente_id is string
+            && data.pendiente_id.size() > 0
+            && exists(/databases/$(database)/documents/pendientes/$(data.pendiente_id))
+            && get(/databases/$(database)/documents/pendientes/$(data.pendiente_id)).data.household_id == data.household_id))
         && data.created_at is timestamp
         && data.author_display_name is string
         && data.author_display_name.size() > 0

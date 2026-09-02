@@ -13,6 +13,7 @@ import {
   updateMemberDisplayName,
 } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
+import { createPendiente, markPendientePaid } from '@/lib/pendientes'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { HistoricoPage } from './HistoricoPage'
@@ -345,5 +346,49 @@ describe('HistoricoPage', () => {
     })
     expect(row).toHaveTextContent('Jlors')
     expect(row).not.toHaveTextContent('Florencia Sepúlveda')
+  })
+
+  // Regression: an Expense created by paying a Pendiente used to be
+  // indistinguishable from a plain Gasto logged directly -- both were just
+  // rows in Histórico with no way to tell which was which.
+  it('marks an expense created by paying a pendiente as "Servicio", and a plain expense not at all', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    await seed({
+      db,
+      householdId,
+      categoryId,
+      name: 'Super',
+      date: new Date(2026, 7, 5),
+    })
+    const pendiente = await createPendiente({
+      db,
+      householdId,
+      categoryId,
+      name: 'Internet',
+      dueDate: new Date(2026, 7, 10),
+      expectedAmount: 5000,
+    })
+    await markPendientePaid({
+      db,
+      householdId,
+      pendienteId: pendiente.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 5000,
+      paymentDate: new Date(2026, 7, 10),
+    })
+
+    renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+
+    const gastoRow = (
+      await screen.findByRole('button', { name: 'Editar Super' })
+    ).closest('li')
+    const servicioRow = screen
+      .getByRole('button', { name: 'Editar Internet' })
+      .closest('li')
+    expect(gastoRow).not.toBeNull()
+    expect(servicioRow).not.toBeNull()
+    expect(gastoRow).not.toHaveTextContent('Servicio')
+    expect(servicioRow).toHaveTextContent('Servicio')
   })
 })

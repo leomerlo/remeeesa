@@ -12,6 +12,16 @@ import {
   parseExpensePrice,
 } from './validate'
 
+function parseNullableString(value: unknown, field: string): string | null {
+  if (value === null || value === undefined) {
+    return null
+  }
+  if (typeof value !== 'string') {
+    throw new Error(`${field} must be a string or null`)
+  }
+  return value
+}
+
 export function parseCategoryDocument(input: {
   readonly id: string
   readonly data: unknown
@@ -87,6 +97,7 @@ export function parseExpenseDocument(input: {
     price,
     comments,
     expense_date,
+    pendiente_id,
     created_at,
   } = input.data
   if (typeof name !== 'string') {
@@ -115,6 +126,9 @@ export function parseExpenseDocument(input: {
     price: parseExpensePrice(price),
     comments,
     expenseDate: parseTimestamp(expense_date, 'expense_date'),
+    // Missing (not just null) on any Expense doc written before this field
+    // existed -- treated the same as "not from a Pendiente".
+    pendienteId: parseNullableString(pendiente_id, 'pendiente_id'),
     createdAt: parseTimestamp(created_at, 'created_at'),
   }
 }
@@ -143,6 +157,7 @@ export function expenseToDocument(input: {
   readonly price: number
   readonly comments: string
   readonly expenseDate: Date
+  readonly pendienteId: string | null
   readonly createdAt: Date
 }): {
   readonly household_id: string
@@ -153,6 +168,7 @@ export function expenseToDocument(input: {
   readonly price: number
   readonly comments: string
   readonly expense_date: Date
+  readonly pendiente_id: string | null
   readonly created_at: Date
 } {
   return {
@@ -164,6 +180,7 @@ export function expenseToDocument(input: {
     price: input.price,
     comments: input.comments,
     expense_date: input.expenseDate,
+    pendiente_id: input.pendienteId,
     created_at: input.createdAt,
   }
 }

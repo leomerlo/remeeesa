@@ -336,6 +336,7 @@ describe('createExpense', () => {
       price: 10.46,
       comments: 'Friday dinner',
       expenseDate,
+      pendienteId: null,
       createdAt: expect.any(Date),
     })
     expect(expense.id.length).toBeGreaterThan(0)
