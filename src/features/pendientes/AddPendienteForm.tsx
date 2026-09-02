@@ -307,7 +307,7 @@ function PendienteFormBody({
         }
         return
       }
-      await createPendiente({
+      const created = await createPendiente({
         db,
         householdId,
         categoryId: resolvedCategory.id,
@@ -316,6 +316,20 @@ function PendienteFormBody({
         expectedAmount: fields.expectedAmount,
         recurring: fields.recurring,
       })
+      if (shouldMarkPaid) {
+        // Same "fields.expectedAmount === null is caught before mutate()"
+        // guard as the editing branch above -- markPaid can't reach here
+        // with a null amount or a null paymentDate.
+        await markPendientePaid({
+          db,
+          householdId,
+          pendienteId: created.id,
+          memberId,
+          authorDisplayName,
+          finalAmount: fields.expectedAmount ?? 0,
+          paymentDate: parsedPaymentDate ?? new Date(),
+        })
+      }
     },
     onSuccess: async (_result, variables) => {
       if (isEditing) {
@@ -327,6 +341,13 @@ function PendienteFormBody({
         setDueDate(reset.dueDate)
         setExpectedAmount(reset.expectedAmount)
         setRecurring(reset.recurring)
+        // Reset alongside every other field: AddPendienteSheet closes on a
+        // successful add today, which would remount this fresh anyway, but
+        // nothing about this component depends on that -- a host that keeps
+        // it mounted across an add (the way editing already does across
+        // saves) shouldn't carry a checked "Ya lo pagué" into the next one.
+        setMarkPaid(false)
+        setPaymentDate(localDateInputValue(new Date()))
         onAdded?.()
       }
       setError(null)
@@ -463,7 +484,7 @@ function PendienteFormBody({
             dialog's accessible name), which left this opening onto a bare
             "Nombre" field with nothing saying what screen it was. */}
         <h2 className="text-title font-semibold">
-          {isEditing ? 'Editar pendiente' : 'Nuevo pendiente'}
+          {isEditing ? 'Editar pendiente' : 'Nuevo recurrente'}
         </h2>
 
         {/* Unlike an Expense's price, a Pendiente's amount is optional -- some
@@ -566,43 +587,43 @@ function PendienteFormBody({
           />
         </div>
 
-        {/* Editing only -- there's nothing to mark paid while still creating
-            the Pendiente. Replaces the old separate "Marcar pagado" sheet:
-            one form for both editing and paying, per direct feedback. */}
-        {isEditing ? (
-          <div className="flex w-full flex-col gap-2">
-            <div className="flex w-full items-center justify-between gap-2">
-              <Label htmlFor="pendiente-mark-paid" className="font-medium">
-                Ya lo pagué
+        {/* Available while adding too, not just editing: a pendiente can be
+            logged already paid in one step (e.g. a bill paid on the spot),
+            same as editing an existing one to pay it. Replaces the old
+            separate "Marcar pagado" sheet: one form for adding, editing,
+            and paying, per direct feedback. */}
+        <div className="flex w-full flex-col gap-2">
+          <div className="flex w-full items-center justify-between gap-2">
+            <Label htmlFor="pendiente-mark-paid" className="font-medium">
+              Ya lo pagué
+            </Label>
+            <Switch
+              id="pendiente-mark-paid"
+              checked={markPaid}
+              onCheckedChange={setMarkPaid}
+            />
+          </div>
+          {markPaid ? (
+            <div className="flex w-full flex-col gap-2">
+              <Label
+                htmlFor="pendiente-payment-date"
+                className="text-muted-foreground font-medium"
+              >
+                Fecha de pago
               </Label>
-              <Switch
-                id="pendiente-mark-paid"
-                checked={markPaid}
-                onCheckedChange={setMarkPaid}
+              <Input
+                id="pendiente-payment-date"
+                name="pendiente-payment-date"
+                type="date"
+                value={paymentDate}
+                max={today}
+                onChange={(event) => {
+                  setPaymentDate(event.target.value)
+                }}
               />
             </div>
-            {markPaid ? (
-              <div className="flex w-full flex-col gap-2">
-                <Label
-                  htmlFor="pendiente-payment-date"
-                  className="text-muted-foreground font-medium"
-                >
-                  Fecha de pago
-                </Label>
-                <Input
-                  id="pendiente-payment-date"
-                  name="pendiente-payment-date"
-                  type="date"
-                  value={paymentDate}
-                  max={today}
-                  onChange={(event) => {
-                    setPaymentDate(event.target.value)
-                  }}
-                />
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+          ) : null}
+        </div>
 
         {alertMessage !== null ? (
           <AlertMessage>{alertMessage}</AlertMessage>
@@ -654,7 +675,9 @@ function PendienteFormBody({
                 ? markPaid
                   ? 'Guardar y marcar pagado'
                   : 'Guardar cambios'
-                : 'Agregar pendiente'}
+                : markPaid
+                  ? 'Agregar y marcar pagado'
+                  : 'Agregar recurrente'}
             </Button>
             {isEditing ? (
               <>

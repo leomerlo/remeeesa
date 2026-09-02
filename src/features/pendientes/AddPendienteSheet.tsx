@@ -84,13 +84,13 @@ export function AddPendienteSheet({
           }}
         >
           <Plus aria-hidden="true" />
-          Nuevo pendiente
+          Nuevo recurrente
         </Button>
       ) : null}
       <Sheet
         open={sheetOpen}
         onOpenChange={handleOpenChange}
-        title={isEditing ? 'Editar pendiente' : 'Nuevo pendiente'}
+        title={isEditing ? 'Editar pendiente' : 'Nuevo recurrente'}
       >
         <AddPendienteForm
           db={db}

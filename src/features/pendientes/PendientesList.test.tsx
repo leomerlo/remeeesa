@@ -272,7 +272,7 @@ describe('PendientesList', () => {
 
     expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo recurrente' }))
     await screen.findByLabelText('Nombre')
 
     fireEvent.change(screen.getByLabelText('Nombre'), {
@@ -287,7 +287,7 @@ describe('PendientesList', () => {
     fireEvent.change(screen.getByLabelText('Monto esperado'), {
       target: { value: '500' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Agregar pendiente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar recurrente' }))
 
     await waitFor(() => {
       expect(screen.getByText('Alquiler')).toBeInTheDocument()

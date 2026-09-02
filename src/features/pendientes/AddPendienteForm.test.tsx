@@ -49,7 +49,7 @@ async function renderForm() {
       authorDisplayName="Ada"
     />,
   )
-  fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Nuevo recurrente' }))
   await screen.findByLabelText('Nombre')
   return { db, householdId: household.id }
 }
@@ -83,7 +83,7 @@ function fillPendiente(fields: {
 }
 
 function submitPendiente(): void {
-  fireEvent.click(screen.getByRole('button', { name: 'Agregar pendiente' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Agregar recurrente' }))
 }
 
 describe('AddPendienteForm', () => {
@@ -116,7 +116,7 @@ describe('AddPendienteForm', () => {
     await waitFor(() => {
       expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
       expect(
-        screen.queryByRole('button', { name: 'Nuevo pendiente' }),
+        screen.queryByRole('button', { name: 'Nuevo recurrente' }),
       ).toBeInTheDocument()
     })
   })
@@ -234,12 +234,60 @@ describe('AddPendienteForm', () => {
     expect(await listPendientes({ db, householdId })).toEqual([])
   })
 
-  // "Ya lo pagué" only makes sense once the Pendiente already exists.
-  it('does not offer "Ya lo pagué" while adding a new pendiente', async () => {
+  it('offers "Ya lo pagué" while adding a new pendiente too, not just while editing', async () => {
     await renderForm()
 
-    expect(screen.queryByLabelText('Ya lo pagué')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Ya lo pagué')).toBeInTheDocument()
+    // Collapsed until checked, same as the edit form.
     expect(screen.queryByLabelText('Fecha de pago')).not.toBeInTheDocument()
+  })
+
+  it('creates the pendiente already marked paid in one submit when "Ya lo pagué" is checked', async () => {
+    const { db, householdId } = await renderForm()
+
+    fillPendiente({
+      name: 'Gimnasio',
+      category: 'Salud',
+      dueDate: '2026-09-12',
+      expectedAmount: '8000',
+    })
+    fireEvent.click(screen.getByLabelText('Ya lo pagué'))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Agregar y marcar pagado' }),
+    )
+
+    // Paid immediately, so it never shows up as pending.
+    await waitFor(() => {
+      expect(listPendientes({ db, householdId })).resolves.toEqual([])
+    })
+
+    // A real Expense was created for it.
+    const expenses = await listExpensesInMonth({
+      db,
+      householdId,
+      ...currentMonthRange(),
+    })
+    expect(expenses).toEqual([
+      expect.objectContaining({ name: 'Gimnasio', price: 8000 }),
+    ])
+  })
+
+  it('requires an amount to mark a new pendiente paid on creation', async () => {
+    await renderForm()
+
+    fillPendiente({
+      name: 'Gimnasio',
+      category: 'Salud',
+      dueDate: '2026-09-12',
+    })
+    fireEvent.click(screen.getByLabelText('Ya lo pagué'))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Agregar y marcar pagado' }),
+    )
+
+    expect(
+      await screen.findByText('Ingresá un monto para marcarlo como pagado'),
+    ).toBeInTheDocument()
   })
 
   it('creates a new category from free text, reusing the same pick-or-create behavior as the Expense form', async () => {
@@ -376,7 +424,7 @@ describe('AddPendienteForm', () => {
         authorDisplayName="Ada"
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo recurrente' }))
     await screen.findByLabelText('Nombre')
 
     fillPendiente({
@@ -417,7 +465,7 @@ describe('AddPendienteForm', () => {
         authorDisplayName="Ada"
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo recurrente' }))
     await screen.findByLabelText('Nombre')
 
     fillPendiente({
@@ -459,7 +507,7 @@ describe('AddPendienteForm', () => {
         authorDisplayName="Ada"
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo recurrente' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'No se pudo cargar las categorías. Volvé a intentar.',
