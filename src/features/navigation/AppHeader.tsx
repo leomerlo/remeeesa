@@ -25,7 +25,7 @@ export function AppHeader({
   }
 
   return (
-    <header className="bg-background flex w-full items-center justify-start px-6 py-4 sm:px-8">
+    <header className="bg-card flex w-full items-center justify-start px-6 py-4 sm:px-8">
       <Logo className="h-5" />
     </header>
   )
