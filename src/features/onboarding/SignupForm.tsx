@@ -26,6 +26,12 @@ export type SignupFormProps = {
   readonly mode?: SignupFormMode
   readonly onFinished?: (result: SignupFormFinishedResult) => void
   readonly onAlreadyHaveAccount?: () => void
+  // The symmetric escape hatch for login mode. Without it, a returning
+  // visitor -- landed here automatically by hasReturningUser(), e.g. a
+  // shared computer or a second household member's first sign-in on this
+  // device -- had no way back to account creation short of reloading the
+  // page.
+  readonly onNoAccount?: () => void
 }
 
 export function SignupForm({
@@ -34,6 +40,7 @@ export function SignupForm({
   mode = 'signup',
   onFinished,
   onAlreadyHaveAccount,
+  onNoAccount,
 }: SignupFormProps): ReactElement {
   const firebase = useFirebase()
   const { draft, clearDraft } = useHouseholdDraft()
@@ -198,6 +205,17 @@ export function SignupForm({
             onClick={onAlreadyHaveAccount}
           >
             Ya tengo una cuenta
+          </Button>
+        ) : null}
+
+        {isLogin && onNoAccount !== undefined ? (
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={pending}
+            onClick={onNoAccount}
+          >
+            No tengo una cuenta
           </Button>
         ) : null}
       </div>

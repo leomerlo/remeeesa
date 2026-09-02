@@ -5,7 +5,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { categoriesQueryKey, CategoryCombobox } from '@/features/expenses'
+import {
+  categoriesQueryKey,
+  CategoryChips,
+  CategoryCombobox,
+} from '@/features/expenses'
 import {
   createCuenta,
   CuentaAlreadyPaidError,
@@ -74,7 +78,9 @@ function formFieldsFromEdit(editCuenta: EditCuentaTarget): CuentaFormFields {
     category: editCuenta.categoryName,
     dueDate: localDateInputValue(editCuenta.dueDate),
     expectedAmount:
-      editCuenta.expectedAmount === null ? '' : String(editCuenta.expectedAmount),
+      editCuenta.expectedAmount === null
+        ? ''
+        : String(editCuenta.expectedAmount),
     recurring: editCuenta.recurring,
   }
 }
@@ -309,7 +315,9 @@ function CuentaFormBody({
       mutation.mutate(fields)
     } catch (caught) {
       const message =
-        caught instanceof Error ? caught.message : 'No se pudo agregar la cuenta'
+        caught instanceof Error
+          ? caught.message
+          : 'No se pudo agregar la cuenta'
       setError(message)
     }
   }
@@ -326,11 +334,46 @@ function CuentaFormBody({
     loadError
 
   return (
-    <form
-      className="flex w-full flex-col items-center gap-8"
-      noValidate
-      onSubmit={onSubmit}
-    >
+    <form className="flex w-full flex-col gap-6" noValidate onSubmit={onSubmit}>
+      {/* The Sheet's own title is visually hidden (it exists only for the
+          dialog's accessible name), which left this opening onto a bare
+          "Nombre" field with nothing saying what screen it was. */}
+      <h2 className="text-title font-semibold">
+        {isEditing ? 'Editar cuenta' : 'Nueva cuenta'}
+      </h2>
+
+      {/* Unlike an Expense's price, a Cuenta's amount is optional -- some
+          bills (a variable grocery run) genuinely aren't known yet -- so it
+          leads at the same hero size without being required, rather than
+          forcing a number in before the bill is even known. */}
+      <div className="flex w-full flex-col gap-2">
+        <Label
+          htmlFor="cuenta-expected-amount"
+          className="text-muted-foreground font-medium"
+        >
+          Monto esperado
+        </Label>
+        <div className="relative">
+          <span
+            aria-hidden="true"
+            className="text-muted-foreground font-display text-display pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
+          >
+            $
+          </span>
+          <Input
+            id="cuenta-expected-amount"
+            name="cuenta-expected-amount"
+            className="font-display text-display h-20 pl-12 tracking-tight"
+            value={expectedAmount}
+            onChange={(event) => {
+              setExpectedAmount(event.target.value)
+            }}
+            inputMode="decimal"
+            autoComplete="off"
+          />
+        </div>
+      </div>
+
       <div className="flex w-full flex-col gap-2">
         <Label
           htmlFor="cuenta-name"
@@ -356,11 +399,17 @@ function CuentaFormBody({
         >
           Categoría
         </Label>
+        <CategoryChips
+          categories={categories}
+          value={category}
+          onChange={setCategory}
+        />
         <CategoryCombobox
           id="cuenta-category"
           categories={categories}
           value={category}
           onChange={setCategory}
+          placeholder="O escribí una categoría nueva"
         />
       </div>
 
@@ -382,25 +431,6 @@ function CuentaFormBody({
           onChange={(event) => {
             setDueDate(event.target.value)
           }}
-        />
-      </div>
-
-      <div className="flex w-full flex-col gap-2">
-        <Label
-          htmlFor="cuenta-expected-amount"
-          className="text-muted-foreground font-medium"
-        >
-          Monto esperado
-        </Label>
-        <Input
-          id="cuenta-expected-amount"
-          name="cuenta-expected-amount"
-          value={expectedAmount}
-          onChange={(event) => {
-            setExpectedAmount(event.target.value)
-          }}
-          inputMode="decimal"
-          autoComplete="off"
         />
       </div>
 
@@ -456,7 +486,11 @@ function CuentaFormBody({
         </div>
       ) : (
         <div className="flex w-full flex-col items-center gap-2">
-          <Button type="submit" disabled={mutation.isPending} className="w-full">
+          <Button
+            type="submit"
+            disabled={mutation.isPending}
+            className="w-full"
+          >
             {isEditing ? 'Guardar cambios' : 'Agregar cuenta'}
           </Button>
           {isEditing ? (

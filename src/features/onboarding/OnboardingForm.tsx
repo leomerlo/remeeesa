@@ -68,6 +68,9 @@ export function OnboardingForm({
           }
           onFinished?.()
         }}
+        onNoAccount={() => {
+          setStep('household')
+        }}
       />
     )
   }

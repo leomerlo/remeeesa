@@ -108,15 +108,18 @@ describe('HomePage', () => {
     expect(
       screen.getByRole('button', { name: 'Agregar gasto' }),
     ).toBeInTheDocument()
+    // Neither mini-summary renders anything on an empty month: each would
+    // otherwise be its own card repeating "Todavía no hay gastos este mes",
+    // on top of the movements list's own illustrated empty state above them.
     expect(
-      screen.getByRole('heading', { name: 'Categorías' }),
-    ).toBeInTheDocument()
+      screen.queryByRole('heading', { name: 'Categorías' }),
+    ).not.toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: 'Integrantes' }),
-    ).toBeInTheDocument()
-    expect(screen.getAllByText('Todavía no hay gastos este mes')).toHaveLength(
-      2,
-    )
+      screen.queryByRole('heading', { name: 'Integrantes' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryAllByText('Todavía no hay gastos este mes'),
+    ).toHaveLength(0)
     expect(
       screen.getByRole('button', { name: 'Nueva cuenta' }),
     ).toBeInTheDocument()

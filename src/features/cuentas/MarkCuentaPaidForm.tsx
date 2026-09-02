@@ -102,7 +102,8 @@ function parseMarkCuentaPaidFields(input: {
 const EXPENSE_DOMAIN_MESSAGE_TRANSLATIONS: Readonly<Record<string, string>> = {
   'El precio del gasto debe ser un número positivo':
     'El monto pagado debe ser un número positivo',
-  'La fecha del gasto no puede ser futura': 'La fecha de pago no puede ser futura',
+  'La fecha del gasto no puede ser futura':
+    'La fecha de pago no puede ser futura',
   'La fecha del gasto no es válida': 'La fecha de pago no es válida',
 }
 
@@ -206,11 +207,12 @@ export function MarkCuentaPaidForm({
       : null)
 
   return (
-    <form
-      className="flex w-full flex-col items-center gap-8"
-      noValidate
-      onSubmit={onSubmit}
-    >
+    <form className="flex w-full flex-col gap-6" noValidate onSubmit={onSubmit}>
+      {/* The Sheet's own title is visually hidden and just says "Marcar
+          pagada" -- with two bills pending at once, nothing in the sheet
+          said which one this was. */}
+      <h2 className="text-title font-semibold">Pagar {cuenta.name}</h2>
+
       <div className="flex w-full flex-col gap-2">
         <Label
           htmlFor="mark-cuenta-amount"
@@ -218,16 +220,25 @@ export function MarkCuentaPaidForm({
         >
           Monto pagado
         </Label>
-        <Input
-          id="mark-cuenta-amount"
-          name="mark-cuenta-amount"
-          value={finalAmount}
-          onChange={(event) => {
-            setFinalAmount(event.target.value)
-          }}
-          inputMode="decimal"
-          autoComplete="off"
-        />
+        <div className="relative">
+          <span
+            aria-hidden="true"
+            className="text-muted-foreground font-display text-display pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
+          >
+            $
+          </span>
+          <Input
+            id="mark-cuenta-amount"
+            name="mark-cuenta-amount"
+            className="font-display text-display h-20 pl-12 tracking-tight"
+            value={finalAmount}
+            onChange={(event) => {
+              setFinalAmount(event.target.value)
+            }}
+            inputMode="decimal"
+            autoComplete="off"
+          />
+        </div>
       </div>
 
       <div className="flex w-full flex-col gap-2">

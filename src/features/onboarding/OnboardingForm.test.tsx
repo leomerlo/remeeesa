@@ -562,4 +562,22 @@ describe('OnboardingForm', () => {
 
     expect(screen.getByText('No household draft')).toBeInTheDocument()
   })
+
+  // The dead end this closes: a returning visitor lands in login mode
+  // automatically, with no state on screen to say why. Before this, a wrong
+  // guess -- a shared computer, or a second household member's first
+  // sign-in on this device -- had no way back to account creation short of
+  // a reload.
+  it('gets back to the household wizard from login mode via "No tengo una cuenta"', () => {
+    markReturningUser()
+    renderOnboarding()
+
+    expect(
+      screen.getByRole('button', { name: 'Iniciar sesión' }),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'No tengo una cuenta' }))
+
+    expect(screen.getByLabelText('Nombre del hogar')).toBeInTheDocument()
+  })
 })

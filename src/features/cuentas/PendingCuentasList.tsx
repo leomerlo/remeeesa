@@ -3,6 +3,7 @@ import type { ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
 import { listPendingCuentas } from '@/lib/cuentas'
 import type { Cuenta } from '@/lib/cuentas'
+import { EmptyExpensesIllustration } from '@/features/expenses'
 import { formatBudgetAmount, listCategories } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
@@ -56,10 +57,16 @@ export function PendingCuentasList({
 
   const { cuentas, categories } = cuentasQuery.data
   if (cuentas.length === 0) {
+    // The mascot-with-notepad illustration every other empty state on the
+    // app uses (Home's movements list, Histórico) -- plain text here was the
+    // one empty state with no illustration at all.
     return (
-      <p role="status" className="text-sm font-medium">
-        No hay cuentas pendientes
-      </p>
+      <div className="flex w-full flex-col items-center gap-4">
+        <EmptyExpensesIllustration className="mx-auto h-32 w-40" />
+        <p role="status" className="text-sm font-medium">
+          No hay cuentas pendientes
+        </p>
+      </div>
     )
   }
 

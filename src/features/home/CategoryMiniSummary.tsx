@@ -29,7 +29,7 @@ const TOP_CATEGORY_COUNT = 5
 export function CategoryMiniSummary({
   db,
   householdId,
-}: CategoryMiniSummaryProps): ReactElement {
+}: CategoryMiniSummaryProps): ReactElement | null {
   const monthRange = useMemo(() => currentMonthRange(), [])
   const expensesQuery = useQuery({
     queryKey: expensesInMonthQueryKey({ householdId }),
@@ -62,36 +62,39 @@ export function CategoryMiniSummary({
     TOP_CATEGORY_COUNT,
   )
 
+  // Renders nothing at all rather than a card repeating "Todavía no hay
+  // gastos este mes" -- that message is already the movements list's own
+  // empty state, right above this one, illustration and all. A second and
+  // third copy of the same sentence (this one, and PersonMiniSummary's)
+  // added nothing but noise to an already-empty Home.
+  if (summary.length === 0) {
+    return null
+  }
+
   return (
     <div className="bg-card shadow-resting flex w-full flex-col gap-3 rounded-2xl p-4">
       <h2 className="text-title font-semibold">Categorías</h2>
-      {summary.length === 0 ? (
-        <p role="status" className="text-sm text-muted-foreground">
-          Todavía no hay gastos este mes
-        </p>
-      ) : (
-        <ul aria-label="Gastos por categoría" className="flex flex-col gap-2">
-          {summary.map((entry) => (
-            <li
-              key={entry.categoryId}
-              className="flex items-center justify-between gap-2 text-sm"
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  data-testid="category-swatch"
-                  className="size-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: entry.color }}
-                />
-                <span className="truncate text-foreground">{entry.name}</span>
-              </span>
-              <span className="shrink-0 font-medium text-foreground">
-                {formatCurrency(entry.total)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ul aria-label="Gastos por categoría" className="flex flex-col gap-2">
+        {summary.map((entry) => (
+          <li
+            key={entry.categoryId}
+            className="flex items-center justify-between gap-2 text-sm"
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <span
+                aria-hidden="true"
+                data-testid="category-swatch"
+                className="size-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: entry.color }}
+              />
+              <span className="truncate text-foreground">{entry.name}</span>
+            </span>
+            <span className="shrink-0 font-medium text-foreground">
+              {formatCurrency(entry.total)}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
