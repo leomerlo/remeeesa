@@ -6,6 +6,10 @@ export type CategorySummary = {
   readonly name: string
   readonly color: string
   readonly total: number
+  // Fraction of the period's total spend, 0..1. Computed here rather than in
+  // the chart so the number the chart draws and the number the list prints
+  // can never disagree.
+  readonly share: number
 }
 
 export type PersonSummary = {
@@ -48,8 +52,20 @@ export function summarizeByCategory(input: {
     }
   }
 
+  // Guard the divide: a period with no expenses (or, defensively, one whose
+  // prices sum to 0) yields shares of 0 rather than NaN reaching the chart's
+  // geometry, where it would silently render nothing.
+  let grandTotal = 0
+  for (const entry of totals.values()) {
+    grandTotal += entry.total
+  }
+
   return Array.from(totals.entries())
-    .map(([categoryId, entry]) => ({ categoryId, ...entry }))
+    .map(([categoryId, entry]) => ({
+      categoryId,
+      ...entry,
+      share: grandTotal > 0 ? entry.total / grandTotal : 0,
+    }))
     .sort((left, right) => right.total - left.total)
 }
 
@@ -63,10 +79,7 @@ export function summarizeByPerson(input: {
 
   for (const expense of input.expenses) {
     const existing = totals.get(expense.authorDisplayName)
-    totals.set(
-      expense.authorDisplayName,
-      (existing ?? 0) + expense.price,
-    )
+    totals.set(expense.authorDisplayName, (existing ?? 0) + expense.price)
   }
 
   return Array.from(totals.entries())

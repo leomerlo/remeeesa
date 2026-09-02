@@ -1,1 +1,6 @@
+export { CategoryBreakdown } from './CategoryBreakdown'
+export type { CategoryBreakdownProps } from './CategoryBreakdown'
+export { CategoryDonut } from './CategoryDonut'
+export type { CategoryDonutProps } from './CategoryDonut'
 export { CategoriasPage } from './CategoriasPage'
+export type { CategoriasPageProps } from './CategoriasPage'

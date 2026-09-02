@@ -59,7 +59,15 @@ export function AppRoutes({
                 />
               }
             />
-            <Route path="/categorias" element={<CategoriasPage />} />
+            <Route
+              path="/categorias"
+              element={
+                <CategoriasPage
+                  currentUserId={currentUserId}
+                  householdsDb={householdsDb}
+                />
+              }
+            />
             <Route
               path="/cuentas"
               element={
