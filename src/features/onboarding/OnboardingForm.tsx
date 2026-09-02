@@ -92,10 +92,10 @@ export function OnboardingForm({
   }
 
   return (
-    <div className="flex w-full flex-col items-center gap-8">
+    <div className="flex w-full flex-col items-center gap-6">
       <AuthHero />
       <form
-        className="bg-card shadow-resting flex w-full flex-col items-center gap-8 rounded-3xl p-6"
+        className="bg-card shadow-resting flex w-full flex-col items-center gap-6 rounded-3xl p-6"
         onSubmit={onSubmit}
       >
         <div className="flex w-full flex-col gap-2">

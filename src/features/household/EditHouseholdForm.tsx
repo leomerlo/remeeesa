@@ -73,7 +73,7 @@ export function EditHouseholdForm({
 
   return (
     <form
-      className="flex w-full flex-col items-center gap-8"
+      className="flex w-full flex-col items-center gap-6"
       onSubmit={onSubmit}
     >
       <div className="flex w-full flex-col gap-2">

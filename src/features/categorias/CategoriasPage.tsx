@@ -30,7 +30,7 @@ export function CategoriasPage({
   // leave this screen stuck on "Cargando…" forever for a signed-out visitor.
   if (currentUserId === undefined) {
     return (
-      <div className="flex w-full flex-col items-center gap-8">
+      <div className="flex w-full flex-col items-center gap-6">
         {header}
         <p role="status" className="text-sm font-medium">
           Cargando…
@@ -41,7 +41,7 @@ export function CategoriasPage({
 
   if (currentUserId === null || membership === null) {
     return (
-      <div className="flex w-full flex-col items-center gap-8">
+      <div className="flex w-full flex-col items-center gap-6">
         {header}
         <Illustration src={categoriesCalc} className="mx-auto h-32 w-40" />
         <p role="status" className="text-sm font-medium">
@@ -53,7 +53,7 @@ export function CategoriasPage({
 
   if (membership === undefined) {
     return (
-      <div className="flex w-full flex-col items-center gap-8">
+      <div className="flex w-full flex-col items-center gap-6">
         {header}
         <p role="status" className="text-sm font-medium">
           Cargando…
@@ -63,7 +63,7 @@ export function CategoriasPage({
   }
 
   return (
-    <div className="flex w-full flex-col items-center gap-8">
+    <div className="flex w-full flex-col items-center gap-6">
       {header}
       <CategoryBreakdown db={db} householdId={membership.householdId} />
       <CategoryManager db={db} householdId={membership.householdId} />

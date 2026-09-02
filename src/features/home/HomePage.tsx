@@ -147,7 +147,7 @@ export function HomePage({
 
   if (currentUserId === null || membership === null) {
     return (
-      <div className="flex w-full flex-col items-center gap-8">
+      <div className="flex w-full flex-col items-center gap-6">
         {showLogout ? <LogoutButton /> : null}
         <OnboardingForm
           householdsDb={householdsDb}
@@ -173,7 +173,7 @@ export function HomePage({
     authorDisplayNameFromAuth(firebase.auth?.currentUser)
 
   return (
-    <div className="flex w-full flex-col items-center gap-8">
+    <div className="flex w-full flex-col items-center gap-6">
       {/* No settings shortcut here: Ajustes is already one tap away in the
           bottom nav, so a second icon-link to the same destination is
           redundant. */}
