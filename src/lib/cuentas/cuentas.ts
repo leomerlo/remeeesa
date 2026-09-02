@@ -125,7 +125,7 @@ export async function markCuentaPaid(input: {
   readonly authorDisplayName: string
   readonly finalAmount: number
   readonly paymentDate: Date
-}): Promise<{ cuenta: Cuenta; expense: Expense }> {
+}): Promise<{ cuenta: Cuenta; expense: Expense; nextCuenta: Cuenta | null }> {
   return input.db.markCuentaPaid({
     householdId: input.householdId,
     cuentaId: input.cuentaId,

@@ -11,6 +11,18 @@ import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { CuentasPage } from './CuentasPage'
 
+// Same local copy of the row's date formatting that
+// PendingCuentasList.test.tsx keeps, rather than importing formatShortDate --
+// asserting against the very function under render would pass even if the
+// formatting changed underneath.
+function formatCuentaDueDate(date: Date): string {
+  return date.toLocaleDateString('es-AR', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
 function renderCuentasPage(
   ui: ReactElement,
   options?: Parameters<typeof renderWithProviders>[1],
@@ -202,6 +214,67 @@ describe('CuentasPage', () => {
         authorDisplayName: 'Miembro',
       }),
     ])
+  })
+
+  // The recurring path is the one payment that does not simply leave the
+  // pending list one row shorter: the paid row goes away and the next cycle
+  // takes its place. Only the mutation's cache invalidation makes that new
+  // row appear -- a lib-level assertion on listPendingCuentas would still
+  // pass with a stale query cache, so the "appears immediately" guarantee
+  // has to be checked here, on what the member actually sees.
+  it('replaces a paid recurring cuenta with its next cycle in the pending list, dated a month later and with a blank amount', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories.find((category) => category.name === 'Comida')
+    if (comida === undefined) {
+      throw new Error('expected seeded Comida category')
+    }
+    const paidDueDate = new Date(2026, 8, 10)
+    await createCuenta({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Alquiler',
+      dueDate: paidDueDate,
+      expectedAmount: 500,
+      recurring: true,
+    })
+
+    renderCuentasPage(<CuentasPage currentUserId="user-1" householdsDb={db} />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Marcar pagada Alquiler' }),
+    )
+    await screen.findByLabelText('Monto pagado')
+    fireEvent.click(screen.getByRole('button', { name: 'Marcar pagada' }))
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Monto pagado')).not.toBeInTheDocument()
+    })
+    // Both cycles carry the same name, so the due date -- not the name -- is
+    // what tells the new row apart from the one just paid.
+    await waitFor(() => {
+      expect(
+        screen.getByText(formatCuentaDueDate(new Date(2026, 9, 10))),
+      ).toBeInTheDocument()
+    })
+
+    const rows = screen.getAllByRole('listitem')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toHaveTextContent('Alquiler')
+    expect(rows[0]).toHaveTextContent('Comida')
+    expect(
+      screen.queryByText(formatCuentaDueDate(paidDueDate)),
+    ).not.toBeInTheDocument()
+    // The paid cycle's $500 must not be carried over: the next cycle has a
+    // blank expected amount, so its row renders no amount at all.
+    expect(rows[0]).not.toHaveTextContent('$')
   })
 
   it('keeps the mark-paid sheet open with a clear alert and refreshes the stale row out of the pending list when the cuenta was already paid', async () => {
