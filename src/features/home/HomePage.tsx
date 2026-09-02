@@ -8,12 +8,8 @@ import {
   RecentExpensesList,
 } from '@/features/expenses'
 import type { EditExpenseTarget } from '@/features/expenses/AddExpenseForm'
-import {
-  AddPendienteSheet,
-  MarkPendientePaidSheet,
-  PorPagarSection,
-} from '@/features/pendientes'
-import type { Pendiente } from '@/lib/pendientes'
+import { AddPendienteSheet, PorPagarSection } from '@/features/pendientes'
+import type { EditPendienteTarget } from '@/features/pendientes/AddPendienteForm'
 import { LogoutButton } from '@/features/auth'
 import { currentMonthRange } from '@/lib/expenses'
 import { OnboardingForm } from '@/features/onboarding'
@@ -65,9 +61,8 @@ export function HomePage({
   const [editExpense, setEditExpense] = useState<EditExpenseTarget | null>(null)
   const [isAddExpenseSheetOpen, setIsAddExpenseSheetOpen] = useState(false)
   const [isAddPendienteSheetOpen, setIsAddPendienteSheetOpen] = useState(false)
-  const [markPaidPendiente, setMarkPaidPendiente] = useState<Pendiente | null>(
-    null,
-  )
+  const [editPendiente, setEditPendiente] =
+    useState<EditPendienteTarget | null>(null)
   // Owned here (not inside MonthNavigator) so every month-scoped section on
   // the page -- not just its own two budget cards -- moves together when
   // the user pages to a different month.
@@ -204,6 +199,12 @@ export function HomePage({
             onOpenChange={setIsAddPendienteSheetOpen}
             db={db}
             householdId={membership.householdId}
+            memberId={currentUserId}
+            authorDisplayName={authorDisplayName}
+            editPendiente={editPendiente}
+            onEditFinished={() => {
+              setEditPendiente(null)
+            }}
             triggerClassName="flex-1"
           />
         ) : null}
@@ -212,15 +213,20 @@ export function HomePage({
       <PorPagarSection
         db={db}
         householdId={membership.householdId}
-        onMarkPaid={setMarkPaidPendiente}
-      />
-      <MarkPendientePaidSheet
-        db={db}
-        householdId={membership.householdId}
-        memberId={currentUserId}
-        authorDisplayName={authorDisplayName}
-        pendiente={markPaidPendiente}
-        onOpenChange={setMarkPaidPendiente}
+        onMarkPaid={(pendiente, categoryName) => {
+          // Opens the same edit sheet as tapping a row on /pendientes, with
+          // "Ya lo pagué" pre-checked -- one form for both editing and
+          // paying (this used to open a separate amount-only sheet).
+          setEditPendiente({
+            pendienteId: pendiente.id,
+            name: pendiente.name,
+            categoryName,
+            dueDate: pendiente.dueDate,
+            expectedAmount: pendiente.expectedAmount,
+            recurring: pendiente.recurring,
+            defaultMarkPaid: true,
+          })
+        }}
       />
       <div className="flex w-full flex-col gap-3">
         <h2 className="text-title font-semibold self-start">

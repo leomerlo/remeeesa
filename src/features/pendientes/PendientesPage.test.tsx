@@ -167,7 +167,7 @@ describe('PendientesPage', () => {
     expect(await screen.findByLabelText('Nombre')).toBeInTheDocument()
   })
 
-  it('opens the mark-paid sheet pre-filled when "Pagar" is clicked, and a successful submit removes the pendiente from the list without a manual refetch', async () => {
+  it('opens the edit sheet with "Ya lo pagué" pre-checked when "Pagar" is clicked, and a successful submit removes the pendiente from the list without a manual refetch', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -199,22 +199,27 @@ describe('PendientesPage', () => {
     payButton.focus()
     fireEvent.click(payButton)
 
-    const amountInput = await screen.findByLabelText('Monto pagado')
+    // The same edit form as tapping the row -- pre-filled from the
+    // Pendiente, but with "Ya lo pagué" already checked and a payment-date
+    // field revealed, rather than a separate amount-only sheet.
+    const amountInput = await screen.findByLabelText('Monto esperado')
     expect(amountInput).toHaveValue('500')
+    expect(screen.getByLabelText('Ya lo pagué')).toHaveAttribute(
+      'data-state',
+      'checked',
+    )
+    expect(screen.getByLabelText('Fecha de pago')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Marcar pagado' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Guardar y marcar pagado' }),
+    )
 
     await waitFor(() => {
-      expect(screen.queryByLabelText('Monto pagado')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Fecha de pago')).not.toBeInTheDocument()
     })
     await waitFor(() => {
       expect(screen.queryByText('Alquiler')).not.toBeInTheDocument()
     })
-    // The "Pagar" button that opened the sheet no longer exists once the
-    // pendiente drops out of the pending list, so Radix's default close-focus
-    // restoration has nothing to return to and would otherwise drop focus
-    // to <body> -- the page heading is the fallback landing spot instead.
-    expect(screen.getByRole('heading', { name: 'Pendientes' })).toHaveFocus()
     expect(await listPendientes({ db, householdId: household.id })).toEqual([])
     // authorDisplayName is derived from the signed-in Firebase user rather
     // than passed as a test prop (unlike HomePage) -- the default stub has
@@ -271,11 +276,13 @@ describe('PendientesPage', () => {
     fireEvent.click(
       await screen.findByRole('button', { name: 'Marcar pagado Alquiler' }),
     )
-    await screen.findByLabelText('Monto pagado')
-    fireEvent.click(screen.getByRole('button', { name: 'Marcar pagado' }))
+    await screen.findByLabelText('Monto esperado')
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Guardar y marcar pagado' }),
+    )
 
     await waitFor(() => {
-      expect(screen.queryByLabelText('Monto pagado')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Fecha de pago')).not.toBeInTheDocument()
     })
     // Both cycles carry the same name, so the due date -- not the name -- is
     // what tells the new row apart from the one just paid.
@@ -326,7 +333,7 @@ describe('PendientesPage', () => {
     fireEvent.click(
       await screen.findByRole('button', { name: 'Marcar pagado Alquiler' }),
     )
-    await screen.findByLabelText('Monto pagado')
+    await screen.findByLabelText('Monto esperado')
 
     // Simulate the Pendiente being marked paid a moment earlier -- e.g. by
     // another household member -- from outside this session's knowledge.
@@ -350,15 +357,17 @@ describe('PendientesPage', () => {
       paymentDate: new Date(2024, 0, 1),
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Marcar pagado' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Guardar y marcar pagado' }),
+    )
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Este pendiente ya fue pagado',
     )
     // The sheet must stay open -- no false-success state.
-    expect(screen.getByLabelText('Monto pagado')).toBeInTheDocument()
+    expect(screen.getByLabelText('Monto esperado')).toBeInTheDocument()
     // The documented invalidateQueries-on-error refresh (see
-    // MarkPendientePaidForm.tsx's onError) must actually reach the list behind
+    // AddPendienteForm.tsx's onError) must actually reach the list behind
     // the sheet, not just be called -- the stale row disappears even before
     // the sheet is dismissed.
     await waitFor(() => {
@@ -366,7 +375,7 @@ describe('PendientesPage', () => {
     })
   })
 
-  it('restores focus to the Pagar button (not the heading) when Cancelar is clicked, since the row is still there', async () => {
+  it('restores focus to the Nuevo pendiente trigger when Cancelar edición is clicked', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -398,17 +407,18 @@ describe('PendientesPage', () => {
     payButton.focus()
     fireEvent.click(payButton)
 
-    await screen.findByLabelText('Monto pagado')
-    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    await screen.findByLabelText('Monto esperado')
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar edición' }))
 
     await waitFor(() => {
-      expect(screen.queryByLabelText('Monto pagado')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Monto esperado')).not.toBeInTheDocument()
     })
-    // The row was never removed on a plain cancel, so Radix's own default
-    // close-focus restoration already lands correctly on the button that
-    // opened the sheet -- the heading fallback must not override it here.
+    // The row is still there (nothing was saved), but the sheet's own
+    // trigger-focus restoration (AddPendienteSheet's, shared by every
+    // externally-triggered edit -- see onEditPendiente's identical flow)
+    // lands on "Nuevo pendiente", not the row's own "Pagar" button.
     expect(
-      screen.getByRole('button', { name: 'Marcar pagado Alquiler' }),
+      screen.getByRole('button', { name: 'Nuevo pendiente' }),
     ).toHaveFocus()
   })
 })

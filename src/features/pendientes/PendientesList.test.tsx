@@ -231,7 +231,12 @@ describe('PendientesList', () => {
     renderWithProviders(
       <>
         <PendientesList db={db} householdId={household.id} />
-        <AddPendienteSheetHarness db={db} householdId={household.id} />
+        <AddPendienteSheetHarness
+          db={db}
+          householdId={household.id}
+          memberId="user-1"
+          authorDisplayName="Ada"
+        />
       </>,
       { queryClient },
     )
@@ -390,7 +395,7 @@ describe('PendientesList', () => {
     fireEvent.click(payButton)
 
     expect(onMarkPaid).toHaveBeenCalledTimes(1)
-    expect(onMarkPaid).toHaveBeenCalledWith(pendiente)
+    expect(onMarkPaid).toHaveBeenCalledWith(pendiente, 'Comida')
     expect(onEditPendiente).not.toHaveBeenCalled()
   })
 
@@ -479,7 +484,7 @@ describe('PendientesList', () => {
     fireEvent.click(payButton)
 
     expect(onMarkPaid).toHaveBeenCalledTimes(1)
-    expect(onMarkPaid).toHaveBeenCalledWith(pendiente)
+    expect(onMarkPaid).toHaveBeenCalledWith(pendiente, 'Comida')
   })
 
   // The name, the amount and "Pagar" used to share one line, which at 375px

@@ -2,7 +2,11 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
-import { listCategories } from '@/lib/expenses'
+import {
+  currentMonthRange,
+  listCategories,
+  listExpensesInMonth,
+} from '@/lib/expenses'
 import {
   createHouseholdWithMembership,
   FirestoreDeniedError,
@@ -38,7 +42,12 @@ async function renderForm() {
     monthlyBudget: 100,
   })
   renderWithProviders(
-    <AddPendienteSheetHarness db={db} householdId={household.id} />,
+    <AddPendienteSheetHarness
+      db={db}
+      householdId={household.id}
+      memberId="user-1"
+      authorDisplayName="Ada"
+    />,
   )
   fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
   await screen.findByLabelText('Nombre')
@@ -225,6 +234,14 @@ describe('AddPendienteForm', () => {
     expect(await listPendientes({ db, householdId })).toEqual([])
   })
 
+  // "Ya lo pagué" only makes sense once the Pendiente already exists.
+  it('does not offer "Ya lo pagué" while adding a new pendiente', async () => {
+    await renderForm()
+
+    expect(screen.queryByLabelText('Ya lo pagué')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Fecha de pago')).not.toBeInTheDocument()
+  })
+
   it('creates a new category from free text, reusing the same pick-or-create behavior as the Expense form', async () => {
     const { db, householdId } = await renderForm()
 
@@ -352,7 +369,12 @@ describe('AddPendienteForm', () => {
       },
     }
     renderWithProviders(
-      <AddPendienteSheetHarness db={db} householdId={household.id} />,
+      <AddPendienteSheetHarness
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
     )
     fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
     await screen.findByLabelText('Nombre')
@@ -388,7 +410,12 @@ describe('AddPendienteForm', () => {
       },
     }
     renderWithProviders(
-      <AddPendienteSheetHarness db={db} householdId={household.id} />,
+      <AddPendienteSheetHarness
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
     )
     fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
     await screen.findByLabelText('Nombre')
@@ -425,7 +452,12 @@ describe('AddPendienteForm', () => {
     }
 
     renderWithProviders(
-      <AddPendienteSheetHarness db={db} householdId={household.id} />,
+      <AddPendienteSheetHarness
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
     )
     fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
 
@@ -447,6 +479,8 @@ function EditPendienteHarness(props: {
       <AddPendienteForm
         db={props.db}
         householdId={props.householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
         editPendiente={editPendiente}
         onEditFinished={() => {
           setEditPendiente(null)
@@ -810,6 +844,115 @@ describe('EditPendienteFlow', () => {
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'Guardar cambios' }),
+    ).toBeInTheDocument()
+  })
+
+  it('reveals a payment-date field and requires an amount once "Ya lo pagué" is checked', async () => {
+    const { db, householdId } = await seedPendingPendiente({
+      name: 'Luz',
+      expectedAmount: null,
+    })
+
+    renderWithProviders(
+      <EditPendienteHarness db={db} householdId={householdId} />,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar Luz' }))
+    expect(screen.queryByLabelText('Fecha de pago')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByLabelText('Ya lo pagué'))
+    expect(screen.getByLabelText('Fecha de pago')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Guardar y marcar pagado' }),
+    ).toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Guardar y marcar pagado' }),
+    )
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/monto/i)
+    expect(await listPendientes({ db, householdId })).toEqual([
+      expect.objectContaining({ name: 'Luz', status: 'pending' }),
+    ])
+  })
+
+  it('saves edited fields and marks the pendiente paid in one submit when "Ya lo pagué" is checked', async () => {
+    const { db, householdId } = await seedPendingPendiente({
+      name: 'Alquiler',
+      expectedAmount: 500,
+    })
+
+    renderWithProviders(
+      <EditPendienteHarness db={db} householdId={householdId} />,
+    )
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Editar Alquiler' }),
+    )
+    fireEvent.change(screen.getByLabelText('Nombre'), {
+      target: { value: 'Alquiler nuevo' },
+    })
+    fireEvent.change(screen.getByLabelText('Monto esperado'), {
+      target: { value: '600' },
+    })
+    fireEvent.click(screen.getByLabelText('Ya lo pagué'))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Guardar y marcar pagado' }),
+    )
+
+    // The edit (renamed, re-priced) is applied, and the pendiente itself
+    // disappears from the pending list -- it's paid now.
+    await waitFor(() => {
+      expect(screen.queryByText('Alquiler nuevo')).not.toBeInTheDocument()
+      expect(screen.queryByText('Alquiler')).not.toBeInTheDocument()
+    })
+    expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
+    expect(await listPendientes({ db, householdId })).toEqual([])
+
+    // A real Expense was created from the edited (not stale) fields, for
+    // the amount just entered.
+    const expenses = await listExpensesInMonth({
+      db,
+      householdId,
+      ...currentMonthRange(),
+    })
+    expect(expenses).toEqual([
+      expect.objectContaining({ name: 'Alquiler nuevo', price: 600 }),
+    ])
+  })
+
+  it('pre-checks "Ya lo pagué" when opened with defaultMarkPaid, e.g. from the "Pagar" button', async () => {
+    const { db, householdId, pendiente } = await seedPendingPendiente({
+      name: 'Alquiler',
+      expectedAmount: 500,
+    })
+    const editPendiente: EditPendienteTarget = {
+      pendienteId: pendiente.id,
+      name: 'Alquiler',
+      categoryName: 'Comida',
+      dueDate: pendiente.dueDate,
+      expectedAmount: 500,
+      recurring: false,
+      defaultMarkPaid: true,
+    }
+
+    renderWithProviders(
+      <AddPendienteForm
+        db={db}
+        householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
+        editPendiente={editPendiente}
+      />,
+    )
+
+    expect(await screen.findByLabelText('Ya lo pagué')).toHaveAttribute(
+      'data-state',
+      'checked',
+    )
+    expect(screen.getByLabelText('Fecha de pago')).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Guardar y marcar pagado' }),
     ).toBeInTheDocument()
   })
 })

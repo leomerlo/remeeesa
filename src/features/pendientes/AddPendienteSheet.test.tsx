@@ -71,6 +71,8 @@ describe('AddPendienteSheet', () => {
         onOpenChange={() => {}}
         db={db}
         householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
       />,
     )
 
@@ -87,7 +89,12 @@ describe('AddPendienteSheet', () => {
     const { db, householdId } = await seedHousehold()
 
     renderWithProviders(
-      <AddPendienteSheetHarness db={db} householdId={householdId} />,
+      <AddPendienteSheetHarness
+        db={db}
+        householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
@@ -108,7 +115,12 @@ describe('AddPendienteSheet', () => {
 
     renderWithProviders(
       <>
-        <AddPendienteSheetHarness db={db} householdId={householdId} />
+        <AddPendienteSheetHarness
+          db={db}
+          householdId={householdId}
+          memberId="user-1"
+          authorDisplayName="Ada"
+        />
         <PendingPendientesCount db={db} householdId={householdId} />
       </>,
       { queryClient },
@@ -146,7 +158,12 @@ describe('AddPendienteSheet', () => {
     const { db, householdId } = await seedHousehold()
 
     renderWithProviders(
-      <AddPendienteSheetHarness db={db} householdId={householdId} />,
+      <AddPendienteSheetHarness
+        db={db}
+        householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
     )
 
     const trigger = screen.getByRole('button', { name: 'Nuevo pendiente' })
@@ -182,7 +199,12 @@ describe('AddPendienteSheet', () => {
     }
 
     renderWithProviders(
-      <AddPendienteSheetHarness db={db} householdId={household.id} />,
+      <AddPendienteSheetHarness
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
     )
 
     fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
@@ -230,6 +252,8 @@ describe('AddPendienteSheet', () => {
         onOpenChange={() => {}}
         db={db}
         householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
         editPendiente={editPendiente}
         onEditFinished={() => {}}
       />,
@@ -283,6 +307,8 @@ describe('AddPendienteSheet', () => {
         onOpenChange={() => {}}
         db={db}
         householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
         editPendiente={editPendiente}
         onEditFinished={onEditFinished}
       />,
@@ -320,6 +346,8 @@ describe('AddPendienteSheet', () => {
         onOpenChange={() => {}}
         db={db}
         householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
         editPendiente={editPendiente}
         onEditFinished={onEditFinished}
       />,

@@ -12,6 +12,10 @@ export type AddPendienteSheetProps = {
   readonly onOpenChange: (open: boolean) => void
   readonly db: HouseholdsDb
   readonly householdId: string
+  // Only used to mark a Pendiente paid (the resulting Expense is attributed
+  // to this member) -- see AddPendienteForm.
+  readonly memberId: string
+  readonly authorDisplayName: string
   readonly editPendiente?: EditPendienteTarget | null
   readonly onEditFinished?: () => void
   // Home puts this trigger beside "Agregar gasto" in a two-up row, where both
@@ -25,6 +29,8 @@ export function AddPendienteSheet({
   onOpenChange,
   db,
   householdId,
+  memberId,
+  authorDisplayName,
   editPendiente = null,
   onEditFinished,
   triggerClassName = 'w-full',
@@ -89,6 +95,8 @@ export function AddPendienteSheet({
         <AddPendienteForm
           db={db}
           householdId={householdId}
+          memberId={memberId}
+          authorDisplayName={authorDisplayName}
           editPendiente={editPendiente}
           onEditFinished={onEditFinished}
           onAdded={() => {

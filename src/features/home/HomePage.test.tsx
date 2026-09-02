@@ -3,8 +3,8 @@ import type { ReactElement } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { HouseholdDraftProvider } from '@/features/onboarding'
-import { listPendientes } from '@/lib/pendientes'
-import { listExpensesInMonth } from '@/lib/expenses'
+import { createPendiente, listPendientes } from '@/lib/pendientes'
+import { listCategories, listExpensesInMonth } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
@@ -388,6 +388,51 @@ describe('HomePage', () => {
           price: 10,
         }),
       ])
+    })
+  })
+
+  it('opens the edit sheet with "Ya lo pagué" pre-checked when a "Cuentas por pagar" card is tapped, and saving marks it paid', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories.find((category) => category.name === 'Comida')
+    if (comida === undefined) {
+      throw new Error('expected seeded Comida category')
+    }
+    await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Prosegur',
+      dueDate: new Date(2026, 8, 5),
+      expectedAmount: 15000,
+    })
+
+    renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Marcar pagado Prosegur' }),
+    )
+
+    expect(await screen.findByLabelText('Monto esperado')).toHaveValue('15.000')
+    expect(screen.getByLabelText('Ya lo pagué')).toHaveAttribute(
+      'data-state',
+      'checked',
+    )
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Guardar y marcar pagado' }),
+    )
+
+    await waitFor(async () => {
+      expect(await listPendientes({ db, householdId: household.id })).toEqual(
+        [],
+      )
     })
   })
 })

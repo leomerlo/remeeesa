@@ -20,7 +20,7 @@ export type PendientesListProps = {
     pendiente: Pendiente,
     categoryName: string,
   ) => void
-  readonly onMarkPaid?: (pendiente: Pendiente) => void
+  readonly onMarkPaid?: (pendiente: Pendiente, categoryName: string) => void
 }
 
 export function PendientesList({
@@ -164,7 +164,7 @@ export function PendientesList({
                   className="w-full"
                   aria-label={`Marcar pagado ${pendiente.name}`}
                   onClick={() => {
-                    onMarkPaid(pendiente)
+                    onMarkPaid(pendiente, category?.name ?? '')
                   }}
                 >
                   Pagar

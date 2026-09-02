@@ -14,7 +14,7 @@ import { pendientesQueryKey } from './queryKeys'
 export type PorPagarSectionProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
-  readonly onMarkPaid: (pendiente: Pendiente) => void
+  readonly onMarkPaid: (pendiente: Pendiente, categoryName: string) => void
 }
 
 const HOME_PREVIEW_LIMIT = 5
@@ -146,7 +146,7 @@ export function PorPagarSection({
                 aria-label={`Marcar pagado ${pendiente.name}`}
                 className="bg-card shadow-resting flex h-full w-36 shrink-0 flex-col gap-1.5 rounded-2xl p-3 text-left transition-transform active:scale-[0.98]"
                 onClick={() => {
-                  onMarkPaid(pendiente)
+                  onMarkPaid(pendiente, categoryName)
                 }}
               >
                 <span

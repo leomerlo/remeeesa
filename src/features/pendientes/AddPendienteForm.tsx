@@ -11,9 +11,11 @@ import {
   categoriesQueryKey,
   CategoryChips,
   CategoryCombobox,
+  expensesQueryKey,
 } from '@/features/expenses'
 import {
   createPendiente,
+  markPendientePaid,
   PendienteAlreadyPaidError,
   PendienteNotFoundError,
   deletePendiente,
@@ -26,6 +28,7 @@ import {
   findOrCreateCategory,
   listCategories,
   parseCategoryName,
+  parseExpenseDate,
 } from '@/lib/expenses'
 import type { Category } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
@@ -38,11 +41,21 @@ export type EditPendienteTarget = {
   readonly dueDate: Date
   readonly expectedAmount: number | null
   readonly recurring: boolean
+  // Pre-checks "Ya lo pagué" -- set by entry points whose whole purpose is
+  // paying (Home's "Cuentas por pagar" cards, PendientesList's "Pagar"
+  // button), so the toggle already reflects that intent rather than making
+  // the user find and flip it themselves.
+  readonly defaultMarkPaid?: boolean
 }
 
 export type AddPendienteFormProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
+  // Only required to mark a Pendiente paid (the resulting Expense is
+  // attributed to this member) -- unused while adding or editing without
+  // checking "Ya lo pagué".
+  readonly memberId: string
+  readonly authorDisplayName: string
   readonly editPendiente?: EditPendienteTarget | null
   readonly onEditFinished?: () => void
   readonly onAdded?: () => void
@@ -108,6 +121,32 @@ function parseDateInput(value: string): Date {
   return date
 }
 
+// Separate from parseDateInput above -- same malformed-string shape, but a
+// payment date needs "de pago" wording (and a past-or-today check a due
+// date deliberately skips; see the Fecha de vencimiento field below).
+function parsePaymentDateInput(value: string): Date {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (match === null) {
+    throw new Error('La fecha de pago no es válida')
+  }
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const date = new Date(year, month - 1, day)
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    throw new Error('La fecha de pago no es válida')
+  }
+  try {
+    return parseExpenseDate(date)
+  } catch {
+    throw new Error('La fecha de pago no puede ser futura')
+  }
+}
+
 type ParsedPendienteFields = {
   readonly name: string
   readonly categoryName: string
@@ -134,10 +173,28 @@ function parsePendienteFields(
   }
 }
 
-// PendienteNotFoundError/PendienteAlreadyPaidError never reach here -- both close
-// the sheet from the mutation's own onError instead of rendering an alert
-// (see the `mutation`/`deleteMutation` definitions below).
+type SaveVariables = {
+  readonly fields: ParsedPendienteFields
+  readonly markPaid: boolean
+  readonly paymentDate: Date | null
+}
+
+// A plain edit (not marking paid) never surfaces PendienteNotFoundError/
+// PendienteAlreadyPaidError here -- both close the sheet from the
+// mutation's own onError instead of rendering an alert, since there's
+// nothing left to save over. Marking paid is different: the user came here
+// specifically to pay something, so if it turns out to already be gone or
+// paid (e.g. by another household member a moment earlier), the sheet
+// stays open with this message instead of silently disappearing -- these
+// two error classes carry no message of their own (see pendientes.ts), so
+// they need one here.
 function mutationErrorMessage(error: unknown, mode: 'add' | 'edit'): string {
+  if (error instanceof PendienteAlreadyPaidError) {
+    return 'Este pendiente ya fue pagado'
+  }
+  if (error instanceof PendienteNotFoundError) {
+    return 'Este pendiente ya no existe'
+  }
   if (error instanceof Error) {
     return error.message
   }
@@ -159,6 +216,8 @@ function loadErrorMessage(error: unknown): string | null {
 type PendienteFormBodyProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
+  readonly memberId: string
+  readonly authorDisplayName: string
   readonly editPendiente: EditPendienteTarget | null
   readonly initialFields: PendienteFormFields
   readonly categories: readonly Category[]
@@ -171,6 +230,8 @@ type PendienteFormBodyProps = {
 function PendienteFormBody({
   db,
   householdId,
+  memberId,
+  authorDisplayName,
   editPendiente,
   initialFields,
   categories,
@@ -183,6 +244,7 @@ function PendienteFormBody({
   const queryClient = useQueryClient()
   const pendientesKey = pendientesQueryKey({ householdId })
   const categoriesKey = categoriesQueryKey({ householdId })
+  const expensesKey = expensesQueryKey({ householdId })
   const [name, setName] = useState(initialFields.name)
   const [category, setCategory] = useState(initialFields.category)
   const [dueDate, setDueDate] = useState(initialFields.dueDate)
@@ -190,8 +252,15 @@ function PendienteFormBody({
     initialFields.expectedAmount,
   )
   const [recurring, setRecurring] = useState(initialFields.recurring)
+  const [markPaid, setMarkPaid] = useState(
+    editPendiente?.defaultMarkPaid ?? false,
+  )
+  const [paymentDate, setPaymentDate] = useState(
+    localDateInputValue(new Date()),
+  )
   const [error, setError] = useState<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const today = localDateInputValue(new Date())
 
   async function invalidatePendienteViews(): Promise<void> {
     // Categories are a separate entity from pendientes, so they keep their own
@@ -201,14 +270,18 @@ function PendienteFormBody({
   }
 
   const mutation = useMutation({
-    mutationFn: async (fields: ParsedPendienteFields) => {
+    mutationFn: async ({
+      fields,
+      markPaid: shouldMarkPaid,
+      paymentDate: parsedPaymentDate,
+    }: SaveVariables) => {
       const resolvedCategory = await findOrCreateCategory({
         db,
         householdId,
         name: fields.categoryName,
       })
       if (editPendiente !== null) {
-        return updatePendiente({
+        await updatePendiente({
           db,
           householdId,
           pendienteId: editPendiente.pendienteId,
@@ -218,8 +291,23 @@ function PendienteFormBody({
           expectedAmount: fields.expectedAmount,
           recurring: fields.recurring,
         })
+        if (shouldMarkPaid) {
+          // fields.expectedAmount === null is caught before mutate() is
+          // called (see onSubmit) -- parsedPaymentDate is likewise never
+          // null here, both guarded by the same `markPaid` flag.
+          await markPendientePaid({
+            db,
+            householdId,
+            pendienteId: editPendiente.pendienteId,
+            memberId,
+            authorDisplayName,
+            finalAmount: fields.expectedAmount ?? 0,
+            paymentDate: parsedPaymentDate ?? new Date(),
+          })
+        }
+        return
       }
-      return createPendiente({
+      await createPendiente({
         db,
         householdId,
         categoryId: resolvedCategory.id,
@@ -229,7 +317,7 @@ function PendienteFormBody({
         recurring: fields.recurring,
       })
     },
-    onSuccess: async () => {
+    onSuccess: async (_result, variables) => {
       if (isEditing) {
         onEditFinished?.()
       } else {
@@ -243,19 +331,30 @@ function PendienteFormBody({
       }
       setError(null)
       await invalidatePendienteViews()
+      if (variables.markPaid) {
+        // A new Expense was created by markPendientePaid -- every view
+        // reading expensesQueryKey (Home, Histórico) needs to see it too.
+        await queryClient.invalidateQueries({ queryKey: expensesKey })
+      }
     },
     // A stale Pendiente (deleted, or marked paid, by someone else while this
     // form was open) can't usefully stay open for a retry -- there's
     // nothing left to save over. Invalidate so the pending list reflects
     // reality and close the sheet, the same "can't act on it, so don't
     // block on it" outcome as the delete-on-a-gone-Pendiente case below.
-    onError: async (caught) => {
+    onError: async (caught, variables) => {
       if (
         caught instanceof PendienteNotFoundError ||
         caught instanceof PendienteAlreadyPaidError
       ) {
         await invalidatePendienteViews()
-        onEditFinished?.()
+        // A plain edit has nothing left to save over -- close and refresh.
+        // A mark-paid attempt stays open instead: the user came here to pay
+        // something, so silently disappearing would hide exactly the
+        // information ("already paid") they need to see.
+        if (!variables.markPaid) {
+          onEditFinished?.()
+        }
       }
     },
   })
@@ -317,8 +416,14 @@ function PendienteFormBody({
         expectedAmount,
         recurring,
       })
+      if (markPaid && fields.expectedAmount === null) {
+        throw new Error('Ingresá un monto para marcarlo como pagado')
+      }
+      const parsedPaymentDate = markPaid
+        ? parsePaymentDateInput(paymentDate)
+        : null
       setError(null)
-      mutation.mutate(fields)
+      mutation.mutate({ fields, markPaid, paymentDate: parsedPaymentDate })
     } catch (caught) {
       const message =
         caught instanceof Error
@@ -328,13 +433,18 @@ function PendienteFormBody({
     }
   }
 
+  // Mirrors the onError guard above: a plain edit's stale-pendiente error
+  // closes the sheet instead of rendering here, but a failed mark-paid
+  // attempt stays open and needs its own alert.
+  const isStaleError =
+    mutation.error instanceof PendienteNotFoundError ||
+    mutation.error instanceof PendienteAlreadyPaidError
+  const wasMarkPaidAttempt = mutation.variables?.markPaid ?? false
+  const suppressStaleError = isStaleError && !wasMarkPaidAttempt
+
   const alertMessage =
     error ??
-    (mutation.isError &&
-    !(
-      mutation.error instanceof PendienteNotFoundError ||
-      mutation.error instanceof PendienteAlreadyPaidError
-    )
+    (mutation.isError && !suppressStaleError
       ? mutationErrorMessage(mutation.error, isEditing ? 'edit' : 'add')
       : null) ??
     loadError
@@ -456,6 +566,44 @@ function PendienteFormBody({
           />
         </div>
 
+        {/* Editing only -- there's nothing to mark paid while still creating
+            the Pendiente. Replaces the old separate "Marcar pagado" sheet:
+            one form for both editing and paying, per direct feedback. */}
+        {isEditing ? (
+          <div className="flex w-full flex-col gap-2">
+            <div className="flex w-full items-center justify-between gap-2">
+              <Label htmlFor="pendiente-mark-paid" className="font-medium">
+                Ya lo pagué
+              </Label>
+              <Switch
+                id="pendiente-mark-paid"
+                checked={markPaid}
+                onCheckedChange={setMarkPaid}
+              />
+            </div>
+            {markPaid ? (
+              <div className="flex w-full flex-col gap-2">
+                <Label
+                  htmlFor="pendiente-payment-date"
+                  className="text-muted-foreground font-medium"
+                >
+                  Fecha de pago
+                </Label>
+                <Input
+                  id="pendiente-payment-date"
+                  name="pendiente-payment-date"
+                  type="date"
+                  value={paymentDate}
+                  max={today}
+                  onChange={(event) => {
+                    setPaymentDate(event.target.value)
+                  }}
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         {alertMessage !== null ? (
           <AlertMessage>{alertMessage}</AlertMessage>
         ) : null}
@@ -502,7 +650,11 @@ function PendienteFormBody({
               disabled={mutation.isPending}
               className="w-full"
             >
-              {isEditing ? 'Guardar cambios' : 'Agregar pendiente'}
+              {isEditing
+                ? markPaid
+                  ? 'Guardar y marcar pagado'
+                  : 'Guardar cambios'
+                : 'Agregar pendiente'}
             </Button>
             {isEditing ? (
               <>
@@ -542,6 +694,8 @@ function PendienteFormBody({
 export function AddPendienteForm({
   db,
   householdId,
+  memberId,
+  authorDisplayName,
   editPendiente = null,
   onEditFinished,
   onAdded,
@@ -562,6 +716,8 @@ export function AddPendienteForm({
       key={formKey}
       db={db}
       householdId={householdId}
+      memberId={memberId}
+      authorDisplayName={authorDisplayName}
       editPendiente={editPendiente}
       initialFields={initialFields}
       categories={categoriesQuery.data ?? []}
