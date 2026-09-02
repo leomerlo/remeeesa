@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { AlertMessage } from '@/components/ui/alert-message'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
+import { Link } from 'react-router-dom'
 import { Skeleton } from '@/components/ui/skeleton'
 import { categoriesQueryKey } from '@/features/expenses'
 import { membersQueryKey } from '@/features/household'
@@ -32,7 +33,7 @@ export type RecentExpensesListProps = {
   readonly monthEnd?: Date
 }
 
-const RECENT_EXPENSES_LIMIT = 10
+const RECENT_EXPENSES_LIMIT = 5
 
 // This month's movements ("Últimos movimientos" on Home), most recent
 // first, capped so an active month doesn't turn Home into a second
@@ -129,7 +130,9 @@ export function RecentExpensesList({
     return <AlertMessage>{message}</AlertMessage>
   }
 
-  const expenses = expensesQuery.data.slice(0, RECENT_EXPENSES_LIMIT)
+  const allExpenses = expensesQuery.data
+  const expenses = allExpenses.slice(0, RECENT_EXPENSES_LIMIT)
+  const hasOverflow = allExpenses.length > RECENT_EXPENSES_LIMIT
   const categories = categoriesQuery.data
   if (expenses.length === 0) {
     return (
@@ -150,71 +153,84 @@ export function RecentExpensesList({
   )
 
   return (
-    <ul
-      aria-label="Últimos movimientos del mes"
-      className="flex w-full flex-col gap-3 text-sm"
-    >
-      {expenses.map((expense) => {
-        const category = categoryById.get(expense.categoryId)
-        const categoryName = category?.name ?? 'Categoría desconocida'
-        const categoryColor =
-          category?.color ?? colorForCategoryName(categoryName)
-        const CategoryIcon = iconForCategoryName(categoryName)
+    <div className="flex w-full flex-col gap-3">
+      <ul
+        aria-label="Últimos movimientos del mes"
+        className="flex w-full flex-col gap-3 text-sm"
+      >
+        {expenses.map((expense) => {
+          const category = categoryById.get(expense.categoryId)
+          const categoryName = category?.name ?? 'Categoría desconocida'
+          const categoryColor =
+            category?.color ?? colorForCategoryName(categoryName)
+          const CategoryIcon = iconForCategoryName(categoryName)
 
-        const rowContent = (
-          <>
-            <span
-              aria-hidden="true"
-              data-testid="category-icon"
-              className="flex size-11 shrink-0 items-center justify-center rounded-full"
-              style={{ backgroundColor: categoryColor }}
-            >
-              <CategoryIcon className="size-5 text-white" aria-hidden="true" />
-            </span>
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="truncate text-foreground font-medium">
-                  {expense.name}
-                </span>
-                <span className="font-display text-lg text-foreground">
-                  {formatCurrency(expense.price)}
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-x-1.5 text-xs text-muted-foreground">
-                <span>{categoryName}</span>
-                <span aria-hidden="true">·</span>
-                <span>{formatShortDate(expense.expenseDate)}</span>
-                <span aria-hidden="true">·</span>
-                <span>
-                  {memberById.get(expense.memberId)?.displayName ??
-                    expense.authorDisplayName}
-                </span>
-              </div>
-            </div>
-          </>
-        )
-
-        return (
-          <li key={expense.id}>
-            {onEditExpense !== undefined ? (
-              <button
-                type="button"
-                className="bg-card shadow-resting flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
-                aria-label={`Editar ${expense.name}`}
-                onClick={() => {
-                  onEditExpense(expense, category?.name ?? '')
-                }}
+          const rowContent = (
+            <>
+              <span
+                aria-hidden="true"
+                data-testid="category-icon"
+                className="flex size-11 shrink-0 items-center justify-center rounded-full"
+                style={{ backgroundColor: categoryColor }}
               >
-                {rowContent}
-              </button>
-            ) : (
-              <div className="bg-card shadow-resting flex w-full items-center gap-3 rounded-2xl p-4">
-                {rowContent}
+                <CategoryIcon
+                  className="size-5 text-white"
+                  aria-hidden="true"
+                />
+              </span>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="truncate text-foreground font-medium">
+                    {expense.name}
+                  </span>
+                  <span className="font-display text-lg text-foreground">
+                    {formatCurrency(expense.price)}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-x-1.5 text-xs text-muted-foreground">
+                  <span>{categoryName}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>{formatShortDate(expense.expenseDate)}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>
+                    {memberById.get(expense.memberId)?.displayName ??
+                      expense.authorDisplayName}
+                  </span>
+                </div>
               </div>
-            )}
-          </li>
-        )
-      })}
-    </ul>
+            </>
+          )
+
+          return (
+            <li key={expense.id}>
+              {onEditExpense !== undefined ? (
+                <button
+                  type="button"
+                  className="bg-card shadow-resting flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
+                  aria-label={`Editar ${expense.name}`}
+                  onClick={() => {
+                    onEditExpense(expense, category?.name ?? '')
+                  }}
+                >
+                  {rowContent}
+                </button>
+              ) : (
+                <div className="bg-card shadow-resting flex w-full items-center gap-3 rounded-2xl p-4">
+                  {rowContent}
+                </div>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+      {hasOverflow ? (
+        <Link
+          to="/historico"
+          className="text-primary self-center text-sm font-medium underline-offset-4 hover:underline"
+        >
+          Ver más
+        </Link>
+      ) : null}
+    </div>
   )
 }
