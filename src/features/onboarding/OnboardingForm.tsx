@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
+import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { HouseholdsDb } from '@/lib/households'
@@ -124,14 +125,11 @@ export function OnboardingForm({
           >
             Presupuesto mensual
           </Label>
-          <Input
+          <FormattedAmountInput
             id="monthly-budget"
             name="monthly-budget"
             value={monthlyBudget}
-            onChange={(event) => {
-              setMonthlyBudget(event.target.value)
-            }}
-            inputMode="decimal"
+            onChange={setMonthlyBudget}
             autoComplete="off"
             placeholder="0"
             className="h-auto border-0 px-0 text-center font-display text-5xl tracking-tight md:text-5xl"
