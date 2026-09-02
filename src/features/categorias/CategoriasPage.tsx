@@ -7,6 +7,7 @@ import { useHouseholdMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { CategoryBreakdown } from './CategoryBreakdown'
 import { CategoryManager } from './CategoryManager'
+import { MonthlyTotalsChart } from './MonthlyTotalsChart'
 
 export type CategoriasPageProps = {
   readonly currentUserId?: string | null
@@ -63,6 +64,7 @@ export function CategoriasPage({
     <div className="flex w-full flex-col items-center gap-6">
       {header}
       <CategoryBreakdown db={db} householdId={membership.householdId} />
+      <MonthlyTotalsChart db={db} householdId={membership.householdId} />
       <CategoryManager db={db} householdId={membership.householdId} />
     </div>
   )

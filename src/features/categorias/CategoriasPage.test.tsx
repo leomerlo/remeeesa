@@ -74,6 +74,12 @@ describe('CategoriasPage', () => {
     expect(within(breakdown).getByText('Comida')).toBeInTheDocument()
     const manager = screen.getByRole('list', { name: 'Todas las categorías' })
     expect(within(manager).getByText('Comida')).toBeInTheDocument()
+
+    // The month-over-month trend chart sits between the breakdown and the
+    // management list.
+    expect(
+      await screen.findByRole('heading', { name: 'Por mes' }),
+    ).toBeInTheDocument()
   })
 
   it('offers the management actions on the same screen, not a separate one', async () => {

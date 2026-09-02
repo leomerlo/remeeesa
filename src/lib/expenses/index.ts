@@ -29,6 +29,8 @@ export {
   formatCurrency,
   isDateInCurrentMonth,
 } from './remainingBudget'
+export { lastNMonthRanges, MONTHLY_TOTALS_MONTH_COUNT } from './monthlyTotals'
+export type { MonthRange } from './monthlyTotals'
 export { summarizeByCategory, summarizeByPerson } from './summaries'
 export type { CategorySummary, PersonSummary } from './summaries'
 export {
