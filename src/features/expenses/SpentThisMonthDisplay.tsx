@@ -8,13 +8,17 @@ import {
   formatCurrency,
   listExpensesInMonth,
 } from '@/lib/expenses'
-import { formatMonthLabel } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
 import { expensesInMonthQueryKey } from './queryKeys'
 
 export type SpentThisMonthDisplayProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
+  // Defaults to the current month. MonthNavigator passes the month it's
+  // paging through instead -- this card has no month-picking UI of its own,
+  // it just renders whatever range it's given.
+  readonly monthStart?: Date
+  readonly monthEnd?: Date
 }
 
 // The peer to RemainingBudgetDisplay's card: that one counts down from the
@@ -32,23 +36,35 @@ export type SpentThisMonthDisplayProps = {
 export function SpentThisMonthDisplay({
   db,
   householdId,
+  monthStart: monthStartProp,
+  monthEnd: monthEndProp,
 }: SpentThisMonthDisplayProps): ReactElement {
-  const monthRange = useMemo(() => currentMonthRange(), [])
+  const defaultRange = useMemo(() => currentMonthRange(), [])
+  const monthStart = monthStartProp ?? defaultRange.monthStart
+  const monthEnd = monthEndProp ?? defaultRange.monthEnd
+  // The query key changes with the viewed month, matching
+  // RemainingBudgetDisplay's own key -- both read the exact same cache
+  // entry for a given month, so paging between them costs one fetch, not
+  // two, and a past month stays cached under its own entry instead of
+  // being evicted every time the current month's is refetched.
   const expensesQuery = useQuery({
-    queryKey: expensesInMonthQueryKey({ householdId }),
+    queryKey: [
+      ...expensesInMonthQueryKey({ householdId }),
+      monthStart.getTime(),
+    ],
     queryFn: () =>
       listExpensesInMonth({
         db,
         householdId,
-        monthStart: monthRange.monthStart,
-        monthEnd: monthRange.monthEnd,
+        monthStart,
+        monthEnd,
       }),
   })
   const expenses = expensesQuery.data
 
   if (expenses === undefined) {
-    // Shaped like the resolved card (month label / heading / amount, each
-    // its own bar) so nothing jumps in size once the real figure lands.
+    // Shaped like the resolved card (heading / amount, each its own bar) so
+    // nothing jumps in size once the real figure lands.
     return (
       <div
         role="status"
@@ -56,7 +72,6 @@ export function SpentThisMonthDisplay({
         className="bg-card shadow-resting flex w-full flex-col gap-2 rounded-3xl p-6"
       >
         <span className="sr-only">Cargando…</span>
-        <Skeleton className="h-3 w-28" />
         <Skeleton className="h-4 w-36" />
         <Skeleton className="h-11 w-48" />
       </div>
@@ -68,9 +83,10 @@ export function SpentThisMonthDisplay({
 
   return (
     <div className="bg-card shadow-resting flex w-full flex-col gap-2 rounded-3xl p-6">
-      <span className="text-muted-foreground text-xs font-medium">
-        {formatMonthLabel(monthRange.monthStart)}
-      </span>
+      {/* No month label here -- MonthNavigator (Home's shared control above
+          both cards) is the one place that says which month is being
+          viewed now; repeating it on every card it renders was three
+          copies of the same sentence. */}
       <span className="text-foreground text-body font-medium">
         Gastado este mes
       </span>

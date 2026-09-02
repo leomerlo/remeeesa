@@ -10,7 +10,6 @@ import {
   formatBudgetAmount,
   listExpensesInMonth,
 } from '@/lib/expenses'
-import { formatMonthLabel } from '@/lib/format'
 import { getHousehold } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { PiggyBankIllustration } from './PiggyBankIllustration'
@@ -19,25 +18,40 @@ import { expensesInMonthQueryKey } from './queryKeys'
 export type RemainingBudgetDisplayProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
+  // Defaults to the current month. MonthNavigator passes the month it's
+  // paging through instead -- this card has no month-picking UI of its own,
+  // it just renders whatever range it's given.
+  readonly monthStart?: Date
+  readonly monthEnd?: Date
 }
 
 export function RemainingBudgetDisplay({
   db,
   householdId,
+  monthStart: monthStartProp,
+  monthEnd: monthEndProp,
 }: RemainingBudgetDisplayProps): ReactElement {
   const householdQuery = useQuery({
     queryKey: householdQueryKey({ householdId }),
     queryFn: () => getHousehold({ db, householdId }),
   })
-  const monthRange = useMemo(() => currentMonthRange(), [])
+  const defaultRange = useMemo(() => currentMonthRange(), [])
+  const monthStart = monthStartProp ?? defaultRange.monthStart
+  const monthEnd = monthEndProp ?? defaultRange.monthEnd
+  // The query key changes with the viewed month, so paging keeps each
+  // month's expenses cached under its own entry instead of refetching the
+  // same month every time it's revisited.
   const expensesQuery = useQuery({
-    queryKey: expensesInMonthQueryKey({ householdId }),
+    queryKey: [
+      ...expensesInMonthQueryKey({ householdId }),
+      monthStart.getTime(),
+    ],
     queryFn: () =>
       listExpensesInMonth({
         db,
         householdId,
-        monthStart: monthRange.monthStart,
-        monthEnd: monthRange.monthEnd,
+        monthStart,
+        monthEnd,
       }),
   })
   const household = householdQuery.data
@@ -55,7 +69,6 @@ export function RemainingBudgetDisplay({
       >
         <span className="sr-only">Cargando…</span>
         <div className="flex flex-col gap-2">
-          <Skeleton className="h-3 w-28" />
           <Skeleton className="h-4 w-40" />
           <Skeleton className="h-11 w-52" />
         </div>
@@ -78,12 +91,10 @@ export function RemainingBudgetDisplay({
           page title again. */}
       <PiggyBankIllustration className="pointer-events-none absolute -top-14 -right-3 h-28 w-32" />
       <div className="flex flex-col gap-2 pr-16">
-        {/* The small month label is what tells this card and Gastado este
-            mes's card apart from a figure that means "always" -- without it,
-            "restante" alone doesn't say restante of what period. */}
-        <span className="text-primary-foreground/70 text-xs font-medium">
-          {formatMonthLabel(monthRange.monthStart)}
-        </span>
+        {/* No month label here -- MonthNavigator (Home's shared control
+            above both cards) is the one place that says which month is
+            being viewed now; repeating it on every card it renders was
+            three copies of the same sentence. */}
         <span className="text-primary-foreground text-body font-medium">
           Presupuesto restante
         </span>

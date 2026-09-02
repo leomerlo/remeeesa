@@ -4,9 +4,8 @@ import type { ReactElement } from 'react'
 import { PageHeader } from '@/components/PageHeader'
 import {
   AddExpenseSheet,
+  MonthNavigator,
   RecentExpensesList,
-  RemainingBudgetDisplay,
-  SpentThisMonthDisplay,
 } from '@/features/expenses'
 import type { EditExpenseTarget } from '@/features/expenses/AddExpenseForm'
 import {
@@ -172,8 +171,7 @@ export function HomePage({
           bottom nav, so a second icon-link to the same destination is
           redundant. */}
       <PageHeader title={household?.name ?? 'Hogar'} />
-      <SpentThisMonthDisplay db={db} householdId={membership.householdId} />
-      <RemainingBudgetDisplay db={db} householdId={membership.householdId} />
+      <MonthNavigator db={db} householdId={membership.householdId} />
       <div className="flex w-full gap-3">
         <AddExpenseSheet
           open={isAddExpenseSheetOpen}

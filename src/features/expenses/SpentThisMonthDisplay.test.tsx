@@ -4,7 +4,6 @@ import { createExpense, listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
-import { formatMonthLabel } from '@/lib/format'
 import { SpentThisMonthDisplay } from './SpentThisMonthDisplay'
 
 async function seedHousehold() {
@@ -110,14 +109,50 @@ describe('SpentThisMonthDisplay', () => {
   // The card exists to say which period the figure covers -- without it,
   // "Gastado este mes" alongside "Presupuesto restante" gives no way to tell
   // whether the two numbers are even talking about the same month.
-  it('labels the card with the current month', async () => {
-    const { db, household } = await seedHousehold()
-
-    renderWithProviders(
-      <SpentThisMonthDisplay db={db} householdId={household.id} />,
+  // MonthNavigator (the only real caller) passes an explicit range for
+  // whichever month it's paging through; this is the mechanism that makes
+  // paging actually change the figure.
+  it('sums the given month instead of the current one when monthStart/monthEnd are passed', async () => {
+    const { db, household, comida } = await seedHousehold()
+    const lastMonth = new Date()
+    lastMonth.setMonth(lastMonth.getMonth() - 1, 15)
+    await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Last month pizza',
+      price: 60,
+      comments: '',
+      expenseDate: lastMonth,
+    })
+    const monthStart = new Date(
+      lastMonth.getFullYear(),
+      lastMonth.getMonth(),
+      1,
+    )
+    const monthEnd = new Date(
+      lastMonth.getFullYear(),
+      lastMonth.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
     )
 
-    await screen.findByText('Gastado este mes')
-    expect(screen.getByText(formatMonthLabel(new Date()))).toBeInTheDocument()
+    renderWithProviders(
+      <SpentThisMonthDisplay
+        db={db}
+        householdId={household.id}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />,
+    )
+
+    expect(
+      await screen.findByRole('status', { name: 'Gastado este mes $60,00' }),
+    ).toHaveTextContent('$60,00')
   })
 })
