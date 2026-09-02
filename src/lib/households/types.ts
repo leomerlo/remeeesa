@@ -84,6 +84,19 @@ export type HouseholdsDb = {
     readonly householdId: string
     readonly limit: number
   }): Promise<readonly Expense[]>
+  // All-time history, newest first, paginated in whole calendar months: a
+  // page never ends mid-month, so the Histórico screen can render a month
+  // header knowing every expense under it has already arrived.
+  // `beforeMonthStart` is the cursor -- omit it for the first page, then
+  // pass back the `nextBeforeMonthStart` of the previous page.
+  // `nextBeforeMonthStart` is null once there is nothing older left.
+  listExpenseHistoryPage(input: {
+    readonly householdId: string
+    readonly beforeMonthStart?: Date
+  }): Promise<{
+    readonly expenses: readonly Expense[]
+    readonly nextBeforeMonthStart: Date | null
+  }>
   getExpense(input: {
     readonly householdId: string
     readonly expenseId: string

@@ -4,12 +4,15 @@ export { AddExpenseSheet } from './AddExpenseSheet'
 export type { AddExpenseSheetProps } from './AddExpenseSheet'
 export { CategoryCombobox } from './CategoryCombobox'
 export type { CategoryComboboxProps } from './CategoryCombobox'
+export { ExpenseHistory } from './ExpenseHistory'
+export type { ExpenseHistoryProps } from './ExpenseHistory'
 export { RecentExpensesList } from './RecentExpensesList'
 export type { RecentExpensesListProps } from './RecentExpensesList'
 export { RemainingBudgetDisplay } from './RemainingBudgetDisplay'
 export type { RemainingBudgetDisplayProps } from './RemainingBudgetDisplay'
 export {
   categoriesQueryKey,
+  expenseHistoryQueryKey,
   expensesInMonthQueryKey,
   expensesQueryKey,
   recentExpensesQueryKey,

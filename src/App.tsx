@@ -50,7 +50,15 @@ export function AppRoutes({
                 />
               }
             />
-            <Route path="/historico" element={<HistoricoPage />} />
+            <Route
+              path="/historico"
+              element={
+                <HistoricoPage
+                  currentUserId={currentUserId}
+                  householdsDb={householdsDb}
+                />
+              }
+            />
             <Route path="/categorias" element={<CategoriasPage />} />
             <Route
               path="/cuentas"

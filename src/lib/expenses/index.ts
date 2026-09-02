@@ -6,6 +6,7 @@ export {
   findOrCreateCategory,
   listCategories,
   listExpensesInMonth,
+  listExpenseHistoryPage,
   listRecentExpenses,
   updateExpense,
 } from './expenses'
@@ -31,11 +32,11 @@ export {
   parseExpenseDocument,
 } from './converters'
 export {
-  assertExpenseInCurrentMonth,
   parseAuthorDisplayName,
   parseCategoryName,
   parseExpenseDate,
-  parseExpenseDateInCurrentMonth,
   parseExpenseName,
   parseExpensePrice,
 } from './validate'
+export { monthEndOf, monthStartOf } from './history'
+export type { ExpenseHistoryPage } from './history'

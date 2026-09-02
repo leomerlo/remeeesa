@@ -34,6 +34,7 @@ import {
   toFirestoreExpenseDate,
 } from '@/lib/expenses/converters'
 import { ExpenseNotFoundError } from '@/lib/expenses/expenses'
+import { monthEndOf, monthStartOf } from '@/lib/expenses/history'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
 import { parseCategoryName } from '@/lib/expenses/validate'
 import { logFirebaseError } from '@/lib/firebaseDevLog'
@@ -491,6 +492,82 @@ export function createFirestoreHouseholdsDb(
             data: expenseDoc.data(),
           }),
         )
+      })
+    },
+    async listExpenseHistoryPage(input) {
+      return withHouseholdAccess('listExpenseHistoryPage', async () => {
+        const beforeCursor =
+          input.beforeMonthStart === undefined
+            ? []
+            : [
+                where(
+                  'expense_date',
+                  '<',
+                  Timestamp.fromDate(input.beforeMonthStart),
+                ),
+              ]
+
+        // Which month this page covers is discovered from the data, not
+        // walked month by month: a household with a gap between, say,
+        // August and March would otherwise need a round trip per empty
+        // month in between just to find the next one that has anything.
+        const newestQuery = query(
+          collection(firestore, 'expenses'),
+          where('household_id', '==', input.householdId),
+          ...beforeCursor,
+          orderBy('expense_date', 'desc'),
+          orderBy('created_at', 'desc'),
+          limit(1),
+        )
+        const newestSnap = await getDocs(newestQuery)
+        const newestDoc = newestSnap.docs[0]
+        if (newestDoc === undefined) {
+          return { expenses: [], nextBeforeMonthStart: null }
+        }
+        const newest = parseExpenseDocument({
+          id: newestDoc.id,
+          data: newestDoc.data(),
+        })
+
+        // The whole month, unbounded: the page is a calendar month rather
+        // than a row count, so it is never cut short mid-month no matter
+        // how many expenses that month happens to hold.
+        const pageMonthStart = monthStartOf(newest.expenseDate)
+        const monthQuery = query(
+          collection(firestore, 'expenses'),
+          where('household_id', '==', input.householdId),
+          where('expense_date', '>=', Timestamp.fromDate(pageMonthStart)),
+          where(
+            'expense_date',
+            '<=',
+            Timestamp.fromDate(monthEndOf(newest.expenseDate)),
+          ),
+          orderBy('expense_date', 'desc'),
+          orderBy('created_at', 'desc'),
+        )
+        const monthSnap = await getDocs(monthQuery)
+        const expenses = monthSnap.docs.map((expenseDoc) =>
+          parseExpenseDocument({
+            id: expenseDoc.id,
+            data: expenseDoc.data(),
+          }),
+        )
+
+        // One extra single-row read so the caller can hide "load more"
+        // rather than offering a button that returns nothing.
+        const olderQuery = query(
+          collection(firestore, 'expenses'),
+          where('household_id', '==', input.householdId),
+          where('expense_date', '<', Timestamp.fromDate(pageMonthStart)),
+          orderBy('expense_date', 'desc'),
+          limit(1),
+        )
+        const olderSnap = await getDocs(olderQuery)
+
+        return {
+          expenses,
+          nextBeforeMonthStart: olderSnap.empty ? null : pageMonthStart,
+        }
       })
     },
     async getExpense(input) {

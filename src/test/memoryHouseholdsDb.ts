@@ -7,6 +7,7 @@ import type { Cuenta } from '@/lib/cuentas/types'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
 import { ExpenseNotFoundError } from '@/lib/expenses/expenses'
+import { buildExpenseHistoryPage } from '@/lib/expenses/history'
 import type { Category, Expense } from '@/lib/expenses/types'
 import {
   AlreadyInHouseholdError,
@@ -337,6 +338,32 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         return right.createdAt.getTime() - left.createdAt.getTime()
       })
       return expenses.slice(0, input.limit)
+    },
+    async listExpenseHistoryPage(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const expenses: Expense[] = []
+      for (const expense of state.expenses.values()) {
+        if (
+          expense.householdId === input.householdId &&
+          (input.beforeMonthStart === undefined ||
+            expense.expenseDate.getTime() < input.beforeMonthStart.getTime())
+        ) {
+          expenses.push(expense)
+        }
+      }
+      expenses.sort((left, right) => {
+        const dateDiff =
+          right.expenseDate.getTime() - left.expenseDate.getTime()
+        if (dateDiff !== 0) {
+          return dateDiff
+        }
+        return right.createdAt.getTime() - left.createdAt.getTime()
+      })
+      return buildExpenseHistoryPage(expenses, (monthStart) =>
+        expenses.some(
+          (expense) => expense.expenseDate.getTime() < monthStart.getTime(),
+        ),
+      )
     },
     async getExpense(input) {
       assertMemberOf(state, userId, input.householdId)

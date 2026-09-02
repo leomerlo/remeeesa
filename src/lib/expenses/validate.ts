@@ -1,5 +1,3 @@
-import { isDateInCurrentMonth } from './remainingBudget'
-
 export function parseCategoryName(name: string): string {
   const trimmed = name.trim()
   if (trimmed === '') {
@@ -49,24 +47,4 @@ export function parseExpenseDate(expenseDate: Date, now = new Date()): Date {
     throw new Error('La fecha del gasto no puede ser futura')
   }
   return expenseDate
-}
-
-export function parseExpenseDateInCurrentMonth(
-  expenseDate: Date,
-  now = new Date(),
-): Date {
-  const parsed = parseExpenseDate(expenseDate, now)
-  if (!isDateInCurrentMonth(parsed, now)) {
-    throw new Error('La fecha del gasto debe ser del mes actual')
-  }
-  return parsed
-}
-
-export function assertExpenseInCurrentMonth(
-  expenseDate: Date,
-  now = new Date(),
-): void {
-  if (!isDateInCurrentMonth(expenseDate, now)) {
-    throw new Error('El gasto no pertenece al mes actual')
-  }
 }
