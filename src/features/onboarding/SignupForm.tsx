@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createFirestoreHouseholdsDb } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
+import { authorDisplayNameFromAuth } from '@/lib/displayName'
 import { useFirebase } from '@/lib/firebaseContext'
 import { AuthHero } from './AuthHero'
 import { finalizeHouseholdSignup } from './finalizeHouseholdSignup'
@@ -92,6 +93,7 @@ export function SignupForm({
           db,
           userId,
           draft,
+          displayName: authorDisplayNameFromAuth(firebase.auth?.currentUser),
         })
         if (household === null) {
           setError('No se pudo guardar el hogar')

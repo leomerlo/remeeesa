@@ -222,6 +222,7 @@ export function createFirestoreHouseholdsDb(
             ...membershipToDocument({
               householdId: householdRef.id,
               joinedAt: now.toDate(),
+              displayName: input.displayName,
             }),
             joined_at: now,
           })
@@ -253,6 +254,7 @@ export function createFirestoreHouseholdsDb(
             householdId: householdRef.id,
             userId: input.userId,
             joinedAt: now.toDate(),
+            displayName: input.displayName,
           },
         }
       })
@@ -395,12 +397,14 @@ export function createFirestoreHouseholdsDb(
             householdId: invite.householdId,
             userId: input.userId,
             joinedAt: now.toDate(),
+            displayName: input.displayName,
           }
           tx.set(memberRef, {
             ...joinMembershipToDocument({
               householdId: member.householdId,
               joinedAt: member.joinedAt,
               inviteToken: input.token,
+              displayName: member.displayName,
             }),
             joined_at: now,
           })
@@ -410,6 +414,21 @@ export function createFirestoreHouseholdsDb(
     },
     async leaveHousehold(input) {
       await deleteDoc(doc(firestore, 'household_members', input.userId))
+    },
+    async updateMemberDisplayName(input) {
+      return withHouseholdAccess('updateMemberDisplayName', async () => {
+        const memberRef = doc(firestore, 'household_members', input.userId)
+        const snap = await getDoc(memberRef)
+        if (!snap.exists()) {
+          throw new Error('No se encontró la membresía')
+        }
+        const current = parseHouseholdMemberDocument({
+          userId: snap.id,
+          data: snap.data(),
+        })
+        await updateDoc(memberRef, { display_name: input.displayName })
+        return { ...current, displayName: input.displayName }
+      })
     },
     async listCategories(householdId) {
       return withHouseholdAccess('listCategories', async () => {

@@ -36,6 +36,7 @@ type HouseholdRecord = {
 type MembershipRecord = {
   householdId: string
   joinedAt: Date
+  displayName: string
 }
 
 type InviteRecord = {
@@ -140,6 +141,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         householdId,
         userId: input.userId,
         joinedAt: createdAt,
+        displayName: input.displayName,
       }
       state.households.set(householdId, {
         name: household.name,
@@ -149,6 +151,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       state.members.set(input.userId, {
         householdId,
         joinedAt: member.joinedAt,
+        displayName: member.displayName,
       })
       for (const category of defaultCategoryRecords({
         householdId,
@@ -175,6 +178,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
             householdId: membership.householdId,
             userId: memberUserId,
             joinedAt: membership.joinedAt,
+            displayName: membership.displayName,
           })
         }
       }
@@ -192,6 +196,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         householdId: membership.householdId,
         userId: memberUserId,
         joinedAt: membership.joinedAt,
+        displayName: membership.displayName,
       }
     },
     async updateMonthlyBudget(input) {
@@ -271,6 +276,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
             householdId: existing.householdId,
             userId: input.userId,
             joinedAt: existing.joinedAt,
+            displayName: existing.displayName,
           }
         }
         throw new AlreadyInHouseholdError()
@@ -279,11 +285,13 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       state.members.set(input.userId, {
         householdId: invite.householdId,
         joinedAt,
+        displayName: input.displayName,
       })
       return {
         householdId: invite.householdId,
         userId: input.userId,
         joinedAt,
+        displayName: input.displayName,
       }
     },
     async leaveHousehold(input) {
@@ -291,6 +299,25 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         throw new HouseholdAccessDeniedError()
       }
       state.members.delete(input.userId)
+    },
+    async updateMemberDisplayName(input) {
+      if (input.userId !== userId) {
+        throw new HouseholdAccessDeniedError()
+      }
+      const existing = state.members.get(input.userId)
+      if (existing === undefined) {
+        throw new Error('No se encontró la membresía')
+      }
+      state.members.set(input.userId, {
+        ...existing,
+        displayName: input.displayName,
+      })
+      return {
+        householdId: existing.householdId,
+        userId: input.userId,
+        joinedAt: existing.joinedAt,
+        displayName: input.displayName,
+      }
     },
     async listCategories(householdId) {
       assertMemberOf(state, userId, householdId)
@@ -698,10 +725,12 @@ export function createMemoryHouseholdsDb(): {
   seedMembership(input: {
     readonly userId: string
     readonly householdId: string
+    readonly displayName?: string
   }): void
   addMember(input: {
     readonly userId: string
     readonly householdId: string
+    readonly displayName?: string
   }): void
   seedPendiente(pendiente: Pendiente): void
 } {
@@ -728,12 +757,14 @@ export function createMemoryHouseholdsDb(): {
       state.members.set(input.userId, {
         householdId: input.householdId,
         joinedAt: new Date(),
+        displayName: input.displayName ?? 'Miembro',
       })
     },
     addMember(input) {
       state.members.set(input.userId, {
         householdId: input.householdId,
         joinedAt: new Date(),
+        displayName: input.displayName ?? 'Miembro',
       })
     },
     // Test-only escape hatch: createPendiente always writes status 'pending',

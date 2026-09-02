@@ -12,3 +12,11 @@ export function parseMonthlyBudget(monthlyBudget: number): number {
   }
   return monthlyBudget
 }
+
+export function parseMemberDisplayName(displayName: string): string {
+  const trimmed = displayName.trim()
+  if (trimmed === '') {
+    throw new Error('Ingresá un nombre')
+  }
+  return trimmed
+}

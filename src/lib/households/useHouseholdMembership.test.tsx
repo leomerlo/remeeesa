@@ -33,7 +33,11 @@ function HookHarness(props: {
   )
 }
 
-function SwitchUserHarness({ db }: { readonly db: HouseholdsDb }): ReactElement {
+function SwitchUserHarness({
+  db,
+}: {
+  readonly db: HouseholdsDb
+}): ReactElement {
   const [userId, setUserId] = useState<'user-1' | 'user-2'>('user-1')
   const { membership } = useHouseholdMembership({
     currentUserId: userId,
@@ -64,7 +68,9 @@ describe('useHouseholdMembership', () => {
       monthlyBudget: 100,
     })
 
-    renderWithProviders(<HookHarness currentUserId="user-1" householdsDb={db} />)
+    renderWithProviders(
+      <HookHarness currentUserId="user-1" householdsDb={db} />,
+    )
 
     await waitFor(() => {
       expect(screen.getByTestId('result')).toHaveTextContent(
@@ -76,7 +82,9 @@ describe('useHouseholdMembership', () => {
   it('resolves membership as null for a signed-in user with no household', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
 
-    renderWithProviders(<HookHarness currentUserId="user-1" householdsDb={db} />)
+    renderWithProviders(
+      <HookHarness currentUserId="user-1" householdsDb={db} />,
+    )
 
     await waitFor(() => {
       expect(screen.getByTestId('result')).toHaveTextContent('membership:none')
@@ -92,7 +100,9 @@ describe('useHouseholdMembership', () => {
       },
     }
 
-    renderWithProviders(<HookHarness currentUserId="user-1" householdsDb={db} />)
+    renderWithProviders(
+      <HookHarness currentUserId="user-1" householdsDb={db} />,
+    )
 
     await waitFor(() => {
       expect(screen.getByTestId('result')).toHaveTextContent('membership:none')
@@ -132,7 +142,12 @@ describe('useHouseholdMembership', () => {
       getMembership: async () => {
         callCount += 1
         if (callCount === 1) {
-          return { householdId: 'household-1', userId: 'user-1', joinedAt: new Date() }
+          return {
+            householdId: 'household-1',
+            userId: 'user-1',
+            joinedAt: new Date(),
+            displayName: 'Ada',
+          }
         }
         return new Promise((resolve) => {
           resolveSecondLookup = resolve
@@ -156,6 +171,7 @@ describe('useHouseholdMembership', () => {
       householdId: 'household-2',
       userId: 'user-2',
       joinedAt: new Date(),
+      displayName: 'Bob',
     })
 
     await waitFor(() => {

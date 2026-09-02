@@ -34,15 +34,11 @@ describe('MemberList', () => {
       userId: 'user-1',
       name: 'Casa Verde',
       monthlyBudget: 100,
+      displayName: 'Florencia',
     })
 
     renderWithProviders(
-      <MemberList
-        db={db}
-        householdId={household.id}
-        currentUserId="user-1"
-        currentUserDisplayName="Florencia"
-      />,
+      <MemberList db={db} householdId={household.id} currentUserId="user-1" />,
     )
 
     const row = (await screen.findByText('Florencia')).closest('li')
@@ -59,20 +55,27 @@ describe('MemberList', () => {
       userId: 'user-1',
       name: 'Casa Verde',
       monthlyBudget: 100,
+      displayName: 'Florencia',
     })
-    store.addMember({ userId: 'user-2', householdId: household.id })
+    store.addMember({
+      userId: 'user-2',
+      householdId: household.id,
+      displayName: 'Leo',
+    })
 
     renderWithProviders(
       <MemberList db={db} householdId={household.id} currentUserId="user-1" />,
     )
 
     await waitFor(() => {
-      expect(screen.getByText('Vos')).toBeInTheDocument()
-      expect(screen.getByText('Miembro')).toBeInTheDocument()
+      expect(screen.getByText('Florencia')).toBeInTheDocument()
+      expect(screen.getByText('Leo')).toBeInTheDocument()
     })
 
     const items = screen.getAllByRole('listitem')
+    expect(items[0]).toHaveTextContent('Florencia')
     expect(items[0]).toHaveTextContent('Vos')
-    expect(items[1]).toHaveTextContent('Miembro')
+    expect(items[1]).toHaveTextContent('Leo')
+    expect(items[1]).not.toHaveTextContent('Vos')
   })
 })

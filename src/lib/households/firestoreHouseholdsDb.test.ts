@@ -87,10 +87,27 @@ describe('firestore.rules founder membership', () => {
     )
   })
 
-  it('keeps founder membership fields to household_id and joined_at', () => {
+  it('keeps founder membership fields to household_id, joined_at, and display_name', () => {
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'joined_at'])",
+      "data.keys().hasOnly(['household_id', 'joined_at', 'display_name'])",
     )
+  })
+})
+
+describe('firestore.rules member display name updates', () => {
+  it('lets a member update only their own display_name, nothing else', () => {
+    expect(rules).toMatch(
+      /match \/household_members\/\{userId\}[\s\S]*allow update: if isSignedIn\(\)\s*\n\s*&& request\.auth\.uid == userId\s*\n\s*&& isValidDisplayNameUpdate\(\);/,
+    )
+  })
+
+  it('restricts the diff to exactly display_name and requires a non-empty string', () => {
+    expect(rules).toContain('function isValidDisplayNameUpdate()')
+    expect(rules).toContain(
+      "request.resource.data.diff(resource.data).affectedKeys().hasOnly(['display_name'])",
+    )
+    expect(rules).toContain('request.resource.data.display_name is string')
+    expect(rules).toContain('request.resource.data.display_name.size() > 0')
   })
 })
 
@@ -120,7 +137,7 @@ describe('firestore.rules invite join', () => {
   it('requires invite_token on join membership writes', () => {
     expect(rules).toContain('function isValidJoinMembership(data)')
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'joined_at', 'invite_token'])",
+      "data.keys().hasOnly(['household_id', 'joined_at', 'invite_token', 'display_name'])",
     )
     expect(rules).toContain(
       'exists(/databases/$(database)/documents/household_invites/$(data.invite_token))',

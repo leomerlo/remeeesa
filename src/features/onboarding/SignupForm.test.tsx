@@ -128,6 +128,7 @@ describe('SignupForm', () => {
       userId: 'user-1',
       name: 'The Smiths',
       monthlyBudget: 1500,
+      displayName: 'Miembro',
     })
 
     fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }))

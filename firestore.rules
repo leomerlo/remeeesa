@@ -28,22 +28,35 @@ service cloud.firestore {
     }
 
     function isValidMembership(data) {
-      return data.keys().hasOnly(['household_id', 'joined_at'])
+      return data.keys().hasOnly(['household_id', 'joined_at', 'display_name'])
         && data.household_id is string
         && data.household_id.size() > 0
         && data.joined_at is timestamp
+        && data.display_name is string
+        && data.display_name.size() > 0
         && existsAfter(/databases/$(database)/documents/households/$(data.household_id));
     }
 
     function isValidJoinMembership(data) {
-      return data.keys().hasOnly(['household_id', 'joined_at', 'invite_token'])
+      return data.keys().hasOnly(['household_id', 'joined_at', 'invite_token', 'display_name'])
         && data.household_id is string
         && data.household_id.size() > 0
         && data.joined_at is timestamp
         && data.invite_token is string
         && data.invite_token.size() > 0
+        && data.display_name is string
+        && data.display_name.size() > 0
         && exists(/databases/$(database)/documents/household_invites/$(data.invite_token))
         && get(/databases/$(database)/documents/household_invites/$(data.invite_token)).data.household_id == data.household_id;
+    }
+
+    // A member may only ever change their own display_name -- every other
+    // membership field (household_id, joined_at, invite_token) stays
+    // frozen after creation, same as before this field existed.
+    function isValidDisplayNameUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['display_name'])
+        && request.resource.data.display_name is string
+        && request.resource.data.display_name.size() > 0;
     }
 
     function isValidInvite(data) {
@@ -268,7 +281,13 @@ service cloud.firestore {
             && isValidJoinMembership(request.resource.data)
           )
         );
-      allow update: if false;
+      // Self-only: a member can update their own display_name (e.g. to fix
+      // a membership doc created before this field existed) and nothing
+      // else -- another member's row, and every other field on their own,
+      // stay frozen.
+      allow update: if isSignedIn()
+        && request.auth.uid == userId
+        && isValidDisplayNameUpdate();
       allow delete: if isSignedIn() && request.auth.uid == userId;
     }
 

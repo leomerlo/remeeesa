@@ -33,7 +33,28 @@ describe('finalizeHouseholdSignup', () => {
         householdId: household.id,
         userId: 'user-1',
         joinedAt: expect.any(Date),
+        displayName: 'Miembro',
       },
+    ])
+  })
+
+  it('carries the founder display name through to the membership', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+
+    const household = await finalizeHouseholdSignup({
+      db,
+      userId: 'user-1',
+      draft: { name: 'The Smiths', monthlyBudget: 1500 },
+      displayName: 'Ada',
+    })
+    if (household === null) {
+      throw new Error('expected a household')
+    }
+
+    await expect(
+      listHouseholdMembers({ db, householdId: household.id }),
+    ).resolves.toEqual([
+      expect.objectContaining({ userId: 'user-1', displayName: 'Ada' }),
     ])
   })
 

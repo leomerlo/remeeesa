@@ -18,6 +18,12 @@ export type HouseholdMember = {
   readonly householdId: string
   readonly userId: string
   readonly joinedAt: Date
+  // Set at creation/join time from the member's own auth profile, and
+  // self-editable afterward (see updateMemberDisplayName) -- e.g. to
+  // correct a membership created before this field existed. A doc missing
+  // it (that older case) parses to a generic fallback rather than an
+  // error; see parseHouseholdMemberDocument.
+  readonly displayName: string
 }
 
 export type HouseholdInvite = {
@@ -31,6 +37,7 @@ export type HouseholdsDb = {
     readonly userId: string
     readonly name: string
     readonly monthlyBudget: number
+    readonly displayName: string
   }): Promise<{ household: Household; member: HouseholdMember }>
   getHousehold(householdId: string): Promise<Household>
   listMembers(householdId: string): Promise<readonly HouseholdMember[]>
@@ -50,8 +57,17 @@ export type HouseholdsDb = {
   joinHousehold(input: {
     readonly userId: string
     readonly token: string
+    readonly displayName: string
   }): Promise<HouseholdMember>
   leaveHousehold(input: { readonly userId: string }): Promise<void>
+  // Self-only: the caller can only ever update their own membership doc
+  // (enforced by the userId being the caller's own auth uid at the rules
+  // level too, not just here).
+  updateMemberDisplayName(input: {
+    readonly householdId: string
+    readonly userId: string
+    readonly displayName: string
+  }): Promise<HouseholdMember>
   listCategories(householdId: string): Promise<readonly Category[]>
   findOrCreateCategory(input: {
     readonly householdId: string

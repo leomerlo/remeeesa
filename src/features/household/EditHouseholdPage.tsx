@@ -5,10 +5,10 @@ import { Navigate } from 'react-router-dom'
 import { PageHeader } from '@/components/PageHeader'
 import { LogoutButton } from '@/features/auth'
 import { InviteLinkPanel } from '@/features/invite'
-import { authorDisplayNameFromAuth } from '@/lib/displayName'
 import { useFirebase } from '@/lib/firebaseContext'
 import { createFirestoreHouseholdsDb, getMembership } from '@/lib/households'
 import type { HouseholdMember, HouseholdsDb } from '@/lib/households'
+import { EditDisplayNameForm } from './EditDisplayNameForm'
 import { EditHouseholdForm } from './EditHouseholdForm'
 import { MemberList } from './MemberList'
 
@@ -122,17 +122,16 @@ export function EditHouseholdPage({
           how the member list grows, and the invite panel on its own was a
           card whose entire contents were a single button. */}
       <div className="bg-card shadow-resting flex w-full flex-col gap-6 rounded-3xl p-6">
+        <EditDisplayNameForm
+          db={db}
+          householdId={membership.householdId}
+          userId={currentUserId}
+          currentDisplayName={membership.displayName}
+        />
         <MemberList
           db={db}
           householdId={membership.householdId}
           currentUserId={currentUserId}
-          {...(firebase.auth?.currentUser == null
-            ? {}
-            : {
-                currentUserDisplayName: authorDisplayNameFromAuth(
-                  firebase.auth.currentUser,
-                ),
-              })}
         />
         <InviteLinkPanel db={db} householdId={membership.householdId} />
       </div>

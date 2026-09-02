@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { AuthHero } from '@/features/onboarding/AuthHero'
 import { createFirebaseSignupAuth } from '@/features/onboarding/signupAuth'
 import type { SignupAuth } from '@/features/onboarding/signupAuth'
+import { authorDisplayNameFromAuth } from '@/lib/displayName'
 import { useFirebase } from '@/lib/firebaseContext'
 import {
   AlreadyInHouseholdError,
@@ -70,7 +71,12 @@ export function JoinHouseholdPage({
     let cancelled = false
     void (async () => {
       try {
-        await joinHousehold({ db, userId: currentUserId, token })
+        await joinHousehold({
+          db,
+          userId: currentUserId,
+          token,
+          displayName: authorDisplayNameFromAuth(firebase.auth?.currentUser),
+        })
         if (!cancelled) {
           setJoined(true)
         }
@@ -83,6 +89,11 @@ export function JoinHouseholdPage({
     return () => {
       cancelled = true
     }
+    // firebase.auth?.currentUser is a live, imperatively-mutated snapshot,
+    // not reactive state -- read fresh each run rather than watched as a
+    // dependency, same idiom the auth-state effect above already uses for
+    // firebase.auth itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserId, token, db])
 
   async function joinAfterAuth(
@@ -105,7 +116,12 @@ export function JoinHouseholdPage({
       }
 
       try {
-        await joinHousehold({ db, userId, token })
+        await joinHousehold({
+          db,
+          userId,
+          token,
+          displayName: authorDisplayNameFromAuth(firebase.auth?.currentUser),
+        })
         setJoined(true)
       } catch (error) {
         setError(messageForJoinError(error))

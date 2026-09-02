@@ -63,6 +63,7 @@ describe('LeaveHouseholdButton', () => {
         householdId: household.id,
         userId: 'user-2',
         joinedAt: expect.any(Date),
+        displayName: 'Miembro',
       },
     ])
   })
