@@ -1,5 +1,5 @@
 import type { HouseholdsDb } from '@/lib/households/types'
-import type { ExpenseHistoryPage } from './history'
+import type { ExpenseHistoryCursor, ExpenseHistoryPage } from './history'
 import type { Category, Expense } from './types'
 import {
   parseAuthorDisplayName,
@@ -86,13 +86,11 @@ export async function listRecentExpenses(input: {
 export async function listExpenseHistoryPage(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
-  readonly beforeMonthStart?: Date
+  readonly after?: ExpenseHistoryCursor
 }): Promise<ExpenseHistoryPage> {
   return input.db.listExpenseHistoryPage({
     householdId: input.householdId,
-    ...(input.beforeMonthStart === undefined
-      ? {}
-      : { beforeMonthStart: input.beforeMonthStart }),
+    ...(input.after === undefined ? {} : { after: input.after }),
   })
 }
 
@@ -105,6 +103,11 @@ export async function updateExpense(input: {
   readonly categoryId?: string
   readonly comments?: string
   readonly expenseDate?: Date
+  // Reassigns which member this Expense is attributed to -- both or
+  // neither, since a mismatched pair (a memberId with the wrong name)
+  // isn't a state any real household member picker could produce.
+  readonly memberId?: string
+  readonly authorDisplayName?: string
   readonly now?: Date
 }): Promise<Expense> {
   const now = input.now ?? new Date()
@@ -131,6 +134,11 @@ export async function updateExpense(input: {
     input.expenseDate !== undefined
       ? parseExpenseDate(input.expenseDate, now)
       : existing.expenseDate
+  const memberId = input.memberId ?? existing.memberId
+  const authorDisplayName =
+    input.authorDisplayName !== undefined
+      ? parseAuthorDisplayName(input.authorDisplayName)
+      : existing.authorDisplayName
 
   return input.db.updateExpense({
     householdId: input.householdId,
@@ -140,6 +148,8 @@ export async function updateExpense(input: {
     price,
     comments,
     expenseDate,
+    memberId,
+    authorDisplayName,
   })
 }
 

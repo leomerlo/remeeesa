@@ -56,6 +56,57 @@ describe('RemainingBudgetDisplay', () => {
     expect(screen.getByText('Presupuesto restante')).toBeInTheDocument()
   })
 
+  // Same reasoning as SpentThisMonthDisplay's label: without it, nothing on
+  // the card says which month "restante" is even counting down.
+  // MonthNavigator (the only real caller) passes an explicit range for
+  // whichever month it's paging through; this is the mechanism that makes
+  // paging actually change the figure.
+  it('computes remaining against the given month instead of the current one when monthStart/monthEnd are passed', async () => {
+    const { db, household, comida } = await seedHousehold(100)
+    const lastMonth = new Date()
+    lastMonth.setMonth(lastMonth.getMonth() - 1, 15)
+    await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Last month pizza',
+      price: 40,
+      comments: '',
+      expenseDate: lastMonth,
+    })
+    const monthStart = new Date(
+      lastMonth.getFullYear(),
+      lastMonth.getMonth(),
+      1,
+    )
+    const monthEnd = new Date(
+      lastMonth.getFullYear(),
+      lastMonth.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    )
+
+    renderWithProviders(
+      <RemainingBudgetDisplay
+        db={db}
+        householdId={household.id}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />,
+    )
+
+    expect(
+      await screen.findByRole('status', {
+        name: 'Presupuesto restante $60,00',
+      }),
+    ).toHaveTextContent('$60,00')
+  })
+
   it('shows a progress bar at 0% used and the piggy-bank illustration when there are no expenses', async () => {
     const { db, household } = await seedHousehold(100)
 

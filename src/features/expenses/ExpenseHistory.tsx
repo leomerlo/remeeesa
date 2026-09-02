@@ -1,17 +1,21 @@
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { AlertMessage } from '@/components/ui/alert-message'
 import type { ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import { membersQueryKey } from '@/features/household'
 import {
   formatCurrency,
   listCategories,
   listExpenseHistoryPage,
 } from '@/lib/expenses'
 import type { LucideIcon } from 'lucide-react'
-import type { Category, Expense } from '@/lib/expenses'
+import type { Category, Expense, ExpenseHistoryCursor } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
-import { formatShortDate } from '@/lib/format'
-import type { HouseholdsDb } from '@/lib/households'
+import { formatMonthLabel, formatShortDate } from '@/lib/format'
+import { listHouseholdMembers } from '@/lib/households'
+import type { HouseholdMember, HouseholdsDb } from '@/lib/households'
 import { EmptyExpensesIllustration } from './EmptyExpensesIllustration'
 import { expenseHistoryQueryKey } from './queryKeys'
 
@@ -21,16 +25,6 @@ export type ExpenseHistoryProps = {
   readonly onEditExpense?: (expense: Expense, categoryName: string) => void
 }
 
-function monthLabel(date: Date): string {
-  const label = date.toLocaleDateString('es-AR', {
-    month: 'long',
-    year: 'numeric',
-  })
-  // es-AR renders this as "agosto de 2026"; the screen wants it capitalised
-  // as a heading.
-  return label.charAt(0).toUpperCase() + label.slice(1)
-}
-
 type MonthGroup = {
   readonly key: string
   readonly label: string
@@ -38,9 +32,12 @@ type MonthGroup = {
   readonly expenses: readonly Expense[]
 }
 
-// Pages already arrive as whole calendar months (listExpenseHistoryPage), so
-// grouping is a straight walk: a month can never be split across two pages,
-// which is what lets each header render exactly once.
+// Pages are a fixed row count (listExpenseHistoryPage), not a calendar
+// month, so a month CAN be split across two pages -- but grouping still
+// works as a straight walk over the full accumulated list every render
+// (see the `expenses` flatMap below), which is agnostic to where the page
+// boundaries fell: consecutive same-month expenses merge into one group
+// and get one header, whether they arrived in one page or two.
 function groupByMonth(expenses: readonly Expense[]): readonly MonthGroup[] {
   const groups: MonthGroup[] = []
   for (const expense of expenses) {
@@ -58,7 +55,7 @@ function groupByMonth(expenses: readonly Expense[]): readonly MonthGroup[] {
     }
     groups.push({
       key,
-      label: monthLabel(expense.expenseDate),
+      label: formatMonthLabel(expense.expenseDate),
       total: expense.price,
       expenses: [expense],
     })
@@ -74,11 +71,13 @@ function ExpenseRow({
   expense,
   category,
   CategoryIcon,
+  authorDisplayName,
   onEditExpense,
 }: {
   readonly expense: Expense
   readonly category: Category | undefined
   readonly CategoryIcon: LucideIcon
+  readonly authorDisplayName: string
   readonly onEditExpense?: (expense: Expense, categoryName: string) => void
 }): ReactElement {
   const categoryName = category?.name ?? 'Categoría desconocida'
@@ -103,12 +102,24 @@ function ExpenseRow({
             {formatCurrency(expense.price)}
           </span>
         </div>
-        <div className="text-muted-foreground flex flex-wrap gap-x-1.5 text-xs">
+        <div className="text-muted-foreground flex flex-wrap items-center gap-x-1.5 text-xs">
+          {/* "Servicio" marks an Expense created by paying a Pendiente
+              (a bill), so it reads apart from a plain Gasto logged
+              directly -- there was previously no way to tell them apart in
+              Histórico. */}
+          {expense.pendienteId !== null ? (
+            <>
+              <span className="bg-primary/10 text-primary rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
+                Servicio
+              </span>
+              <span aria-hidden="true">·</span>
+            </>
+          ) : null}
           <span>{categoryName}</span>
           <span aria-hidden="true">·</span>
           <span>{formatShortDate(expense.expenseDate)}</span>
           <span aria-hidden="true">·</span>
-          <span>{expense.authorDisplayName}</span>
+          <span>{authorDisplayName}</span>
         </div>
       </div>
     </>
@@ -149,39 +160,65 @@ export function ExpenseHistory({
   // of leaving older pages stale.
   const historyQuery = useInfiniteQuery({
     queryKey: expenseHistoryQueryKey({ householdId }),
-    initialPageParam: null as Date | null,
+    initialPageParam: null as ExpenseHistoryCursor | null,
     queryFn: async ({ pageParam }) => {
       const [page, categories] = await Promise.all([
         listExpenseHistoryPage({
           db,
           householdId,
-          ...(pageParam === null ? {} : { beforeMonthStart: pageParam }),
+          ...(pageParam === null ? {} : { after: pageParam }),
         }),
         listCategories({ db, householdId }),
       ])
       return { ...page, categories }
     },
-    getNextPageParam: (lastPage) => lastPage.nextBeforeMonthStart,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+  })
+  // Resolved live rather than trusting each Expense's stored
+  // authorDisplayName, which is a snapshot from creation/last reassignment
+  // and goes stale once someone corrects their name in Ajustes -- see the
+  // matching comment in RecentExpensesList.
+  const membersQuery = useQuery({
+    queryKey: membersQueryKey({ householdId }),
+    queryFn: () => listHouseholdMembers({ db, householdId }),
   })
 
-  if (historyQuery.isPending) {
+  if (historyQuery.isPending || membersQuery.isPending) {
     return (
-      <p role="status" className="text-sm font-medium">
-        Cargando…
-      </p>
+      <div
+        role="status"
+        aria-label="Cargando…"
+        className="flex w-full flex-col gap-6"
+      >
+        <span className="sr-only">Cargando…</span>
+        <div className="flex w-full flex-col gap-3">
+          <Skeleton className="h-4 w-32" />
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="bg-card shadow-resting flex w-full items-center gap-3 rounded-2xl p-4"
+            >
+              <Skeleton className="size-11 shrink-0 rounded-full" />
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-3 w-1/3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     )
   }
 
-  if (historyQuery.isError) {
+  if (historyQuery.isError || membersQuery.isError) {
+    const failed = historyQuery.isError
+      ? historyQuery.error
+      : membersQuery.error
     const message =
-      historyQuery.error instanceof Error
-        ? historyQuery.error.message
+      failed instanceof Error
+        ? failed.message
         : 'No se pudo cargar el histórico'
-    return (
-      <p role="alert" className="text-sm font-medium">
-        {message}
-      </p>
-    )
+    return <AlertMessage>{message}</AlertMessage>
   }
 
   const pages = historyQuery.data.pages
@@ -202,39 +239,63 @@ export function ExpenseHistory({
   const categoryById = new Map(
     categories.map((category) => [category.id, category]),
   )
+  const memberById = new Map<string, HouseholdMember>(
+    membersQuery.data.map((member) => [member.userId, member]),
+  )
+  const monthGroups = groupByMonth(expenses)
 
   return (
     <div className="flex w-full flex-col gap-6">
-      {groupByMonth(expenses).map((group) => (
-        <section key={group.key} className="flex w-full flex-col gap-3">
-          {/* The month's own total sits in its header. A history that only
-              lists rows makes "what did we spend in July" a manual sum. */}
-          <div className="flex items-baseline justify-between gap-3">
-            <h2 className="text-muted-foreground text-sm font-semibold">
-              {group.label}
-            </h2>
-            <span className="text-foreground shrink-0 text-sm font-semibold">
-              {formatCurrency(group.total)}
-            </span>
-          </div>
-          <ul aria-label={group.label} className="flex flex-col gap-3 text-sm">
-            {group.expenses.map((expense) => {
-              const category = categoryById.get(expense.categoryId)
-              return (
-                <ExpenseRow
-                  key={expense.id}
-                  expense={expense}
-                  category={category}
-                  CategoryIcon={iconForCategoryName(
-                    category?.name ?? 'Categoría desconocida',
-                  )}
-                  {...(onEditExpense === undefined ? {} : { onEditExpense })}
-                />
-              )
-            })}
-          </ul>
-        </section>
-      ))}
+      {monthGroups.map((group, index) => {
+        // Every group except possibly the last is guaranteed complete: pages
+        // arrive strictly newest-first, so once a *different* month's row
+        // has loaded, every row of an earlier month is provably already in.
+        // Only the very last month currently on screen can still have more
+        // of itself sitting behind "Cargar más" -- showing a running total
+        // for it would undercount until that's loaded too.
+        const isLastGroup = index === monthGroups.length - 1
+        const totalMayGrow = isLastGroup && historyQuery.hasNextPage
+
+        return (
+          <section key={group.key} className="flex w-full flex-col gap-3">
+            {/* The month's own total sits in its header. A history that only
+                lists rows makes "what did we spend in July" a manual sum. */}
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 className="text-muted-foreground text-sm font-semibold">
+                {group.label}
+              </h2>
+              {totalMayGrow ? null : (
+                <span className="text-foreground shrink-0 text-sm font-semibold">
+                  {formatCurrency(group.total)}
+                </span>
+              )}
+            </div>
+            <ul
+              aria-label={group.label}
+              className="flex flex-col gap-3 text-sm"
+            >
+              {group.expenses.map((expense) => {
+                const category = categoryById.get(expense.categoryId)
+                return (
+                  <ExpenseRow
+                    key={expense.id}
+                    expense={expense}
+                    category={category}
+                    CategoryIcon={iconForCategoryName(
+                      category?.name ?? 'Categoría desconocida',
+                    )}
+                    authorDisplayName={
+                      memberById.get(expense.memberId)?.displayName ??
+                      expense.authorDisplayName
+                    }
+                    {...(onEditExpense === undefined ? {} : { onEditExpense })}
+                  />
+                )
+              })}
+            </ul>
+          </section>
+        )
+      })}
       {historyQuery.hasNextPage ? (
         <Button
           type="button"

@@ -91,6 +91,9 @@ describe('PersonMiniSummary', () => {
       <PersonMiniSummary db={db} householdId={household.id} />,
     )
 
+    expect(
+      await screen.findByRole('heading', { name: 'Integrantes' }),
+    ).toBeInTheDocument()
     const list = await screen.findByRole('list', { name: 'Gastos por persona' })
     const items = within(list).getAllByRole('listitem')
     expect(items).toHaveLength(2)

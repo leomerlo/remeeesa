@@ -1,12 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
-import { Pencil } from 'lucide-react'
+import { Pencil, Plus } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Sheet } from '@/components/ui/sheet'
+import { Skeleton } from '@/components/ui/skeleton'
 import { categoriesQueryKey } from '@/features/expenses'
 import { listCategories } from '@/lib/expenses'
 import type { Category } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
+import { AddCategoryForm } from './AddCategoryForm'
 import { EditCategoryForm } from './EditCategoryForm'
 
 export type CategoryManagerProps = {
@@ -22,6 +25,8 @@ export function CategoryManager({
   householdId,
 }: CategoryManagerProps): ReactElement {
   const [editing, setEditing] = useState<Category | null>(null)
+  const [isAdding, setIsAdding] = useState(false)
+  const [isAddSubmitting, setIsAddSubmitting] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const categoriesQuery = useQuery({
     queryKey: categoriesQueryKey({ householdId }),
@@ -39,13 +44,37 @@ export function CategoryManager({
       aria-labelledby="tus-categorias-heading"
       className="bg-card shadow-resting flex w-full flex-col gap-4 rounded-3xl p-6"
     >
-      <h2 id="tus-categorias-heading" className="text-title font-semibold">
-        Tus categorías
-      </h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 id="tus-categorias-heading" className="text-title font-semibold">
+          Tus categorías
+        </h2>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="gap-1"
+          onClick={() => {
+            setIsAdding(true)
+          }}
+        >
+          <Plus aria-hidden="true" />
+          Agregar
+        </Button>
+      </div>
       {sorted === undefined ? (
-        <p role="status" className="text-sm font-medium">
-          Cargando…
-        </p>
+        <div
+          role="status"
+          aria-label="Cargando…"
+          className="flex flex-col gap-1"
+        >
+          <span className="sr-only">Cargando…</span>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex w-full items-center gap-3 p-2">
+              <Skeleton className="size-6 shrink-0 rounded-full" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+          ))}
+        </div>
       ) : (
         <ul aria-label="Todas las categorías" className="flex flex-col gap-1">
           {sorted.map((category) => (
@@ -108,6 +137,25 @@ export function CategoryManager({
             }}
           />
         )}
+      </Sheet>
+
+      <Sheet
+        open={isAdding}
+        onOpenChange={(next) => {
+          if (!next && !isAddSubmitting) {
+            setIsAdding(false)
+          }
+        }}
+        title="Agregar categoría"
+      >
+        <AddCategoryForm
+          db={db}
+          householdId={householdId}
+          onPendingChange={setIsAddSubmitting}
+          onAdded={() => {
+            setIsAdding(false)
+          }}
+        />
       </Sheet>
     </section>
   )

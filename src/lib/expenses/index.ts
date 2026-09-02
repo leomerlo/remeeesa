@@ -23,11 +23,14 @@ export { CATEGORY_COLOR_PALETTE } from './categoryColor'
 export {
   computePercentUsed,
   computeRemainingBudget,
+  computeSpentThisMonth,
   currentMonthRange,
   formatBudgetAmount,
   formatCurrency,
   isDateInCurrentMonth,
 } from './remainingBudget'
+export { lastNMonthRanges, MONTHLY_TOTALS_MONTH_COUNT } from './monthlyTotals'
+export type { MonthRange } from './monthlyTotals'
 export { summarizeByCategory, summarizeByPerson } from './summaries'
 export type { CategorySummary, PersonSummary } from './summaries'
 export {
@@ -49,5 +52,5 @@ export {
   parseExpenseName,
   parseExpensePrice,
 } from './validate'
-export { monthEndOf, monthStartOf } from './history'
-export type { ExpenseHistoryPage } from './history'
+export { EXPENSE_HISTORY_PAGE_SIZE } from './history'
+export type { ExpenseHistoryCursor, ExpenseHistoryPage } from './history'

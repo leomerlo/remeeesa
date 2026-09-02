@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { AlertMessage } from '@/components/ui/alert-message'
 import { useEffect, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
+import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { CategoryChips } from './CategoryChips'
@@ -19,6 +21,8 @@ import {
   updateExpense,
 } from '@/lib/expenses'
 import type { Category } from '@/lib/expenses'
+import { membersQueryKey } from '@/features/household'
+import { listHouseholdMembers } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { categoriesQueryKey, expensesQueryKey } from './queryKeys'
 
@@ -29,6 +33,9 @@ export type EditExpenseTarget = {
   readonly categoryName: string
   readonly comments: string
   readonly expenseDate: Date
+  // Who this Expense is currently attributed to -- lets the edit form
+  // pre-select the right row in the author picker.
+  readonly memberId: string
 }
 
 export type AddExpenseFormProps = {
@@ -172,9 +179,22 @@ function ExpenseFormBody({
   const [category, setCategory] = useState(initialFields.category)
   const [comments, setComments] = useState(initialFields.comments)
   const [date, setDate] = useState(initialFields.date)
+  const [authorMemberId, setAuthorMemberId] = useState(
+    editExpense?.memberId ?? memberId,
+  )
   const [error, setError] = useState<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const today = localDateInputValue(new Date())
+
+  // Only fetched for reassigning an existing Expense's author -- adding one
+  // always attributes it to whoever is signed in, same as before this
+  // feature existed.
+  const membersQuery = useQuery({
+    queryKey: membersQueryKey({ householdId }),
+    queryFn: () => listHouseholdMembers({ db, householdId }),
+    enabled: isEditing,
+  })
+  const members = membersQuery.data ?? []
 
   async function invalidateExpenseViews(): Promise<void> {
     // Categories are a separate entity from expenses, so they keep their
@@ -192,6 +212,14 @@ function ExpenseFormBody({
         name: fields.categoryName,
       })
       if (editExpense !== null) {
+        // Falls back to leaving attribution unchanged if the member list
+        // hasn't resolved yet by the time this submits (the query starts
+        // fetching the moment the edit form mounts, so this is a narrow
+        // window) -- updateExpense's memberId/authorDisplayName are
+        // optional precisely for this "nothing to reassign to yet" case.
+        const selectedAuthor = members.find(
+          (member) => member.userId === authorMemberId,
+        )
         return updateExpense({
           db,
           householdId,
@@ -201,6 +229,12 @@ function ExpenseFormBody({
           price: fields.price,
           comments: fields.comments,
           expenseDate: fields.expenseDate,
+          ...(selectedAuthor === undefined
+            ? {}
+            : {
+                memberId: selectedAuthor.userId,
+                authorDisplayName: selectedAuthor.displayName,
+              }),
         })
       }
       return createExpense({
@@ -311,200 +345,235 @@ function ExpenseFormBody({
     loadError
 
   return (
-    <form className="flex w-full flex-col gap-6" noValidate onSubmit={onSubmit}>
-      {/* The Sheet's title is visually hidden (it exists for the dialog's
-          accessible name), which left the sheet opening onto a bare "Nombre"
-          field with nothing saying what it was. */}
-      <h2 className="text-title font-semibold">
-        {isEditing ? 'Editar gasto' : 'Agregar gasto'}
-      </h2>
-      {/* The amount leads, at hero size. It is the one field every single
-          expense has to fill, and it used to be the fourth identical grey box
-          down the sheet -- indistinguishable from "Comentario". */}
-      <div className="flex w-full flex-col gap-2">
-        <Label
-          htmlFor="expense-price"
-          className="text-muted-foreground font-medium"
-        >
-          Precio
-        </Label>
-        <div className="relative">
-          <span
-            aria-hidden="true"
-            className="text-muted-foreground font-display text-display pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
+    <form
+      className="flex h-full min-h-0 w-full flex-col"
+      noValidate
+      onSubmit={onSubmit}
+    >
+      {/* Only this part scrolls -- the action buttons below stay pinned at
+          the bottom of the sheet regardless of how tall the field list
+          gets, so Guardar/Agregar never requires scrolling to reach. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain">
+        {/* The Sheet's title is visually hidden (it exists for the dialog's
+            accessible name), which left the sheet opening onto a bare "Nombre"
+            field with nothing saying what it was. */}
+        <h2 className="text-title font-semibold">
+          {isEditing ? 'Editar gasto' : 'Agregar gasto'}
+        </h2>
+        {/* The amount leads, at hero size. It is the one field every single
+            expense has to fill, and it used to be the fourth identical grey box
+            down the sheet -- indistinguishable from "Comentario". */}
+        <div className="flex w-full flex-col gap-2">
+          <Label
+            htmlFor="expense-price"
+            className="text-muted-foreground font-medium"
           >
-            $
-          </span>
+            Precio
+          </Label>
+          <div className="relative">
+            <span
+              aria-hidden="true"
+              className="text-muted-foreground font-display text-display pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
+            >
+              $
+            </span>
+            <FormattedAmountInput
+              id="expense-price"
+              name="expense-price"
+              className="font-display text-display h-20 pl-12 tracking-tight"
+              value={price}
+              onChange={setPrice}
+              autoComplete="off"
+            />
+          </div>
+        </div>
+
+        <div className="flex w-full flex-col gap-2">
+          <Label
+            htmlFor="expense-name"
+            className="text-muted-foreground font-medium"
+          >
+            Nombre
+          </Label>
           <Input
-            id="expense-price"
-            name="expense-price"
-            className="font-display text-display h-20 pl-12 tracking-tight"
-            value={price}
+            id="expense-name"
+            name="expense-name"
+            value={name}
             onChange={(event) => {
-              setPrice(event.target.value)
+              setName(event.target.value)
             }}
-            inputMode="decimal"
             autoComplete="off"
           />
         </div>
-      </div>
 
-      <div className="flex w-full flex-col gap-2">
-        <Label
-          htmlFor="expense-name"
-          className="text-muted-foreground font-medium"
-        >
-          Nombre
-        </Label>
-        <Input
-          id="expense-name"
-          name="expense-name"
-          value={name}
-          onChange={(event) => {
-            setName(event.target.value)
-          }}
-          autoComplete="off"
-        />
-      </div>
-
-      <div className="flex w-full flex-col gap-2">
-        <Label
-          htmlFor="expense-category"
-          className="text-muted-foreground font-medium"
-        >
-          Categoría
-        </Label>
-        <CategoryChips
-          categories={categories}
-          value={category}
-          onChange={setCategory}
-        />
-        {/* Still here, and still the only way to create a category that does
-            not exist yet -- the chips above cover the common case. */}
-        <CategoryCombobox
-          id="expense-category"
-          categories={categories}
-          value={category}
-          onChange={setCategory}
-          placeholder="O escribí una categoría nueva"
-        />
-      </div>
-
-      <div className="flex w-full flex-col gap-2">
-        <Label
-          htmlFor="expense-comments"
-          className="text-muted-foreground font-medium"
-        >
-          Comentario
-        </Label>
-        <Input
-          id="expense-comments"
-          name="expense-comments"
-          value={comments}
-          onChange={(event) => {
-            setComments(event.target.value)
-          }}
-          autoComplete="off"
-        />
-      </div>
-
-      <div className="flex w-full flex-col gap-2">
-        <Label
-          htmlFor="expense-date"
-          className="text-muted-foreground font-medium"
-        >
-          Fecha
-        </Label>
-        <Input
-          id="expense-date"
-          name="expense-date"
-          type="date"
-          value={date}
-          max={today}
-          onChange={(event) => {
-            setDate(event.target.value)
-          }}
-        />
-      </div>
-
-      {alertMessage !== null ? (
-        <p role="alert" className="text-sm font-medium">
-          {alertMessage}
-        </p>
-      ) : null}
-
-      {confirmingDelete ? (
-        <div
-          role="alertdialog"
-          aria-labelledby="delete-expense-title"
-          className="bg-card shadow-raised flex w-full flex-col gap-4 rounded-2xl border border-border p-4"
-        >
-          <p id="delete-expense-title" className="text-sm font-medium">
-            ¿Eliminar el gasto?
-          </p>
-          <div className="flex w-full gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1"
-              disabled={deleteMutation.isPending}
-              onClick={() => {
-                setConfirmingDelete(false)
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              className="flex-1"
-              disabled={deleteMutation.isPending}
-              onClick={() => {
-                deleteMutation.mutate()
-              }}
-            >
-              Eliminar gasto
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex w-full flex-col items-center gap-2">
-          <Button
-            type="submit"
-            disabled={mutation.isPending}
-            className="w-full"
+        <div className="flex w-full flex-col gap-2">
+          <Label
+            htmlFor="expense-category"
+            className="text-muted-foreground font-medium"
           >
-            {isEditing ? 'Guardar cambios' : 'Agregar gasto'}
-          </Button>
-          {isEditing ? (
-            <>
+            Categoría
+          </Label>
+          <CategoryChips
+            categories={categories}
+            value={category}
+            onChange={setCategory}
+          />
+          {/* Still here, and still the only way to create a category that does
+              not exist yet -- the chips above cover the common case. */}
+          <CategoryCombobox
+            id="expense-category"
+            categories={categories}
+            value={category}
+            onChange={setCategory}
+            placeholder="O escribí una categoría nueva"
+          />
+        </div>
+
+        <div className="flex w-full flex-col gap-2">
+          <Label
+            htmlFor="expense-comments"
+            className="text-muted-foreground font-medium"
+          >
+            Comentario
+          </Label>
+          <Input
+            id="expense-comments"
+            name="expense-comments"
+            value={comments}
+            onChange={(event) => {
+              setComments(event.target.value)
+            }}
+            autoComplete="off"
+          />
+        </div>
+
+        <div className="flex w-full flex-col gap-2">
+          <Label
+            htmlFor="expense-date"
+            className="text-muted-foreground font-medium"
+          >
+            Fecha
+          </Label>
+          <Input
+            id="expense-date"
+            name="expense-date"
+            type="date"
+            value={date}
+            max={today}
+            onChange={(event) => {
+              setDate(event.target.value)
+            }}
+          />
+        </div>
+
+        {/* Editing only -- adding always attributes the expense to
+            whoever is signed in. Lets a member fix an expense that was
+            logged under the wrong name, without deleting and re-adding it. */}
+        {isEditing && members.length > 0 ? (
+          <div className="flex w-full flex-col gap-2">
+            <Label
+              htmlFor="expense-author"
+              className="text-muted-foreground font-medium"
+            >
+              Autor
+            </Label>
+            <select
+              id="expense-author"
+              name="expense-author"
+              value={authorMemberId}
+              onChange={(event) => {
+                setAuthorMemberId(event.target.value)
+              }}
+              className="border-input bg-background h-12 rounded-lg border px-3 text-sm"
+            >
+              {members.map((member) => (
+                <option key={member.userId} value={member.userId}>
+                  {member.displayName}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+
+        {alertMessage !== null ? (
+          <AlertMessage>{alertMessage}</AlertMessage>
+        ) : null}
+      </div>
+
+      <div className="shrink-0 pt-6">
+        {confirmingDelete ? (
+          <div
+            role="alertdialog"
+            aria-labelledby="delete-expense-title"
+            className="bg-card shadow-raised flex w-full flex-col gap-4 rounded-2xl border border-border p-4"
+          >
+            <p id="delete-expense-title" className="text-sm font-medium">
+              ¿Eliminar el gasto?
+            </p>
+            <div className="flex w-full gap-2">
               <Button
                 type="button"
                 variant="outline"
-                disabled={mutation.isPending}
-                className="w-full"
+                className="flex-1"
+                disabled={deleteMutation.isPending}
                 onClick={() => {
-                  setError(null)
-                  onEditFinished?.()
+                  setConfirmingDelete(false)
                 }}
               >
-                Cancelar edición
+                Cancelar
               </Button>
               <Button
                 type="button"
-                variant="ghost"
-                className="text-error hover:text-error"
-                disabled={mutation.isPending}
+                className="flex-1"
+                disabled={deleteMutation.isPending}
                 onClick={() => {
-                  setError(null)
-                  setConfirmingDelete(true)
+                  deleteMutation.mutate()
                 }}
               >
                 Eliminar gasto
               </Button>
-            </>
-          ) : null}
-        </div>
-      )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex w-full flex-col items-center gap-2">
+            <Button
+              type="submit"
+              disabled={mutation.isPending}
+              className="w-full"
+            >
+              {isEditing ? 'Guardar cambios' : 'Agregar gasto'}
+            </Button>
+            {isEditing ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={mutation.isPending}
+                  className="w-full"
+                  onClick={() => {
+                    setError(null)
+                    onEditFinished?.()
+                  }}
+                >
+                  Cancelar edición
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="text-error hover:text-error"
+                  disabled={mutation.isPending}
+                  onClick={() => {
+                    setError(null)
+                    setConfirmingDelete(true)
+                  }}
+                >
+                  Eliminar gasto
+                </Button>
+              </>
+            ) : null}
+          </div>
+        )}
+      </div>
     </form>
   )
 }

@@ -3,8 +3,8 @@ import type { ReactElement } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { HouseholdDraftProvider } from '@/features/onboarding'
-import { listPendientes } from '@/lib/pendientes'
-import { listExpensesInMonth } from '@/lib/expenses'
+import { createPendiente, listPendientes } from '@/lib/pendientes'
+import { listCategories, listExpensesInMonth } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
@@ -97,7 +97,15 @@ describe('HomePage', () => {
         name: /presupuesto restante \$100/i,
       }),
     ).toHaveTextContent('$100,00')
-    expect(await screen.findByText('Todavía no hay gastos')).toBeInTheDocument()
+    // The two cards read from the same month's expenses, from opposite
+    // ends: Gastado counts up from zero, Presupuesto restante counts down
+    // from the budget.
+    expect(
+      screen.getByRole('status', { name: 'Gastado este mes $0,00' }),
+    ).toHaveTextContent('$0,00')
+    expect(
+      await screen.findByText('Todavía no hay gastos este mes'),
+    ).toBeInTheDocument()
     expect(
       screen.getByRole('progressbar', { name: '% usado' }),
     ).toHaveAttribute('aria-valuenow', '0')
@@ -109,8 +117,9 @@ describe('HomePage', () => {
       screen.getByRole('button', { name: 'Agregar gasto' }),
     ).toBeInTheDocument()
     // Neither mini-summary renders anything on an empty month: each would
-    // otherwise be its own card repeating "Todavía no hay gastos este mes",
-    // on top of the movements list's own illustrated empty state above them.
+    // otherwise be its own card repeating "Todavía no hay gastos este mes"
+    // a second and third time, on top of the movements list's own (the one
+    // legitimate instance, asserted above).
     expect(
       screen.queryByRole('heading', { name: 'Categorías' }),
     ).not.toBeInTheDocument()
@@ -119,10 +128,7 @@ describe('HomePage', () => {
     ).not.toBeInTheDocument()
     expect(
       screen.queryAllByText('Todavía no hay gastos este mes'),
-    ).toHaveLength(0)
-    expect(
-      screen.getByRole('button', { name: 'Nuevo pendiente' }),
-    ).toBeInTheDocument()
+    ).toHaveLength(1)
     expect(screen.queryByText('Por pagar')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Precio')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Categoría')).not.toBeInTheDocument()
@@ -139,7 +145,7 @@ describe('HomePage', () => {
     expect(screen.queryByLabelText(/author/i)).not.toBeInTheDocument()
   })
 
-  it('opens the Nuevo pendiente sheet and creates a pending item', async () => {
+  it('creates a pending item from the unified Agregar gasto sheet when "Ya lo pagué" is unchecked', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -151,14 +157,18 @@ describe('HomePage', () => {
     renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
 
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Nuevo pendiente' }),
+      await screen.findByRole('button', { name: 'Agregar gasto' }),
     )
 
     expect(await screen.findByLabelText('Nombre')).toBeInTheDocument()
     expect(screen.getByLabelText('Categoría')).toBeInTheDocument()
-    expect(screen.getByLabelText('Fecha de vencimiento')).toBeInTheDocument()
-    expect(screen.getByLabelText('Monto esperado')).toBeInTheDocument()
     expect(screen.getByLabelText('Recurrente')).toBeInTheDocument()
+    // "Ya lo pagué" starts checked -- the common case is logging something
+    // that already happened -- so the date/amount fields start in their
+    // "already paid" shape.
+    expect(screen.getByLabelText('Ya lo pagué')).toBeChecked()
+    expect(screen.getByLabelText('Precio')).toBeInTheDocument()
+    expect(screen.getByLabelText('Fecha')).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('Nombre'), {
       target: { value: 'Alquiler' },
@@ -166,6 +176,12 @@ describe('HomePage', () => {
     fireEvent.change(screen.getByLabelText('Categoría'), {
       target: { value: 'Servicios' },
     })
+    fireEvent.click(screen.getByLabelText('Ya lo pagué'))
+
+    // Unchecking it swaps the field labels to the "not yet paid" shape.
+    expect(screen.getByLabelText('Monto esperado')).toBeInTheDocument()
+    expect(screen.getByLabelText('Fecha de vencimiento')).toBeInTheDocument()
+
     fireEvent.click(screen.getByRole('button', { name: 'Agregar pendiente' }))
 
     // Sheet closes and the trigger reappears -- no route change, no reload.
@@ -173,7 +189,7 @@ describe('HomePage', () => {
       expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
     expect(
-      screen.getByRole('button', { name: 'Nuevo pendiente' }),
+      screen.getByRole('button', { name: 'Agregar gasto' }),
     ).toBeInTheDocument()
 
     const pending = await listPendientes({ db, householdId: household.id })
@@ -297,7 +313,9 @@ describe('HomePage', () => {
         name: /presupuesto restante \$100/i,
       }),
     ).toHaveTextContent('$100,00')
-    expect(await screen.findByText('Todavía no hay gastos')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Todavía no hay gastos este mes'),
+    ).toBeInTheDocument()
 
     fireEvent.click(
       await screen.findByRole('button', { name: 'Agregar gasto' }),
@@ -377,6 +395,51 @@ describe('HomePage', () => {
           price: 10,
         }),
       ])
+    })
+  })
+
+  it('opens the edit sheet with "Ya lo pagué" pre-checked when a "Cuentas por pagar" card is tapped, and saving marks it paid', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories.find((category) => category.name === 'Comida')
+    if (comida === undefined) {
+      throw new Error('expected seeded Comida category')
+    }
+    await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Prosegur',
+      dueDate: new Date(2026, 8, 5),
+      expectedAmount: 15000,
+    })
+
+    renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Marcar pagado Prosegur' }),
+    )
+
+    expect(await screen.findByLabelText('Monto esperado')).toHaveValue('15.000')
+    expect(screen.getByLabelText('Ya lo pagué')).toHaveAttribute(
+      'data-state',
+      'checked',
+    )
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Guardar y marcar pagado' }),
+    )
+
+    await waitFor(async () => {
+      expect(await listPendientes({ db, householdId: household.id })).toEqual(
+        [],
+      )
     })
   })
 })

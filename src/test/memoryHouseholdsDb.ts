@@ -36,6 +36,7 @@ type HouseholdRecord = {
 type MembershipRecord = {
   householdId: string
   joinedAt: Date
+  displayName: string
 }
 
 type InviteRecord = {
@@ -140,6 +141,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         householdId,
         userId: input.userId,
         joinedAt: createdAt,
+        displayName: input.displayName,
       }
       state.households.set(householdId, {
         name: household.name,
@@ -149,6 +151,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       state.members.set(input.userId, {
         householdId,
         joinedAt: member.joinedAt,
+        displayName: member.displayName,
       })
       for (const category of defaultCategoryRecords({
         householdId,
@@ -175,6 +178,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
             householdId: membership.householdId,
             userId: memberUserId,
             joinedAt: membership.joinedAt,
+            displayName: membership.displayName,
           })
         }
       }
@@ -192,6 +196,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         householdId: membership.householdId,
         userId: memberUserId,
         joinedAt: membership.joinedAt,
+        displayName: membership.displayName,
       }
     },
     async updateMonthlyBudget(input) {
@@ -271,6 +276,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
             householdId: existing.householdId,
             userId: input.userId,
             joinedAt: existing.joinedAt,
+            displayName: existing.displayName,
           }
         }
         throw new AlreadyInHouseholdError()
@@ -279,11 +285,13 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       state.members.set(input.userId, {
         householdId: invite.householdId,
         joinedAt,
+        displayName: input.displayName,
       })
       return {
         householdId: invite.householdId,
         userId: input.userId,
         joinedAt,
+        displayName: input.displayName,
       }
     },
     async leaveHousehold(input) {
@@ -291,6 +299,25 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         throw new HouseholdAccessDeniedError()
       }
       state.members.delete(input.userId)
+    },
+    async updateMemberDisplayName(input) {
+      if (input.userId !== userId) {
+        throw new HouseholdAccessDeniedError()
+      }
+      const existing = state.members.get(input.userId)
+      if (existing === undefined) {
+        throw new Error('No se encontró la membresía')
+      }
+      state.members.set(input.userId, {
+        ...existing,
+        displayName: input.displayName,
+      })
+      return {
+        householdId: existing.householdId,
+        userId: input.userId,
+        joinedAt: existing.joinedAt,
+        displayName: input.displayName,
+      }
     },
     async listCategories(householdId) {
       assertMemberOf(state, userId, householdId)
@@ -397,6 +424,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         price: input.price,
         comments: input.comments,
         expenseDate: input.expenseDate,
+        pendienteId: null,
         createdAt: new Date(),
       }
       state.expenses.set(expense.id, expense)
@@ -447,15 +475,25 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
     },
     async listExpenseHistoryPage(input) {
       assertMemberOf(state, userId, input.householdId)
+      const after = input.after
       const expenses: Expense[] = []
       for (const expense of state.expenses.values()) {
-        if (
-          expense.householdId === input.householdId &&
-          (input.beforeMonthStart === undefined ||
-            expense.expenseDate.getTime() < input.beforeMonthStart.getTime())
-        ) {
-          expenses.push(expense)
+        if (expense.householdId !== input.householdId) {
+          continue
         }
+        // Strictly older than the cursor, by the same (expense_date desc,
+        // created_at desc) ordering the sort below applies.
+        if (
+          after !== undefined &&
+          !(
+            expense.expenseDate.getTime() < after.expenseDate.getTime() ||
+            (expense.expenseDate.getTime() === after.expenseDate.getTime() &&
+              expense.createdAt.getTime() < after.createdAt.getTime())
+          )
+        ) {
+          continue
+        }
+        expenses.push(expense)
       }
       expenses.sort((left, right) => {
         const dateDiff =
@@ -465,11 +503,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         }
         return right.createdAt.getTime() - left.createdAt.getTime()
       })
-      return buildExpenseHistoryPage(expenses, (monthStart) =>
-        expenses.some(
-          (expense) => expense.expenseDate.getTime() < monthStart.getTime(),
-        ),
-      )
+      return buildExpenseHistoryPage(expenses)
     },
     async getExpense(input) {
       assertMemberOf(state, userId, input.householdId)
@@ -502,6 +536,8 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         price: input.price,
         comments: input.comments,
         expenseDate: input.expenseDate,
+        memberId: input.memberId,
+        authorDisplayName: input.authorDisplayName,
       }
       state.expenses.set(input.expenseId, updated)
       return updated
@@ -533,6 +569,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         recurring: input.recurring ?? false,
         status: 'pending',
         paidExpenseId: null,
+        paidAt: null,
         createdAt: new Date(),
       }
       state.pendientes.set(pendiente.id, pendiente)
@@ -562,6 +599,26 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       }
       pendientes.sort(
         (left, right) => left.dueDate.getTime() - right.dueDate.getTime(),
+      )
+      return pendientes
+    },
+    async listPendientesPaidInMonth(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const pendientes: Pendiente[] = []
+      for (const pendiente of state.pendientes.values()) {
+        if (
+          pendiente.householdId === input.householdId &&
+          pendiente.status === 'paid' &&
+          pendiente.paidAt !== null &&
+          pendiente.paidAt >= input.monthStart &&
+          pendiente.paidAt <= input.monthEnd
+        ) {
+          pendientes.push(pendiente)
+        }
+      }
+      pendientes.sort(
+        (left, right) =>
+          (right.paidAt?.getTime() ?? 0) - (left.paidAt?.getTime() ?? 0),
       )
       return pendientes
     },
@@ -650,15 +707,18 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         price: input.finalAmount,
         comments: '',
         expenseDate: input.paymentDate,
+        pendienteId: input.pendienteId,
         createdAt,
       }
       const updated: Pendiente = {
         ...existing,
         status: 'paid',
         paidExpenseId: expense.id,
+        paidAt: input.paymentDate,
       }
-      // A recurring pendiente spawns its next cycle with a blank expected amount
-      // -- the previous cycle's amount is deliberately never carried over.
+      // A recurring pendiente spawns its next cycle with the amount just
+      // paid pre-filled -- most recurring bills cost the same next cycle
+      // too, so this is an editable pre-fill, not a stale carried-over value.
       const nextPendiente: Pendiente | null = existing.recurring
         ? {
             id: crypto.randomUUID(),
@@ -666,10 +726,11 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
             categoryId: existing.categoryId,
             name: existing.name,
             dueDate: nextCycleDueDate(existing.dueDate),
-            expectedAmount: null,
+            expectedAmount: input.finalAmount,
             recurring: true,
             status: 'pending',
             paidExpenseId: null,
+            paidAt: null,
             createdAt,
           }
         : null
@@ -692,10 +753,12 @@ export function createMemoryHouseholdsDb(): {
   seedMembership(input: {
     readonly userId: string
     readonly householdId: string
+    readonly displayName?: string
   }): void
   addMember(input: {
     readonly userId: string
     readonly householdId: string
+    readonly displayName?: string
   }): void
   seedPendiente(pendiente: Pendiente): void
 } {
@@ -722,12 +785,14 @@ export function createMemoryHouseholdsDb(): {
       state.members.set(input.userId, {
         householdId: input.householdId,
         joinedAt: new Date(),
+        displayName: input.displayName ?? 'Miembro',
       })
     },
     addMember(input) {
       state.members.set(input.userId, {
         householdId: input.householdId,
         joinedAt: new Date(),
+        displayName: input.displayName ?? 'Miembro',
       })
     },
     // Test-only escape hatch: createPendiente always writes status 'pending',

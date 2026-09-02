@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { History, Home, LayoutGrid, Settings } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useFirebase } from '@/lib/firebaseContext'
-import { createFirestoreHouseholdsDb, getMembership } from '@/lib/households'
-import type { HouseholdMember, HouseholdsDb } from '@/lib/households'
+import type { HouseholdsDb } from '@/lib/households'
+import { useShowNav } from './useShowNav'
 
 export type AppShellProps = {
   readonly currentUserId?: string | null
@@ -28,76 +26,10 @@ const NAV_ITEMS: readonly NavItem[] = [
 ]
 
 export function AppShell({
-  currentUserId: currentUserIdProp,
+  currentUserId,
   householdsDb,
 }: AppShellProps): ReactElement {
-  const firebase = useFirebase()
-  const [sessionUserId, setSessionUserId] = useState<string | null | undefined>(
-    undefined,
-  )
-  const currentUserId =
-    currentUserIdProp !== undefined ? currentUserIdProp : sessionUserId
-  const db = useMemo(
-    () => householdsDb ?? createFirestoreHouseholdsDb(firebase.db),
-    [householdsDb, firebase.db],
-  )
-  const [membership, setMembership] = useState<
-    HouseholdMember | null | undefined
-  >(undefined)
-
-  useEffect(() => {
-    if (currentUserIdProp !== undefined) {
-      return
-    }
-    let cancelled = false
-    let authReady = false
-
-    void firebase.auth.authStateReady().then(() => {
-      if (cancelled) {
-        return
-      }
-      authReady = true
-      setSessionUserId(firebase.auth.currentUser?.uid ?? null)
-    })
-
-    const unsubscribe = firebase.auth.onAuthStateChanged((user) => {
-      if (!cancelled && authReady) {
-        setSessionUserId(user?.uid ?? null)
-      }
-    })
-
-    return () => {
-      cancelled = true
-      unsubscribe()
-    }
-  }, [currentUserIdProp, firebase.auth])
-
-  useEffect(() => {
-    if (typeof currentUserId !== 'string') {
-      return
-    }
-    let cancelled = false
-    void (async () => {
-      try {
-        const member = await getMembership({ db, userId: currentUserId })
-        if (!cancelled) {
-          setMembership(member)
-        }
-      } catch {
-        if (!cancelled) {
-          setMembership(null)
-        }
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [currentUserId, db])
-
-  const showNav =
-    typeof currentUserId === 'string' &&
-    membership !== undefined &&
-    membership !== null
+  const showNav = useShowNav({ currentUserId, householdsDb })
 
   // Outlet always sits in the same position in the tree (Fragment > div >
   // Outlet) across both the nav-hidden and nav-shown branches -- only the

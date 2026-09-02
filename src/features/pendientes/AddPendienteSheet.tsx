@@ -12,12 +12,19 @@ export type AddPendienteSheetProps = {
   readonly onOpenChange: (open: boolean) => void
   readonly db: HouseholdsDb
   readonly householdId: string
+  // Only used to mark a Pendiente paid (the resulting Expense is attributed
+  // to this member) -- see AddPendienteForm.
+  readonly memberId: string
+  readonly authorDisplayName: string
   readonly editPendiente?: EditPendienteTarget | null
   readonly onEditFinished?: () => void
-  // Home puts this trigger beside "Agregar gasto" in a two-up row, where both
-  // have to be flex-1 or they come out visibly different widths; /pendientes
-  // gives it the full width on its own.
+  // /pendientes gives the trigger the full width on its own.
   readonly triggerClassName?: string
+  // Home reuses this sheet purely to *edit/mark-paid* a row it was handed
+  // (via editPendiente) -- adding goes through the unified AddGastoSheet
+  // there instead. Without this the trigger rendered there anyway, per
+  // AddExpenseSheet's own showTrigger precedent.
+  readonly showTrigger?: boolean
 }
 
 export function AddPendienteSheet({
@@ -25,9 +32,12 @@ export function AddPendienteSheet({
   onOpenChange,
   db,
   householdId,
+  memberId,
+  authorDisplayName,
   editPendiente = null,
   onEditFinished,
   triggerClassName = 'w-full',
+  showTrigger = true,
 }: AddPendienteSheetProps): ReactElement {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -69,7 +79,7 @@ export function AddPendienteSheet({
 
   return (
     <>
-      {!sheetOpen ? (
+      {showTrigger && !sheetOpen ? (
         <Button
           ref={triggerRef}
           className={`gap-1.5 ${triggerClassName}`}
@@ -78,17 +88,19 @@ export function AddPendienteSheet({
           }}
         >
           <Plus aria-hidden="true" />
-          Nuevo pendiente
+          Nuevo recurrente
         </Button>
       ) : null}
       <Sheet
         open={sheetOpen}
         onOpenChange={handleOpenChange}
-        title={isEditing ? 'Editar pendiente' : 'Nuevo pendiente'}
+        title={isEditing ? 'Editar pendiente' : 'Nuevo recurrente'}
       >
         <AddPendienteForm
           db={db}
           householdId={householdId}
+          memberId={memberId}
+          authorDisplayName={authorDisplayName}
           editPendiente={editPendiente}
           onEditFinished={onEditFinished}
           onAdded={() => {

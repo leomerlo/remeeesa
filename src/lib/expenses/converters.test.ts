@@ -148,8 +148,46 @@ describe('parseExpenseDocument', () => {
       price: 10.5,
       comments: 'Friday',
       expenseDate: new Date('2026-08-15T00:00:00.000Z'),
+      pendienteId: null,
       createdAt: new Date('2026-08-16T12:00:00.000Z'),
     })
+  })
+
+  it('defaults pendienteId to null when pendiente_id is missing, e.g. an Expense doc written before the field existed', () => {
+    const expense = parseExpenseDocument({
+      id: 'e1',
+      data: {
+        household_id: 'h1',
+        category_id: 'c1',
+        member_id: 'user-1',
+        author_display_name: 'Ada',
+        name: 'Pizza',
+        price: 10.5,
+        comments: '',
+        expense_date: new Date('2026-08-15T00:00:00.000Z'),
+        created_at: new Date('2026-08-16T12:00:00.000Z'),
+      },
+    })
+    expect(expense.pendienteId).toBeNull()
+  })
+
+  it('reads a present pendiente_id into pendienteId', () => {
+    const expense = parseExpenseDocument({
+      id: 'e1',
+      data: {
+        household_id: 'h1',
+        category_id: 'c1',
+        member_id: 'user-1',
+        author_display_name: 'Ada',
+        name: 'Internet',
+        price: 5000,
+        comments: '',
+        expense_date: new Date('2026-08-15T00:00:00.000Z'),
+        pendiente_id: 'pendiente-1',
+        created_at: new Date('2026-08-16T12:00:00.000Z'),
+      },
+    })
+    expect(expense.pendienteId).toBe('pendiente-1')
   })
 
   it('reads expense_date via toDate', () => {
@@ -204,6 +242,7 @@ describe('toDocument converters', () => {
         price: 10.5,
         comments: 'Friday',
         expenseDate,
+        pendienteId: null,
         createdAt,
       }),
     ).toEqual({
@@ -215,6 +254,7 @@ describe('toDocument converters', () => {
       price: 10.5,
       comments: 'Friday',
       expense_date: expenseDate,
+      pendiente_id: null,
       created_at: createdAt,
     })
   })

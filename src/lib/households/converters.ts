@@ -33,6 +33,12 @@ export function parseHouseholdDocument(input: {
   }
 }
 
+// Falls back to a generic label rather than throwing: a membership doc
+// created before display_name existed (or written by an older client
+// mid-rollout) has none, and that's a normal, expected shape to read --
+// not a corrupt document.
+const FALLBACK_MEMBER_DISPLAY_NAME = 'Miembro'
+
 export function parseHouseholdMemberDocument(input: {
   readonly userId: string
   readonly data: unknown
@@ -44,10 +50,17 @@ export function parseHouseholdMemberDocument(input: {
     throw new Error('Membership document must be an object')
   }
 
+  const rawDisplayName = input.data.display_name
+  const displayName =
+    typeof rawDisplayName === 'string' && rawDisplayName.trim() !== ''
+      ? rawDisplayName.trim()
+      : FALLBACK_MEMBER_DISPLAY_NAME
+
   return {
     householdId: parseRequiredString(input.data.household_id, 'household_id'),
     userId: input.userId,
     joinedAt: parseTimestamp(input.data.joined_at, 'joined_at'),
+    displayName,
   }
 }
 
@@ -88,13 +101,16 @@ export function householdToDocument(input: {
 export function membershipToDocument(input: {
   readonly householdId: string
   readonly joinedAt: Date
+  readonly displayName: string
 }): {
   readonly household_id: string
   readonly joined_at: Date
+  readonly display_name: string
 } {
   return {
     household_id: input.householdId,
     joined_at: input.joinedAt,
+    display_name: input.displayName,
   }
 }
 
@@ -102,15 +118,18 @@ export function joinMembershipToDocument(input: {
   readonly householdId: string
   readonly joinedAt: Date
   readonly inviteToken: string
+  readonly displayName: string
 }): {
   readonly household_id: string
   readonly joined_at: Date
   readonly invite_token: string
+  readonly display_name: string
 } {
   return {
     ...membershipToDocument({
       householdId: input.householdId,
       joinedAt: input.joinedAt,
+      displayName: input.displayName,
     }),
     invite_token: input.inviteToken,
   }

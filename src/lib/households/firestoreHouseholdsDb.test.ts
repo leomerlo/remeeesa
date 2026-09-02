@@ -2,8 +2,35 @@ import { describe, expect, it } from 'vitest'
 import rules from '../../../firestore.rules?raw'
 import adapterSource from './firestoreHouseholdsDb.ts?raw'
 import indexes from '../../../firestore.indexes.json'
-import { AlreadyInHouseholdError, FirestoreDeniedError } from './households'
+import {
+  AlreadyInHouseholdError,
+  FIRESTORE_OPERATION_ACTIONS,
+  FirestoreDeniedError,
+} from './households'
 import { mapHouseholdFirestoreError } from './firestoreHouseholdsDb'
+
+// "No se pudo updateCategoryColor. Volvé a intentar." reached a real screen
+// because a new adapter operation was added with no matching entry in
+// FIRESTORE_OPERATION_ACTIONS -- FirestoreDeniedError falls back to the raw
+// operation name verbatim when that lookup misses. Per-message unit tests
+// only catch operations someone remembered to write a test for; this walks
+// every withHouseholdAccess('...') call the adapter source actually makes
+// and fails if any of them has no translation, so adding an operation
+// without a Spanish phrase is a build-time failure, not a screenshot from a
+// household member.
+describe('FIRESTORE_OPERATION_ACTIONS', () => {
+  it('has a Spanish phrase for every operation the adapter calls withHouseholdAccess with', () => {
+    const operations = [
+      ...adapterSource.matchAll(/withHouseholdAccess\(\s*\n?\s*'([a-zA-Z]+)'/g),
+    ].map((match) => match[1])
+    expect(operations.length).toBeGreaterThan(10)
+
+    const untranslated = [...new Set(operations)].filter(
+      (operation) => FIRESTORE_OPERATION_ACTIONS[operation] === undefined,
+    )
+    expect(untranslated).toEqual([])
+  })
+})
 
 describe('mapHouseholdFirestoreError', () => {
   it('rethrows permission-denied as FirestoreDeniedError with the operation', () => {
@@ -60,10 +87,27 @@ describe('firestore.rules founder membership', () => {
     )
   })
 
-  it('keeps founder membership fields to household_id and joined_at', () => {
+  it('keeps founder membership fields to household_id, joined_at, and display_name', () => {
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'joined_at'])",
+      "data.keys().hasOnly(['household_id', 'joined_at', 'display_name'])",
     )
+  })
+})
+
+describe('firestore.rules member display name updates', () => {
+  it('lets a member update only their own display_name, nothing else', () => {
+    expect(rules).toMatch(
+      /match \/household_members\/\{userId\}[\s\S]*allow update: if isSignedIn\(\)\s*\n\s*&& request\.auth\.uid == userId\s*\n\s*&& isValidDisplayNameUpdate\(\);/,
+    )
+  })
+
+  it('restricts the diff to exactly display_name and requires a non-empty string', () => {
+    expect(rules).toContain('function isValidDisplayNameUpdate()')
+    expect(rules).toContain(
+      "request.resource.data.diff(resource.data).affectedKeys().hasOnly(['display_name'])",
+    )
+    expect(rules).toContain('request.resource.data.display_name is string')
+    expect(rules).toContain('request.resource.data.display_name.size() > 0')
   })
 })
 
@@ -93,7 +137,7 @@ describe('firestore.rules invite join', () => {
   it('requires invite_token on join membership writes', () => {
     expect(rules).toContain('function isValidJoinMembership(data)')
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'joined_at', 'invite_token'])",
+      "data.keys().hasOnly(['household_id', 'joined_at', 'invite_token', 'display_name'])",
     )
     expect(rules).toContain(
       'exists(/databases/$(database)/documents/household_invites/$(data.invite_token))',
@@ -229,7 +273,7 @@ describe('firestore.rules expenses', () => {
   it('lets members create expenses attributed to themselves with price and date checks', () => {
     expect(rules).toContain('function isValidExpense(data)')
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'category_id', 'member_id', 'name', 'price', 'comments', 'expense_date', 'created_at', 'author_display_name'])",
+      "data.keys().hasOnly(['household_id', 'category_id', 'member_id', 'name', 'price', 'comments', 'expense_date', 'pendiente_id', 'created_at', 'author_display_name'])",
     )
     expect(rules).toContain('data.price is number')
     expect(rules).toContain('data.price > 0')
@@ -243,25 +287,41 @@ describe('firestore.rules expenses', () => {
       /match \/expenses\/\{expenseId\}[\s\S]*allow create: if isMemberOf\(request\.resource\.data\.household_id\)/,
     )
     expect(rules).toContain('function isValidExpenseUpdate()')
+    // member_id/author_display_name may change together now (reassigning
+    // an Expense's author), validated by isValidExpenseReassign rather
+    // than frozen unchanged the way they used to be.
+    expect(rules).toContain('function isValidExpenseReassign()')
     expect(rules).toContain(
-      'request.resource.data.author_display_name == resource.data.author_display_name',
+      'exists(/databases/$(database)/documents/household_members/$(request.resource.data.member_id))',
     )
     expect(rules).toContain(
-      'request.resource.data.member_id == resource.data.member_id',
+      'get(/databases/$(database)/documents/household_members/$(request.resource.data.member_id)).data.household_id == request.resource.data.household_id',
     )
     expect(rules).toMatch(
       /match \/expenses\/\{expenseId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)/,
     )
     expect(rules).toContain('function isValidExpenseUpdate()')
     expect(rules).toContain('function expenseDateNotInFuture(expenseDate)')
+    // pendiente_id: null for a plain Gasto, or a real Pendiente in this same
+    // household for a "servicio" Expense created by markPendientePaid.
+    expect(rules).toContain('data.pendiente_id == null')
+    expect(rules).toContain(
+      'exists(/databases/$(database)/documents/pendientes/$(data.pendiente_id))',
+    )
+    expect(rules).toContain(
+      'get(/databases/$(database)/documents/pendientes/$(data.pendiente_id)).data.household_id == data.household_id',
+    )
     expect(rules).toContain(
       "expenseDate < request.time + duration.value(1, 'd')",
     )
     expect(rules).not.toContain('request.time.year')
     expect(rules).not.toContain('request.time.month')
     expect(rules).not.toContain('request.time.day')
+    expect(rules).toContain(
+      "hasOnly(['name', 'price', 'category_id', 'comments', 'expense_date', 'member_id', 'author_display_name'])",
+    )
     expect(rules).toMatch(
-      /!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'member_id', 'author_display_name', 'created_at'\]\)/,
+      /!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'created_at'\]\)/,
     )
     expect(rules).toMatch(
       /allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& isValidExpenseUpdate\(\);/,
@@ -282,7 +342,7 @@ describe('firestore.rules pendientes', () => {
   it('requires the exact field set and a category belonging to the same household', () => {
     expect(rules).toContain('function isValidPendiente(data)')
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'status', 'paid_expense_id', 'created_at'])",
+      "data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'status', 'paid_expense_id', 'paid_at', 'created_at'])",
     )
     expect(rules).toContain('data.due_date is timestamp')
     expect(rules).toContain(
@@ -333,7 +393,7 @@ describe('firestore.rules pendientes', () => {
       /function isValidPendienteUpdate\(\) \{[\s\S]*?request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasOnly\(\['name', 'category_id', 'due_date', 'expected_amount', 'recurring'\]\)/,
     )
     expect(rules).toMatch(
-      /function isValidPendienteUpdate\(\) \{[\s\S]*?!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'status', 'paid_expense_id', 'created_at'\]\)/,
+      /function isValidPendienteUpdate\(\) \{[\s\S]*?!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'status', 'paid_expense_id', 'paid_at', 'created_at'\]\)/,
     )
     expect(rules).toMatch(
       /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\)\);/,
@@ -362,13 +422,13 @@ describe('firestore.rules pendientes', () => {
 // test in pendientes.test.ts is what actually behaviorally proves the
 // idempotency logic.
 describe('firestore.rules pendientes mark-paid', () => {
-  it('defines isValidPendienteMarkPaid with a diff restricted to status and paid_expense_id, requiring the stored status to still be pending', () => {
+  it('defines isValidPendienteMarkPaid with a diff restricted to status, paid_expense_id, and paid_at, requiring the stored status to still be pending', () => {
     expect(rules).toContain('function isValidPendienteMarkPaid()')
     expect(rules).toMatch(
       /function isValidPendienteMarkPaid\(\) \{[\s\S]*?resource\.data\.status == 'pending'/,
     )
     expect(rules).toMatch(
-      /function isValidPendienteMarkPaid\(\) \{[\s\S]*?request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\.hasOnly\(\['status', 'paid_expense_id'\]\)/,
+      /function isValidPendienteMarkPaid\(\) \{[\s\S]*?request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\.hasOnly\(\['status', 'paid_expense_id', 'paid_at'\]\)/,
     )
     expect(rules).toMatch(
       /function isValidPendienteMarkPaid\(\) \{[\s\S]*?request\.resource\.data\.status == 'paid'/,
@@ -378,6 +438,12 @@ describe('firestore.rules pendientes mark-paid', () => {
     )
     expect(rules).toMatch(
       /function isValidPendienteMarkPaid\(\) \{[\s\S]*?request\.resource\.data\.paid_expense_id is string[\s\S]*?request\.resource\.data\.paid_expense_id\.size\(\) > 0/,
+    )
+    expect(rules).toMatch(
+      /function isValidPendienteMarkPaid\(\) \{[\s\S]*?resource\.data\.paid_at == null/,
+    )
+    expect(rules).toMatch(
+      /function isValidPendienteMarkPaid\(\) \{[\s\S]*?request\.resource\.data\.paid_at is timestamp/,
     )
   })
 
@@ -402,7 +468,19 @@ describe('markPendientePaid adapter', () => {
     expect(adapterSource).toMatch(
       /async markPendientePaid\(input\) \{[\s\S]*?const memberId = await awaitAuthenticatedUserId\(firestore\)/,
     )
-    expect(adapterSource).not.toMatch(/memberId: input\.memberId/)
+    // Scoped to markPendientePaid's own body (it's the adapter's last
+    // method, so slicing from its declaration to EOF captures exactly
+    // that) rather than the whole file -- updateExpense legitimately
+    // writes `memberId: input.memberId` elsewhere now, for reassigning an
+    // Expense's author (rules-validated, see isValidExpenseReassign), and
+    // that is not the same trust boundary this guards: markPendientePaid's
+    // memberId must always come from the authenticated caller, never from
+    // client input, since it attributes a brand-new Expense rather than
+    // reassigning an existing one under an explicit membership check.
+    const markPendientePaidSource = adapterSource.slice(
+      adapterSource.indexOf('async markPendientePaid(input) {'),
+    )
+    expect(markPendientePaidSource).not.toMatch(/memberId: input\.memberId/)
   })
 
   it('runs the status transition and expense creation inside a single Firestore transaction', () => {
@@ -441,12 +519,9 @@ describe('markPendientePaid adapter', () => {
     )
   })
 
-  it('blanks the next cycle expected amount instead of copying the paid cycle amount', () => {
+  it('carries the just-paid amount into the next cycle as its pre-filled expected amount', () => {
     expect(adapterSource).toMatch(
-      /tx\.set\(nextPendienteRef, \{[\s\S]*?expectedAmount: null,/,
-    )
-    expect(adapterSource).not.toContain(
-      'expectedAmount: current.expectedAmount',
+      /tx\.set\(nextPendienteRef, \{[\s\S]*?expectedAmount: input\.finalAmount,/,
     )
   })
 

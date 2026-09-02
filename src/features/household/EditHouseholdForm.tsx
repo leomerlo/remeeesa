@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { AlertMessage } from '@/components/ui/alert-message'
 import { useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
+import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { formatCurrency } from '@/lib/expenses'
@@ -115,7 +117,10 @@ export function EditHouseholdForm({
         </div>
         {/* The peso sign lives beside the field rather than inside its value:
             the raw number stays parseable, but the input stops reading as a
-            bare "500000" next to amounts formatted everywhere else. */}
+            bare "500000" next to amounts formatted everywhere else.
+            FormattedAmountInput groups that same raw value live as it's
+            typed ("500.000"), the same grouping formatCurrency renders it
+            with once saved. */}
         <div className="relative">
           <span
             aria-hidden="true"
@@ -123,25 +128,18 @@ export function EditHouseholdForm({
           >
             $
           </span>
-          <Input
+          <FormattedAmountInput
             id="monthly-budget"
             name="monthly-budget"
             className="pl-7"
             value={amount}
-            onChange={(event) => {
-              setBudgetDraft(event.target.value)
-            }}
-            inputMode="decimal"
+            onChange={setBudgetDraft}
             autoComplete="off"
           />
         </div>
       </div>
 
-      {error !== null ? (
-        <p role="alert" className="text-sm font-medium">
-          {error}
-        </p>
-      ) : null}
+      {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
 
       <Button type="submit" className="w-full">
         Guardar

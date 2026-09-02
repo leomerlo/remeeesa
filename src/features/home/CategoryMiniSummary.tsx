@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
 import {
@@ -17,28 +18,41 @@ import type { HouseholdsDb } from '@/lib/households'
 export type CategoryMiniSummaryProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
+  // Defaults to the current month. MonthNavigator's viewed month flows down
+  // to this (and every other Home section that reads a month of Expenses)
+  // so paging back a month moves the whole page together, not just the two
+  // budget cards.
+  readonly monthStart?: Date
+  readonly monthEnd?: Date
 }
 
 const TOP_CATEGORY_COUNT = 5
 
 // Home-only mini-summary. Runs its own independent useQuery on the same
-// expensesInMonthQueryKey/categoriesQueryKey cache entries
-// RemainingBudgetDisplay already populates for the current month -- Tanstack
-// Query's cache dedupes the underlying fetch as long as the key and query
-// function shape match, so this doesn't cause an extra Firestore read.
+// expensesInMonthQueryKey/categoriesQueryKey cache entries the rest of
+// Home's month-scoped sections already populate -- Tanstack Query's cache
+// dedupes the underlying fetch as long as the key and query function shape
+// match, so this doesn't cause an extra Firestore read.
 export function CategoryMiniSummary({
   db,
   householdId,
+  monthStart: monthStartProp,
+  monthEnd: monthEndProp,
 }: CategoryMiniSummaryProps): ReactElement | null {
-  const monthRange = useMemo(() => currentMonthRange(), [])
+  const defaultRange = useMemo(() => currentMonthRange(), [])
+  const monthStart = monthStartProp ?? defaultRange.monthStart
+  const monthEnd = monthEndProp ?? defaultRange.monthEnd
   const expensesQuery = useQuery({
-    queryKey: expensesInMonthQueryKey({ householdId }),
+    queryKey: [
+      ...expensesInMonthQueryKey({ householdId }),
+      monthStart.getTime(),
+    ],
     queryFn: () =>
       listExpensesInMonth({
         db,
         householdId,
-        monthStart: monthRange.monthStart,
-        monthEnd: monthRange.monthEnd,
+        monthStart,
+        monthEnd,
       }),
   })
   const categoriesQuery = useQuery({
@@ -50,11 +64,7 @@ export function CategoryMiniSummary({
   const categories = categoriesQuery.data
 
   if (expenses === undefined || categories === undefined) {
-    return (
-      <p role="status" className="text-sm font-medium">
-        Cargando…
-      </p>
-    )
+    return <LoadingIndicator />
   }
 
   const summary = summarizeByCategory({ expenses, categories }).slice(
@@ -62,8 +72,8 @@ export function CategoryMiniSummary({
     TOP_CATEGORY_COUNT,
   )
 
-  // Renders nothing at all rather than a card repeating "Todavía no hay
-  // gastos este mes" -- that message is already the movements list's own
+  // Renders nothing at all rather than a heading over an empty list --
+  // "Todavía no hay gastos este mes" is already the movements list's own
   // empty state, right above this one, illustration and all. A second and
   // third copy of the same sentence (this one, and PersonMiniSummary's)
   // added nothing but noise to an already-empty Home.
@@ -71,14 +81,23 @@ export function CategoryMiniSummary({
     return null
   }
 
+  // Title outside; rows share one card, separated by a thin divider --
+  // a tidy list rather than a card per row (that treatment stays on
+  // "Últimos movimientos" above, whose rows carry more weight: an icon,
+  // amount, and two lines of meta, vs. this section's plain name + total).
   return (
-    <div className="bg-card shadow-resting flex w-full flex-col gap-3 rounded-2xl p-4">
-      <h2 className="text-title font-semibold">Categorías</h2>
-      <ul aria-label="Gastos por categoría" className="flex flex-col gap-2">
+    <div className="flex w-full flex-col gap-3">
+      <h2 className="text-title font-semibold self-start">
+        Gastos por categoría
+      </h2>
+      <ul
+        aria-label="Gastos por categoría"
+        className="bg-card shadow-resting divide-border flex w-full flex-col divide-y rounded-2xl text-sm"
+      >
         {summary.map((entry) => (
           <li
             key={entry.categoryId}
-            className="flex items-center justify-between gap-2 text-sm"
+            className="flex items-center justify-between gap-2 p-4"
           >
             <span className="flex min-w-0 items-center gap-2">
               <span

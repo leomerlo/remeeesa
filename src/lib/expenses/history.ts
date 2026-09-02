@@ -1,51 +1,52 @@
 import type { Expense } from './types'
 
+// A fixed row count, not a calendar month: Histórico's "Cargar más" used to
+// load one whole month at a time, which meant a light month (a couple of
+// bills) loaded almost nothing while a heavy one (daily coffees) loaded
+// dozens of rows in a single tap. Same page size regardless of what month
+// the data happens to fall in.
+export const EXPENSE_HISTORY_PAGE_SIZE = 15
+
+// The last expense of a page, by its own sort keys -- Firestore's
+// `startAfter` cursor for the `expense_date desc, created_at desc` index
+// every expense query already uses. `createdAt` breaks ties on the same
+// `expenseDate`; without it, a page boundary landing between two same-date
+// expenses could skip or repeat one.
+export type ExpenseHistoryCursor = {
+  readonly expenseDate: Date
+  readonly createdAt: Date
+}
+
 export type ExpenseHistoryPage = {
   readonly expenses: readonly Expense[]
-  readonly nextBeforeMonthStart: Date | null
+  readonly nextCursor: ExpenseHistoryCursor | null
 }
 
-// Local midnight on the 1st of the given date's month.
-export function monthStartOf(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), 1)
-}
-
-// Local end-of-day on the last day of the given date's month. Day 0 of the
-// following month is the last day of this one -- the same idiom
-// currentMonthRange uses.
-export function monthEndOf(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59, 999)
-}
-
-// Turns a newest-first list of a household's expenses into one page: every
-// expense belonging to the newest calendar month present, and nothing else.
+// Turns a newest-first list of a household's expenses (already excluding
+// anything at or before the caller's cursor) into one fixed-size page.
 //
-// A page is a whole month rather than a fixed row count, which is what makes
-// "no page splits a month" true by construction instead of by trimming --
-// the Histórico screen can render a month header knowing nothing more will
-// arrive under it later. A month with an unusual number of expenses simply
-// produces a bigger page; it is never cut in half.
+// A page can land mid-month now -- unlike the calendar-month pages this
+// replaced, nothing here keeps a month whole. That is fine: Histórico's
+// month headers/totals (ExpenseHistory.tsx's groupByMonth) are computed
+// from the full accumulated list across every loaded page, not from page
+// boundaries, so a month split across two "Cargar más" clicks still
+// renders as one section once both pages have loaded.
 //
-// `sortedDesc` must already exclude anything at or after the caller's cursor
-// and be sorted newest-first. `hasOlder` says whether anything exists
-// strictly before the returned month, which the caller knows more cheaply
-// than this function could work out.
+// `sortedDesc` must already exclude anything at or before the caller's
+// cursor and be sorted newest-first (expense_date desc, then created_at
+// desc to match).
 export function buildExpenseHistoryPage(
   sortedDesc: readonly Expense[],
-  hasOlder: (monthStart: Date) => boolean,
 ): ExpenseHistoryPage {
-  const newest = sortedDesc[0]
-  if (newest === undefined) {
-    return { expenses: [], nextBeforeMonthStart: null }
-  }
-
-  const pageMonthStart = monthStartOf(newest.expenseDate)
-  const expenses = sortedDesc.filter(
-    (expense) => expense.expenseDate.getTime() >= pageMonthStart.getTime(),
-  )
+  const expenses = sortedDesc.slice(0, EXPENSE_HISTORY_PAGE_SIZE)
+  const last = expenses[expenses.length - 1]
+  const hasMore = sortedDesc.length > EXPENSE_HISTORY_PAGE_SIZE
 
   return {
     expenses,
-    nextBeforeMonthStart: hasOlder(pageMonthStart) ? pageMonthStart : null,
+    nextCursor:
+      hasMore && last !== undefined
+        ? { expenseDate: last.expenseDate, createdAt: last.createdAt }
+        : null,
   }
 }

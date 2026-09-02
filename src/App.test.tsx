@@ -15,9 +15,7 @@ describe('App', () => {
   it('renders the onboarding form through the provider tree', () => {
     renderWithProviders(<App currentUserId={null} />)
 
-    expect(
-      screen.getByRole('heading', { name: 'remeeesa' }),
-    ).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'remeeesa' })).toBeInTheDocument()
     expect(screen.getByLabelText('Nombre del hogar')).toBeInTheDocument()
     expect(screen.getByLabelText('Presupuesto mensual')).toBeInTheDocument()
     expect(
@@ -32,9 +30,7 @@ describe('App', () => {
       </MemoryRouter>,
     )
 
-    expect(
-      screen.getByRole('heading', { name: 'remeeesa' }),
-    ).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'remeeesa' })).toBeInTheDocument()
     expect(screen.getByLabelText('Email')).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'Crear cuenta' }),
@@ -57,9 +53,12 @@ describe('App', () => {
       </MemoryRouter>,
     )
 
-    // No "remeeesa" wordmark here -- that hero belongs to the unauthenticated
-    // sign-up/log-in/join flow (AuthHero), not an authenticated screen like
-    // Ajustes.
+    // The wordmark stays visible in the persistent app header, not just the
+    // unauthenticated sign-up/log-in/join hero (AuthHero) -- it just isn't
+    // the big hero treatment here.
+    expect(
+      await screen.findByRole('img', { name: 'remeeesa' }),
+    ).toBeInTheDocument()
     await waitFor(() => {
       expect(screen.getByLabelText('Nombre del hogar')).toHaveValue(
         'Casa Verde',
@@ -174,7 +173,7 @@ describe('App', () => {
       await screen.findByRole('heading', { name: 'Pendientes' }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Nuevo pendiente' }),
+      screen.getByRole('button', { name: 'Nuevo recurrente' }),
     ).toBeInTheDocument()
 
     // /pendientes is intentionally unlinked from Home in this ticket -- the nav
@@ -210,5 +209,26 @@ describe('App', () => {
     expect(
       within(nav).getByRole('link', { name: /histórico/i }),
     ).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('renders the persistent header outside <main>, not boxed into the page column', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderWithProviders(
+      <MemoryRouter initialEntries={['/']}>
+        <AppRoutes currentUserId="user-1" householdsDb={db} />
+      </MemoryRouter>,
+    )
+
+    const logo = await screen.findByRole('img', { name: 'remeeesa' })
+    const main = document.querySelector('main')
+    expect(main).not.toBeNull()
+    expect(main?.contains(logo)).toBe(false)
   })
 })

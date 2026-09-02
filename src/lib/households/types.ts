@@ -1,5 +1,6 @@
 import type { Pendiente } from '@/lib/pendientes/types'
 import type { Category, Expense } from '@/lib/expenses/types'
+import type { ExpenseHistoryCursor } from '@/lib/expenses/history'
 
 export type HouseholdDraft = {
   readonly name: string
@@ -17,6 +18,12 @@ export type HouseholdMember = {
   readonly householdId: string
   readonly userId: string
   readonly joinedAt: Date
+  // Set at creation/join time from the member's own auth profile, and
+  // self-editable afterward (see updateMemberDisplayName) -- e.g. to
+  // correct a membership created before this field existed. A doc missing
+  // it (that older case) parses to a generic fallback rather than an
+  // error; see parseHouseholdMemberDocument.
+  readonly displayName: string
 }
 
 export type HouseholdInvite = {
@@ -30,6 +37,7 @@ export type HouseholdsDb = {
     readonly userId: string
     readonly name: string
     readonly monthlyBudget: number
+    readonly displayName: string
   }): Promise<{ household: Household; member: HouseholdMember }>
   getHousehold(householdId: string): Promise<Household>
   listMembers(householdId: string): Promise<readonly HouseholdMember[]>
@@ -49,8 +57,17 @@ export type HouseholdsDb = {
   joinHousehold(input: {
     readonly userId: string
     readonly token: string
+    readonly displayName: string
   }): Promise<HouseholdMember>
   leaveHousehold(input: { readonly userId: string }): Promise<void>
+  // Self-only: the caller can only ever update their own membership doc
+  // (enforced by the userId being the caller's own auth uid at the rules
+  // level too, not just here).
+  updateMemberDisplayName(input: {
+    readonly householdId: string
+    readonly userId: string
+    readonly displayName: string
+  }): Promise<HouseholdMember>
   listCategories(householdId: string): Promise<readonly Category[]>
   findOrCreateCategory(input: {
     readonly householdId: string
@@ -105,18 +122,17 @@ export type HouseholdsDb = {
     readonly householdId: string
     readonly limit: number
   }): Promise<readonly Expense[]>
-  // All-time history, newest first, paginated in whole calendar months: a
-  // page never ends mid-month, so the Histórico screen can render a month
-  // header knowing every expense under it has already arrived.
-  // `beforeMonthStart` is the cursor -- omit it for the first page, then
-  // pass back the `nextBeforeMonthStart` of the previous page.
-  // `nextBeforeMonthStart` is null once there is nothing older left.
+  // All-time history, newest first, paginated in fixed-size pages of
+  // EXPENSE_HISTORY_PAGE_SIZE rows regardless of what calendar month(s)
+  // they fall in. `after` is the cursor -- omit it for the first page, then
+  // pass back the `nextCursor` of the previous page. `nextCursor` is null
+  // once there is nothing older left.
   listExpenseHistoryPage(input: {
     readonly householdId: string
-    readonly beforeMonthStart?: Date
+    readonly after?: ExpenseHistoryCursor
   }): Promise<{
     readonly expenses: readonly Expense[]
-    readonly nextBeforeMonthStart: Date | null
+    readonly nextCursor: ExpenseHistoryCursor | null
   }>
   getExpense(input: {
     readonly householdId: string
@@ -130,6 +146,8 @@ export type HouseholdsDb = {
     readonly price: number
     readonly comments: string
     readonly expenseDate: Date
+    readonly memberId: string
+    readonly authorDisplayName: string
   }): Promise<Expense>
   deleteExpense(input: {
     readonly householdId: string
@@ -149,6 +167,15 @@ export type HouseholdsDb = {
   }): Promise<Pendiente | null>
   listPendientes(input: {
     readonly householdId: string
+  }): Promise<readonly Pendiente[]>
+  // Paid Pendientes are otherwise invisible once marked paid -- listPendientes
+  // only ever returns status == 'pending'. This is the one place a paid
+  // Pendiente can still be found, scoped by when it was paid (paidAt) rather
+  // than its due date, since paying it doesn't change when it was due.
+  listPendientesPaidInMonth(input: {
+    readonly householdId: string
+    readonly monthStart: Date
+    readonly monthEnd: Date
   }): Promise<readonly Pendiente[]>
   updatePendiente(input: {
     readonly householdId: string

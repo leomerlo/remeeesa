@@ -218,4 +218,22 @@ describe('CategoryManager', () => {
     const options = within(select).getAllByRole('option')
     expect(options.map((option) => option.textContent)).not.toContain('Comida')
   })
+
+  it('adds a new category from the Agregar button and shows it in the list', async () => {
+    const { db, householdId } = await seedHousehold()
+
+    renderWithProviders(<CategoryManager db={db} householdId={householdId} />)
+    await screen.findByRole('list', { name: 'Todas las categorías' })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar' }))
+    await screen.findByRole('dialog')
+    fireEvent.change(screen.getByLabelText('Nombre'), {
+      target: { value: 'Mascotas' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar categoría' }))
+
+    expect(
+      await screen.findByRole('button', { name: 'Editar Mascotas' }),
+    ).toBeInTheDocument()
+  })
 })

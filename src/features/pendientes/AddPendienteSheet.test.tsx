@@ -71,11 +71,13 @@ describe('AddPendienteSheet', () => {
         onOpenChange={() => {}}
         db={db}
         householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
       />,
     )
 
     expect(
-      screen.getByRole('button', { name: 'Nuevo pendiente' }),
+      screen.getByRole('button', { name: 'Nuevo recurrente' }),
     ).toBeInTheDocument()
     expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     expect(
@@ -87,16 +89,21 @@ describe('AddPendienteSheet', () => {
     const { db, householdId } = await seedHousehold()
 
     renderWithProviders(
-      <AddPendienteSheetHarness db={db} householdId={householdId} />,
+      <AddPendienteSheetHarness
+        db={db}
+        householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo recurrente' }))
 
     expect(await screen.findByLabelText('Nombre')).toBeInTheDocument()
     expect(screen.getByLabelText('Categoría')).toBeInTheDocument()
     expect(screen.getByLabelText('Fecha de vencimiento')).toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: 'Nuevo pendiente' }),
+      screen.queryByRole('button', { name: 'Nuevo recurrente' }),
     ).not.toBeInTheDocument()
   })
 
@@ -108,7 +115,12 @@ describe('AddPendienteSheet', () => {
 
     renderWithProviders(
       <>
-        <AddPendienteSheetHarness db={db} householdId={householdId} />
+        <AddPendienteSheetHarness
+          db={db}
+          householdId={householdId}
+          memberId="user-1"
+          authorDisplayName="Ada"
+        />
         <PendingPendientesCount db={db} householdId={householdId} />
       </>,
       { queryClient },
@@ -116,7 +128,7 @@ describe('AddPendienteSheet', () => {
 
     expect(await screen.findByText('Pending pendientes: 0')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo recurrente' }))
     fireEvent.change(await screen.findByLabelText('Nombre'), {
       target: { value: 'Alquiler' },
     })
@@ -126,13 +138,13 @@ describe('AddPendienteSheet', () => {
     fireEvent.change(screen.getByLabelText('Fecha de vencimiento'), {
       target: { value: '2026-09-10' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Agregar pendiente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar recurrente' }))
 
     await waitFor(() => {
       expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
     expect(
-      screen.getByRole('button', { name: 'Nuevo pendiente' }),
+      screen.getByRole('button', { name: 'Nuevo recurrente' }),
     ).toBeInTheDocument()
     // A sibling consumer of the same query key sees the new pendiente once the
     // sheet's mutation invalidates it -- proving invalidation actually
@@ -146,10 +158,15 @@ describe('AddPendienteSheet', () => {
     const { db, householdId } = await seedHousehold()
 
     renderWithProviders(
-      <AddPendienteSheetHarness db={db} householdId={householdId} />,
+      <AddPendienteSheetHarness
+        db={db}
+        householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
     )
 
-    const trigger = screen.getByRole('button', { name: 'Nuevo pendiente' })
+    const trigger = screen.getByRole('button', { name: 'Nuevo recurrente' })
     trigger.focus()
     expect(trigger).toHaveFocus()
 
@@ -163,7 +180,7 @@ describe('AddPendienteSheet', () => {
       expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
     expect(
-      screen.getByRole('button', { name: 'Nuevo pendiente' }),
+      screen.getByRole('button', { name: 'Nuevo recurrente' }),
     ).toHaveFocus()
   })
 
@@ -182,17 +199,22 @@ describe('AddPendienteSheet', () => {
     }
 
     renderWithProviders(
-      <AddPendienteSheetHarness db={db} householdId={household.id} />,
+      <AddPendienteSheetHarness
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo recurrente' }))
     fireEvent.change(await screen.findByLabelText('Nombre'), {
       target: { value: 'Alquiler' },
     })
     fireEvent.change(screen.getByRole('combobox', { name: 'Categoría' }), {
       target: { value: 'Servicios' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Agregar pendiente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar recurrente' }))
 
     // The mutation is still pending: an Escape dismiss attempt must be a
     // no-op rather than unmounting the form out from under it.
@@ -230,6 +252,8 @@ describe('AddPendienteSheet', () => {
         onOpenChange={() => {}}
         db={db}
         householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
         editPendiente={editPendiente}
         onEditFinished={() => {}}
       />,
@@ -245,10 +269,10 @@ describe('AddPendienteSheet', () => {
     expect(sheetContent).not.toBeNull()
     expect(sheetContent).toHaveTextContent('Editar pendiente')
 
-    // No "Nuevo pendiente" trigger while the sheet is open editing: the two
+    // No "Nuevo recurrente" trigger while the sheet is open editing: the two
     // flows never coexist on screen, so there's no name collision.
     expect(
-      screen.queryByRole('button', { name: 'Nuevo pendiente' }),
+      screen.queryByRole('button', { name: 'Nuevo recurrente' }),
     ).not.toBeInTheDocument()
   })
 
@@ -283,6 +307,8 @@ describe('AddPendienteSheet', () => {
         onOpenChange={() => {}}
         db={db}
         householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
         editPendiente={editPendiente}
         onEditFinished={onEditFinished}
       />,
@@ -320,6 +346,8 @@ describe('AddPendienteSheet', () => {
         onOpenChange={() => {}}
         db={db}
         householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
         editPendiente={editPendiente}
         onEditFinished={onEditFinished}
       />,

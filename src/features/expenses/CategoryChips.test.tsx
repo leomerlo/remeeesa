@@ -87,6 +87,23 @@ describe('CategoryChips', () => {
     expect(swatch).toHaveStyle({ backgroundColor: '#df473c' })
   })
 
+  // Per direct feedback: a household with enough categories to wrap onto
+  // several lines pushed the rest of the form down -- one swipeable row
+  // instead.
+  it('lays chips out in one non-wrapping, horizontally-scrollable row', () => {
+    const { container } = render(
+      <CategoryChips categories={CATEGORIES} value="" onChange={() => {}} />,
+    )
+
+    const row = container.firstElementChild
+    expect(row).not.toBeNull()
+    expect(row?.className).toContain('flex-nowrap')
+    expect(row?.className).toContain('overflow-x-auto')
+    expect(screen.getByRole('button', { name: /Comida/ }).className).toContain(
+      'shrink-0',
+    )
+  })
+
   it('renders nothing at all before any category exists', () => {
     const { container } = render(
       <CategoryChips categories={[]} value="" onChange={() => {}} />,

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import type { ReactElement } from 'react'
 import { PageHeader } from '@/components/PageHeader'
 import { AddExpenseSheet, ExpenseHistory } from '@/features/expenses'
@@ -38,9 +39,7 @@ export function HistoricoPage({
     return (
       <div className="flex w-full flex-col gap-6">
         {header}
-        <p role="status" className="text-sm font-medium">
-          Cargando…
-        </p>
+        <LoadingIndicator />
       </div>
     )
   }
@@ -60,9 +59,7 @@ export function HistoricoPage({
     return (
       <div className="flex w-full flex-col gap-6">
         {header}
-        <p role="status" className="text-sm font-medium">
-          Cargando…
-        </p>
+        <LoadingIndicator />
       </div>
     )
   }
@@ -100,6 +97,7 @@ export function HistoricoPage({
             categoryName,
             comments: expense.comments,
             expenseDate: expense.expenseDate,
+            memberId: expense.memberId,
           })
         }}
       />

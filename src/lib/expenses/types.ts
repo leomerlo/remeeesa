@@ -16,5 +16,9 @@ export type Expense = {
   readonly price: number
   readonly comments: string
   readonly expenseDate: Date
+  // Set when this Expense was created by markPendientePaid (a "servicio" --
+  // a recurring or one-off bill paid through Pendientes), null when created
+  // directly as a plain Gasto. Lets Histórico tell the two apart.
+  readonly pendienteId: string | null
   readonly createdAt: Date
 }

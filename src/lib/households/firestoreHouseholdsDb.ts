@@ -10,6 +10,7 @@ import {
   query,
   runTransaction,
   setDoc,
+  startAfter,
   Timestamp,
   updateDoc,
   where,
@@ -41,7 +42,10 @@ import {
   CategoryNotFoundError,
 } from '@/lib/expenses/categoryManagement'
 import { ExpenseNotFoundError } from '@/lib/expenses/expenses'
-import { monthEndOf, monthStartOf } from '@/lib/expenses/history'
+import {
+  buildExpenseHistoryPage,
+  EXPENSE_HISTORY_PAGE_SIZE,
+} from '@/lib/expenses/history'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
 import { parseCategoryColor, parseCategoryName } from '@/lib/expenses/validate'
 import { logFirebaseError } from '@/lib/firebaseDevLog'
@@ -218,6 +222,7 @@ export function createFirestoreHouseholdsDb(
             ...membershipToDocument({
               householdId: householdRef.id,
               joinedAt: now.toDate(),
+              displayName: input.displayName,
             }),
             joined_at: now,
           })
@@ -249,6 +254,7 @@ export function createFirestoreHouseholdsDb(
             householdId: householdRef.id,
             userId: input.userId,
             joinedAt: now.toDate(),
+            displayName: input.displayName,
           },
         }
       })
@@ -391,12 +397,14 @@ export function createFirestoreHouseholdsDb(
             householdId: invite.householdId,
             userId: input.userId,
             joinedAt: now.toDate(),
+            displayName: input.displayName,
           }
           tx.set(memberRef, {
             ...joinMembershipToDocument({
               householdId: member.householdId,
               joinedAt: member.joinedAt,
               inviteToken: input.token,
+              displayName: member.displayName,
             }),
             joined_at: now,
           })
@@ -406,6 +414,21 @@ export function createFirestoreHouseholdsDb(
     },
     async leaveHousehold(input) {
       await deleteDoc(doc(firestore, 'household_members', input.userId))
+    },
+    async updateMemberDisplayName(input) {
+      return withHouseholdAccess('updateMemberDisplayName', async () => {
+        const memberRef = doc(firestore, 'household_members', input.userId)
+        const snap = await getDoc(memberRef)
+        if (!snap.exists()) {
+          throw new Error('No se encontró la membresía')
+        }
+        const current = parseHouseholdMemberDocument({
+          userId: snap.id,
+          data: snap.data(),
+        })
+        await updateDoc(memberRef, { display_name: input.displayName })
+        return { ...current, displayName: input.displayName }
+      })
     },
     async listCategories(householdId) {
       return withHouseholdAccess('listCategories', async () => {
@@ -601,6 +624,7 @@ export function createFirestoreHouseholdsDb(
               price: input.price,
               comments: input.comments,
               expenseDate: input.expenseDate,
+              pendienteId: null,
               createdAt,
             }),
             expense_date: toFirestoreExpenseDate(input.expenseDate),
@@ -616,6 +640,7 @@ export function createFirestoreHouseholdsDb(
             price: input.price,
             comments: input.comments,
             expenseDate: input.expenseDate,
+            pendienteId: null,
             createdAt,
           }
         },
@@ -665,86 +690,40 @@ export function createFirestoreHouseholdsDb(
     },
     async listExpenseHistoryPage(input) {
       return withHouseholdAccess('listExpenseHistoryPage', async () => {
-        const beforeCursor =
-          input.beforeMonthStart === undefined
+        const afterCursor =
+          input.after === undefined
             ? []
             : [
-                where(
-                  'expense_date',
-                  '<',
-                  Timestamp.fromDate(input.beforeMonthStart),
+                startAfter(
+                  Timestamp.fromDate(input.after.expenseDate),
+                  Timestamp.fromDate(input.after.createdAt),
                 ),
               ]
 
-        // Which month this page covers is discovered from the data, not
-        // walked month by month: a household with a gap between, say,
-        // August and March would otherwise need a round trip per empty
-        // month in between just to find the next one that has anything.
-        const newestQuery = query(
+        // One row beyond the page size, in the same single query, tells
+        // buildExpenseHistoryPage whether there's more without a second
+        // round trip -- ordered on the household_id/expense_date/created_at
+        // index every other expense query already uses (expense_date alone
+        // would make Firestore append an implicit __name__ sort, a
+        // *different* composite index that fails in production with "The
+        // query requires an index").
+        const historyQuery = query(
           collection(firestore, 'expenses'),
           where('household_id', '==', input.householdId),
-          ...beforeCursor,
           orderBy('expense_date', 'desc'),
           orderBy('created_at', 'desc'),
-          limit(1),
+          ...afterCursor,
+          limit(EXPENSE_HISTORY_PAGE_SIZE + 1),
         )
-        const newestSnap = await getDocs(newestQuery)
-        const newestDoc = newestSnap.docs[0]
-        if (newestDoc === undefined) {
-          return { expenses: [], nextBeforeMonthStart: null }
-        }
-        const newest = parseExpenseDocument({
-          id: newestDoc.id,
-          data: newestDoc.data(),
-        })
-
-        // The whole month, unbounded: the page is a calendar month rather
-        // than a row count, so it is never cut short mid-month no matter
-        // how many expenses that month happens to hold.
-        const pageMonthStart = monthStartOf(newest.expenseDate)
-        const monthQuery = query(
-          collection(firestore, 'expenses'),
-          where('household_id', '==', input.householdId),
-          where('expense_date', '>=', Timestamp.fromDate(pageMonthStart)),
-          where(
-            'expense_date',
-            '<=',
-            Timestamp.fromDate(monthEndOf(newest.expenseDate)),
-          ),
-          orderBy('expense_date', 'desc'),
-          orderBy('created_at', 'desc'),
-        )
-        const monthSnap = await getDocs(monthQuery)
-        const expenses = monthSnap.docs.map((expenseDoc) =>
+        const snap = await getDocs(historyQuery)
+        const expenses = snap.docs.map((expenseDoc) =>
           parseExpenseDocument({
             id: expenseDoc.id,
             data: expenseDoc.data(),
           }),
         )
 
-        // One extra single-row read so the caller can hide "load more"
-        // rather than offering a button that returns nothing.
-        //
-        // The created_at tiebreak is not about ordering -- this only ever asks
-        // "is there anything older" -- it is what keeps the query on the
-        // household_id/expense_date/created_at index every other expense query
-        // already uses. Ordering by expense_date alone makes Firestore append
-        // an implicit __name__ sort, which is a *different* composite index
-        // and fails in production with "The query requires an index".
-        const olderQuery = query(
-          collection(firestore, 'expenses'),
-          where('household_id', '==', input.householdId),
-          where('expense_date', '<', Timestamp.fromDate(pageMonthStart)),
-          orderBy('expense_date', 'desc'),
-          orderBy('created_at', 'desc'),
-          limit(1),
-        )
-        const olderSnap = await getDocs(olderQuery)
-
-        return {
-          expenses,
-          nextBeforeMonthStart: olderSnap.empty ? null : pageMonthStart,
-        }
+        return buildExpenseHistoryPage(expenses)
       })
     },
     async getExpense(input) {
@@ -786,6 +765,8 @@ export function createFirestoreHouseholdsDb(
             price: input.price,
             comments: input.comments,
             expense_date: toFirestoreExpenseDate(input.expenseDate),
+            member_id: input.memberId,
+            author_display_name: input.authorDisplayName,
           })
           return {
             ...current,
@@ -794,6 +775,8 @@ export function createFirestoreHouseholdsDb(
             price: input.price,
             comments: input.comments,
             expenseDate: input.expenseDate,
+            memberId: input.memberId,
+            authorDisplayName: input.authorDisplayName,
           }
         },
         {
@@ -835,6 +818,7 @@ export function createFirestoreHouseholdsDb(
               recurring,
               status: 'pending',
               paidExpenseId: null,
+              paidAt: null,
               createdAt,
             }),
             due_date: toFirestorePendienteDate(input.dueDate),
@@ -850,6 +834,7 @@ export function createFirestoreHouseholdsDb(
             recurring,
             status: 'pending',
             paidExpenseId: null,
+            paidAt: null,
             createdAt,
           }
         },
@@ -879,6 +864,25 @@ export function createFirestoreHouseholdsDb(
           where('household_id', '==', input.householdId),
           where('status', '==', 'pending'),
           orderBy('due_date', 'asc'),
+        )
+        const snap = await getDocs(pendientesQuery)
+        return snap.docs.map((pendienteDoc) =>
+          parsePendienteDocument({
+            id: pendienteDoc.id,
+            data: pendienteDoc.data(),
+          }),
+        )
+      })
+    },
+    async listPendientesPaidInMonth(input) {
+      return withHouseholdAccess('listPendientesPaidInMonth', async () => {
+        const pendientesQuery = query(
+          collection(firestore, 'pendientes'),
+          where('household_id', '==', input.householdId),
+          where('status', '==', 'paid'),
+          where('paid_at', '>=', Timestamp.fromDate(input.monthStart)),
+          where('paid_at', '<=', Timestamp.fromDate(input.monthEnd)),
+          orderBy('paid_at', 'desc'),
         )
         const snap = await getDocs(pendientesQuery)
         return snap.docs.map((pendienteDoc) =>
@@ -1003,6 +1007,7 @@ export function createFirestoreHouseholdsDb(
                 price: input.finalAmount,
                 comments: '',
                 expenseDate: input.paymentDate,
+                pendienteId: input.pendienteId,
                 createdAt,
               }),
               expense_date: toFirestoreExpenseDate(input.paymentDate),
@@ -1011,12 +1016,15 @@ export function createFirestoreHouseholdsDb(
             tx.update(pendienteRef, {
               status: 'paid',
               paid_expense_id: expenseRef.id,
+              paid_at: toFirestorePendienteDate(input.paymentDate),
             })
 
             // A recurring pendiente spawns its next cycle in this same
             // transaction, so all three writes land together or not at all.
-            // The expected amount is deliberately blanked rather than copied
-            // from the cycle just paid.
+            // The expected amount carries over from the cycle just paid --
+            // most recurring bills (rent, subscriptions) cost the same
+            // amount next cycle too, so this is a pre-fill the user can
+            // still edit, not a guess pulled from nowhere.
             const nextDueDate = current.recurring
               ? nextCycleDueDate(current.dueDate)
               : null
@@ -1027,10 +1035,11 @@ export function createFirestoreHouseholdsDb(
                   categoryId: current.categoryId,
                   name: current.name,
                   dueDate: nextDueDate,
-                  expectedAmount: null,
+                  expectedAmount: input.finalAmount,
                   recurring: true,
                   status: 'pending',
                   paidExpenseId: null,
+                  paidAt: null,
                   createdAt,
                 }),
                 due_date: toFirestorePendienteDate(nextDueDate),
@@ -1043,6 +1052,7 @@ export function createFirestoreHouseholdsDb(
                 ...current,
                 status: 'paid' as const,
                 paidExpenseId: expenseRef.id,
+                paidAt: input.paymentDate,
               },
               nextPendiente:
                 nextDueDate === null
@@ -1053,10 +1063,11 @@ export function createFirestoreHouseholdsDb(
                       categoryId: current.categoryId,
                       name: current.name,
                       dueDate: nextDueDate,
-                      expectedAmount: null,
+                      expectedAmount: input.finalAmount,
                       recurring: true,
                       status: 'pending' as const,
                       paidExpenseId: null,
+                      paidAt: null,
                       createdAt,
                     },
               expense: {
@@ -1069,6 +1080,7 @@ export function createFirestoreHouseholdsDb(
                 price: input.finalAmount,
                 comments: '',
                 expenseDate: input.paymentDate,
+                pendienteId: input.pendienteId,
                 createdAt,
               },
             }

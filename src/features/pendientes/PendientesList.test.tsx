@@ -135,6 +135,35 @@ describe('PendientesList', () => {
     expect(rows[2]).not.toHaveTextContent('$')
   })
 
+  it('shows a placeholder amount for a recurring pendiente with no expected amount yet', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const comidaId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Comida',
+    })
+    await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: comidaId,
+      name: 'Gimnasio',
+      dueDate: new Date(2026, 8, 5),
+      expectedAmount: null,
+      recurring: true,
+    })
+
+    renderWithProviders(<PendientesList db={db} householdId={household.id} />)
+
+    const row = await screen.findByText('Gimnasio')
+    expect(row.closest('li')).toHaveTextContent('$ --,--')
+  })
+
   it('does not show a manually-seeded paid pendiente in the same household', async () => {
     const store = createMemoryHouseholdsDb()
     const db = store.asUser('user-1')
@@ -167,6 +196,7 @@ describe('PendientesList', () => {
       recurring: false,
       status: 'paid',
       paidExpenseId: 'expense-1',
+      paidAt: new Date(),
       createdAt: new Date(),
     }
     store.seedPendiente(paidPendiente)
@@ -231,14 +261,19 @@ describe('PendientesList', () => {
     renderWithProviders(
       <>
         <PendientesList db={db} householdId={household.id} />
-        <AddPendienteSheetHarness db={db} householdId={household.id} />
+        <AddPendienteSheetHarness
+          db={db}
+          householdId={household.id}
+          memberId="user-1"
+          authorDisplayName="Ada"
+        />
       </>,
       { queryClient },
     )
 
     expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Nuevo pendiente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo recurrente' }))
     await screen.findByLabelText('Nombre')
 
     fireEvent.change(screen.getByLabelText('Nombre'), {
@@ -253,7 +288,7 @@ describe('PendientesList', () => {
     fireEvent.change(screen.getByLabelText('Monto esperado'), {
       target: { value: '500' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Agregar pendiente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar recurrente' }))
 
     await waitFor(() => {
       expect(screen.getByText('Alquiler')).toBeInTheDocument()
@@ -390,7 +425,7 @@ describe('PendientesList', () => {
     fireEvent.click(payButton)
 
     expect(onMarkPaid).toHaveBeenCalledTimes(1)
-    expect(onMarkPaid).toHaveBeenCalledWith(pendiente)
+    expect(onMarkPaid).toHaveBeenCalledWith(pendiente, 'Comida')
     expect(onEditPendiente).not.toHaveBeenCalled()
   })
 
@@ -479,7 +514,7 @@ describe('PendientesList', () => {
     fireEvent.click(payButton)
 
     expect(onMarkPaid).toHaveBeenCalledTimes(1)
-    expect(onMarkPaid).toHaveBeenCalledWith(pendiente)
+    expect(onMarkPaid).toHaveBeenCalledWith(pendiente, 'Comida')
   })
 
   // The name, the amount and "Pagar" used to share one line, which at 375px

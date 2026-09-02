@@ -404,6 +404,7 @@ describe('household member access', () => {
         householdId: household.id,
         userId: 'user-1',
         joinedAt: expect.any(Date),
+        displayName: 'Miembro',
       },
     ])
   })
@@ -423,6 +424,7 @@ describe('getMembership', () => {
       householdId: household.id,
       userId: 'user-1',
       joinedAt: expect.any(Date),
+      displayName: 'Miembro',
     })
   })
 
@@ -606,6 +608,7 @@ describe('joinHousehold', () => {
       householdId: household.id,
       userId: 'user-2',
       joinedAt: expect.any(Date),
+      displayName: 'Miembro',
     })
     await expect(
       listHouseholdMembers({ db: joinerDb, householdId: household.id }),
@@ -615,11 +618,13 @@ describe('joinHousehold', () => {
           householdId: household.id,
           userId: 'user-1',
           joinedAt: expect.any(Date),
+          displayName: 'Miembro',
         },
         {
           householdId: household.id,
           userId: 'user-2',
           joinedAt: expect.any(Date),
+          displayName: 'Miembro',
         },
       ]),
     )
@@ -651,6 +656,7 @@ describe('joinHousehold', () => {
         householdId: household.id,
         userId: 'user-1',
         joinedAt: expect.any(Date),
+        displayName: 'Miembro',
       },
     ])
   })
@@ -691,6 +697,7 @@ describe('joinHousehold', () => {
         householdId: household.id,
         userId: 'user-1',
         joinedAt: expect.any(Date),
+        displayName: 'Miembro',
       },
     ])
   })
@@ -757,6 +764,7 @@ describe('joinHousehold', () => {
         householdId: household.id,
         userId: 'user-1',
         joinedAt: expect.any(Date),
+        displayName: 'Miembro',
       },
     ])
   })
@@ -827,6 +835,7 @@ describe('joinHousehold', () => {
         householdId: household.id,
         userId: 'user-1',
         joinedAt: expect.any(Date),
+        displayName: 'Miembro',
       },
     ])
   })
@@ -868,6 +877,7 @@ describe('joinHousehold', () => {
         householdId: founded.id,
         userId: 'user-3',
         joinedAt: expect.any(Date),
+        displayName: 'Miembro',
       },
     ])
   })
@@ -921,6 +931,7 @@ describe('leaveHousehold', () => {
         householdId: household.id,
         userId: 'user-2',
         joinedAt: expect.any(Date),
+        displayName: 'Miembro',
       },
     ])
 
@@ -934,7 +945,9 @@ describe('leaveHousehold', () => {
 
     await expect(
       getHousehold({ db: leaverDb, householdId: household.id }),
-    ).rejects.toThrow('Solo los integrantes del hogar pueden acceder a este hogar')
+    ).rejects.toThrow(
+      'Solo los integrantes del hogar pueden acceder a este hogar',
+    )
   })
 
   it('does not delete the household when the last member leaves', async () => {
@@ -951,7 +964,9 @@ describe('leaveHousehold', () => {
 
     await expect(
       getHousehold({ db: store.asUser('user-2'), householdId: household.id }),
-    ).rejects.toThrow('Solo los integrantes del hogar pueden acceder a este hogar')
+    ).rejects.toThrow(
+      'Solo los integrantes del hogar pueden acceder a este hogar',
+    )
 
     store.addMember({ userId: 'user-2', householdId: household.id })
 

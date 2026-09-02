@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { createFirestoreHouseholdsDb } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
+import { authorDisplayNameFromAuth } from '@/lib/displayName'
 import { useFirebase } from '@/lib/firebaseContext'
 import { AuthHero } from './AuthHero'
 import { finalizeHouseholdSignup } from './finalizeHouseholdSignup'
@@ -13,6 +14,7 @@ import { useHouseholdDraft } from './HouseholdDraftContext'
 import { markReturningUser } from './returningUserStorage'
 import { createFirebaseSignupAuth } from './signupAuth'
 import type { SignupAuth } from './signupAuth'
+import { AlertMessage } from '@/components/ui/alert-message'
 
 export type SignupFormMode = 'signup' | 'login'
 
@@ -91,6 +93,7 @@ export function SignupForm({
           db,
           userId,
           draft,
+          displayName: authorDisplayNameFromAuth(firebase.auth?.currentUser),
         })
         if (household === null) {
           setError('No se pudo guardar el hogar')
@@ -172,11 +175,7 @@ export function SignupForm({
             </div>
           </div>
 
-          {error !== null ? (
-            <p role="alert" className="text-sm font-medium">
-              {error}
-            </p>
-          ) : null}
+          {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
 
           <Button type="submit" disabled={pending} className="w-full">
             {submitLabel}

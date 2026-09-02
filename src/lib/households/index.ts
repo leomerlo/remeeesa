@@ -30,6 +30,7 @@ export {
   NotSignedInError,
   updateHousehold,
   updateHouseholdBudget,
+  updateMemberDisplayName,
 } from './households'
 export { parseHouseholdName, parseMonthlyBudget } from './validate'
 export { useHouseholdMembership } from './useHouseholdMembership'

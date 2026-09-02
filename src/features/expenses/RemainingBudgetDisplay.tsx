@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
+import { Skeleton } from '@/components/ui/skeleton'
 import { householdQueryKey } from '@/features/household'
 import {
   computePercentUsed,
@@ -17,36 +18,61 @@ import { expensesInMonthQueryKey } from './queryKeys'
 export type RemainingBudgetDisplayProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
+  // Defaults to the current month. MonthNavigator passes the month it's
+  // paging through instead -- this card has no month-picking UI of its own,
+  // it just renders whatever range it's given.
+  readonly monthStart?: Date
+  readonly monthEnd?: Date
 }
 
 export function RemainingBudgetDisplay({
   db,
   householdId,
+  monthStart: monthStartProp,
+  monthEnd: monthEndProp,
 }: RemainingBudgetDisplayProps): ReactElement {
   const householdQuery = useQuery({
     queryKey: householdQueryKey({ householdId }),
     queryFn: () => getHousehold({ db, householdId }),
   })
-  const monthRange = useMemo(() => currentMonthRange(), [])
+  const defaultRange = useMemo(() => currentMonthRange(), [])
+  const monthStart = monthStartProp ?? defaultRange.monthStart
+  const monthEnd = monthEndProp ?? defaultRange.monthEnd
+  // The query key changes with the viewed month, so paging keeps each
+  // month's expenses cached under its own entry instead of refetching the
+  // same month every time it's revisited.
   const expensesQuery = useQuery({
-    queryKey: expensesInMonthQueryKey({ householdId }),
+    queryKey: [
+      ...expensesInMonthQueryKey({ householdId }),
+      monthStart.getTime(),
+    ],
     queryFn: () =>
       listExpensesInMonth({
         db,
         householdId,
-        monthStart: monthRange.monthStart,
-        monthEnd: monthRange.monthEnd,
+        monthStart,
+        monthEnd,
       }),
   })
   const household = householdQuery.data
   const expenses = expensesQuery.data
 
   if (household === undefined || expenses === undefined) {
+    // Flat rather than the eventual gradient: a pulsing grey bar over the
+    // bright purple would read as broken, not loading. The gradient (and
+    // the mascot) only appear once there's a real figure to show inside it.
     return (
-      <div className="bg-card shadow-resting flex w-full flex-col items-center gap-2 rounded-3xl p-8">
-        <p role="status" className="text-sm font-medium">
-          Cargando…
-        </p>
+      <div
+        role="status"
+        aria-label="Cargando…"
+        className="bg-card shadow-resting flex w-full flex-col gap-6 rounded-3xl p-6"
+      >
+        <span className="sr-only">Cargando…</span>
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-4 w-40" />
+          <Skeleton className="h-11 w-52" />
+        </div>
+        <Skeleton className="h-2 w-full rounded-full" />
       </div>
     )
   }
@@ -65,6 +91,10 @@ export function RemainingBudgetDisplay({
           page title again. */}
       <PiggyBankIllustration className="pointer-events-none absolute -top-14 -right-3 h-28 w-32" />
       <div className="flex flex-col gap-2 pr-16">
+        {/* No month label here -- MonthNavigator (Home's shared control
+            above both cards) is the one place that says which month is
+            being viewed now; repeating it on every card it renders was
+            three copies of the same sentence. */}
         <span className="text-primary-foreground text-body font-medium">
           Presupuesto restante
         </span>

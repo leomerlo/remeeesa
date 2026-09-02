@@ -84,6 +84,7 @@ function EditExpenseHarness(props: {
             categoryName,
             comments: expense.comments,
             expenseDate: expense.expenseDate,
+            memberId: expense.memberId,
           })
         }}
       />
@@ -148,7 +149,10 @@ describe('EditExpenseFlow', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
 
     expect(screen.getByLabelText('Nombre')).toHaveValue('Pizza')
-    expect(screen.getByLabelText('Precio')).toHaveValue('12.5')
+    // FormattedAmountInput displays with es-AR grouping/decimal ("12,5"),
+    // not the raw "12.5" the field's underlying (Number()-parseable) value
+    // actually holds.
+    expect(screen.getByLabelText('Precio')).toHaveValue('12,5')
     expect(screen.getByLabelText('Categoría')).toHaveValue('Comida')
     expect(screen.getByLabelText('Comentario')).toHaveValue('Friday dinner')
     expect(screen.getByLabelText('Fecha')).toHaveValue(
@@ -313,7 +317,9 @@ describe('EditExpenseFlow', () => {
     )
     await waitFor(() => {
       expect(screen.queryByText('Pizza')).not.toBeInTheDocument()
-      expect(screen.getByText('Todavía no hay gastos')).toBeInTheDocument()
+      expect(
+        screen.getByText('Todavía no hay gastos este mes'),
+      ).toBeInTheDocument()
     })
   })
 
@@ -325,6 +331,7 @@ describe('EditExpenseFlow', () => {
       userId: 'user-1',
       name: 'Casa Verde',
       monthlyBudget: 100,
+      displayName: 'Ada',
     })
     store.seedMembership({ userId: 'user-2', householdId: household.id })
     await seedCurrentMonthExpense({
@@ -415,7 +422,9 @@ describe('EditExpenseFlow', () => {
     await waitFor(() => {
       expect(screen.queryByText('Pizza')).not.toBeInTheDocument()
     })
-    expect(await screen.findByText('Todavía no hay gastos')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Todavía no hay gastos este mes'),
+    ).toBeInTheDocument()
     expect(
       screen.getByRole('status', { name: 'Presupuesto restante $100,00' }),
     ).toBeInTheDocument()
@@ -461,5 +470,60 @@ describe('EditExpenseFlow', () => {
       screen.getByRole('button', { name: 'Guardar cambios' }),
     ).toBeInTheDocument()
     expect(screen.getByText('Pizza')).toBeInTheDocument()
+  })
+
+  it('reassigns an expense to a different household member via the Autor picker', async () => {
+    const store = createMemoryHouseholdsDb()
+    const db = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+      displayName: 'Florencia',
+    })
+    store.seedMembership({
+      userId: 'user-2',
+      householdId: household.id,
+      displayName: 'Leo',
+    })
+    await seedCurrentMonthExpense({
+      db,
+      householdId: household.id,
+      name: 'Gimnasio',
+      price: 10,
+    })
+
+    renderWithProviders(
+      <EditExpenseHarness
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Florencia"
+      />,
+    )
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Editar Gimnasio' }),
+    )
+    const authorSelect = await screen.findByLabelText('Autor')
+    expect(authorSelect).toHaveValue('user-1')
+
+    fireEvent.change(authorSelect, { target: { value: 'user-2' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    await waitFor(async () => {
+      const [updated] = await listExpensesInMonth({
+        db,
+        householdId: household.id,
+        ...currentMonthRange(),
+      })
+      expect(updated).toEqual(
+        expect.objectContaining({
+          memberId: 'user-2',
+          authorDisplayName: 'Leo',
+        }),
+      )
+    })
   })
 })

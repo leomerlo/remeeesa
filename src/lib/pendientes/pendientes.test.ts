@@ -18,6 +18,7 @@ import {
   deletePendiente,
   getPendiente,
   listPendientes,
+  listPendientesForMonth,
   markPendientePaid,
   updatePendiente,
 } from './pendientes'
@@ -58,6 +59,7 @@ describe('createPendiente', () => {
       recurring: false,
       status: 'pending',
       paidExpenseId: null,
+      paidAt: null,
       createdAt: expect.any(Date),
     })
   })
@@ -510,6 +512,7 @@ describe('listPendientes', () => {
       recurring: false,
       status: 'paid',
       paidExpenseId: 'expense-1',
+      paidAt: new Date(),
       createdAt: new Date(),
     })
 
@@ -619,6 +622,119 @@ async function seedPendingPendiente(input?: {
   })
   return { db, household, comida, pendiente }
 }
+
+describe('listPendientesForMonth', () => {
+  it('includes every pending pendiente regardless of its due date', async () => {
+    const { db, household, comida } = await seedPendingPendiente()
+    // Overdue by a lot -- still pending, so still owed, regardless of the
+    // month being viewed.
+    await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Vieja factura',
+      dueDate: new Date(2026, 2, 1),
+      expectedAmount: 100,
+    })
+
+    const listed = await listPendientesForMonth({
+      db,
+      householdId: household.id,
+      monthStart: new Date(2026, 8, 1),
+      monthEnd: new Date(2026, 8, 30, 23, 59, 59, 999),
+    })
+
+    expect(listed.map((pendiente) => pendiente.name).sort()).toEqual(
+      ['Alquiler', 'Vieja factura'].sort(),
+    )
+  })
+
+  it('includes a pendiente paid within the given month', async () => {
+    const { db, household, pendiente } = await seedPendingPendiente()
+
+    await markPendientePaid({
+      db,
+      householdId: household.id,
+      pendienteId: pendiente.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 500,
+      paymentDate: new Date(2026, 7, 15),
+    })
+
+    const listed = await listPendientesForMonth({
+      db,
+      householdId: household.id,
+      monthStart: new Date(2026, 7, 1),
+      monthEnd: new Date(2026, 7, 31, 23, 59, 59, 999),
+    })
+
+    const paidEntry = listed.find((entry) => entry.id === pendiente.id)
+    expect(paidEntry).toBeDefined()
+    expect(paidEntry?.status).toBe('paid')
+  })
+
+  it('excludes a pendiente paid in a different month', async () => {
+    const { db, household, pendiente } = await seedPendingPendiente()
+
+    await markPendientePaid({
+      db,
+      householdId: household.id,
+      pendienteId: pendiente.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 500,
+      paymentDate: new Date(2026, 6, 15), // July, not August
+    })
+
+    const listed = await listPendientesForMonth({
+      db,
+      householdId: household.id,
+      monthStart: new Date(2026, 7, 1),
+      monthEnd: new Date(2026, 7, 31, 23, 59, 59, 999),
+    })
+
+    expect(listed.find((entry) => entry.id === pendiente.id)).toBeUndefined()
+  })
+
+  it('lists pending entries before paid-this-month entries', async () => {
+    const {
+      db,
+      household,
+      comida,
+      pendiente: paidSoon,
+    } = await seedPendingPendiente()
+    await markPendientePaid({
+      db,
+      householdId: household.id,
+      pendienteId: paidSoon.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 500,
+      paymentDate: new Date(2026, 7, 5),
+    })
+    const stillPending = await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Internet',
+      dueDate: new Date(2026, 8, 20),
+      expectedAmount: 300,
+    })
+
+    const listed = await listPendientesForMonth({
+      db,
+      householdId: household.id,
+      monthStart: new Date(2026, 7, 1),
+      monthEnd: new Date(2026, 7, 31, 23, 59, 59, 999),
+    })
+
+    expect(listed.map((entry) => entry.id)).toEqual([
+      stillPending.id,
+      paidSoon.id,
+    ])
+  })
+})
 
 describe('updatePendiente', () => {
   it('updates the name only, leaving other fields as stored', async () => {
@@ -973,6 +1089,7 @@ describe('updatePendiente', () => {
       recurring: false,
       status: 'paid',
       paidExpenseId: 'expense-1',
+      paidAt: new Date(),
       createdAt: new Date(),
     })
 
@@ -1152,6 +1269,7 @@ describe('deletePendiente', () => {
       recurring: false,
       status: 'paid',
       paidExpenseId: 'expense-1',
+      paidAt: new Date(),
       createdAt: new Date(),
     })
 
@@ -1307,6 +1425,7 @@ describe('markPendientePaid', () => {
 
     expect(paid.status).toBe('paid')
     expect(paid.paidExpenseId).toBe(expense.id)
+    expect(paid.paidAt).toEqual(paymentDate)
     expect(expense.categoryId).toBe(comida.id)
     expect(expense.price).toBe(480)
     expect(expense.expenseDate).toEqual(paymentDate)
@@ -1314,6 +1433,9 @@ describe('markPendientePaid', () => {
     expect(expense.authorDisplayName).toBe('Ada')
     expect(expense.comments).toBe('')
     expect(expense.name).toBe('Alquiler')
+    // Marks the Expense as a "servicio" (a bill paid through Pendientes),
+    // not a plain Gasto -- lets Histórico tell the two apart.
+    expect(expense.pendienteId).toBe(pendiente.id)
   })
 
   it('removes the pendiente from listPendientes once marked paid', async () => {
@@ -1652,7 +1774,25 @@ describe('markPendientePaid', () => {
     expect(nextPendiente?.dueDate).toEqual(new Date(2026, 9, 10))
   })
 
-  it('never carries the previous cycle expected amount over to the next cycle', async () => {
+  it('leaves the next cycle unpaid, with paidAt still null', async () => {
+    const { db, household, pendiente } = await seedPendingPendiente({
+      recurring: true,
+    })
+
+    const { nextPendiente } = await markPendientePaid({
+      db,
+      householdId: household.id,
+      pendienteId: pendiente.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 480,
+      paymentDate: new Date(2026, 7, 28),
+    })
+
+    expect(nextPendiente?.paidAt).toBeNull()
+  })
+
+  it('pre-fills the next cycle expected amount with the amount just paid, not the earlier estimate', async () => {
     const { db, household, pendiente } = await seedPendingPendiente({
       recurring: true,
       expectedAmount: 480,
@@ -1665,11 +1805,14 @@ describe('markPendientePaid', () => {
       pendienteId: pendiente.id,
       memberId: 'user-1',
       authorDisplayName: 'Ada',
-      finalAmount: 480,
+      // Paid a different amount than originally expected -- the next
+      // cycle should carry the real, just-paid figure, not the stale 480
+      // estimate from before.
+      finalAmount: 500,
       paymentDate: new Date(2026, 7, 28),
     })
 
-    expect(nextPendiente?.expectedAmount).toBeNull()
+    expect(nextPendiente?.expectedAmount).toBe(500)
   })
 
   it('leaves the next cycle as the only pending pendiente right after a recurring mark-paid', async () => {

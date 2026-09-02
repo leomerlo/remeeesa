@@ -117,6 +117,10 @@ function expectDraftFieldsWritten(input: {
     userId: input.userId,
     name: input.name,
     monthlyBudget: input.monthlyBudget,
+    // The test harness's firebase stub has no auth.currentUser, so the
+    // signup flow's displayName falls back to the same generic label a
+    // legacy membership doc parses to.
+    displayName: 'Miembro',
   })
   expect(input.writes).toHaveLength(1)
   const written = input.writes[0]
@@ -127,6 +131,7 @@ function expectDraftFieldsWritten(input: {
     householdId: written.household.id,
     userId: input.userId,
     joinedAt: expect.any(Date),
+    displayName: 'Miembro',
   })
 }
 

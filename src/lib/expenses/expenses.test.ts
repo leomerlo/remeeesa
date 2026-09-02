@@ -336,6 +336,7 @@ describe('createExpense', () => {
       price: 10.46,
       comments: 'Friday dinner',
       expenseDate,
+      pendienteId: null,
       createdAt: expect.any(Date),
     })
     expect(expense.id.length).toBeGreaterThan(0)
@@ -1529,6 +1530,48 @@ describe('updateExpense', () => {
     expect(redated.expenseDate).toEqual(new Date(2026, 7, 10))
     expect(redated.memberId).toBe(expense.memberId)
     expect(redated.authorDisplayName).toBe(expense.authorDisplayName)
+  })
+
+  it('reassigns the author to a different household member', async () => {
+    const store = createMemoryHouseholdsDb()
+    const { household, expense, editorDb } = await seedAugustExpense({ store })
+    store.seedMembership({
+      userId: 'user-2',
+      householdId: household.id,
+      displayName: 'Leo',
+    })
+
+    const reassigned = await updateExpense({
+      db: editorDb,
+      householdId: household.id,
+      expenseId: expense.id,
+      memberId: 'user-2',
+      authorDisplayName: 'Leo',
+      now: augustNow,
+    })
+
+    expect(reassigned.memberId).toBe('user-2')
+    expect(reassigned.authorDisplayName).toBe('Leo')
+    // Nothing else moved.
+    expect(reassigned.name).toBe(expense.name)
+    expect(reassigned.price).toBe(expense.price)
+    expect(reassigned.categoryId).toBe(expense.categoryId)
+  })
+
+  it('rejects a blank authorDisplayName when reassigning', async () => {
+    const store = createMemoryHouseholdsDb()
+    const { household, expense, editorDb } = await seedAugustExpense({ store })
+
+    await expect(
+      updateExpense({
+        db: editorDb,
+        householdId: household.id,
+        expenseId: expense.id,
+        memberId: 'user-2',
+        authorDisplayName: '   ',
+        now: augustNow,
+      }),
+    ).rejects.toThrow('El nombre del autor no puede estar vacío')
   })
 
   it('rejects empty name, non-positive price, and a future expense date', async () => {

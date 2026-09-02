@@ -1,19 +1,22 @@
 import { useEffect, useMemo, useState } from 'react'
+import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import type { ReactElement } from 'react'
 import { PageHeader } from '@/components/PageHeader'
 import {
   AddExpenseSheet,
+  AddGastoSheet,
+  MonthNavigator,
   RecentExpensesList,
-  RemainingBudgetDisplay,
 } from '@/features/expenses'
 import type { EditExpenseTarget } from '@/features/expenses/AddExpenseForm'
 import {
   AddPendienteSheet,
-  MarkPendientePaidSheet,
+  PendienteDueSoonBanner,
   PorPagarSection,
 } from '@/features/pendientes'
-import type { Pendiente } from '@/lib/pendientes'
+import type { EditPendienteTarget } from '@/features/pendientes/AddPendienteForm'
 import { LogoutButton } from '@/features/auth'
+import { currentMonthRange } from '@/lib/expenses'
 import { OnboardingForm } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
 import { markReturningUser } from '@/features/onboarding/returningUserStorage'
@@ -26,7 +29,6 @@ import {
 } from '@/lib/households'
 import type { Household, HouseholdMember, HouseholdsDb } from '@/lib/households'
 import { CategoryMiniSummary } from './CategoryMiniSummary'
-import { GastoVsPendienteHint } from './GastoVsPendienteHint'
 import { PersonMiniSummary } from './PersonMiniSummary'
 
 export type HomePageProps = {
@@ -61,11 +63,16 @@ export function HomePage({
   const [household, setHousehold] = useState<Household | null>(null)
   const [homeEpoch, setHomeEpoch] = useState(0)
   const [editExpense, setEditExpense] = useState<EditExpenseTarget | null>(null)
-  const [isAddExpenseSheetOpen, setIsAddExpenseSheetOpen] = useState(false)
-  const [isAddPendienteSheetOpen, setIsAddPendienteSheetOpen] = useState(false)
-  const [markPaidPendiente, setMarkPaidPendiente] = useState<Pendiente | null>(
-    null,
+  const [isAddGastoSheetOpen, setIsAddGastoSheetOpen] = useState(false)
+  const [editPendiente, setEditPendiente] =
+    useState<EditPendienteTarget | null>(null)
+  // Owned here (not inside MonthNavigator) so every month-scoped section on
+  // the page -- not just its own two budget cards -- moves together when
+  // the user pages to a different month.
+  const [viewedMonth, setViewedMonth] = useState(
+    () => currentMonthRange().monthStart,
   )
+  const { monthStart, monthEnd } = currentMonthRange(viewedMonth)
 
   useEffect(() => {
     if (currentUserIdProp !== undefined) {
@@ -138,11 +145,7 @@ export function HomePage({
   }, [currentUserId, db, homeEpoch])
 
   if (currentUserId === undefined) {
-    return (
-      <p role="status" className="text-sm font-medium">
-        Cargando…
-      </p>
-    )
+    return <LoadingIndicator />
   }
 
   if (currentUserId === null || membership === null) {
@@ -161,11 +164,7 @@ export function HomePage({
   }
 
   if (membership === undefined) {
-    return (
-      <p role="status" className="text-sm font-medium">
-        Cargando…
-      </p>
-    )
+    return <LoadingIndicator />
   }
 
   const authorDisplayName =
@@ -177,52 +176,80 @@ export function HomePage({
       {/* No settings shortcut here: Ajustes is already one tap away in the
           bottom nav, so a second icon-link to the same destination is
           redundant. */}
-      <PageHeader title={household?.name ?? 'Hogar'} />
-      <RemainingBudgetDisplay db={db} householdId={membership.householdId} />
-      <div className="flex w-full gap-3">
-        <AddExpenseSheet
-          open={isAddExpenseSheetOpen}
-          onOpenChange={setIsAddExpenseSheetOpen}
-          db={db}
-          householdId={membership.householdId}
-          memberId={currentUserId}
-          authorDisplayName={authorDisplayName}
-          editExpense={editExpense}
-          onEditFinished={() => {
-            setEditExpense(null)
-          }}
-        />
-        {editExpense === null ? (
-          <AddPendienteSheet
-            open={isAddPendienteSheetOpen}
-            onOpenChange={setIsAddPendienteSheetOpen}
-            db={db}
-            householdId={membership.householdId}
-            triggerClassName="flex-1"
-          />
-        ) : null}
-      </div>
-      <GastoVsPendienteHint />
-      <PorPagarSection
+      <PageHeader title={household?.name ?? 'Hogar'} gradient />
+      <PendienteDueSoonBanner db={db} householdId={membership.householdId} />
+      <MonthNavigator
         db={db}
         householdId={membership.householdId}
-        onMarkPaid={setMarkPaidPendiente}
+        viewedMonth={viewedMonth}
+        onViewedMonthChange={setViewedMonth}
       />
-      <MarkPendientePaidSheet
+      <AddGastoSheet
+        open={isAddGastoSheetOpen}
+        onOpenChange={setIsAddGastoSheetOpen}
         db={db}
         householdId={membership.householdId}
         memberId={currentUserId}
         authorDisplayName={authorDisplayName}
-        pendiente={markPaidPendiente}
-        onOpenChange={setMarkPaidPendiente}
+      />
+      {/* Both mounted purely to edit/mark-paid a row they were handed
+          (editExpense/editPendiente) -- adding goes through AddGastoSheet
+          above instead, so neither shows its own trigger here. */}
+      <AddExpenseSheet
+        open={false}
+        showTrigger={false}
+        onOpenChange={() => {}}
+        db={db}
+        householdId={membership.householdId}
+        memberId={currentUserId}
+        authorDisplayName={authorDisplayName}
+        editExpense={editExpense}
+        onEditFinished={() => {
+          setEditExpense(null)
+        }}
+      />
+      <AddPendienteSheet
+        open={false}
+        showTrigger={false}
+        onOpenChange={() => {}}
+        db={db}
+        householdId={membership.householdId}
+        memberId={currentUserId}
+        authorDisplayName={authorDisplayName}
+        editPendiente={editPendiente}
+        onEditFinished={() => {
+          setEditPendiente(null)
+        }}
+      />
+      <PorPagarSection
+        db={db}
+        householdId={membership.householdId}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+        onMarkPaid={(pendiente, categoryName) => {
+          // Opens the same edit sheet as tapping a row on /pendientes, with
+          // "Ya lo pagué" pre-checked -- one form for both editing and
+          // paying (this used to open a separate amount-only sheet).
+          setEditPendiente({
+            pendienteId: pendiente.id,
+            name: pendiente.name,
+            categoryName,
+            dueDate: pendiente.dueDate,
+            expectedAmount: pendiente.expectedAmount,
+            recurring: pendiente.recurring,
+            defaultMarkPaid: true,
+          })
+        }}
       />
       <div className="flex w-full flex-col gap-3">
         <h2 className="text-title font-semibold self-start">
-          Últimos movimientos
+          Últimos movimientos del mes
         </h2>
         <RecentExpensesList
           db={db}
           householdId={membership.householdId}
+          monthStart={monthStart}
+          monthEnd={monthEnd}
           onEditExpense={(expense, categoryName) => {
             setEditExpense({
               expenseId: expense.id,
@@ -231,12 +258,23 @@ export function HomePage({
               categoryName,
               comments: expense.comments,
               expenseDate: expense.expenseDate,
+              memberId: expense.memberId,
             })
           }}
         />
       </div>
-      <CategoryMiniSummary db={db} householdId={membership.householdId} />
-      <PersonMiniSummary db={db} householdId={membership.householdId} />
+      <CategoryMiniSummary
+        db={db}
+        householdId={membership.householdId}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />
+      <PersonMiniSummary
+        db={db}
+        householdId={membership.householdId}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />
     </div>
   )
 }

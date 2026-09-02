@@ -2,10 +2,33 @@ import { describe, expect, it } from 'vitest'
 import {
   computePercentUsed,
   computeRemainingBudget,
+  computeSpentThisMonth,
   currentMonthRange,
   formatBudgetAmount,
   formatCurrency,
 } from './remainingBudget'
+
+describe('computeSpentThisMonth', () => {
+  it('returns zero with no expenses', () => {
+    expect(computeSpentThisMonth([])).toBe(0)
+  })
+
+  it('sums every expense price', () => {
+    expect(
+      computeSpentThisMonth([{ price: 40 }, { price: 60 }, { price: 5 }]),
+    ).toBe(105)
+  })
+
+  // The exact figure computeRemainingBudget subtracts from the budget --
+  // the two cards on Home have to read off the same number, or "gastado" and
+  // "restante" could silently disagree.
+  it('is the same sum computeRemainingBudget subtracts from the budget', () => {
+    const expenses = [{ price: 40 }, { price: 60 }]
+    expect(computeRemainingBudget(100, expenses)).toBe(
+      100 - computeSpentThisMonth(expenses),
+    )
+  })
+})
 
 describe('formatCurrency', () => {
   it('always shows two decimals, es-AR style (comma decimal separator)', () => {

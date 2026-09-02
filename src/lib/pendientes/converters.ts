@@ -1,6 +1,7 @@
 import { Timestamp } from 'firebase/firestore'
 import {
   isRecord,
+  parseOptionalTimestamp,
   parseRequiredString,
   parseTimestamp,
 } from '@/lib/firestore/documentParsing'
@@ -61,6 +62,7 @@ export function parsePendienteDocument(input: {
     recurring,
     status,
     paid_expense_id,
+    paid_at,
     created_at,
   } = input.data
   if (typeof name !== 'string') {
@@ -77,6 +79,10 @@ export function parsePendienteDocument(input: {
     recurring: parseBoolean(recurring, 'recurring'),
     status: parsePendienteStatus(status),
     paidExpenseId: parseNullableString(paid_expense_id, 'paid_expense_id'),
+    // Missing (not just null) on any Pendiente doc written before this field
+    // existed -- treated the same as "never paid", matching every other
+    // field this session has widened with a legacy-doc fallback.
+    paidAt: parseOptionalTimestamp(paid_at, 'paid_at'),
     createdAt: parseTimestamp(created_at, 'created_at'),
   }
 }
@@ -90,6 +96,7 @@ export function pendienteToDocument(input: {
   readonly recurring: boolean
   readonly status: PendienteStatus
   readonly paidExpenseId: string | null
+  readonly paidAt: Date | null
   readonly createdAt: Date
 }): {
   readonly household_id: string
@@ -100,6 +107,7 @@ export function pendienteToDocument(input: {
   readonly recurring: boolean
   readonly status: PendienteStatus
   readonly paid_expense_id: string | null
+  readonly paid_at: Date | null
   readonly created_at: Date
 } {
   return {
@@ -111,6 +119,7 @@ export function pendienteToDocument(input: {
     recurring: input.recurring,
     status: input.status,
     paid_expense_id: input.paidExpenseId,
+    paid_at: input.paidAt,
     created_at: input.createdAt,
   }
 }

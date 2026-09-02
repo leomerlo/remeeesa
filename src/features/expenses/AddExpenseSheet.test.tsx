@@ -107,6 +107,7 @@ describe('AddExpenseSheet', () => {
       categoryName: 'Comida',
       comments: 'Friday dinner',
       expenseDate: currentMonthDate(15),
+      memberId: 'user-1',
     }
 
     renderWithProviders(
@@ -165,6 +166,7 @@ describe('AddExpenseSheet', () => {
       categoryName: 'Comida',
       comments: 'Friday dinner',
       expenseDate: currentMonthDate(15),
+      memberId: 'user-1',
     }
 
     renderWithProviders(
@@ -206,6 +208,7 @@ describe('AddExpenseSheet', () => {
       categoryName: 'Comida',
       comments: 'Friday dinner',
       expenseDate: currentMonthDate(15),
+      memberId: 'user-1',
     }
 
     renderWithProviders(
