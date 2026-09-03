@@ -28,3 +28,26 @@ export function isNextCycleAfterAPaidThisPeriod(
       normalize(other.name) === normalizedName,
   )
 }
+
+// The other side of the same pairing: true when a paid pendiente's own next
+// cycle is already sitting in the same list (already carrying the "Ya
+// pagaste este mes" badge via isNextCycleAfterAPaidThisPeriod above) --
+// showing both is the same bill twice under the same name and amount, which
+// reads as a duplicate rather than two months of one series. Per direct
+// feedback.
+export function isSupersededByNextCycle(
+  pendiente: Pendiente,
+  pendientesInView: readonly Pendiente[],
+): boolean {
+  if (pendiente.status !== 'paid') {
+    return false
+  }
+  const normalizedName = normalize(pendiente.name)
+  return pendientesInView.some(
+    (other) =>
+      other.id !== pendiente.id &&
+      other.status === 'pending' &&
+      other.recurring &&
+      normalize(other.name) === normalizedName,
+  )
+}

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { isNextCycleAfterAPaidThisPeriod } from './nextCycle'
+import {
+  isNextCycleAfterAPaidThisPeriod,
+  isSupersededByNextCycle,
+} from './nextCycle'
 import type { Pendiente } from './types'
 
 function pendiente(overrides: Partial<Pendiente>): Pendiente {
@@ -93,5 +96,51 @@ describe('isNextCycleAfterAPaidThisPeriod', () => {
     expect(
       isNextCycleAfterAPaidThisPeriod(nextCycle, [nextCycle, unrelatedPaid]),
     ).toBe(false)
+  })
+})
+
+describe('isSupersededByNextCycle', () => {
+  it('is true for a paid pendiente whose recurring next cycle is already in the same list', () => {
+    const paid = pendiente({
+      id: 'paid',
+      status: 'paid',
+      paidExpenseId: 'expense-1',
+      paidAt: new Date(2026, 8, 5),
+    })
+    const nextCycle = pendiente({ id: 'next', status: 'pending' })
+
+    expect(isSupersededByNextCycle(paid, [paid, nextCycle])).toBe(true)
+  })
+
+  it('is false for a paid pendiente with no next cycle in the list', () => {
+    const paid = pendiente({
+      id: 'paid',
+      status: 'paid',
+      paidExpenseId: 'expense-1',
+      paidAt: new Date(2026, 8, 5),
+    })
+
+    expect(isSupersededByNextCycle(paid, [paid])).toBe(false)
+  })
+
+  it('is false for a pending pendiente (only a paid one can be superseded)', () => {
+    const pending = pendiente({ id: 'pending' })
+    const otherPending = pendiente({ id: 'other', name: 'Gimnasio' })
+
+    expect(isSupersededByNextCycle(pending, [pending, otherPending])).toBe(
+      false,
+    )
+  })
+
+  it('is false when the pending sibling is not recurring', () => {
+    const paid = pendiente({
+      id: 'paid',
+      status: 'paid',
+      paidExpenseId: 'expense-1',
+      paidAt: new Date(2026, 8, 5),
+    })
+    const oneOffSibling = pendiente({ id: 'one-off', recurring: false })
+
+    expect(isSupersededByNextCycle(paid, [paid, oneOffSibling])).toBe(false)
   })
 })
