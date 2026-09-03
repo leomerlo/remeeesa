@@ -7,6 +7,7 @@ import {
   EXPENSE_HISTORY_PAGE_SIZE,
   formatCurrency,
   listCategories,
+  updateExpense,
 } from '@/lib/expenses'
 import {
   createHouseholdWithMembership,
@@ -390,6 +391,47 @@ describe('HistoricoPage', () => {
     expect(servicioRow).not.toBeNull()
     expect(gastoRow).not.toHaveTextContent('Servicio')
     expect(servicioRow).toHaveTextContent('Servicio')
+  })
+
+  // isService is the manual override for an Expense with no real Pendiente
+  // to link -- the only way to reclassify one that predates pendienteId.
+  it('also marks an expense manually flagged with isService as "Servicio", and includes it in the Servicios filter', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    const gasto = await seed({
+      db,
+      householdId,
+      categoryId,
+      name: 'Super',
+      date: new Date(2026, 7, 5),
+    })
+    const manualServicio = await seed({
+      db,
+      householdId,
+      categoryId,
+      name: 'Gimnasio',
+      date: new Date(2026, 7, 8),
+    })
+    await updateExpense({
+      db,
+      householdId,
+      expenseId: manualServicio.id,
+      isService: true,
+    })
+
+    renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+
+    const gastoRow = (
+      await screen.findByRole('button', { name: `Editar ${gasto.name}` })
+    ).closest('li')
+    const servicioRow = screen
+      .getByRole('button', { name: `Editar ${manualServicio.name}` })
+      .closest('li')
+    expect(gastoRow).not.toHaveTextContent('Servicio')
+    expect(servicioRow).toHaveTextContent('Servicio')
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Servicios' }))
+    expect(screen.queryByText('Super')).not.toBeInTheDocument()
+    expect(screen.getByText('Gimnasio')).toBeInTheDocument()
   })
 
   // Per direct feedback: no way to separate what the household pays as a

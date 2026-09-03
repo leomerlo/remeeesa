@@ -35,12 +35,20 @@ const HISTORY_FILTERS: readonly { value: HistoryFilter; label: string }[] = [
   { value: 'gasto', label: 'Gastos' },
 ]
 
+// An Expense reads as a "servicio" either because it was created by paying
+// a real Pendiente (pendienteId) or because someone manually tagged it that
+// way (isService) -- the only route available for an Expense that predates
+// pendienteId, or that was logged as a plain Gasto but should count as one.
+function isServicio(expense: Expense): boolean {
+  return expense.pendienteId !== null || expense.isService
+}
+
 function matchesFilter(expense: Expense, filter: HistoryFilter): boolean {
   if (filter === 'servicio') {
-    return expense.pendienteId !== null
+    return isServicio(expense)
   }
   if (filter === 'gasto') {
-    return expense.pendienteId === null
+    return !isServicio(expense)
   }
   return true
 }
@@ -124,10 +132,10 @@ function ExpenseRow({
         </div>
         <div className="text-muted-foreground flex flex-wrap items-center gap-x-1.5 text-xs">
           {/* "Servicio" marks an Expense created by paying a Pendiente
-              (a bill), so it reads apart from a plain Gasto logged
-              directly -- there was previously no way to tell them apart in
-              Histórico. */}
-          {expense.pendienteId !== null ? (
+              (a bill), or one manually tagged as such (isService), so it
+              reads apart from a plain Gasto logged directly -- there was
+              previously no way to tell them apart in Histórico. */}
+          {isServicio(expense) ? (
             <>
               <span className="bg-primary/10 text-primary rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
                 Servicio

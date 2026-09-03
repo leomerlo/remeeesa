@@ -625,6 +625,7 @@ export function createFirestoreHouseholdsDb(
               comments: input.comments,
               expenseDate: input.expenseDate,
               pendienteId: null,
+              isService: false,
               createdAt,
             }),
             expense_date: toFirestoreExpenseDate(input.expenseDate),
@@ -641,6 +642,7 @@ export function createFirestoreHouseholdsDb(
             comments: input.comments,
             expenseDate: input.expenseDate,
             pendienteId: null,
+            isService: false,
             createdAt,
           }
         },
@@ -767,6 +769,7 @@ export function createFirestoreHouseholdsDb(
             expense_date: toFirestoreExpenseDate(input.expenseDate),
             member_id: input.memberId,
             author_display_name: input.authorDisplayName,
+            is_service: input.isService,
           })
           return {
             ...current,
@@ -777,6 +780,7 @@ export function createFirestoreHouseholdsDb(
             expenseDate: input.expenseDate,
             memberId: input.memberId,
             authorDisplayName: input.authorDisplayName,
+            isService: input.isService,
           }
         },
         {
@@ -1008,6 +1012,7 @@ export function createFirestoreHouseholdsDb(
                 comments: '',
                 expenseDate: input.paymentDate,
                 pendienteId: input.pendienteId,
+                isService: false,
                 createdAt,
               }),
               expense_date: toFirestoreExpenseDate(input.paymentDate),
@@ -1081,6 +1086,7 @@ export function createFirestoreHouseholdsDb(
                 comments: '',
                 expenseDate: input.paymentDate,
                 pendienteId: input.pendienteId,
+                isService: false,
                 createdAt,
               },
             }

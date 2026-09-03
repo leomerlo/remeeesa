@@ -108,6 +108,8 @@ describe('AddExpenseSheet', () => {
       comments: 'Friday dinner',
       expenseDate: currentMonthDate(15),
       memberId: 'user-1',
+      pendienteId: null,
+      isService: false,
     }
 
     renderWithProviders(
@@ -167,6 +169,8 @@ describe('AddExpenseSheet', () => {
       comments: 'Friday dinner',
       expenseDate: currentMonthDate(15),
       memberId: 'user-1',
+      pendienteId: null,
+      isService: false,
     }
 
     renderWithProviders(
@@ -209,6 +213,8 @@ describe('AddExpenseSheet', () => {
       comments: 'Friday dinner',
       expenseDate: currentMonthDate(15),
       memberId: 'user-1',
+      pendienteId: null,
+      isService: false,
     }
 
     renderWithProviders(

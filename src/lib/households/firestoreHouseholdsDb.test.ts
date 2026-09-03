@@ -273,7 +273,7 @@ describe('firestore.rules expenses', () => {
   it('lets members create expenses attributed to themselves with price and date checks', () => {
     expect(rules).toContain('function isValidExpense(data)')
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'category_id', 'member_id', 'name', 'price', 'comments', 'expense_date', 'pendiente_id', 'created_at', 'author_display_name'])",
+      "data.keys().hasOnly(['household_id', 'category_id', 'member_id', 'name', 'price', 'comments', 'expense_date', 'pendiente_id', 'is_service', 'created_at', 'author_display_name'])",
     )
     expect(rules).toContain('data.price is number')
     expect(rules).toContain('data.price > 0')
@@ -318,7 +318,7 @@ describe('firestore.rules expenses', () => {
     expect(rules).not.toContain('request.time.month')
     expect(rules).not.toContain('request.time.day')
     expect(rules).toContain(
-      "hasOnly(['name', 'price', 'category_id', 'comments', 'expense_date', 'member_id', 'author_display_name'])",
+      "hasOnly(['name', 'price', 'category_id', 'comments', 'expense_date', 'member_id', 'author_display_name', 'is_service'])",
     )
     expect(rules).toMatch(
       /!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'created_at'\]\)/,

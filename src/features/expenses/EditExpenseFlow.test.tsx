@@ -11,6 +11,7 @@ import {
 import { createHouseholdWithMembership } from '@/lib/households'
 import type { Expense } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
+import { createPendiente, markPendientePaid } from '@/lib/pendientes'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { AddExpenseForm } from './AddExpenseForm'
@@ -85,6 +86,8 @@ function EditExpenseHarness(props: {
             comments: expense.comments,
             expenseDate: expense.expenseDate,
             memberId: expense.memberId,
+            pendienteId: expense.pendienteId,
+            isService: expense.isService,
           })
         }}
       />
@@ -525,5 +528,103 @@ describe('EditExpenseFlow', () => {
         }),
       )
     })
+  })
+
+  // isService is the only way to reclassify an Expense that predates
+  // pendienteId (or was logged as a plain Gasto that should have gone
+  // through Pendientes), since there's no real Pendiente to link it to.
+  it('lets a plain expense be manually flagged as a servicio via the toggle', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    await seedCurrentMonthExpense({
+      db,
+      householdId: household.id,
+      name: 'Gimnasio',
+      price: 10,
+    })
+
+    renderWithProviders(
+      <EditExpenseHarness
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
+    )
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Editar Gimnasio' }),
+    )
+    const toggle = await screen.findByLabelText('Marcar como servicio')
+    expect(toggle).not.toBeChecked()
+
+    fireEvent.click(toggle)
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    await waitFor(async () => {
+      const [updated] = await listExpensesInMonth({
+        db,
+        householdId: household.id,
+        ...currentMonthRange(),
+      })
+      expect(updated).toEqual(expect.objectContaining({ isService: true }))
+    })
+  })
+
+  // pendienteId already determines "servicio" on its own for an Expense
+  // created by paying a Pendiente -- the manual toggle would have nothing to
+  // change, so it isn't offered.
+  it('hides the servicio toggle for an expense already linked to a Pendiente', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories.find((category) => category.name === 'Comida')
+    if (comida === undefined) {
+      throw new Error('expected Comida category')
+    }
+    const pendiente = await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Internet',
+      dueDate: currentMonthDate(10),
+      expectedAmount: 5000,
+    })
+    await markPendientePaid({
+      db,
+      householdId: household.id,
+      pendienteId: pendiente.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 5000,
+      paymentDate: currentMonthDate(10),
+    })
+
+    renderWithProviders(
+      <EditExpenseHarness
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
+    )
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Editar Internet' }),
+    )
+    expect(await screen.findByLabelText('Nombre')).toHaveValue('Internet')
+    expect(
+      screen.queryByLabelText('Marcar como servicio'),
+    ).not.toBeInTheDocument()
   })
 })

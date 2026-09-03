@@ -149,6 +149,7 @@ describe('parseExpenseDocument', () => {
       comments: 'Friday',
       expenseDate: new Date('2026-08-15T00:00:00.000Z'),
       pendienteId: null,
+      isService: false,
       createdAt: new Date('2026-08-16T12:00:00.000Z'),
     })
   })
@@ -243,6 +244,7 @@ describe('toDocument converters', () => {
         comments: 'Friday',
         expenseDate,
         pendienteId: null,
+        isService: false,
         createdAt,
       }),
     ).toEqual({
@@ -255,6 +257,7 @@ describe('toDocument converters', () => {
       comments: 'Friday',
       expense_date: expenseDate,
       pendiente_id: null,
+      is_service: false,
       created_at: createdAt,
     })
   })
