@@ -73,7 +73,7 @@ export function AddCategoryForm({
     <form onSubmit={handleSubmit} className="flex h-full min-h-0 flex-col">
       {/* Only this part scrolls -- the submit button below stays pinned at
           the bottom of the sheet regardless of field-list height. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain">
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto overscroll-contain">
         <div className="flex flex-col gap-2">
           <Label htmlFor="new-category-name">Nombre</Label>
           <Input

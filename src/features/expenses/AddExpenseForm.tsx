@@ -353,7 +353,7 @@ function ExpenseFormBody({
       {/* Only this part scrolls -- the action buttons below stay pinned at
           the bottom of the sheet regardless of how tall the field list
           gets, so Guardar/Agregar never requires scrolling to reach. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain">
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto overscroll-contain">
         {/* The Sheet's title is visually hidden (it exists for the dialog's
             accessible name), which left the sheet opening onto a bare "Nombre"
             field with nothing saying what it was. */}
