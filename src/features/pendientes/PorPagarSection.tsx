@@ -37,12 +37,12 @@ export type PorPagarSectionProps = {
 const HOME_PREVIEW_LIMIT = 5
 
 // Home's "Cuentas por pagar": every currently-pending Pendiente plus
-// whichever ones were paid this month, as a vertical list matching
-// RecentExpensesList's row style (per direct feedback -- this used to be a
-// horizontally-scrolling carousel). A pending row's whole card is a single
-// tap target into the mark-paid flow, same as before; a paid row is
-// display-only, marked with a check badge and "Pagado" instead of a due
-// date -- there's nothing left to do with it here.
+// whichever ones were paid this month, as a 2-column grid of square cards
+// (per direct feedback -- this used to be a vertical list of rows, and
+// before that a horizontally-scrolling carousel). A pending card's whole
+// area is a single tap target into the mark-paid flow, same as before; a
+// paid card is display-only, marked with a check badge and "Pagado" instead
+// of a due date -- there's nothing left to do with it here.
 //
 // Reads the same pendientesQueryKey prefix every other Pendiente view reads
 // (suffixed with the viewed month's timestamp, same convention as
@@ -82,16 +82,16 @@ export function PorPagarSection({
         <div
           role="status"
           aria-label="Cargando…"
-          className="mt-3 flex w-full flex-col gap-3"
+          className="mt-3 grid w-full grid-cols-2 gap-3"
         >
           <span className="sr-only">Cargando…</span>
-          {[0, 1].map((i) => (
+          {[0, 1, 2, 3].map((i) => (
             <div
               key={i}
-              className="bg-card shadow-resting flex w-full items-center gap-3 rounded-2xl p-4"
+              className="bg-card shadow-resting flex aspect-square w-full flex-col gap-2 rounded-2xl p-4"
             >
               <Skeleton className="size-11 shrink-0 rounded-full" />
-              <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <div className="mt-auto flex flex-col gap-2">
                 <Skeleton className="h-4 w-2/3" />
                 <Skeleton className="h-3 w-1/3" />
               </div>
@@ -153,7 +153,7 @@ export function PorPagarSection({
       </div>
       <ul
         aria-label="Pendientes por pagar"
-        className="mt-3 flex w-full flex-col gap-3 text-sm"
+        className="mt-3 grid w-full grid-cols-2 gap-3 text-sm"
       >
         {preview.map((pendiente) => {
           const category = categoryById.get(pendiente.categoryId)
@@ -185,7 +185,7 @@ export function PorPagarSection({
               </span>
             ) : null
 
-          const rowContent = (
+          const cardContent = (
             <>
               <span
                 aria-hidden="true"
@@ -205,21 +205,19 @@ export function PorPagarSection({
                   />
                 )}
               </span>
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="truncate text-foreground font-medium">
-                    {pendiente.name}
-                  </span>
-                  {amount}
-                </div>
+              {/* Icon pinned to the top, name/amount/meta pinned to the
+                  bottom -- the square aspect ratio leaves variable space
+                  between them depending on how much text wraps. */}
+              <div className="mt-auto flex min-w-0 flex-col gap-0.5">
+                <span className="line-clamp-2 text-foreground font-medium">
+                  {pendiente.name}
+                </span>
+                {amount}
                 <div className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
                   {isNextCycle ? (
-                    <>
-                      <span className="bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
-                        Ya pagaste este mes
-                      </span>
-                      <span aria-hidden="true">·</span>
-                    </>
+                    <span className="bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
+                      Ya pagaste este mes
+                    </span>
                   ) : null}
                   <span>{categoryName}</span>
                   <span aria-hidden="true">·</span>
@@ -236,19 +234,19 @@ export function PorPagarSection({
           return (
             <li key={pendiente.id}>
               {isPaid ? (
-                <div className="bg-card shadow-resting flex w-full items-center gap-3 rounded-2xl p-4 opacity-70">
-                  {rowContent}
+                <div className="bg-card shadow-resting flex aspect-square w-full flex-col gap-2 rounded-2xl p-4 opacity-70">
+                  {cardContent}
                 </div>
               ) : (
                 <button
                   type="button"
                   aria-label={`Marcar pagado ${pendiente.name}`}
-                  className="bg-card shadow-resting flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
+                  className="bg-card shadow-resting flex aspect-square w-full flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
                   onClick={() => {
                     onMarkPaid(pendiente, categoryName)
                   }}
                 >
-                  {rowContent}
+                  {cardContent}
                 </button>
               )}
             </li>
