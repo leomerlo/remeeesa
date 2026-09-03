@@ -1,8 +1,10 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { AlertMessage } from '@/components/ui/alert-message'
+import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 import { membersQueryKey } from '@/features/household'
 import {
   formatCurrency,
@@ -23,6 +25,24 @@ export type ExpenseHistoryProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly onEditExpense?: (expense: Expense, categoryName: string) => void
+}
+
+type HistoryFilter = 'all' | 'servicio' | 'gasto'
+
+const HISTORY_FILTERS: readonly { value: HistoryFilter; label: string }[] = [
+  { value: 'all', label: 'Todos' },
+  { value: 'servicio', label: 'Servicios' },
+  { value: 'gasto', label: 'Gastos' },
+]
+
+function matchesFilter(expense: Expense, filter: HistoryFilter): boolean {
+  if (filter === 'servicio') {
+    return expense.pendienteId !== null
+  }
+  if (filter === 'gasto') {
+    return expense.pendienteId === null
+  }
+  return true
 }
 
 type MonthGroup = {
@@ -182,6 +202,7 @@ export function ExpenseHistory({
     queryKey: membersQueryKey({ householdId }),
     queryFn: () => listHouseholdMembers({ db, householdId }),
   })
+  const [filter, setFilter] = useState<HistoryFilter>('all')
 
   if (historyQuery.isPending || membersQuery.isPending) {
     return (
@@ -242,10 +263,53 @@ export function ExpenseHistory({
   const memberById = new Map<string, HouseholdMember>(
     membersQuery.data.map((member) => [member.userId, member]),
   )
-  const monthGroups = groupByMonth(expenses)
+  // Filtered client-side against whatever pages are already loaded, not a
+  // separate query -- this app's data volume doesn't warrant a second
+  // server-side query path, and "Cargar más" already exists to pull in more
+  // if the current filter comes up short.
+  const filteredExpenses = expenses.filter((expense) =>
+    matchesFilter(expense, filter),
+  )
+  const monthGroups = groupByMonth(filteredExpenses)
 
   return (
     <div className="flex w-full flex-col gap-6">
+      {/* Per direct feedback: no way to separate what a household pays as a
+          recurring bill (Servicio) from a one-off, in-the-moment purchase
+          (Gasto) -- each month's total below already updates for whichever
+          is selected, since it's computed from the filtered list. */}
+      <div
+        role="tablist"
+        aria-label="Filtrar histórico"
+        className="flex w-full gap-2"
+      >
+        {HISTORY_FILTERS.map(({ value, label }) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            aria-selected={filter === value}
+            onClick={() => {
+              setFilter(value)
+            }}
+            className={cn(
+              'h-9 flex-1 rounded-full text-sm font-medium transition-colors',
+              filter === value
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground',
+            )}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {monthGroups.length === 0 ? (
+        <p role="status" className="text-sm font-medium">
+          {filter === 'servicio'
+            ? 'No hay servicios en tu histórico'
+            : 'No hay gastos sueltos en tu histórico'}
+        </p>
+      ) : null}
       {monthGroups.map((group, index) => {
         // Every group except possibly the last is guaranteed complete: pages
         // arrive strictly newest-first, so once a *different* month's row
