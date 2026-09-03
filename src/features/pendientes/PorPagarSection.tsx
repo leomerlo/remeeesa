@@ -4,7 +4,11 @@ import type { ReactElement } from 'react'
 import { Check } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Skeleton } from '@/components/ui/skeleton'
-import { listPendientesForMonth } from '@/lib/pendientes'
+import {
+  isNextCycleAfterAPaidThisPeriod,
+  isSupersededByNextCycle,
+  listPendientesForMonth,
+} from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import {
   currentMonthRange,
@@ -107,9 +111,19 @@ export function PorPagarSection({
 
   const { pendientes, categories } = pendientesQuery.data
 
+  // A paid pendiente whose next cycle is already in this same list is
+  // redundant with that next cycle's own "Ya pagaste este mes" badge --
+  // showing both reads as the same bill duplicated, not two months of one
+  // series. Per direct feedback. The lookup below still checks against the
+  // full `pendientes` array (not this filtered one), since that's what the
+  // badge match needs to find.
+  const visiblePendientes = pendientes.filter(
+    (pendiente) => !isSupersededByNextCycle(pendiente, pendientes),
+  )
+
   // Nothing pending and nothing paid this month: render nothing at all, not
   // an empty box.
-  if (pendientes.length === 0) {
+  if (visiblePendientes.length === 0) {
     return null
   }
 
@@ -119,8 +133,8 @@ export function PorPagarSection({
   // listPendientesForMonth already returns pending (soonest-due-first) ahead
   // of paid-this-month (most-recently-paid-first), so this is a plain head
   // slice, not a re-sort.
-  const preview = pendientes.slice(0, HOME_PREVIEW_LIMIT)
-  const hasOverflow = pendientes.length > HOME_PREVIEW_LIMIT
+  const preview = visiblePendientes.slice(0, HOME_PREVIEW_LIMIT)
+  const hasOverflow = visiblePendientes.length > HOME_PREVIEW_LIMIT
 
   return (
     <section aria-labelledby="por-pagar-heading" className="w-full">
@@ -148,6 +162,14 @@ export function PorPagarSection({
             category?.color ?? colorForCategoryName(categoryName)
           const CategoryIcon = iconForCategoryName(categoryName)
           const isPaid = pendiente.status === 'paid'
+          // A recurring pendiente's next cycle is a brand-new row with no
+          // link back to the one just paid -- without this, "Gimnasio" due
+          // next month reads as an outstanding debt due *now*, when this
+          // month's was already settled. Per direct feedback.
+          const isNextCycle = isNextCycleAfterAPaidThisPeriod(
+            pendiente,
+            pendientes,
+          )
 
           const amount =
             pendiente.expectedAmount !== null ? (
@@ -190,7 +212,15 @@ export function PorPagarSection({
                   </span>
                   {amount}
                 </div>
-                <div className="flex flex-wrap gap-x-1.5 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+                  {isNextCycle ? (
+                    <>
+                      <span className="bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
+                        Ya pagaste este mes
+                      </span>
+                      <span aria-hidden="true">·</span>
+                    </>
+                  ) : null}
                   <span>{categoryName}</span>
                   <span aria-hidden="true">·</span>
                   {isPaid ? (

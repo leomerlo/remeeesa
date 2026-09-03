@@ -273,7 +273,7 @@ describe('firestore.rules expenses', () => {
   it('lets members create expenses attributed to themselves with price and date checks', () => {
     expect(rules).toContain('function isValidExpense(data)')
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'category_id', 'member_id', 'name', 'price', 'comments', 'expense_date', 'pendiente_id', 'created_at', 'author_display_name'])",
+      "data.keys().hasOnly(['household_id', 'category_id', 'member_id', 'name', 'price', 'comments', 'expense_date', 'pendiente_id', 'is_service', 'created_at', 'author_display_name'])",
     )
     expect(rules).toContain('data.price is number')
     expect(rules).toContain('data.price > 0')
@@ -318,7 +318,7 @@ describe('firestore.rules expenses', () => {
     expect(rules).not.toContain('request.time.month')
     expect(rules).not.toContain('request.time.day')
     expect(rules).toContain(
-      "hasOnly(['name', 'price', 'category_id', 'comments', 'expense_date', 'member_id', 'author_display_name'])",
+      "hasOnly(['name', 'price', 'category_id', 'comments', 'expense_date', 'member_id', 'author_display_name', 'is_service'])",
     )
     expect(rules).toMatch(
       /!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'created_at'\]\)/,
@@ -444,6 +444,16 @@ describe('firestore.rules pendientes mark-paid', () => {
     )
     expect(rules).toMatch(
       /function isValidPendienteMarkPaid\(\) \{[\s\S]*?request\.resource\.data\.paid_at is timestamp/,
+    )
+  })
+
+  // Regression: a Pendiente written before paid_at existed has no such key
+  // at all, not just a null value -- resource.data.paid_at == null alone
+  // errors (rather than reading as null) on a document missing the key,
+  // denying every mark-paid attempt on any pre-existing Pendiente.
+  it('tolerates a Pendiente doc with no paid_at key at all, not just a null one', () => {
+    expect(rules).toMatch(
+      /function isValidPendienteMarkPaid\(\) \{[\s\S]*?!\('paid_at' in resource\.data\) \|\| resource\.data\.paid_at == null/,
     )
   })
 

@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { createPendiente, markPendientePaid } from '@/lib/pendientes'
 import { listCategories } from '@/lib/expenses'
@@ -38,9 +38,11 @@ describe('PendienteDueSoonBanner', () => {
       <PendienteDueSoonBanner db={db} householdId={household.id} />,
     )
 
-    // No skeleton, no empty-state card -- just nothing, and nothing to wait
-    // for since there is no loading state to resolve into content here.
-    await new Promise((resolve) => setTimeout(resolve, 0))
+    // Skeleton first (while the query is pending), then nothing at all --
+    // no empty-state card either.
+    await waitFor(() => {
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
     expect(container).toBeEmptyDOMElement()
   })
 
@@ -73,7 +75,9 @@ describe('PendienteDueSoonBanner', () => {
         <PendienteDueSoonBanner db={db} householdId={household.id} />,
       )
 
-      await new Promise((resolve) => setTimeout(resolve, 0))
+      await waitFor(() => {
+        expect(screen.queryByRole('status')).not.toBeInTheDocument()
+      })
       expect(
         screen.queryByText('Vencimientos que se acercan'),
       ).not.toBeInTheDocument()
@@ -157,6 +161,88 @@ describe('PendienteDueSoonBanner', () => {
       expect(screen.queryByText('Gas')).not.toBeInTheDocument()
       expect(screen.queryByText('Seguro anual')).not.toBeInTheDocument()
       expect(soon.name).toBe('Internet')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('shows one dot per upcoming vencimiento, the first marked active, and none at all for a single one', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date(2026, 8, 10))
+      const db = createMemoryHouseholdsDb().asUser('user-1')
+      const household = await createHouseholdWithMembership({
+        db,
+        userId: 'user-1',
+        name: 'Casa Verde',
+        monthlyBudget: 100,
+      })
+      const categoryId = await findCategoryId({
+        db,
+        householdId: household.id,
+        name: 'Comida',
+      })
+      await createPendiente({
+        db,
+        householdId: household.id,
+        categoryId,
+        name: 'Internet',
+        dueDate: new Date(2026, 8, 15),
+        expectedAmount: 5000,
+      })
+      await createPendiente({
+        db,
+        householdId: household.id,
+        categoryId,
+        name: 'Luz',
+        dueDate: new Date(2026, 8, 12),
+        expectedAmount: 3000,
+      })
+
+      renderWithProviders(
+        <PendienteDueSoonBanner db={db} householdId={household.id} />,
+      )
+
+      const dots = await screen.findAllByRole('tab')
+      expect(dots).toHaveLength(2)
+      expect(dots[0]).toHaveAttribute('aria-selected', 'true')
+      expect(dots[1]).toHaveAttribute('aria-selected', 'false')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not show dots when there is only one vencimiento to page through', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date(2026, 8, 10))
+      const db = createMemoryHouseholdsDb().asUser('user-1')
+      const household = await createHouseholdWithMembership({
+        db,
+        userId: 'user-1',
+        name: 'Casa Verde',
+        monthlyBudget: 100,
+      })
+      const categoryId = await findCategoryId({
+        db,
+        householdId: household.id,
+        name: 'Comida',
+      })
+      await createPendiente({
+        db,
+        householdId: household.id,
+        categoryId,
+        name: 'Internet',
+        dueDate: new Date(2026, 8, 15),
+        expectedAmount: 5000,
+      })
+
+      renderWithProviders(
+        <PendienteDueSoonBanner db={db} householdId={household.id} />,
+      )
+
+      await screen.findByText('Internet')
+      expect(screen.queryByRole('tab')).not.toBeInTheDocument()
     } finally {
       vi.useRealTimers()
     }

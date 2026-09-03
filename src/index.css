@@ -319,6 +319,7 @@
   --color-input: var(--border-primary);
   --color-ring: var(--border-focus);
   --color-error: var(--text-error);
+  --color-warning: var(--text-warning);
   --radius-2xl: var(--radius-20);
   --radius-3xl: var(--radius-24);
 }

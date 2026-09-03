@@ -7,6 +7,7 @@ import {
   EXPENSE_HISTORY_PAGE_SIZE,
   formatCurrency,
   listCategories,
+  updateExpense,
 } from '@/lib/expenses'
 import {
   createHouseholdWithMembership,
@@ -390,5 +391,124 @@ describe('HistoricoPage', () => {
     expect(servicioRow).not.toBeNull()
     expect(gastoRow).not.toHaveTextContent('Servicio')
     expect(servicioRow).toHaveTextContent('Servicio')
+  })
+
+  // isService is the manual override for an Expense with no real Pendiente
+  // to link -- the only way to reclassify one that predates pendienteId.
+  it('also marks an expense manually flagged with isService as "Servicio", and includes it in the Servicios filter', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    const gasto = await seed({
+      db,
+      householdId,
+      categoryId,
+      name: 'Super',
+      date: new Date(2026, 7, 5),
+    })
+    const manualServicio = await seed({
+      db,
+      householdId,
+      categoryId,
+      name: 'Gimnasio',
+      date: new Date(2026, 7, 8),
+    })
+    await updateExpense({
+      db,
+      householdId,
+      expenseId: manualServicio.id,
+      isService: true,
+    })
+
+    renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+
+    const gastoRow = (
+      await screen.findByRole('button', { name: `Editar ${gasto.name}` })
+    ).closest('li')
+    const servicioRow = screen
+      .getByRole('button', { name: `Editar ${manualServicio.name}` })
+      .closest('li')
+    expect(gastoRow).not.toHaveTextContent('Servicio')
+    expect(servicioRow).toHaveTextContent('Servicio')
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Servicios' }))
+    expect(screen.queryByText('Super')).not.toBeInTheDocument()
+    expect(screen.getByText('Gimnasio')).toBeInTheDocument()
+  })
+
+  // Per direct feedback: no way to separate what the household pays as a
+  // recurring bill from a one-off, in-the-moment purchase.
+  it('filters between Servicios and Gastos, updating the month total to match', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    await seed({
+      db,
+      householdId,
+      categoryId,
+      name: 'Super',
+      date: new Date(2026, 7, 5),
+      price: 100,
+    })
+    const pendiente = await createPendiente({
+      db,
+      householdId,
+      categoryId,
+      name: 'Internet',
+      dueDate: new Date(2026, 7, 10),
+      expectedAmount: 5000,
+    })
+    await markPendientePaid({
+      db,
+      householdId,
+      pendienteId: pendiente.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 5000,
+      paymentDate: new Date(2026, 7, 10),
+    })
+
+    renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+
+    await screen.findByText('Super')
+    expect(screen.getByText('Internet')).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Agosto de 2026' }).parentElement,
+    ).toHaveTextContent(formatCurrency(5100))
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Servicios' }))
+    expect(screen.queryByText('Super')).not.toBeInTheDocument()
+    expect(screen.getByText('Internet')).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Agosto de 2026' }).parentElement,
+    ).toHaveTextContent(formatCurrency(5000))
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Gastos' }))
+    expect(screen.getByText('Super')).toBeInTheDocument()
+    expect(screen.queryByText('Internet')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: 'Agosto de 2026' }).parentElement,
+    ).toHaveTextContent(formatCurrency(100))
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Todos' }))
+    expect(screen.getByText('Super')).toBeInTheDocument()
+    expect(screen.getByText('Internet')).toBeInTheDocument()
+  })
+
+  it('shows a message instead of an empty list when a filter has nothing to show', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    await seed({
+      db,
+      householdId,
+      categoryId,
+      name: 'Super',
+      date: new Date(2026, 7, 5),
+    })
+
+    renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+
+    await screen.findByText('Super')
+    fireEvent.click(screen.getByRole('tab', { name: 'Servicios' }))
+
+    expect(
+      await screen.findByText('No hay servicios en tu histórico'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Super')).not.toBeInTheDocument()
   })
 })

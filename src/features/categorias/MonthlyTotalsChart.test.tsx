@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { createExpense, listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
@@ -80,16 +80,113 @@ describe('MonthlyTotalsChart', () => {
       expect(bars).toHaveLength(6)
       expect(bars[0]).toHaveTextContent('abr')
       expect(bars[5]).toHaveTextContent('sept')
+      // Each bar's own accessible name carries its exact total -- reachable
+      // by a screen reader on focus, without needing to tap anything.
       expect(
-        within(bars[3] as HTMLElement).getByText('$300,00'),
-      ).toBeInTheDocument() // July
+        within(bars[3] as HTMLElement).getByRole('button', {
+          name: 'jul: $300,00',
+        }),
+      ).toBeInTheDocument()
       expect(
-        within(bars[5] as HTMLElement).getByText('$120,00'),
-      ).toBeInTheDocument() // September
+        within(bars[5] as HTMLElement).getByRole('button', {
+          name: 'sept: $120,00',
+        }),
+      ).toBeInTheDocument()
       // Every other month had no spend at all.
       expect(
-        within(bars[0] as HTMLElement).getByText('$0,00'),
+        within(bars[0] as HTMLElement).getByRole('button', {
+          name: 'abr: $0,00',
+        }),
       ).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('shows a tooltip with the exact total when a bar is tapped, and hides it when tapped again', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date(2026, 8, 15))
+      const { db, householdId, categoryId } = await seedHousehold()
+      await createExpense({
+        db,
+        householdId,
+        categoryId,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        name: 'Alquiler',
+        price: 45230,
+        comments: '',
+        expenseDate: new Date(2026, 8, 10),
+      })
+
+      renderWithProviders(
+        <MonthlyTotalsChart db={db} householdId={householdId} />,
+      )
+
+      const bar = await screen.findByRole('button', {
+        name: 'sept: $45.230,00',
+      })
+      expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+
+      fireEvent.click(bar)
+      expect(screen.getByRole('tooltip')).toHaveTextContent('$45.230,00')
+      expect(bar).toHaveAttribute('aria-expanded', 'true')
+
+      fireEvent.click(bar)
+      expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+      expect(bar).toHaveAttribute('aria-expanded', 'false')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('swaps the tooltip to a different bar when another one is tapped', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date(2026, 8, 15))
+      const { db, householdId, categoryId } = await seedHousehold()
+      await createExpense({
+        db,
+        householdId,
+        categoryId,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        name: 'Alquiler',
+        price: 300,
+        comments: '',
+        expenseDate: new Date(2026, 6, 5), // July
+      })
+      await createExpense({
+        db,
+        householdId,
+        categoryId,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        name: 'Super',
+        price: 120,
+        comments: '',
+        expenseDate: new Date(2026, 8, 10), // September
+      })
+
+      renderWithProviders(
+        <MonthlyTotalsChart db={db} householdId={householdId} />,
+      )
+
+      const julyBar = await screen.findByRole('button', {
+        name: 'jul: $300,00',
+      })
+      const septemberBar = screen.getByRole('button', {
+        name: 'sept: $120,00',
+      })
+
+      fireEvent.click(julyBar)
+      expect(screen.getByRole('tooltip')).toHaveTextContent('$300,00')
+
+      fireEvent.click(septemberBar)
+      expect(screen.getAllByRole('tooltip')).toHaveLength(1)
+      expect(screen.getByRole('tooltip')).toHaveTextContent('$120,00')
+      expect(julyBar).toHaveAttribute('aria-expanded', 'false')
     } finally {
       vi.useRealTimers()
     }

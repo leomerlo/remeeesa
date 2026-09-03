@@ -292,7 +292,7 @@ export function AddGastoForm({
       {/* Only this part scrolls -- the action button below stays pinned at
           the bottom of the sheet regardless of how tall the field list
           gets. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain">
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto overscroll-contain">
         {/* The Sheet's own title is visually hidden (it exists only for the
             dialog's accessible name). */}
         <h2 className="text-title font-semibold">Agregar gasto</h2>

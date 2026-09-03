@@ -108,6 +108,10 @@ export async function updateExpense(input: {
   // isn't a state any real household member picker could produce.
   readonly memberId?: string
   readonly authorDisplayName?: string
+  // A manual "count this as a servicio" override -- only meaningful (and
+  // only ever offered by the edit form) when the Expense isn't already
+  // linked to a real Pendiente via pendienteId.
+  readonly isService?: boolean
   readonly now?: Date
 }): Promise<Expense> {
   const now = input.now ?? new Date()
@@ -139,6 +143,7 @@ export async function updateExpense(input: {
     input.authorDisplayName !== undefined
       ? parseAuthorDisplayName(input.authorDisplayName)
       : existing.authorDisplayName
+  const isService = input.isService ?? existing.isService
 
   return input.db.updateExpense({
     householdId: input.householdId,
@@ -150,6 +155,7 @@ export async function updateExpense(input: {
     expenseDate,
     memberId,
     authorDisplayName,
+    isService,
   })
 }
 

@@ -425,6 +425,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         comments: input.comments,
         expenseDate: input.expenseDate,
         pendienteId: null,
+        isService: false,
         createdAt: new Date(),
       }
       state.expenses.set(expense.id, expense)
@@ -538,6 +539,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         expenseDate: input.expenseDate,
         memberId: input.memberId,
         authorDisplayName: input.authorDisplayName,
+        isService: input.isService,
       }
       state.expenses.set(input.expenseId, updated)
       return updated
@@ -708,6 +710,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         comments: '',
         expenseDate: input.paymentDate,
         pendienteId: input.pendienteId,
+        isService: false,
         createdAt,
       }
       const updated: Pendiente = {

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { CategoryChips } from './CategoryChips'
 import { CategoryCombobox } from './CategoryCombobox'
 import {
@@ -36,6 +37,11 @@ export type EditExpenseTarget = {
   // Who this Expense is currently attributed to -- lets the edit form
   // pre-select the right row in the author picker.
   readonly memberId: string
+  // Whether this Expense is already linked to a real Pendiente -- when it
+  // is, "servicio" is derived from that link and the manual toggle below is
+  // hidden, since editing it here couldn't change anything.
+  readonly pendienteId: string | null
+  readonly isService: boolean
 }
 
 export type AddExpenseFormProps = {
@@ -182,6 +188,7 @@ function ExpenseFormBody({
   const [authorMemberId, setAuthorMemberId] = useState(
     editExpense?.memberId ?? memberId,
   )
+  const [isService, setIsService] = useState(editExpense?.isService ?? false)
   const [error, setError] = useState<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const today = localDateInputValue(new Date())
@@ -229,6 +236,10 @@ function ExpenseFormBody({
           price: fields.price,
           comments: fields.comments,
           expenseDate: fields.expenseDate,
+          // Only ever offered (and only ever meaningful) when the Expense
+          // isn't already linked to a real Pendiente -- see the toggle's
+          // render guard below.
+          ...(editExpense.pendienteId === null ? { isService } : {}),
           ...(selectedAuthor === undefined
             ? {}
             : {
@@ -353,7 +364,7 @@ function ExpenseFormBody({
       {/* Only this part scrolls -- the action buttons below stay pinned at
           the bottom of the sheet regardless of how tall the field list
           gets, so Guardar/Agregar never requires scrolling to reach. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain">
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto overscroll-contain">
         {/* The Sheet's title is visually hidden (it exists for the dialog's
             accessible name), which left the sheet opening onto a bare "Nombre"
             field with nothing saying what it was. */}
@@ -492,6 +503,25 @@ function ExpenseFormBody({
                 </option>
               ))}
             </select>
+          </div>
+        ) : null}
+
+        {/* Only offered when the Expense isn't already linked to a real
+            Pendiente -- that link (pendienteId) already determines
+            "servicio" on its own, so there'd be nothing for this toggle to
+            change. This is the only way to reclassify an Expense that
+            predates pendienteId, or one logged as a plain Gasto that
+            should have gone through Pendientes. */}
+        {isEditing && editExpense.pendienteId === null ? (
+          <div className="flex w-full items-center justify-between gap-2">
+            <Label htmlFor="expense-is-service" className="font-medium">
+              Marcar como servicio
+            </Label>
+            <Switch
+              id="expense-is-service"
+              checked={isService}
+              onCheckedChange={setIsService}
+            />
           </div>
         ) : null}
 

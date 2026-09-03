@@ -361,6 +361,55 @@ describe('PorPagarSection', () => {
     ).not.toBeInTheDocument()
   })
 
+  // Per direct feedback: paying a recurring pendiente this month
+  // (Gimnasio) spawns a brand-new pending row for next month's cycle --
+  // without a badge, that row reads as an outstanding debt due *now*.
+  it('shows only the next cycle (badged), not a separate already-paid row, once the previous cycle is paid', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    const gym = await seedPendiente({
+      db,
+      householdId,
+      categoryId,
+      name: 'Gimnasio',
+      dayOfMonth: 10,
+      expectedAmount: 8000,
+      recurring: true,
+    })
+    await markPendientePaid({
+      db,
+      householdId,
+      pendienteId: gym.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 8000,
+      paymentDate: new Date(),
+    })
+
+    renderSection(
+      <PorPagarSection
+        db={db}
+        householdId={householdId}
+        onMarkPaid={vi.fn()}
+      />,
+    )
+
+    const list = await screen.findByRole('list', {
+      name: 'Pendientes por pagar',
+    })
+    // Showing both the settled cycle and its next one under the identical
+    // name/amount reads as a duplicate, not two months of one series -- only
+    // the next cycle (badged) shows.
+    const rows = within(list).getAllByText('Gimnasio')
+    expect(rows).toHaveLength(1)
+    const nextCycleRow = rows[0]?.closest('li')
+    expect(nextCycleRow).toHaveTextContent('Ya pagaste este mes')
+    expect(nextCycleRow).not.toHaveTextContent('Pagado')
+    // Still an actionable "mark paid" button, not a display-only paid row.
+    expect(
+      within(nextCycleRow as HTMLElement).getByRole('button'),
+    ).toBeInTheDocument()
+  })
+
   it('lists a pending pendiente before one paid this month', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
     const paid = await seedPendiente({

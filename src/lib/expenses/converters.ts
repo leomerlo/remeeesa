@@ -22,6 +22,23 @@ function parseNullableString(value: unknown, field: string): string | null {
   return value
 }
 
+// Missing (not just an explicit false) on any Expense doc written before
+// this field existed -- treated the same as "not manually marked", the same
+// legacy-doc fallback pattern as pendiente_id/paid_at elsewhere.
+function parseOptionalBoolean(
+  value: unknown,
+  field: string,
+  fallback: boolean,
+): boolean {
+  if (value === undefined || value === null) {
+    return fallback
+  }
+  if (typeof value !== 'boolean') {
+    throw new Error(`${field} must be a boolean`)
+  }
+  return value
+}
+
 export function parseCategoryDocument(input: {
   readonly id: string
   readonly data: unknown
@@ -98,6 +115,7 @@ export function parseExpenseDocument(input: {
     comments,
     expense_date,
     pendiente_id,
+    is_service,
     created_at,
   } = input.data
   if (typeof name !== 'string') {
@@ -129,6 +147,7 @@ export function parseExpenseDocument(input: {
     // Missing (not just null) on any Expense doc written before this field
     // existed -- treated the same as "not from a Pendiente".
     pendienteId: parseNullableString(pendiente_id, 'pendiente_id'),
+    isService: parseOptionalBoolean(is_service, 'is_service', false),
     createdAt: parseTimestamp(created_at, 'created_at'),
   }
 }
@@ -158,6 +177,7 @@ export function expenseToDocument(input: {
   readonly comments: string
   readonly expenseDate: Date
   readonly pendienteId: string | null
+  readonly isService: boolean
   readonly createdAt: Date
 }): {
   readonly household_id: string
@@ -169,6 +189,7 @@ export function expenseToDocument(input: {
   readonly comments: string
   readonly expense_date: Date
   readonly pendiente_id: string | null
+  readonly is_service: boolean
   readonly created_at: Date
 } {
   return {
@@ -181,6 +202,7 @@ export function expenseToDocument(input: {
     comments: input.comments,
     expense_date: input.expenseDate,
     pendiente_id: input.pendienteId,
+    is_service: input.isService,
     created_at: input.createdAt,
   }
 }
