@@ -1,5 +1,5 @@
 import { useQueries } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { expensesInMonthQueryKey } from '@/features/expenses'
@@ -42,6 +42,11 @@ export function MonthlyTotalsChart({
     () => lastNMonthRanges(MONTHLY_TOTALS_MONTH_COUNT, now),
     [now],
   )
+  // Which bar's tooltip is showing, if any -- a bar chart with no axis
+  // labels for amounts has no other way to see a month's exact total
+  // without tapping it. Tapping the same bar again hides it; tapping a
+  // different one swaps straight to that one's tooltip.
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
 
   const monthQueries = useQueries({
     queries: ranges.map((range) => ({
@@ -116,35 +121,60 @@ export function MonthlyTotalsChart({
       <h2 id="por-mes-heading" className="text-title font-semibold">
         Por mes
       </h2>
-      {/* Bars are aria-hidden and each month's exact total lives in a
-          sr-only span instead -- a screen reader announcing "23 percent
-          height" for six bars in a row would be noise, not information. */}
+      {/* Bars have no visible axis labels for amounts -- the exact total is
+          reachable two ways: tapping a bar reveals it in a tooltip
+          (sighted, on-demand), and each bar's own accessible name carries
+          it unconditionally (screen readers get it on focus, no tap
+          needed). */}
       <ul
         aria-label="Gasto total por mes"
         className="flex h-32 w-full items-end gap-2"
       >
-        {totals.map((entry) => {
+        {totals.map((entry, index) => {
           const heightPercent =
             maxTotal > 0 ? (entry.total / maxTotal) * 100 : 0
           const isCurrentMonth = entry.monthStart.getTime() === currentMonthTime
+          const isSelected = selectedIndex === index
 
           return (
             <li
               key={entry.monthStart.getTime()}
               className="flex h-full flex-1 flex-col items-center justify-end gap-1.5"
             >
+              {/* This wrapper (not the <li>) is the tooltip's positioning
+                  parent, sized to exactly the bar's own height -- bottom-full
+                  then lands the tooltip right above the bar's actual top
+                  edge, short or tall, rather than an offset guessed to clear
+                  the month label below it. */}
               <div
-                aria-hidden="true"
-                className={cn(
-                  'w-full rounded-t-lg',
-                  isCurrentMonth ? 'bg-primary' : 'bg-primary/25',
-                )}
+                className="relative w-full"
                 style={{ height: `${String(heightPercent)}%` }}
-              />
+              >
+                {isSelected ? (
+                  <div
+                    role="tooltip"
+                    className="bg-foreground text-background pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 -translate-x-1/2 rounded-lg px-2 py-1 text-xs font-semibold whitespace-nowrap"
+                  >
+                    {formatCurrency(entry.total)}
+                  </div>
+                ) : null}
+                <button
+                  type="button"
+                  aria-expanded={isSelected}
+                  aria-label={`${shortMonthLabel(entry.monthStart)}: ${formatCurrency(entry.total)}`}
+                  className={cn(
+                    'h-full w-full rounded-t-lg transition-colors',
+                    isCurrentMonth ? 'bg-primary' : 'bg-primary/25',
+                    isSelected && !isCurrentMonth && 'bg-primary/40',
+                  )}
+                  onClick={() => {
+                    setSelectedIndex(isSelected ? null : index)
+                  }}
+                />
+              </div>
               <span className="text-muted-foreground shrink-0 text-xs">
                 {shortMonthLabel(entry.monthStart)}
               </span>
-              <span className="sr-only">{formatCurrency(entry.total)}</span>
             </li>
           )
         })}
