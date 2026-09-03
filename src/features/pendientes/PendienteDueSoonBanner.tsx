@@ -1,11 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
-import type { ReactElement } from 'react'
-import { listCategories } from '@/lib/expenses'
+import { useRef, useState } from 'react'
+import type { ReactElement, UIEvent } from 'react'
+import { Skeleton } from '@/components/ui/skeleton'
+import { formatBudgetAmount, listCategories } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { formatShortDate } from '@/lib/format'
 import { listPendientes, pendientesDueSoon } from '@/lib/pendientes'
 import type { HouseholdsDb } from '@/lib/households'
+import { cn } from '@/lib/utils'
 import { pendientesQueryKey } from './queryKeys'
 
 export type PendienteDueSoonBannerProps = {
@@ -19,10 +22,12 @@ export type PendienteDueSoonBannerProps = {
 // without the user going to look for it. Purely informational: no tap
 // action, nothing to dismiss, no unread state to track.
 //
-// Renders nothing at all (not an empty card, not a skeleton) whenever
-// nothing is due soon, which is most of the time -- a skeleton that almost
-// always resolves to "nothing here" would just flash at the very top of
-// Home on every load.
+// One full-width row at a time (matching Cuentas por pagar / Últimos
+// movimientos' own row width, not a chip), paged by swipe with dot
+// indicators below -- per direct feedback, replacing the earlier row of
+// small, partially-visible cards. Renders nothing at all (not an empty
+// card, not a skeleton) whenever nothing is due soon, which is most of the
+// time.
 //
 // Shares PorPagarSection's exact queryKey/queryFn shape ({ pendientes,
 // categories }) so both read from the same cache entry instead of issuing a
@@ -42,8 +47,22 @@ export function PendienteDueSoonBanner({
       return { pendientes, categories }
     },
   })
+  const scrollerRef = useRef<HTMLUListElement>(null)
+  const [activeIndex, setActiveIndex] = useState(0)
 
-  if (pendientesQuery.isPending || pendientesQuery.isError) {
+  if (pendientesQuery.isPending) {
+    return (
+      <section aria-label="Cargando…" role="status" className="w-full">
+        <span className="sr-only">Cargando…</span>
+        <Skeleton className="h-5 w-48" />
+        <Skeleton className="mt-3 h-[84px] w-full rounded-2xl" />
+      </section>
+    )
+  }
+
+  // A failed chart must not take the rest of Home down with it -- everything
+  // else is still perfectly usable, so this degrades to nothing.
+  if (pendientesQuery.isError) {
     return null
   }
 
@@ -57,18 +76,36 @@ export function PendienteDueSoonBanner({
     categories.map((category) => [category.id, category]),
   )
 
+  function handleScroll(event: UIEvent<HTMLUListElement>): void {
+    const container = event.currentTarget
+    if (container.clientWidth === 0) {
+      return
+    }
+    const index = Math.round(container.scrollLeft / container.clientWidth)
+    setActiveIndex(index)
+  }
+
+  function scrollToIndex(index: number): void {
+    const container = scrollerRef.current
+    if (container === null) {
+      return
+    }
+    container.scrollTo({
+      left: index * container.clientWidth,
+      behavior: 'smooth',
+    })
+  }
+
   return (
     <section aria-labelledby="due-soon-heading" className="w-full">
       <h2 id="due-soon-heading" className="text-title font-semibold">
         Vencimientos que se acercan
       </h2>
-      {/* Same horizontal-scroll treatment as Cuentas por pagar (see that
-          component's comment for why each class is there), tinted amber
-          instead of the plain card background so it reads as a heads-up
-          rather than just another list. */}
       <ul
+        ref={scrollerRef}
+        onScroll={handleScroll}
         aria-label="Vencimientos próximos"
-        className="-mx-6 mt-3 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-6 px-6 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="mt-3 flex w-full snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {dueSoon.map((pendiente) => {
           const category = categoryById.get(pendiente.categoryId)
@@ -78,29 +115,74 @@ export function PendienteDueSoonBanner({
           const CategoryIcon = iconForCategoryName(categoryName)
 
           return (
-            <li key={pendiente.id} className="flex shrink-0 snap-start">
-              <div className="bg-yellow-100 flex h-full w-40 flex-col gap-1.5 rounded-2xl p-3">
+            <li key={pendiente.id} className="w-full shrink-0 snap-start">
+              {/* Same row shape as every other list on Home -- the only
+                  deliberate difference is the color, tinted with the
+                  design system's warning token so it reads as a heads-up
+                  rather than just another row. */}
+              <div className="bg-warning/10 flex w-full items-center gap-3 rounded-2xl p-4">
                 <span
                   aria-hidden="true"
-                  className="flex size-8 shrink-0 items-center justify-center rounded-full"
+                  className="flex size-11 shrink-0 items-center justify-center rounded-full"
                   style={{ backgroundColor: categoryColor }}
                 >
                   <CategoryIcon
-                    className="size-4 text-white"
+                    className="size-5 text-white"
                     aria-hidden="true"
                   />
                 </span>
-                <span className="text-foreground mt-auto truncate text-sm font-medium">
-                  {pendiente.name}
-                </span>
-                <span className="text-yellow-800 truncate text-xs font-medium">
-                  Vence {formatShortDate(pendiente.dueDate)}
-                </span>
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="truncate text-foreground font-medium">
+                      {pendiente.name}
+                    </span>
+                    {pendiente.expectedAmount !== null ? (
+                      <span className="font-display text-lg text-foreground">
+                        {formatBudgetAmount(pendiente.expectedAmount)}
+                      </span>
+                    ) : pendiente.recurring ? (
+                      <span className="font-display text-muted-foreground text-lg">
+                        $ --,--
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap gap-x-1.5 text-xs text-muted-foreground">
+                    <span>{categoryName}</span>
+                    <span aria-hidden="true">·</span>
+                    <span className="text-warning font-medium">
+                      Vence {formatShortDate(pendiente.dueDate)}
+                    </span>
+                  </div>
+                </div>
               </div>
             </li>
           )
         })}
       </ul>
+      {dueSoon.length > 1 ? (
+        <div
+          role="tablist"
+          aria-label="Vencimiento visible"
+          className="mt-2 flex w-full items-center justify-center gap-1.5"
+        >
+          {dueSoon.map((pendiente, index) => (
+            <button
+              key={pendiente.id}
+              type="button"
+              role="tab"
+              aria-selected={index === activeIndex}
+              aria-label={`Vencimiento ${String(index + 1)} de ${String(dueSoon.length)}: ${pendiente.name}`}
+              className={cn(
+                'size-1.5 rounded-full transition-colors',
+                index === activeIndex ? 'bg-primary' : 'bg-muted',
+              )}
+              onClick={() => {
+                scrollToIndex(index)
+              }}
+            />
+          ))}
+        </div>
+      ) : null}
     </section>
   )
 }
