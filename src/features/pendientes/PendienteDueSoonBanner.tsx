@@ -117,10 +117,9 @@ export function PendienteDueSoonBanner({
           return (
             <li key={pendiente.id} className="w-full shrink-0 snap-start">
               {/* Same row shape as every other list on Home -- the only
-                  deliberate difference is the color, tinted with the
-                  design system's warning token so it reads as a heads-up
-                  rather than just another row. */}
-              <div className="bg-warning/10 flex w-full items-center gap-3 rounded-2xl p-4">
+                  deliberate difference is the color, tinted orange so it
+                  reads as a heads-up rather than just another row. */}
+              <div className="bg-orange-100 flex w-full items-center gap-3 rounded-2xl p-4">
                 <span
                   aria-hidden="true"
                   className="flex size-11 shrink-0 items-center justify-center rounded-full"
