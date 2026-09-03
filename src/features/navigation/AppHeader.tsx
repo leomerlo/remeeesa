@@ -25,7 +25,12 @@ export function AppHeader({
   }
 
   return (
-    <header className="bg-card flex w-full items-center justify-start px-6 py-4 sm:px-8">
+    // sticky rather than fixed: stays pinned once scrolled past, without
+    // needing a matching compensation padding on <main> the way the fixed
+    // bottom nav needs its pb-24 (AppShell) -- one less magic number to keep
+    // in sync if the header's own height ever changes. z-30 matches the
+    // bottom nav's stacking layer; both sit well under Sheet/popover's z-50.
+    <header className="bg-card sticky top-0 z-30 flex w-full items-center justify-start px-6 py-4 sm:px-8">
       <Logo className="h-5" />
     </header>
   )
