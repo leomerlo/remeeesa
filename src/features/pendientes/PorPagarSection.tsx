@@ -4,7 +4,10 @@ import type { ReactElement } from 'react'
 import { Check } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Skeleton } from '@/components/ui/skeleton'
-import { listPendientesForMonth } from '@/lib/pendientes'
+import {
+  isNextCycleAfterAPaidThisPeriod,
+  listPendientesForMonth,
+} from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import {
   currentMonthRange,
@@ -148,6 +151,14 @@ export function PorPagarSection({
             category?.color ?? colorForCategoryName(categoryName)
           const CategoryIcon = iconForCategoryName(categoryName)
           const isPaid = pendiente.status === 'paid'
+          // A recurring pendiente's next cycle is a brand-new row with no
+          // link back to the one just paid -- without this, "Gimnasio" due
+          // next month reads as an outstanding debt due *now*, when this
+          // month's was already settled. Per direct feedback.
+          const isNextCycle = isNextCycleAfterAPaidThisPeriod(
+            pendiente,
+            pendientes,
+          )
 
           const amount =
             pendiente.expectedAmount !== null ? (
@@ -190,7 +201,15 @@ export function PorPagarSection({
                   </span>
                   {amount}
                 </div>
-                <div className="flex flex-wrap gap-x-1.5 text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+                  {isNextCycle ? (
+                    <>
+                      <span className="bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
+                        Ya pagaste este mes
+                      </span>
+                      <span aria-hidden="true">·</span>
+                    </>
+                  ) : null}
                   <span>{categoryName}</span>
                   <span aria-hidden="true">·</span>
                   {isPaid ? (

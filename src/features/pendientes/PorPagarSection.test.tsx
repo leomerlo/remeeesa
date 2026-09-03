@@ -361,6 +361,59 @@ describe('PorPagarSection', () => {
     ).not.toBeInTheDocument()
   })
 
+  // Per direct feedback: paying a recurring pendiente this month
+  // (Gimnasio) spawns a brand-new pending row for next month's cycle --
+  // without a badge, that row reads as an outstanding debt due *now*.
+  it("marks a recurring pendiente's next cycle as already paid this month", async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    const gym = await seedPendiente({
+      db,
+      householdId,
+      categoryId,
+      name: 'Gimnasio',
+      dayOfMonth: 10,
+      expectedAmount: 8000,
+      recurring: true,
+    })
+    await markPendientePaid({
+      db,
+      householdId,
+      pendienteId: gym.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 8000,
+      paymentDate: new Date(),
+    })
+
+    renderSection(
+      <PorPagarSection
+        db={db}
+        householdId={householdId}
+        onMarkPaid={vi.fn()}
+      />,
+    )
+
+    const list = await screen.findByRole('list', {
+      name: 'Pendientes por pagar',
+    })
+    const rows = within(list).getAllByText('Gimnasio')
+    // One row for the paid cycle just settled, one for the next cycle.
+    expect(rows).toHaveLength(2)
+    const paidRow = rows
+      .map((el) => el.closest('li'))
+      .find((li) => li?.textContent?.includes('Pagado'))
+    const nextCycleRow = rows
+      .map((el) => el.closest('li'))
+      .find((li) => li?.textContent?.includes('Ya pagaste este mes'))
+    expect(paidRow).toBeDefined()
+    expect(nextCycleRow).toBeDefined()
+    // The next-cycle row is still an actionable "mark paid" button, not a
+    // display-only paid row.
+    expect(
+      within(nextCycleRow as HTMLElement).getByRole('button'),
+    ).toBeInTheDocument()
+  })
+
   it('lists a pending pendiente before one paid this month', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
     const paid = await seedPendiente({
