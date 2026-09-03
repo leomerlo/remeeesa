@@ -255,7 +255,12 @@ service cloud.firestore {
         && resource.data.paid_expense_id == null
         && request.resource.data.paid_expense_id is string
         && request.resource.data.paid_expense_id.size() > 0
-        && resource.data.paid_at == null
+        // paid_at is missing entirely (not just null) on any Pendiente doc
+        // written before this field existed -- reading resource.data.paid_at
+        // directly on one of those errors instead of reading as null, which
+        // denied every mark-paid attempt on a pre-existing Pendiente. The
+        // `in` check reads key presence without erroring.
+        && (!('paid_at' in resource.data) || resource.data.paid_at == null)
         && request.resource.data.paid_at is timestamp
         && existsAfter(/databases/$(database)/documents/expenses/$(request.resource.data.paid_expense_id))
         && getAfter(/databases/$(database)/documents/expenses/$(request.resource.data.paid_expense_id)).data.household_id == resource.data.household_id;

@@ -447,6 +447,16 @@ describe('firestore.rules pendientes mark-paid', () => {
     )
   })
 
+  // Regression: a Pendiente written before paid_at existed has no such key
+  // at all, not just a null value -- resource.data.paid_at == null alone
+  // errors (rather than reading as null) on a document missing the key,
+  // denying every mark-paid attempt on any pre-existing Pendiente.
+  it('tolerates a Pendiente doc with no paid_at key at all, not just a null one', () => {
+    expect(rules).toMatch(
+      /function isValidPendienteMarkPaid\(\) \{[\s\S]*?!\('paid_at' in resource\.data\) \|\| resource\.data\.paid_at == null/,
+    )
+  })
+
   it('requires paid_expense_id to reference a real Expense in the same household, closing the fake-payment-record gap', () => {
     expect(rules).toMatch(
       /function isValidPendienteMarkPaid\(\) \{[\s\S]*?existsAfter\(\/databases\/\$\(database\)\/documents\/expenses\/\$\(request\.resource\.data\.paid_expense_id\)\)/,
