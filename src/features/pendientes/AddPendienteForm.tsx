@@ -18,10 +18,12 @@ import {
   markPendientePaid,
   PendienteAlreadyPaidError,
   PendienteNotFoundError,
+  PendienteNotPaidError,
   deletePendiente,
   parsePendienteDueDate,
   parsePendienteName,
   parseExpectedAmount,
+  unmarkPendientePaid,
   updatePendiente,
 } from '@/lib/pendientes'
 import {
@@ -46,6 +48,12 @@ export type EditPendienteTarget = {
   // button), so the toggle already reflects that intent rather than making
   // the user find and flip it themselves.
   readonly defaultMarkPaid?: boolean
+  // True when this Pendiente is already paid -- every other field is frozen
+  // (a paid Pendiente's fields are frozen at the rules level too, so editing
+  // them here would silently do nothing), leaving "Ya lo pagué" as the only
+  // control. Unchecking it undoes the payment via unmarkPendientePaid,
+  // rather than the normal update/mark-paid path this form otherwise takes.
+  readonly isPaid?: boolean
 }
 
 export type AddPendienteFormProps = {
@@ -241,6 +249,8 @@ function PendienteFormBody({
   onPendingChange,
 }: PendienteFormBodyProps): ReactElement {
   const isEditing = editPendiente !== null
+  // Every other field is frozen once paid -- see EditPendienteTarget.isPaid.
+  const isPaidPendiente = editPendiente?.isPaid ?? false
   const queryClient = useQueryClient()
   const pendientesKey = pendientesQueryKey({ householdId })
   const categoriesKey = categoriesQueryKey({ householdId })
@@ -253,7 +263,7 @@ function PendienteFormBody({
   )
   const [recurring, setRecurring] = useState(initialFields.recurring)
   const [markPaid, setMarkPaid] = useState(
-    editPendiente?.defaultMarkPaid ?? false,
+    isPaidPendiente ? true : (editPendiente?.defaultMarkPaid ?? false),
   )
   const [paymentDate, setPaymentDate] = useState(
     localDateInputValue(new Date()),
@@ -420,15 +430,75 @@ function PendienteFormBody({
     },
   })
 
+  // Undoes a mistaken mark-paid: unchecking "Ya lo pagué" on an already-paid
+  // Pendiente takes this path instead of the normal mutation above, since a
+  // paid Pendiente's other fields can't be saved through updatePendiente
+  // (frozen at the rules level) and there is nothing else to submit here.
+  const unmarkMutation = useMutation({
+    mutationFn: async () => {
+      if (editPendiente === null) {
+        throw new Error('No hay un pendiente para deshacer')
+      }
+      await unmarkPendientePaid({
+        db,
+        householdId,
+        pendienteId: editPendiente.pendienteId,
+      })
+    },
+    onSuccess: async () => {
+      onEditFinished?.()
+      setError(null)
+      await invalidatePendienteViews()
+      // The Expense that payment created is gone -- every view reading
+      // expensesQueryKey (Home, Histórico) needs to see that too.
+      await queryClient.invalidateQueries({ queryKey: expensesKey })
+    },
+    // Already gone, or already back to pending (e.g. someone else undid it
+    // first) -- either way there's nothing left to undo, so refresh and
+    // close rather than surfacing an error the user can't act on.
+    onError: async (caught) => {
+      if (
+        caught instanceof PendienteNotFoundError ||
+        caught instanceof PendienteNotPaidError
+      ) {
+        await invalidatePendienteViews()
+        onEditFinished?.()
+        return
+      }
+      const message =
+        caught instanceof Error ? caught.message : 'No se pudo deshacer el pago'
+      setError(message)
+    },
+  })
+
   // Lets a container (e.g. AddPendienteSheet) keep the form mounted while a
   // submit is in flight, so a dismiss can't abandon a pending mutation and
   // silently swallow its result.
   useEffect(() => {
-    onPendingChange?.(mutation.isPending || deleteMutation.isPending)
-  }, [mutation.isPending, deleteMutation.isPending, onPendingChange])
+    onPendingChange?.(
+      mutation.isPending ||
+        deleteMutation.isPending ||
+        unmarkMutation.isPending,
+    )
+  }, [
+    mutation.isPending,
+    deleteMutation.isPending,
+    unmarkMutation.isPending,
+    onPendingChange,
+  ])
 
   function onSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault()
+    // A paid Pendiente's only actionable change is unchecking "Ya lo pagué"
+    // -- every other field is frozen (see isPaidPendiente), so this branches
+    // to the undo mutation instead of the normal add/edit one below.
+    if (isPaidPendiente) {
+      if (!markPaid) {
+        setError(null)
+        unmarkMutation.mutate()
+      }
+      return
+    }
     try {
       const fields = parsePendienteFields({
         name,
@@ -484,114 +554,129 @@ function PendienteFormBody({
             dialog's accessible name), which left this opening onto a bare
             "Nombre" field with nothing saying what screen it was. */}
         <h2 className="text-title font-semibold">
-          {isEditing ? 'Editar pendiente' : 'Nuevo recurrente'}
+          {isEditing
+            ? isPaidPendiente
+              ? 'Pendiente pagado'
+              : 'Editar pendiente'
+            : 'Nuevo recurrente'}
         </h2>
 
-        {/* Unlike an Expense's price, a Pendiente's amount is optional -- some
-            bills (a variable grocery run) genuinely aren't known yet -- so it
-            leads at the same hero size without being required, rather than
-            forcing a number in before the bill is even known. */}
-        <div className="flex w-full flex-col gap-2">
-          <Label
-            htmlFor="pendiente-expected-amount"
-            className="text-muted-foreground font-medium"
-          >
-            Monto esperado
-          </Label>
-          <div className="relative">
-            <span
-              aria-hidden="true"
-              className="text-muted-foreground font-display text-display pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
+        {/* Frozen once paid -- a paid Pendiente's fields are frozen at the
+            rules level too (isValidPendienteUpdate requires status ==
+            'pending'), so a native disabled fieldset keeps every control
+            here inert (Inputs, the Recurrente Switch, CategoryChips'
+            buttons) without disabling each individually. "Ya lo pagué"
+            below stays outside it -- the only thing left to do here. */}
+        <fieldset disabled={isPaidPendiente} className="contents">
+          {/* Unlike an Expense's price, a Pendiente's amount is optional --
+              some bills (a variable grocery run) genuinely aren't known yet
+              -- so it leads at the same hero size without being required,
+              rather than forcing a number in before the bill is even known. */}
+          <div className="flex w-full flex-col gap-2">
+            <Label
+              htmlFor="pendiente-expected-amount"
+              className="text-muted-foreground font-medium"
             >
-              $
-            </span>
-            <FormattedAmountInput
-              id="pendiente-expected-amount"
-              name="pendiente-expected-amount"
-              className="font-display text-display h-20 pl-12 tracking-tight"
-              value={expectedAmount}
-              onChange={setExpectedAmount}
+              Monto esperado
+            </Label>
+            <div className="relative">
+              <span
+                aria-hidden="true"
+                className="text-muted-foreground font-display text-display pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
+              >
+                $
+              </span>
+              <FormattedAmountInput
+                id="pendiente-expected-amount"
+                name="pendiente-expected-amount"
+                className="font-display text-display h-20 pl-12 tracking-tight"
+                value={expectedAmount}
+                onChange={setExpectedAmount}
+                autoComplete="off"
+              />
+            </div>
+          </div>
+
+          <div className="flex w-full flex-col gap-2">
+            <Label
+              htmlFor="pendiente-name"
+              className="text-muted-foreground font-medium"
+            >
+              Nombre
+            </Label>
+            <Input
+              id="pendiente-name"
+              name="pendiente-name"
+              value={name}
+              onChange={(event) => {
+                setName(event.target.value)
+              }}
               autoComplete="off"
             />
           </div>
-        </div>
 
-        <div className="flex w-full flex-col gap-2">
-          <Label
-            htmlFor="pendiente-name"
-            className="text-muted-foreground font-medium"
-          >
-            Nombre
-          </Label>
-          <Input
-            id="pendiente-name"
-            name="pendiente-name"
-            value={name}
-            onChange={(event) => {
-              setName(event.target.value)
-            }}
-            autoComplete="off"
-          />
-        </div>
+          <div className="flex w-full flex-col gap-2">
+            <Label
+              htmlFor="pendiente-category"
+              className="text-muted-foreground font-medium"
+            >
+              Categoría
+            </Label>
+            <CategoryChips
+              categories={categories}
+              value={category}
+              onChange={setCategory}
+            />
+            <CategoryCombobox
+              id="pendiente-category"
+              categories={categories}
+              value={category}
+              onChange={setCategory}
+              placeholder="O escribí una categoría nueva"
+            />
+          </div>
 
-        <div className="flex w-full flex-col gap-2">
-          <Label
-            htmlFor="pendiente-category"
-            className="text-muted-foreground font-medium"
-          >
-            Categoría
-          </Label>
-          <CategoryChips
-            categories={categories}
-            value={category}
-            onChange={setCategory}
-          />
-          <CategoryCombobox
-            id="pendiente-category"
-            categories={categories}
-            value={category}
-            onChange={setCategory}
-            placeholder="O escribí una categoría nueva"
-          />
-        </div>
+          <div className="flex w-full flex-col gap-2">
+            <Label
+              htmlFor="pendiente-due-date"
+              className="text-muted-foreground font-medium"
+            >
+              Fecha de vencimiento
+            </Label>
+            {/* Deliberately no `max`/`min` here, unlike the expense form's
+                date input -- a Pendiente's due date is explicitly allowed to
+                be in the past (e.g. logging an overdue bill) or the future. */}
+            <Input
+              id="pendiente-due-date"
+              name="pendiente-due-date"
+              type="date"
+              value={dueDate}
+              onChange={(event) => {
+                setDueDate(event.target.value)
+              }}
+            />
+          </div>
 
-        <div className="flex w-full flex-col gap-2">
-          <Label
-            htmlFor="pendiente-due-date"
-            className="text-muted-foreground font-medium"
-          >
-            Fecha de vencimiento
-          </Label>
-          {/* Deliberately no `max`/`min` here, unlike the expense form's date
-              input -- a Pendiente's due date is explicitly allowed to be in the
-              past (e.g. logging an overdue bill) or the future. */}
-          <Input
-            id="pendiente-due-date"
-            name="pendiente-due-date"
-            type="date"
-            value={dueDate}
-            onChange={(event) => {
-              setDueDate(event.target.value)
-            }}
-          />
-        </div>
-
-        <div className="flex w-full items-center justify-between gap-2">
-          <Label htmlFor="pendiente-recurring" className="font-medium">
-            Recurrente
-          </Label>
-          <Switch
-            id="pendiente-recurring"
-            checked={recurring}
-            onCheckedChange={setRecurring}
-          />
-        </div>
+          <div className="flex w-full items-center justify-between gap-2">
+            <Label htmlFor="pendiente-recurring" className="font-medium">
+              Recurrente
+            </Label>
+            <Switch
+              id="pendiente-recurring"
+              checked={recurring}
+              onCheckedChange={setRecurring}
+            />
+          </div>
+        </fieldset>
 
         {/* Available while adding too, not just editing: a pendiente can be
             logged already paid in one step (e.g. a bill paid on the spot),
             same as editing an existing one to pay it. Replaces the old
             separate "Marcar pagado" sheet: one form for adding, editing,
-            and paying, per direct feedback. */}
+            and paying, per direct feedback. For an already-paid Pendiente,
+            this is the one thing left to do: unchecking it undoes the
+            payment (per direct feedback -- there was no way back from a
+            mistaken "Ya lo pagué"). */}
         <div className="flex w-full flex-col gap-2">
           <div className="flex w-full items-center justify-between gap-2">
             <Label htmlFor="pendiente-mark-paid" className="font-medium">
@@ -603,7 +688,13 @@ function PendienteFormBody({
               onCheckedChange={setMarkPaid}
             />
           </div>
-          {markPaid ? (
+          {isPaidPendiente ? (
+            <p className="text-muted-foreground text-xs">
+              {markPaid
+                ? 'Destildá esto si lo marcaste pagado por error.'
+                : 'Se va a deshacer el pago y se va a borrar el gasto que generó.'}
+            </p>
+          ) : markPaid ? (
             <div className="flex w-full flex-col gap-2">
               <Label
                 htmlFor="pendiente-payment-date"
@@ -668,16 +759,25 @@ function PendienteFormBody({
           <div className="flex w-full flex-col items-center gap-2">
             <Button
               type="submit"
-              disabled={mutation.isPending}
+              // Nothing to submit while "Ya lo pagué" is still checked --
+              // that's the paid Pendiente's unchanged, real state, so
+              // there's no action for Guardar to take until it's unchecked.
+              disabled={
+                isPaidPendiente
+                  ? markPaid || unmarkMutation.isPending
+                  : mutation.isPending
+              }
               className="w-full"
             >
-              {isEditing
-                ? markPaid
-                  ? 'Guardar y marcar pagado'
-                  : 'Guardar cambios'
-                : markPaid
-                  ? 'Agregar y marcar pagado'
-                  : 'Agregar recurrente'}
+              {isPaidPendiente
+                ? 'Deshacer pago'
+                : isEditing
+                  ? markPaid
+                    ? 'Guardar y marcar pagado'
+                    : 'Guardar cambios'
+                  : markPaid
+                    ? 'Agregar y marcar pagado'
+                    : 'Agregar recurrente'}
             </Button>
             {isEditing ? (
               <>
@@ -693,18 +793,24 @@ function PendienteFormBody({
                 >
                   Cancelar edición
                 </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="text-error hover:text-error"
-                  disabled={mutation.isPending}
-                  onClick={() => {
-                    setError(null)
-                    setConfirmingDelete(true)
-                  }}
-                >
-                  Eliminar pendiente
-                </Button>
+                {/* Deleting a paid Pendiente isn't offered -- both the
+                    domain layer and firestore.rules reject it (see
+                    deletePendiente), and "Deshacer pago" above is the way
+                    back to a state where deleting is possible again. */}
+                {isPaidPendiente ? null : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="text-error hover:text-error"
+                    disabled={mutation.isPending}
+                    onClick={() => {
+                      setError(null)
+                      setConfirmingDelete(true)
+                    }}
+                  >
+                    Eliminar pendiente
+                  </Button>
+                )}
               </>
             ) : null}
           </div>

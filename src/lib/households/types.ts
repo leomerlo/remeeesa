@@ -207,4 +207,12 @@ export type HouseholdsDb = {
     expense: Expense
     nextPendiente: Pendiente | null
   }>
+  // Reverses markPendientePaid: restores status to 'pending' and deletes the
+  // Expense that payment created. Leaves any next-cycle Pendiente a
+  // recurring payment spawned untouched -- see unmarkPendientePaid's own
+  // comment for why.
+  unmarkPendientePaid(input: {
+    readonly householdId: string
+    readonly pendienteId: string
+  }): Promise<Pendiente>
 }

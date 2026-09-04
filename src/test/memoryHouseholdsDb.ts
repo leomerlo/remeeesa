@@ -1,6 +1,7 @@
 import {
   PendienteAlreadyPaidError,
   PendienteNotFoundError,
+  PendienteNotPaidError,
 } from '@/lib/pendientes/pendientes'
 import { nextCycleDueDate } from '@/lib/pendientes/recurrence'
 import type { Pendiente } from '@/lib/pendientes/types'
@@ -747,6 +748,32 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         state.pendientes.set(nextPendiente.id, nextPendiente)
       }
       return { pendiente: updated, expense, nextPendiente }
+    },
+    async unmarkPendientePaid(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const existing = state.pendientes.get(input.pendienteId)
+      if (
+        existing === undefined ||
+        existing.householdId !== input.householdId
+      ) {
+        throw new PendienteNotFoundError()
+      }
+      if (existing.status !== 'paid') {
+        throw new PendienteNotPaidError()
+      }
+      // Mirrors the real adapter: the Expense that payment created is
+      // deleted outright, not just unlinked.
+      if (existing.paidExpenseId !== null) {
+        state.expenses.delete(existing.paidExpenseId)
+      }
+      const updated: Pendiente = {
+        ...existing,
+        status: 'pending',
+        paidExpenseId: null,
+        paidAt: null,
+      }
+      state.pendientes.set(input.pendienteId, updated)
+      return updated
     },
   }
 }

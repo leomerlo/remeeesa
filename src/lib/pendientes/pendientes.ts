@@ -20,6 +20,10 @@ export class PendienteAlreadyPaidError extends Error {
   override readonly name = 'PendienteAlreadyPaidError'
 }
 
+export class PendienteNotPaidError extends Error {
+  override readonly name = 'PendienteNotPaidError'
+}
+
 export async function createPendiente(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
@@ -160,6 +164,34 @@ export async function markPendientePaid(input: {
     authorDisplayName: parseAuthorDisplayName(input.authorDisplayName),
     finalAmount: parseExpensePrice(input.finalAmount),
     paymentDate: parseExpenseDate(input.paymentDate),
+  })
+}
+
+// Undoes a mistaken markPendientePaid: restores the Pendiente to pending and
+// deletes the Expense that payment created. Per direct feedback -- there was
+// no way to correct "I marked it paid, but it wasn't" once a paid card was
+// display-only. Doesn't touch any next-cycle Pendiente a recurring payment
+// may have spawned -- that's a separate document with its own edit/delete,
+// left for the member to remove themselves if it's now redundant, rather
+// than this guessing at a name/date match that could delete the wrong one.
+export async function unmarkPendientePaid(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly pendienteId: string
+}): Promise<Pendiente> {
+  const existing = await input.db.getPendiente({
+    householdId: input.householdId,
+    pendienteId: input.pendienteId,
+  })
+  if (existing === null) {
+    throw new PendienteNotFoundError()
+  }
+  if (existing.status !== 'paid') {
+    throw new PendienteNotPaidError()
+  }
+  return input.db.unmarkPendientePaid({
+    householdId: input.householdId,
+    pendienteId: input.pendienteId,
   })
 }
 
