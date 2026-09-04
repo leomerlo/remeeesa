@@ -27,6 +27,7 @@ async function seed(input: {
   readonly name: string
   readonly price: number
   readonly author?: string
+  readonly date?: Date
 }) {
   return createExpense({
     db: input.db,
@@ -37,8 +38,9 @@ async function seed(input: {
     name: input.name,
     price: input.price,
     comments: '',
-    // Always this month, since the breakdown is month-scoped.
-    expenseDate: new Date(),
+    // Defaults to this month, since the breakdown defaults to the current
+    // month absent explicit monthStart/monthEnd props.
+    expenseDate: input.date ?? new Date(),
   })
 }
 
@@ -224,96 +226,90 @@ describe('CategoryBreakdown', () => {
     expect(expectedOffset).toBeCloseTo(1, 5)
   })
 
-  it('splits by person using the name stored on the expense', async () => {
+
+  // monthStart/monthEnd let Categorías' MonthPager drive which month this
+  // shows -- without them it would always be stuck on the current month.
+  it("shows a past month's breakdown when monthStart/monthEnd are passed, ignoring this month's expenses", async () => {
     const { db, householdId, byName } = await seedHousehold()
     const comida = byName.get('Comida')
     if (comida === undefined) {
-      throw new Error('expected seeded category')
+      throw new Error('expected the seeded Comida category')
     }
+    const now = new Date()
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 15)
     await seed({
       db,
       householdId,
       categoryId: comida.id,
-      name: 'Cafe',
-      price: 30,
-      author: 'Flor',
+      name: 'Alquiler pasado',
+      price: 500,
+      date: lastMonth,
     })
     await seed({
       db,
       householdId,
       categoryId: comida.id,
-      name: 'Super',
-      price: 70,
-      author: 'Leo',
+      name: 'Super de este mes',
+      price: 999,
     })
+    const monthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const monthEnd = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      0,
+      23,
+      59,
+      59,
+      999,
+    )
 
-    renderWithProviders(<CategoryBreakdown db={db} householdId={householdId} />)
+    renderWithProviders(
+      <CategoryBreakdown
+        db={db}
+        householdId={householdId}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />,
+    )
 
+    // Scoped to the category list, not a bare findByText -- with a single
+    // category in view, the header total and the row's own amount are both
+    // "$500,00", so an unscoped query matches more than one element.
     const list = await screen.findByRole('list', {
-      name: 'Gastos por persona',
+      name: 'Gastos por categoría',
     })
-    const items = within(list).getAllByRole('listitem')
-    // Biggest spender first.
-    expect(items[0]).toHaveTextContent('Leo')
-    expect(items[0]).toHaveTextContent('$70,00')
-    expect(items[1]).toHaveTextContent('Flor')
-    expect(items[1]).toHaveTextContent('$30,00')
+    expect(within(list).getByText('$500,00')).toBeInTheDocument()
+    expect(screen.queryByText('$999,00')).not.toBeInTheDocument()
   })
 
-  // Same reason the single-category donut goes: a bar comparing one person
-  // against nobody is always full.
-  it('drops the comparison bar when one person spent everything', async () => {
-    const { db, householdId, byName } = await seedHousehold()
-    const comida = byName.get('Comida')
-    if (comida === undefined) {
-      throw new Error('expected the seeded Comida category')
-    }
-    await seed({
-      db,
-      householdId,
-      categoryId: comida.id,
-      name: 'Super',
-      price: 70,
-      author: 'Flor',
-    })
-
-    const { container } = renderWithProviders(
-      <CategoryBreakdown db={db} householdId={householdId} />,
+  it('shows a month-agnostic empty message for an empty past month, not "este mes"', async () => {
+    const { db, householdId } = await seedHousehold()
+    const now = new Date()
+    const monthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+    const monthEnd = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      0,
+      23,
+      59,
+      59,
+      999,
     )
 
-    await screen.findByRole('list', { name: 'Gastos por persona' })
-    expect(screen.getByText('Flor')).toBeInTheDocument()
-    expect(container.querySelector('[role="presentation"]')).toBeNull()
-  })
-
-  it('keeps the bars once there is somebody to compare against', async () => {
-    const { db, householdId, byName } = await seedHousehold()
-    const comida = byName.get('Comida')
-    if (comida === undefined) {
-      throw new Error('expected the seeded Comida category')
-    }
-    await seed({
-      db,
-      householdId,
-      categoryId: comida.id,
-      name: 'Super',
-      price: 70,
-      author: 'Flor',
-    })
-    await seed({
-      db,
-      householdId,
-      categoryId: comida.id,
-      name: 'Nafta',
-      price: 30,
-      author: 'Leo',
-    })
-
-    const { container } = renderWithProviders(
-      <CategoryBreakdown db={db} householdId={householdId} />,
+    renderWithProviders(
+      <CategoryBreakdown
+        db={db}
+        householdId={householdId}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />,
     )
 
-    await screen.findByRole('list', { name: 'Gastos por persona' })
-    expect(container.querySelectorAll('[role="presentation"]')).toHaveLength(2)
+    expect(
+      await screen.findByText('No hay gastos en este mes'),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText('Todavía no hay gastos este mes'),
+    ).not.toBeInTheDocument()
   })
 })

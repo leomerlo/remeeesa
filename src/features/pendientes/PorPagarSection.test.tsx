@@ -64,7 +64,6 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
-        onEditPaid={vi.fn()}
       />,
     )
 
@@ -91,7 +90,6 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
-        onEditPaid={vi.fn()}
       />,
     )
 
@@ -123,12 +121,13 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
-        onEditPaid={vi.fn()}
       />,
     )
 
     expect(
-      await screen.findByRole('heading', { name: 'Cuentas por pagar' }),
+      await screen.findByRole('heading', {
+        name: 'Servicios o pagos recurrentes',
+      }),
     ).toBeInTheDocument()
     const list = await screen.findByRole('list', {
       name: 'Pendientes por pagar',
@@ -158,7 +157,6 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
-        onEditPaid={vi.fn()}
       />,
     )
 
@@ -186,7 +184,6 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
-        onEditPaid={vi.fn()}
       />,
     )
 
@@ -216,7 +213,6 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
-        onEditPaid={vi.fn()}
       />,
     )
 
@@ -247,7 +243,6 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
-        onEditPaid={vi.fn()}
       />,
     )
 
@@ -273,7 +268,6 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={onMarkPaid}
-        onEditPaid={vi.fn()}
       />,
     )
 
@@ -307,7 +301,6 @@ describe('PorPagarSection', () => {
         db={store.asUser('user-2')}
         householdId={household.id}
         onMarkPaid={vi.fn()}
-        onEditPaid={vi.fn()}
       />,
       queryClient,
     )
@@ -324,55 +317,85 @@ describe('PorPagarSection', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  // Per direct feedback: a paid card used to be display-only, with no way
-  // back from a mistaken "Ya lo pagué" -- it's tappable again, into
-  // onEditPaid (not onMarkPaid, which is only for a still-pending one).
-  it('shows a pendiente paid this month with a "Pagado" badge, tappable into onEditPaid', async () => {
+  // Per direct feedback: a one-off bill ("Osde Flor", paid once and done)
+  // lingering under "Cuentas por pagar" reads as something still to do.
+  // Once paid, a bill belongs to Histórico, not here.
+  it('drops a pendiente from the list as soon as it is paid', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
-    const pendiente = await seedPendiente({
+    await seedPendiente({
       db,
       householdId,
       categoryId,
-      name: 'Gas',
+      name: 'Internet',
+      dayOfMonth: 5,
+      expectedAmount: 500,
+    })
+    const paid = await seedPendiente({
+      db,
+      householdId,
+      categoryId,
+      name: 'Osde Flor',
       dayOfMonth: 10,
       expectedAmount: 1000,
     })
     await markPendientePaid({
       db,
       householdId,
-      pendienteId: pendiente.id,
+      pendienteId: paid.id,
       memberId: 'user-1',
       authorDisplayName: 'Ada',
       finalAmount: 1000,
       paymentDate: new Date(),
     })
-    const onMarkPaid = vi.fn()
-    const onEditPaid = vi.fn()
 
     renderSection(
       <PorPagarSection
         db={db}
         householdId={householdId}
-        onMarkPaid={onMarkPaid}
-        onEditPaid={onEditPaid}
+        onMarkPaid={vi.fn()}
       />,
     )
 
     const list = await screen.findByRole('list', {
       name: 'Pendientes por pagar',
     })
-    const row = within(list).getByText('Gas').closest('li')
-    expect(row).not.toBeNull()
-    expect(row).toHaveTextContent('Pagado')
+    expect(within(list).getByText('Internet')).toBeInTheDocument()
+    expect(within(list).queryByText('Osde Flor')).not.toBeInTheDocument()
+    expect(screen.queryByText('Pagado')).not.toBeInTheDocument()
+  })
 
-    fireEvent.click(
-      within(row as HTMLElement).getByRole('button', {
-        name: 'Editar pago de Gas',
-      }),
+  it('renders nothing at all once every bill is paid', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    const paid = await seedPendiente({
+      db,
+      householdId,
+      categoryId,
+      name: 'Osde Flor',
+      dayOfMonth: 10,
+      expectedAmount: 1000,
+    })
+    await markPendientePaid({
+      db,
+      householdId,
+      pendienteId: paid.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 1000,
+      paymentDate: new Date(),
+    })
+
+    const { container } = renderSection(
+      <PorPagarSection
+        db={db}
+        householdId={householdId}
+        onMarkPaid={vi.fn()}
+      />,
     )
-    expect(onEditPaid).toHaveBeenCalledTimes(1)
-    expect(onEditPaid.mock.calls[0]?.[0]).toMatchObject({ id: pendiente.id })
-    expect(onMarkPaid).not.toHaveBeenCalled()
+
+    await waitFor(() => {
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+    expect(container).toBeEmptyDOMElement()
   })
 
   // Per direct feedback: paying a recurring pendiente this month
@@ -404,7 +427,6 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
-        onEditPaid={vi.fn()}
       />,
     )
 
@@ -425,7 +447,7 @@ describe('PorPagarSection', () => {
     ).toBeInTheDocument()
   })
 
-  it('lists a pending pendiente before one paid this month', async () => {
+  it('keeps showing what is still owed after another bill is paid', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
     const paid = await seedPendiente({
       db,
@@ -458,7 +480,6 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
-        onEditPaid={vi.fn()}
       />,
     )
 
@@ -466,8 +487,9 @@ describe('PorPagarSection', () => {
       name: 'Pendientes por pagar',
     })
     const items = within(list).getAllByRole('listitem')
+    expect(items).toHaveLength(1)
     expect(items[0]).toHaveTextContent('Internet')
-    expect(items[1]).toHaveTextContent('Gas')
+    expect(within(list).queryByText('Gas')).not.toBeInTheDocument()
   })
 
   it('does not show a pendiente paid in a different viewed month', async () => {
@@ -496,7 +518,6 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
-        onEditPaid={vi.fn()}
         monthStart={new Date(2026, 5, 1)}
         monthEnd={new Date(2026, 5, 30, 23, 59, 59, 999)}
       />,

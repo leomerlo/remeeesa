@@ -3,11 +3,14 @@ import { useMemo } from 'react'
 import type { ReactElement } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
+  computePendingCommitted,
   computeSpentThisMonth,
   currentMonthRange,
   formatCurrency,
   listExpensesInMonth,
 } from '@/lib/expenses'
+import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
+import { pendientesQueryKey } from '@/features/pendientes'
 import type { HouseholdsDb } from '@/lib/households'
 import { expensesInMonthQueryKey } from './queryKeys'
 
@@ -29,10 +32,12 @@ export type SpentThisMonthDisplayProps = {
 // Reads the same expensesInMonthQueryKey cache entry RemainingBudgetDisplay
 // already populates -- Tanstack Query's cache dedupes the underlying fetch
 // as long as the key and query function shape match, so this costs no extra
-// Firestore read. The sum genuinely is "every Expense this month" with no
-// separate Gasto/Pendiente split: paying a Pendiente generates the Expense
-// that counts here, at the moment the money actually leaves the household,
-// same as a Gasto logged directly.
+// Firestore read. The headline figure is "every Expense this month" (paying
+// a Pendiente generates the Expense that counts here, same as a Gasto
+// logged directly) PLUS every currently-pending Pendiente actually due
+// within this same month -- per direct feedback, a bill due but unpaid
+// still has to count against the budget, but only the month it's actually
+// due in; a bill due next month shouldn't already eat into this one.
 export function SpentThisMonthDisplay({
   db,
   householdId,
@@ -60,9 +65,19 @@ export function SpentThisMonthDisplay({
         monthEnd,
       }),
   })
+  // Not itself month-scoped in the query (every currently-pending Pendiente
+  // regardless of due date, matching what Cuentas por pagar itself shows) --
+  // narrowed to the viewed month below, via pendientesDueInMonth. Shares its
+  // key/shape with RemainingBudgetDisplay's identical query, same dedupe
+  // reasoning as expensesQuery above.
+  const pendingQuery = useQuery({
+    queryKey: [...pendientesQueryKey({ householdId }), 'committed'],
+    queryFn: () => listPendientes({ db, householdId }),
+  })
   const expenses = expensesQuery.data
+  const pending = pendingQuery.data
 
-  if (expenses === undefined) {
+  if (expenses === undefined || pending === undefined) {
     // Shaped like the resolved card (heading / amount, each its own bar) so
     // nothing jumps in size once the real figure lands.
     return (
@@ -79,7 +94,10 @@ export function SpentThisMonthDisplay({
   }
 
   const spent = computeSpentThisMonth(expenses)
-  const formattedSpent = formatCurrency(spent)
+  const pendingCommitted = computePendingCommitted(
+    pendientesDueInMonth(pending, monthStart, monthEnd),
+  )
+  const formattedSpent = formatCurrency(spent + pendingCommitted)
 
   return (
     <div className="bg-card shadow-resting flex w-full flex-col gap-2 rounded-3xl p-6">
@@ -97,6 +115,15 @@ export function SpentThisMonthDisplay({
       >
         {formattedSpent}
       </p>
+      {/* Only shown once there's something to differentiate -- per direct
+          feedback, this figure now bundles what's already paid with what's
+          still owed, so the breakdown is what tells them apart. */}
+      {pendingCommitted > 0 ? (
+        <span className="text-muted-foreground text-xs">
+          {formatCurrency(spent)} pagado + {formatCurrency(pendingCommitted)}{' '}
+          pendiente
+        </span>
+      ) : null}
     </div>
   )
 }

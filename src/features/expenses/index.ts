@@ -21,6 +21,8 @@ export { SpentThisMonthDisplay } from './SpentThisMonthDisplay'
 export type { SpentThisMonthDisplayProps } from './SpentThisMonthDisplay'
 export { MonthNavigator } from './MonthNavigator'
 export type { MonthNavigatorProps } from './MonthNavigator'
+export { MonthPager } from './MonthPager'
+export type { MonthPagerProps } from './MonthPager'
 export {
   categoriesQueryKey,
   expenseHistoryQueryKey,

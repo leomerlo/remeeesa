@@ -1,11 +1,13 @@
 // Values are copied from the design tokens in src/index.css where a token
 // exists (magenta and the stronger yellow/green don't have their own scale
-// yet, so those three are hand-picked hex values instead). Twelve visually
+// yet, so those are hand-picked hex values instead). Twenty visually
 // distinct swatches -- the approved Home comp already relied on eight
 // genuinely different hues side by side, and two steps of the same hue read
 // as "the same category" at a glance, which defeats the point of
-// color-coding. Keep this list in sync with src/index.css if the tokens are
-// ever regenerated.
+// color-coding. Grown from twelve per direct feedback: a real household hit
+// fifteen categories and five pairs of them collided on the same swatch.
+// Keep this list in sync with src/index.css if the tokens are ever
+// regenerated.
 //
 // Order matters: CategoryColorPicker renders these in array order, so it's
 // deliberately interleaved (violet, then teal, then orange...) rather than
@@ -26,6 +28,14 @@ export const CATEGORY_COLOR_PALETTE = [
   '#2c06c6', // purple-600
   '#16a34a', // green, distinct from the softer green-400
   '#f472b6', // pink-400
+  '#0ea5e9', // sky -- brighter and cooler than blue-400
+  '#a16207', // brown/dark amber -- reads as its own hue next to the yellows
+  '#84cc16', // lime -- yellow-green, clear of both greens
+  '#e11d48', // rose -- pink-leaning red, clear of the orange-leaning coral
+  '#0f766e', // deep teal -- much darker than teal-400
+  '#64748b', // slate -- the one neutral, for a category that wants no hue
+  '#d946ef', // fuchsia -- brighter than magenta, cooler than pink
+  '#1e40af', // navy -- deep blue, clear of both violets
 ] as const
 
 function hashCategoryName(name: string): number {

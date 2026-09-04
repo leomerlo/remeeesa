@@ -12,11 +12,6 @@ export type CategorySummary = {
   readonly share: number
 }
 
-export type PersonSummary = {
-  readonly authorDisplayName: string
-  readonly total: number
-}
-
 const UNKNOWN_CATEGORY_NAME = 'Categoría desconocida'
 
 // Groups expenses by categoryId and sums their price. An expense whose
@@ -28,9 +23,22 @@ const UNKNOWN_CATEGORY_NAME = 'Categoría desconocida'
 // Sort is descending by total; Array#prototype.sort is stable, so a tie
 // keeps the order in which each category's first expense was encountered
 // in the input array.
+//
+// `pendientes` (optional) folds still-unpaid bills into their own category's
+// total, so this breakdown reconciles with a "Gastado este mes" that also
+// counts them -- per direct feedback. Unlike a person, a Pendiente always
+// carries a categoryId, so it can be attributed here. The caller narrows
+// them to the period first (pendientesDueInMonth); one with no expected
+// amount yet contributes nothing, since there's no number to add. Typed
+// structurally rather than as Pendiente to keep lib/expenses from importing
+// lib/pendientes, which already imports this module.
 export function summarizeByCategory(input: {
   readonly expenses: readonly Expense[]
   readonly categories: readonly Category[]
+  readonly pendientes?: readonly {
+    readonly categoryId: string
+    readonly expectedAmount: number | null
+  }[]
 }): readonly CategorySummary[] {
   const categoryById = new Map(
     input.categories.map((category) => [category.id, category]),
@@ -40,15 +48,24 @@ export function summarizeByCategory(input: {
     { name: string; color: string; total: number }
   >()
 
-  for (const expense of input.expenses) {
-    const category = categoryById.get(expense.categoryId)
+  function add(categoryId: string, amount: number): void {
+    const category = categoryById.get(categoryId)
     const name = category?.name ?? UNKNOWN_CATEGORY_NAME
     const color = category?.color ?? colorForCategoryName(name)
-    const existing = totals.get(expense.categoryId)
+    const existing = totals.get(categoryId)
     if (existing === undefined) {
-      totals.set(expense.categoryId, { name, color, total: expense.price })
+      totals.set(categoryId, { name, color, total: amount })
     } else {
-      existing.total += expense.price
+      existing.total += amount
+    }
+  }
+
+  for (const expense of input.expenses) {
+    add(expense.categoryId, expense.price)
+  }
+  for (const pendiente of input.pendientes ?? []) {
+    if (pendiente.expectedAmount !== null) {
+      add(pendiente.categoryId, pendiente.expectedAmount)
     }
   }
 
@@ -66,23 +83,5 @@ export function summarizeByCategory(input: {
       ...entry,
       share: grandTotal > 0 ? entry.total / grandTotal : 0,
     }))
-    .sort((left, right) => right.total - left.total)
-}
-
-// Groups expenses by the snapshotted authorDisplayName and sums their
-// price. Sort is descending by total, stable for ties (see
-// summarizeByCategory).
-export function summarizeByPerson(input: {
-  readonly expenses: readonly Expense[]
-}): readonly PersonSummary[] {
-  const totals = new Map<string, number>()
-
-  for (const expense of input.expenses) {
-    const existing = totals.get(expense.authorDisplayName)
-    totals.set(expense.authorDisplayName, (existing ?? 0) + expense.price)
-  }
-
-  return Array.from(totals.entries())
-    .map(([authorDisplayName, total]) => ({ authorDisplayName, total }))
     .sort((left, right) => right.total - left.total)
 }

@@ -31,11 +31,35 @@ export function computeSpentThisMonth(
   return sum
 }
 
+// Every currently-pending Pendiente's own expected amount, summed -- money
+// already committed even though it hasn't left the household yet. A
+// Pendiente with no expected amount yet (unknown, e.g. a variable bill)
+// contributes nothing until it's known -- there's no number to add. Not
+// scoped to any month: Cuentas por pagar itself shows every pending
+// Pendiente regardless of due date (an overdue bill from three months ago
+// stays actionable until paid), so "how much would paying everything owed
+// take out of this budget" reads the same full list.
+export function computePendingCommitted(
+  pendientes: readonly { expectedAmount: number | null }[],
+): number {
+  let sum = 0
+  for (const pendiente of pendientes) {
+    if (pendiente.expectedAmount !== null) {
+      sum += pendiente.expectedAmount
+    }
+  }
+  return sum
+}
+
 export function computeRemainingBudget(
   monthlyBudget: number,
   expenses: readonly { price: number }[],
+  // Per direct feedback: the budget is meant to cover every expense, paid
+  // or not, so a Pendiente still owed has to count against what's "left"
+  // the same as a paid one already does -- not just once it's paid.
+  pendingCommitted = 0,
 ): number {
-  return monthlyBudget - computeSpentThisMonth(expenses)
+  return monthlyBudget - computeSpentThisMonth(expenses) - pendingCommitted
 }
 
 // A 0 (or negative) monthlyBudget has nothing meaningful to divide by, so
@@ -48,8 +72,9 @@ export function computeRemainingBudget(
 export function computePercentUsed(
   monthlyBudget: number,
   expenses: readonly { price: number }[],
+  pendingCommitted = 0,
 ): number {
-  const spent = computeSpentThisMonth(expenses)
+  const spent = computeSpentThisMonth(expenses) + pendingCommitted
   if (monthlyBudget <= 0) {
     return spent > 0 ? 100 : 0
   }

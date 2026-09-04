@@ -1,14 +1,17 @@
-import { useQueries } from '@tanstack/react-query'
+import { useQueries, useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { expensesInMonthQueryKey } from '@/features/expenses'
 import {
+  computePendingCommitted,
   formatCurrency,
   lastNMonthRanges,
   listExpensesInMonth,
   MONTHLY_TOTALS_MONTH_COUNT,
 } from '@/lib/expenses'
+import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
+import { pendientesQueryKey } from '@/features/pendientes'
 import type { HouseholdsDb } from '@/lib/households'
 import { cn } from '@/lib/utils'
 
@@ -28,6 +31,12 @@ function shortMonthLabel(date: Date): string {
 // The trend companion to "Por categoría" above it: MONTHLY_TOTALS_MONTH_COUNT
 // months of total spend as bars, so a one-off big month reads as a spike
 // against its neighbours instead of just a number on its own.
+//
+// Each bar counts the same money "Gastado este mes" and "Por categoría" do
+// -- that month's Expenses plus the still-unpaid bills due in it. Per
+// direct feedback: counting only what had been paid here left this chart's
+// current-month bar disagreeing with the card right above it, two numbers
+// for the same month on adjacent screens.
 //
 // Fetches each month with the exact queryKey shape RecentExpensesList
 // already uses (expensesInMonthQueryKey + the month's own timestamp), so the
@@ -64,8 +73,18 @@ export function MonthlyTotalsChart({
     })),
   })
 
-  const isPending = monthQueries.some((query) => query.isPending)
-  const isError = monthQueries.some((query) => query.isError)
+  // One fetch of every pending Pendiente, split per month below rather than
+  // queried per month -- same key/shape the budget cards use, so it shares
+  // their cache entry.
+  const pendingQuery = useQuery({
+    queryKey: [...pendientesQueryKey({ householdId }), 'committed'],
+    queryFn: () => listPendientes({ db, householdId }),
+  })
+
+  const isPending =
+    monthQueries.some((query) => query.isPending) || pendingQuery.isPending
+  const isError =
+    monthQueries.some((query) => query.isError) || pendingQuery.isError
 
   if (isPending) {
     return (
@@ -94,12 +113,17 @@ export function MonthlyTotalsChart({
     return null
   }
 
+  const pending = pendingQuery.data ?? []
   const totals = ranges.map((range, index) => ({
     monthStart: range.monthStart,
-    total: (monthQueries[index]?.data ?? []).reduce(
-      (sum, expense) => sum + expense.price,
-      0,
-    ),
+    total:
+      (monthQueries[index]?.data ?? []).reduce(
+        (sum, expense) => sum + expense.price,
+        0,
+      ) +
+      computePendingCommitted(
+        pendientesDueInMonth(pending, range.monthStart, range.monthEnd),
+      ),
   }))
 
   // Nothing spent in any of these months at all (a brand-new household):

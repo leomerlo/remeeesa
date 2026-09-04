@@ -4,12 +4,15 @@ import type { ReactElement } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { householdQueryKey } from '@/features/household'
 import {
+  computePendingCommitted,
   computePercentUsed,
   computeRemainingBudget,
   currentMonthRange,
   formatBudgetAmount,
   listExpensesInMonth,
 } from '@/lib/expenses'
+import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
+import { pendientesQueryKey } from '@/features/pendientes'
 import { getHousehold } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { PiggyBankIllustration } from './PiggyBankIllustration'
@@ -54,10 +57,23 @@ export function RemainingBudgetDisplay({
         monthEnd,
       }),
   })
+  // Per direct feedback: a Pendiente still owed has to count against what's
+  // "left" too, but only for the month it's actually due in -- see
+  // SpentThisMonthDisplay's identical query for the full reasoning (shares
+  // its cache entry).
+  const pendingQuery = useQuery({
+    queryKey: [...pendientesQueryKey({ householdId }), 'committed'],
+    queryFn: () => listPendientes({ db, householdId }),
+  })
   const household = householdQuery.data
   const expenses = expensesQuery.data
+  const pending = pendingQuery.data
 
-  if (household === undefined || expenses === undefined) {
+  if (
+    household === undefined ||
+    expenses === undefined ||
+    pending === undefined
+  ) {
     // Flat rather than the eventual gradient: a pulsing grey bar over the
     // bright purple would read as broken, not loading. The gradient (and
     // the mascot) only appear once there's a real figure to show inside it.
@@ -77,9 +93,20 @@ export function RemainingBudgetDisplay({
     )
   }
 
-  const remaining = computeRemainingBudget(household.monthlyBudget, expenses)
+  const pendingCommitted = computePendingCommitted(
+    pendientesDueInMonth(pending, monthStart, monthEnd),
+  )
+  const remaining = computeRemainingBudget(
+    household.monthlyBudget,
+    expenses,
+    pendingCommitted,
+  )
   const formattedRemaining = formatBudgetAmount(remaining)
-  const percentUsed = computePercentUsed(household.monthlyBudget, expenses)
+  const percentUsed = computePercentUsed(
+    household.monthlyBudget,
+    expenses,
+    pendingCommitted,
+  )
 
   return (
     <div className="from-primary to-[var(--surface-action-gradient-end)] relative flex w-full flex-col gap-6 rounded-3xl bg-gradient-to-br p-6">
