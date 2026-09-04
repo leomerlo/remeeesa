@@ -141,7 +141,7 @@ function loadErrorMessage(error: unknown): string | null {
 // The unified entry point for logging money owed or spent: one button
 // ("Agregar gasto"), one form, with "Recurrente" and "Ya lo pagué" deciding
 // what actually gets created underneath -- replaces the old side-by-side
-// "Agregar gasto" / "Nuevo recurrente" buttons, which forced that choice
+// "Agregar gasto" / "Agregar Servicio" buttons, which forced that choice
 // *before* the user even knew which one they had. Per direct feedback: a
 // plain gasto (not recurring, already paid) is really just a Pendiente
 // created and marked paid in the same instant, so this form always decides
