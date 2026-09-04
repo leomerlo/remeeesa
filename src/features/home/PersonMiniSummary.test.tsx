@@ -92,7 +92,7 @@ describe('PersonMiniSummary', () => {
     )
 
     expect(
-      await screen.findByRole('heading', { name: 'Integrantes' }),
+      await screen.findByRole('heading', { name: 'Gastos por persona' }),
     ).toBeInTheDocument()
     const list = await screen.findByRole('list', { name: 'Gastos por persona' })
     const items = within(list).getAllByRole('listitem')

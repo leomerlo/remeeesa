@@ -600,7 +600,7 @@ describe('EditExpenseFlow', () => {
       dueDate: currentMonthDate(10),
       expectedAmount: 5000,
     })
-    await markPendientePaid({
+    const { expense } = await markPendientePaid({
       db,
       householdId: household.id,
       pendienteId: pendiente.id,
@@ -610,18 +610,30 @@ describe('EditExpenseFlow', () => {
       paymentDate: currentMonthDate(10),
     })
 
+    // Rendered directly (not via the RecentExpensesList-tap harness the
+    // other tests here use) -- a paid servicio's Expense is deliberately
+    // excluded from "Últimos gastos del mes" (Cuentas por pagar already
+    // shows it), so there's no row to tap it open from there any more.
     renderWithProviders(
-      <EditExpenseHarness
+      <AddExpenseForm
         db={db}
         householdId={household.id}
         memberId="user-1"
         authorDisplayName="Ada"
+        editExpense={{
+          expenseId: expense.id,
+          name: expense.name,
+          price: expense.price,
+          categoryName: 'Comida',
+          comments: expense.comments,
+          expenseDate: expense.expenseDate,
+          memberId: expense.memberId,
+          pendienteId: expense.pendienteId,
+          isService: expense.isService,
+        }}
       />,
     )
 
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Editar Internet' }),
-    )
     expect(await screen.findByLabelText('Nombre')).toHaveValue('Internet')
     expect(
       screen.queryByLabelText('Marcar como servicio'),

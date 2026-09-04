@@ -124,7 +124,7 @@ describe('HomePage', () => {
       screen.queryByRole('heading', { name: 'Categorías' }),
     ).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('heading', { name: 'Integrantes' }),
+      screen.queryByRole('heading', { name: 'Gastos por persona' }),
     ).not.toBeInTheDocument()
     expect(
       screen.queryAllByText('Todavía no hay gastos este mes'),

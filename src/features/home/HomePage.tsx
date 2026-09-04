@@ -245,7 +245,7 @@ export function HomePage({
       />
       <div className="flex w-full flex-col gap-3">
         <h2 className="text-title font-semibold self-start">
-          Últimos movimientos del mes
+          Últimos gastos del mes
         </h2>
         <RecentExpensesList
           db={db}

@@ -66,11 +66,20 @@ export function PersonMiniSummary({
 
   // Title outside; rows share one card, separated by a thin divider --
   // a tidy list rather than a card per row (that treatment stays on
-  // "Últimos movimientos" above, whose rows carry more weight: an icon,
+  // "Últimos gastos" above, whose rows carry more weight: an icon,
   // amount, and two lines of meta, vs. this section's plain name + total).
   return (
     <div className="flex w-full flex-col gap-3">
-      <h2 className="text-title font-semibold self-start">Integrantes</h2>
+      {/* "Integrantes" alone read as a plain member roster (like Ajustes'
+          own "Integrantes" list, no amounts) rather than what this actually
+          is: what each person has spent -- per direct feedback, someone
+          compared this total against Cuentas por pagar's still-unpaid
+          total and got confused when they didn't match. "Gastos por
+          persona" matches CategoryMiniSummary's "Gastos por categoría"
+          sibling naming, and the aria-label this list already carried. */}
+      <h2 className="text-title font-semibold self-start">
+        Gastos por persona
+      </h2>
       <ul
         aria-label="Gastos por persona"
         className="bg-card shadow-resting divide-border flex w-full flex-col divide-y rounded-2xl text-sm"
