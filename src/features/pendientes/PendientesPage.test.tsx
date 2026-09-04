@@ -83,7 +83,7 @@ describe('PendientesPage', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('heading', { name: 'Pendientes' }),
+        screen.getByRole('heading', { name: 'Servicios' }),
       ).toBeInTheDocument()
     })
   })
@@ -139,7 +139,7 @@ describe('PendientesPage', () => {
     )
 
     expect(
-      await screen.findByRole('heading', { name: 'Pendientes' }),
+      await screen.findByRole('heading', { name: 'Servicios' }),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'Agregar Servicio' }),

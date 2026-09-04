@@ -30,7 +30,10 @@ export function AppHeader({
     // bottom nav needs its pb-24 (AppShell) -- one less magic number to keep
     // in sync if the header's own height ever changes. z-30 matches the
     // bottom nav's stacking layer; both sit well under Sheet/popover's z-50.
-    <header className="bg-card sticky top-0 z-30 flex w-full items-center justify-start px-6 py-4 sm:px-8">
+    // Hidden from `lg` up: the sidebar carries the wordmark there, and a
+    // full-width bar above a sidebar layout is a second horizontal band
+    // saying nothing the sidebar has not already said.
+    <header className="bg-card sticky top-0 z-30 flex w-full items-center justify-start px-6 py-4 sm:px-8 lg:hidden">
       <Logo className="h-5" />
     </header>
   )

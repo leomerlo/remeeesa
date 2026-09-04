@@ -49,7 +49,7 @@ export function PendientesPage({
 
   return (
     <div className="flex w-full flex-col gap-6">
-      <PageHeader title="Pendientes" headingRef={headingRef} />
+      <PageHeader title="Servicios" headingRef={headingRef} />
       <AddPendienteSheet
         open={isAddPendienteSheetOpen}
         onOpenChange={setIsAddPendienteSheetOpen}

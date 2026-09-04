@@ -152,7 +152,10 @@ export function MonthlyTotalsChart({
           needed). */}
       <ul
         aria-label="Gasto total por mes"
-        className="flex h-32 w-full items-end gap-2"
+        // Capped on a wide window: six bars sharing a full-width card come
+        // out as broad slabs that read as a diagram of nothing. The chart
+        // is a shape to glance at, and the shape needs the bars narrow.
+        className="flex h-32 w-full items-end gap-2 lg:mx-auto lg:h-40 lg:max-w-2xl lg:gap-4"
       >
         {totals.map((entry, index) => {
           const heightPercent =

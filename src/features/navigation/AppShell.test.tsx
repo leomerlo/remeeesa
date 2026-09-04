@@ -94,7 +94,32 @@ describe('AppShell', () => {
     expect(
       within(nav).getByRole('link', { name: /ajustes/i }),
     ).toBeInTheDocument()
-    expect(within(nav).getAllByRole('link')).toHaveLength(4)
+    expect(within(nav).getAllByRole('link')).toHaveLength(5)
+  })
+
+  // Servicios is in the markup at every width but `display: none` below lg,
+  // so the phone's bar keeps its four roomy targets (Servicios is one tap
+  // from Home there) while the sidebar carries all five.
+  it('carries Servicios as a desktop-only link, hidden on a phone', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderShell({ currentUserId: 'user-1', householdsDb: db })
+
+    const nav = await screen.findByRole('navigation')
+    const servicios = within(nav).getByRole('link', { name: /servicios/i })
+    expect(servicios).toHaveAttribute('href', '/pendientes')
+    expect(servicios.closest('li')).toHaveClass('hidden', 'lg:block')
+    for (const label of [/inicio/i, /histórico/i, /categorías/i, /ajustes/i]) {
+      expect(
+        within(nav).getByRole('link', { name: label }).closest('li'),
+      ).not.toHaveClass('hidden')
+    }
   })
 
   it('marks Ajustes active at /household', async () => {

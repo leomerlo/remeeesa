@@ -155,11 +155,11 @@ export function PendientesList({
         // 375px.
         const actions =
           onMarkPaid === undefined && onEditPendiente === undefined ? null : (
-            <div className="flex gap-2">
+            <div className="flex gap-2 lg:justify-end">
               {onMarkPaid !== undefined ? (
                 <Button
                   type="button"
-                  className="flex-1"
+                  className="flex-1 lg:w-32 lg:flex-none"
                   aria-label={`Marcar pagado ${pendiente.name}`}
                   onClick={() => {
                     onMarkPaid(pendiente, category?.name ?? '')
@@ -172,7 +172,7 @@ export function PendientesList({
                 <Button
                   type="button"
                   variant="outline"
-                  className="flex-1"
+                  className="flex-1 lg:w-32 lg:flex-none"
                   aria-label={`Editar ${pendiente.name}`}
                   onClick={() => {
                     onEditPendiente(pendiente, category?.name ?? '')

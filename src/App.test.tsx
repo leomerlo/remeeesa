@@ -56,8 +56,12 @@ describe('App', () => {
     // The wordmark stays visible in the persistent app header, not just the
     // unauthenticated sign-up/log-in/join hero (AuthHero) -- it just isn't
     // the big hero treatment here.
+    // Two wordmarks exist in the markup -- the phone's header bar and the
+    // desktop sidebar's -- each `display: none` at the other's widths, so
+    // exactly one is ever exposed. This asserts the header's.
+    const header = await screen.findByRole('banner')
     expect(
-      await screen.findByRole('img', { name: 'remeeesa' }),
+      within(header).getByRole('img', { name: 'remeeesa' }),
     ).toBeInTheDocument()
     await waitFor(() => {
       expect(screen.getByLabelText('Nombre del hogar')).toHaveValue(
@@ -89,7 +93,7 @@ describe('App', () => {
     )
 
     const nav = await screen.findByRole('navigation')
-    expect(within(nav).getAllByRole('link')).toHaveLength(4)
+    expect(within(nav).getAllByRole('link')).toHaveLength(5)
     expect(within(nav).getByRole('link', { name: /inicio/i })).toHaveAttribute(
       'aria-current',
       'page',
@@ -154,7 +158,7 @@ describe('App', () => {
     },
   )
 
-  it('renders /pendientes for a signed-in member with a household, unlinked from the nav', async () => {
+  it('renders /pendientes for a signed-in member, reachable from the nav on a wide window', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     await createHouseholdWithMembership({
       db,
@@ -170,16 +174,19 @@ describe('App', () => {
     )
 
     expect(
-      await screen.findByRole('heading', { name: 'Pendientes' }),
+      await screen.findByRole('heading', { name: 'Servicios' }),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'Agregar Servicio' }),
     ).toBeInTheDocument()
 
-    // /pendientes is intentionally unlinked from Home in this ticket -- the nav
-    // must not grow a 5th entry pointing at it.
+    // The nav's Servicios entry points here. It is `display: none` below
+    // lg -- on a phone this page is one tap from Home instead, so the bar
+    // keeps four roomy targets.
     const nav = await screen.findByRole('navigation')
-    expect(within(nav).getAllByRole('link')).toHaveLength(4)
+    const servicios = within(nav).getByRole('link', { name: /servicios/i })
+    expect(servicios).toHaveAttribute('href', '/pendientes')
+    expect(servicios.closest('li')).toHaveClass('hidden', 'lg:block')
     expect(
       within(nav).queryByRole('link', { name: /pendientes/i }),
     ).not.toBeInTheDocument()
@@ -226,7 +233,8 @@ describe('App', () => {
       </MemoryRouter>,
     )
 
-    const logo = await screen.findByRole('img', { name: 'remeeesa' })
+    const header = await screen.findByRole('banner')
+    const logo = within(header).getByRole('img', { name: 'remeeesa' })
     const main = document.querySelector('main')
     expect(main).not.toBeNull()
     expect(main?.contains(logo)).toBe(false)

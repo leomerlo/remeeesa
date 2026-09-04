@@ -222,56 +222,63 @@ export function HomePage({
           setEditPendiente(null)
         }}
       />
-      <PorPagarSection
-        db={db}
-        householdId={membership.householdId}
-        monthStart={monthStart}
-        monthEnd={monthEnd}
-        onMarkPaid={(pendiente, categoryName) => {
-          // Opens the same edit sheet as tapping a row on /pendientes, with
-          // "Ya lo pagué" pre-checked -- one form for both editing and
-          // paying (this used to open a separate amount-only sheet).
-          setEditPendiente({
-            pendienteId: pendiente.id,
-            name: pendiente.name,
-            categoryName,
-            dueDate: pendiente.dueDate,
-            expectedAmount: pendiente.expectedAmount,
-            recurring: pendiente.recurring,
-            defaultMarkPaid: true,
-          })
-        }}
-      />
-      <div className="flex w-full flex-col gap-3">
-        <h2 className="text-title font-semibold self-start">
-          Últimos gastos del mes
-        </h2>
-        <RecentExpensesList
+      {/* One column on a phone, two from lg: the month's outstanding
+          services and the recent movements are the things being read, the
+          category split is a reference panel beside them. */}
+      <div className="flex w-full flex-col gap-6 lg:grid lg:grid-cols-3 lg:items-start">
+        <div className="flex w-full flex-col gap-6 lg:col-span-2">
+          <PorPagarSection
+            db={db}
+            householdId={membership.householdId}
+            monthStart={monthStart}
+            monthEnd={monthEnd}
+            onMarkPaid={(pendiente, categoryName) => {
+              // Opens the same edit sheet as tapping a row on /pendientes, with
+              // "Ya lo pagué" pre-checked -- one form for both editing and
+              // paying (this used to open a separate amount-only sheet).
+              setEditPendiente({
+                pendienteId: pendiente.id,
+                name: pendiente.name,
+                categoryName,
+                dueDate: pendiente.dueDate,
+                expectedAmount: pendiente.expectedAmount,
+                recurring: pendiente.recurring,
+                defaultMarkPaid: true,
+              })
+            }}
+          />
+          <div className="flex w-full flex-col gap-3">
+            <h2 className="text-title font-semibold self-start">
+              Últimos gastos del mes
+            </h2>
+            <RecentExpensesList
+              db={db}
+              householdId={membership.householdId}
+              monthStart={monthStart}
+              monthEnd={monthEnd}
+              onEditExpense={(expense, categoryName) => {
+                setEditExpense({
+                  expenseId: expense.id,
+                  name: expense.name,
+                  price: expense.price,
+                  categoryName,
+                  comments: expense.comments,
+                  expenseDate: expense.expenseDate,
+                  memberId: expense.memberId,
+                  pendienteId: expense.pendienteId,
+                  isService: expense.isService,
+                })
+              }}
+            />
+          </div>
+        </div>
+        <CategoryMiniSummary
           db={db}
           householdId={membership.householdId}
           monthStart={monthStart}
           monthEnd={monthEnd}
-          onEditExpense={(expense, categoryName) => {
-            setEditExpense({
-              expenseId: expense.id,
-              name: expense.name,
-              price: expense.price,
-              categoryName,
-              comments: expense.comments,
-              expenseDate: expense.expenseDate,
-              memberId: expense.memberId,
-              pendienteId: expense.pendienteId,
-              isService: expense.isService,
-            })
-          }}
         />
       </div>
-      <CategoryMiniSummary
-        db={db}
-        householdId={membership.householdId}
-        monthStart={monthStart}
-        monthEnd={monthEnd}
-      />
     </div>
   )
 }

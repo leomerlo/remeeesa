@@ -57,7 +57,7 @@ export function AddGastoSheet({
       {!open ? (
         <Button
           ref={triggerRef}
-          className="w-full gap-1.5"
+          className="w-full gap-1.5 lg:w-auto lg:self-start lg:px-6"
           onClick={() => {
             onOpenChange(true)
           }}
