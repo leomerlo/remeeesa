@@ -7,6 +7,7 @@ import {
   listCategories,
 } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
+import { createPendiente } from '@/lib/pendientes'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { CategoryMiniSummary } from './CategoryMiniSummary'
@@ -193,5 +194,82 @@ describe('CategoryMiniSummary', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Cargando…')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
+  })
+
+  // Per direct feedback: this has to show the category's whole cost for the
+  // month, paid or not -- otherwise it disagrees with "Gastado este mes",
+  // which already counts still-unpaid bills.
+  it("adds a pending bill due this month to its category's total", async () => {
+    const { db, household, categories } = await seedHousehold()
+    const comida = categories.find((category) => category.name === 'Comida')
+    if (comida === undefined) {
+      throw new Error('expected Comida category')
+    }
+    await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Super',
+      price: 100,
+      comments: '',
+      expenseDate: new Date(),
+    })
+    await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Internet',
+      dueDate: new Date(),
+      expectedAmount: 900,
+    })
+
+    renderWithProviders(
+      <CategoryMiniSummary db={db} householdId={household.id} />,
+    )
+
+    const list = await screen.findByRole('list', {
+      name: 'Gastos por categoría',
+    })
+    expect(within(list).getByText('$1.000,00')).toBeInTheDocument()
+  })
+
+  it("leaves a pending bill due next month out of this month's totals", async () => {
+    const { db, household, categories } = await seedHousehold()
+    const comida = categories.find((category) => category.name === 'Comida')
+    if (comida === undefined) {
+      throw new Error('expected Comida category')
+    }
+    await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Super',
+      price: 100,
+      comments: '',
+      expenseDate: new Date(),
+    })
+    const now = new Date()
+    await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Cuota Visa',
+      dueDate: new Date(now.getFullYear(), now.getMonth() + 1, 15),
+      expectedAmount: 900,
+    })
+
+    renderWithProviders(
+      <CategoryMiniSummary db={db} householdId={household.id} />,
+    )
+
+    const list = await screen.findByRole('list', {
+      name: 'Gastos por categoría',
+    })
+    expect(within(list).getByText('$100,00')).toBeInTheDocument()
+    expect(within(list).queryByText('$1.000,00')).not.toBeInTheDocument()
   })
 })

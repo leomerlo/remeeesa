@@ -155,6 +155,96 @@ describe('summarizeByCategory', () => {
   })
 })
 
+// Per direct feedback: this breakdown has to reconcile with "Gastado este
+// mes", which also counts still-unpaid bills. Unlike a person, a Pendiente
+// always carries a categoryId, so it can be attributed here.
+describe('summarizeByCategory with pendientes', () => {
+  it('folds a pending bill into its own category total', () => {
+    const comida = makeCategory({ id: 'cat-comida', name: 'Comida' })
+
+    const summary = summarizeByCategory({
+      expenses: [
+        makeExpense({ id: 'e1', categoryId: 'cat-comida', price: 10 }),
+      ],
+      categories: [comida],
+      pendientes: [{ categoryId: 'cat-comida', expectedAmount: 90 }],
+    })
+
+    expect(summary).toEqual([
+      {
+        categoryId: 'cat-comida',
+        name: 'Comida',
+        color: comida.color,
+        total: 100,
+        share: 1,
+      },
+    ])
+  })
+
+  it('creates a category row for a pending bill even with no expense in it yet', () => {
+    const servicios = makeCategory({ id: 'cat-servicios', name: 'Servicios' })
+
+    const summary = summarizeByCategory({
+      expenses: [],
+      categories: [servicios],
+      pendientes: [{ categoryId: 'cat-servicios', expectedAmount: 500 }],
+    })
+
+    expect(summary).toEqual([
+      {
+        categoryId: 'cat-servicios',
+        name: 'Servicios',
+        color: servicios.color,
+        total: 500,
+        share: 1,
+      },
+    ])
+  })
+
+  it('skips a pending bill with no expected amount yet', () => {
+    const comida = makeCategory({ id: 'cat-comida', name: 'Comida' })
+
+    const summary = summarizeByCategory({
+      expenses: [
+        makeExpense({ id: 'e1', categoryId: 'cat-comida', price: 10 }),
+      ],
+      categories: [comida],
+      pendientes: [{ categoryId: 'cat-comida', expectedAmount: null }],
+    })
+
+    expect(summary[0]?.total).toBe(10)
+  })
+
+  it('re-sorts so a category carrying a big pending bill outranks a paid one', () => {
+    const comida = makeCategory({ id: 'cat-comida', name: 'Comida' })
+    const servicios = makeCategory({ id: 'cat-servicios', name: 'Servicios' })
+
+    const summary = summarizeByCategory({
+      expenses: [
+        makeExpense({ id: 'e1', categoryId: 'cat-comida', price: 80 }),
+      ],
+      categories: [comida, servicios],
+      pendientes: [{ categoryId: 'cat-servicios', expectedAmount: 300 }],
+    })
+
+    expect(summary.map((entry) => entry.categoryId)).toEqual([
+      'cat-servicios',
+      'cat-comida',
+    ])
+  })
+
+  it('is unchanged from the expenses-only result when no pendientes are passed', () => {
+    const comida = makeCategory({ id: 'cat-comida', name: 'Comida' })
+    const expenses = [
+      makeExpense({ id: 'e1', categoryId: 'cat-comida', price: 10 }),
+    ]
+
+    expect(summarizeByCategory({ expenses, categories: [comida] })).toEqual(
+      summarizeByCategory({ expenses, categories: [comida], pendientes: [] }),
+    )
+  })
+})
+
 describe('summarizeByCategory share', () => {
   it('gives every category its fraction of the period total, summing to one', () => {
     const comida = makeCategory({ id: 'cat-comida', name: 'Comida' })

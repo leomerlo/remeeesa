@@ -15,6 +15,8 @@ import {
   listExpensesInMonth,
   summarizeByCategory,
 } from '@/lib/expenses'
+import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
+import { pendientesQueryKey } from '@/features/pendientes'
 import type { HouseholdsDb } from '@/lib/households'
 import { CategoryDonut } from './CategoryDonut'
 
@@ -50,10 +52,24 @@ export function CategoryBreakdown({
     queryFn: () => listCategories({ db, householdId }),
   })
 
+  // Still-unpaid bills count toward their category too, so this breakdown
+  // reconciles with "Gastado este mes" (which also counts them). Same
+  // key/shape as the budget cards' own pending query, so they share one
+  // fetch.
+  const pendingQuery = useQuery({
+    queryKey: [...pendientesQueryKey({ householdId }), 'committed'],
+    queryFn: () => listPendientes({ db, householdId }),
+  })
+
   const expenses = expensesQuery.data
   const categories = categoriesQuery.data
+  const pending = pendingQuery.data
 
-  if (expenses === undefined || categories === undefined) {
+  if (
+    expenses === undefined ||
+    categories === undefined ||
+    pending === undefined
+  ) {
     return (
       <div
         role="status"
@@ -85,7 +101,15 @@ export function CategoryBreakdown({
     )
   }
 
-  const byCategory = summarizeByCategory({ expenses, categories })
+  const byCategory = summarizeByCategory({
+    expenses,
+    categories,
+    pendientes: pendientesDueInMonth(
+      pending,
+      monthRange.monthStart,
+      monthRange.monthEnd,
+    ),
+  })
   const total = byCategory.reduce((sum, entry) => sum + entry.total, 0)
 
   // An empty month gets the illustration and a sentence, never a donut with
