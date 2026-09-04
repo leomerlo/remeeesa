@@ -204,7 +204,7 @@ export function PorPagarSection({
                 {amount}
                 <div className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
                   {isNextCycle ? (
-                    <span className="bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
+                    <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-semibold">
                       Ya pagaste este mes
                     </span>
                   ) : null}

@@ -4,7 +4,11 @@
     "target": "es2023",
     "lib": ["ES2023", "DOM"],
     "module": "esnext",
-    "types": ["vite/client", "@testing-library/jest-dom"],
+    /* "node" is here for one test: src/lib/a11y/tokens.test.ts reads
+       src/index.css off disk to assert the real token values pass AA.
+       Vitest stubs CSS imports to an empty module, ?raw included, so fs is
+       the only way to get at the file's actual text. */
+    "types": ["vite/client", "@testing-library/jest-dom", "node"],
     "allowArbitraryExtensions": true,
     "skipLibCheck": true,
     "paths": {

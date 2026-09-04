@@ -188,8 +188,11 @@ export function MonthlyTotalsChart({
                   aria-label={`${shortMonthLabel(entry.monthStart)}: ${formatCurrency(entry.total)}`}
                   className={cn(
                     'h-full w-full rounded-t-lg transition-colors',
-                    isCurrentMonth ? 'bg-primary' : 'bg-primary/25',
-                    isSelected && !isCurrentMonth && 'bg-primary/40',
+                    // The bars *are* the data, so each one has to clear 3:1
+                    // against the card it sits on. At /25 a past month's bar
+                    // measured 1.46:1 -- visible only as a hint of colour.
+                    isCurrentMonth ? 'bg-primary' : 'bg-primary/70',
+                    isSelected && !isCurrentMonth && 'bg-primary/85',
                   )}
                   onClick={() => {
                     setSelectedIndex(isSelected ? null : index)
