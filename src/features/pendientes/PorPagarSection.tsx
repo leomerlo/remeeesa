@@ -1,12 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
-import { Check } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   isNextCycleAfterAPaidThisPeriod,
-  isSupersededByNextCycle,
   listPendientesForMonth,
 } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
@@ -19,16 +17,12 @@ import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { formatShortDate } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
-import { cn } from '@/lib/utils'
 import { pendientesQueryKey } from './queryKeys'
 
 export type PorPagarSectionProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly onMarkPaid: (pendiente: Pendiente, categoryName: string) => void
-  // Opens the same edit sheet as onMarkPaid, but for an already-paid card --
-  // per direct feedback, marking something paid by mistake needs a way back.
-  readonly onEditPaid: (pendiente: Pendiente, categoryName: string) => void
   // Defaults to the current month. MonthNavigator's viewed month flows down
   // to this the same way it does to RecentExpensesList, so paging back a
   // month shows what was actually paid that month, not always "right now".
@@ -57,7 +51,6 @@ export function PorPagarSection({
   db,
   householdId,
   onMarkPaid,
-  onEditPaid,
   monthStart: monthStartProp,
   monthEnd: monthEndProp,
 }: PorPagarSectionProps): ReactElement | null {
@@ -83,7 +76,7 @@ export function PorPagarSection({
     return (
       <section aria-labelledby="por-pagar-heading" className="w-full">
         <h2 id="por-pagar-heading" className="text-title font-semibold">
-          Cuentas por pagar
+          Servicios o pagos recurrentes
         </h2>
         <div
           role="status"
@@ -117,18 +110,19 @@ export function PorPagarSection({
 
   const { pendientes, categories } = pendientesQuery.data
 
-  // A paid pendiente whose next cycle is already in this same list is
-  // redundant with that next cycle's own "Ya pagaste este mes" badge --
-  // showing both reads as the same bill duplicated, not two months of one
-  // series. Per direct feedback. The lookup below still checks against the
-  // full `pendientes` array (not this filtered one), since that's what the
-  // badge match needs to find.
+  // Only what's still owed. A bill stops belonging here the moment it's
+  // paid -- per direct feedback, a one-off ("Osde Flor", paid once and
+  // done) lingering under "Cuentas por pagar" reads as something still to
+  // do. What was paid lives on as an Expense, in Histórico.
+  //
+  // The full `pendientes` array (paid ones included) still feeds the badge
+  // lookup below: that's what tells a freshly-spawned next cycle apart from
+  // a genuinely outstanding bill.
   const visiblePendientes = pendientes.filter(
-    (pendiente) => !isSupersededByNextCycle(pendiente, pendientes),
+    (pendiente) => pendiente.status !== 'paid',
   )
 
-  // Nothing pending and nothing paid this month: render nothing at all, not
-  // an empty box.
+  // Nothing outstanding: render nothing at all, not an empty box.
   if (visiblePendientes.length === 0) {
     return null
   }
@@ -141,7 +135,7 @@ export function PorPagarSection({
     <section aria-labelledby="por-pagar-heading" className="w-full">
       <div className="flex items-baseline justify-between gap-2">
         <h2 id="por-pagar-heading" className="text-title font-semibold">
-          Cuentas por pagar
+          Servicios o pagos recurrentes
         </h2>
         {/* Not an overflow escape hatch any more (every pendiente shows in
             the carousel below) -- kept as the only way to reach Pendientes'
@@ -165,7 +159,6 @@ export function PorPagarSection({
           const categoryColor =
             category?.color ?? colorForCategoryName(categoryName)
           const CategoryIcon = iconForCategoryName(categoryName)
-          const isPaid = pendiente.status === 'paid'
           // A recurring pendiente's next cycle is a brand-new row with no
           // link back to the one just paid -- without this, "Gimnasio" due
           // next month reads as an outstanding debt due *now*, when this
@@ -194,20 +187,12 @@ export function PorPagarSection({
               <span
                 aria-hidden="true"
                 className="flex size-11 shrink-0 items-center justify-center rounded-full"
-                style={{
-                  backgroundColor: isPaid
-                    ? 'var(--color-green-100)'
-                    : categoryColor,
-                }}
+                style={{ backgroundColor: categoryColor }}
               >
-                {isPaid ? (
-                  <Check className="text-green-700 size-5" aria-hidden="true" />
-                ) : (
-                  <CategoryIcon
-                    className="size-5 text-white"
-                    aria-hidden="true"
-                  />
-                )}
+                <CategoryIcon
+                  className="size-5 text-white"
+                  aria-hidden="true"
+                />
               </span>
               {/* Icon pinned to the top, name/amount/meta pinned to the
                   bottom -- the square aspect ratio leaves variable space
@@ -225,11 +210,7 @@ export function PorPagarSection({
                   ) : null}
                   <span>{categoryName}</span>
                   <span aria-hidden="true">·</span>
-                  {isPaid ? (
-                    <span className="text-green-700 font-medium">Pagado</span>
-                  ) : (
-                    <span>{formatShortDate(pendiente.dueDate)}</span>
-                  )}
+                  <span>{formatShortDate(pendiente.dueDate)}</span>
                 </div>
               </div>
             </>
@@ -239,21 +220,10 @@ export function PorPagarSection({
             <li key={pendiente.id} className="shrink-0">
               <button
                 type="button"
-                aria-label={
-                  isPaid
-                    ? `Editar pago de ${pendiente.name}`
-                    : `Marcar pagado ${pendiente.name}`
-                }
-                className={cn(
-                  'bg-card shadow-resting flex aspect-square w-44 flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]',
-                  isPaid && 'opacity-70',
-                )}
+                aria-label={`Marcar pagado ${pendiente.name}`}
+                className="bg-card shadow-resting flex aspect-square w-44 flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
                 onClick={() => {
-                  if (isPaid) {
-                    onEditPaid(pendiente, categoryName)
-                  } else {
-                    onMarkPaid(pendiente, categoryName)
-                  }
+                  onMarkPaid(pendiente, categoryName)
                 }}
               >
                 {cardContent}

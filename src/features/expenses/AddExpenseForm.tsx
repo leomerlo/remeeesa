@@ -22,6 +22,8 @@ import {
   updateExpense,
 } from '@/lib/expenses'
 import type { Category } from '@/lib/expenses'
+import { unmarkPendientePaid } from '@/lib/pendientes'
+import { pendientesQueryKey } from '@/features/pendientes'
 import { membersQueryKey } from '@/features/household'
 import { listHouseholdMembers } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
@@ -180,6 +182,7 @@ function ExpenseFormBody({
   const queryClient = useQueryClient()
   const categoriesKey = categoriesQueryKey({ householdId })
   const expensesKey = expensesQueryKey({ householdId })
+  const pendientesKey = pendientesQueryKey({ householdId })
   const [name, setName] = useState(initialFields.name)
   const [price, setPrice] = useState(initialFields.price)
   const [category, setCategory] = useState(initialFields.category)
@@ -192,6 +195,11 @@ function ExpenseFormBody({
   const [error, setError] = useState<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const today = localDateInputValue(new Date())
+  // An Expense that came from paying a Pendiente can't just be deleted --
+  // removing it undoes that payment, putting the bill back to pending. The
+  // wording below says so rather than promising a plain delete.
+  const isFromPendiente =
+    editExpense !== null && editExpense.pendienteId !== null
 
   // Only fetched for reassigning an existing Expense's author -- adding one
   // always attributes it to whoever is signed in, same as before this
@@ -296,6 +304,21 @@ function ExpenseFormBody({
       if (editExpense === null) {
         throw new Error('No hay un gasto para eliminar')
       }
+      // An Expense created by paying a Pendiente isn't a standalone record:
+      // deleting it on its own would leave that Pendiente marked paid and
+      // pointing at a document that no longer exists -- money that shows up
+      // nowhere, neither spent nor owed. (A real household hit exactly that
+      // and ended up with a "ghost" paid bill.) Undoing the payment instead
+      // removes the Expense *and* puts the bill back to pending, which is
+      // also what deleting one of these actually means.
+      if (editExpense.pendienteId !== null) {
+        await unmarkPendientePaid({
+          db,
+          householdId,
+          pendienteId: editExpense.pendienteId,
+        })
+        return
+      }
       await deleteExpense({
         db,
         householdId,
@@ -306,6 +329,9 @@ function ExpenseFormBody({
       setConfirmingDelete(false)
       onEditFinished?.()
       await queryClient.invalidateQueries({ queryKey: expensesKey })
+      // Undoing a payment puts a Pendiente back to pending, so every
+      // Cuentas por pagar view has to see it again.
+      await queryClient.invalidateQueries({ queryKey: pendientesKey })
     },
     onError: async (caught) => {
       setConfirmingDelete(false)
@@ -538,7 +564,9 @@ function ExpenseFormBody({
             className="bg-card shadow-raised flex w-full flex-col gap-4 rounded-2xl border border-border p-4"
           >
             <p id="delete-expense-title" className="text-sm font-medium">
-              ¿Eliminar el gasto?
+              {isFromPendiente
+                ? '¿Deshacer el pago? La cuenta vuelve a quedar pendiente.'
+                : '¿Eliminar el gasto?'}
             </p>
             <div className="flex w-full gap-2">
               <Button
@@ -560,7 +588,7 @@ function ExpenseFormBody({
                   deleteMutation.mutate()
                 }}
               >
-                Eliminar gasto
+                {isFromPendiente ? 'Deshacer pago' : 'Eliminar gasto'}
               </Button>
             </div>
           </div>
@@ -597,7 +625,7 @@ function ExpenseFormBody({
                     setConfirmingDelete(true)
                   }}
                 >
-                  Eliminar gasto
+                  {isFromPendiente ? 'Deshacer pago' : 'Eliminar gasto'}
                 </Button>
               </>
             ) : null}

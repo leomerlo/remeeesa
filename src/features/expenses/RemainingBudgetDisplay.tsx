@@ -132,14 +132,6 @@ export function RemainingBudgetDisplay({
         >
           {formattedRemaining}
         </p>
-        {/* Only shown once there's something owed to differentiate -- per
-            direct feedback, this figure now already discounts every
-            currently-pending Pendiente, not just what's actually been paid. */}
-        {pendingCommitted > 0 ? (
-          <span className="text-primary-foreground/80 text-xs">
-            Incluye {formatBudgetAmount(pendingCommitted)} pendiente de pago
-          </span>
-        ) : null}
       </div>
       <div className="flex w-full flex-col gap-1">
         <div

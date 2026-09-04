@@ -308,9 +308,6 @@ describe('RemainingBudgetDisplay', () => {
         name: 'Presupuesto restante $600,00',
       }),
     ).toHaveTextContent('$600,00')
-    expect(
-      screen.getByText('Incluye $300,00 pendiente de pago'),
-    ).toBeInTheDocument()
   })
 
   it('folds pending Pendientes into the % usado bar too', async () => {
