@@ -117,12 +117,41 @@ export function SpentThisMonthDisplay({
       </p>
       {/* Only shown once there's something to differentiate -- per direct
           feedback, this figure now bundles what's already paid with what's
-          still owed, so the breakdown is what tells them apart. */}
+          still owed, so the breakdown is what tells them apart.
+
+          pr-28 keeps it clear of the piggy illustration, which is anchored
+          to the card *below* this one and overhangs its bottom-right corner
+          -- as one flat run of text the line ran straight under the
+          illustration's head and the last word was unreadable. The two
+          halves are each whitespace-nowrap, so when the line runs out of
+          room it breaks between them, never mid-figure.
+
+          Within each half the amount carries the weight and the label
+          recedes: the two numbers are what's being compared, and at one
+          uniform grey there was nothing to compare -- just a sentence. */}
       {pendingCommitted > 0 ? (
-        <span className="text-muted-foreground text-xs">
-          {formatCurrency(spent)} pagado + {formatCurrency(pendingCommitted)}{' '}
-          pendiente
-        </span>
+        <p className="text-muted-foreground flex flex-wrap items-baseline gap-x-2 gap-y-1 pr-28 text-sm">
+          <span className="whitespace-nowrap">
+            <span
+              aria-hidden="true"
+              className="bg-success mr-1.5 inline-block size-2 rounded-full align-middle"
+            />
+            <span className="text-foreground font-semibold">
+              {formatCurrency(spent)}
+            </span>{' '}
+            pagado
+          </span>
+          <span className="whitespace-nowrap">
+            <span
+              aria-hidden="true"
+              className="bg-warning mr-1.5 inline-block size-2 rounded-full align-middle"
+            />
+            <span className="text-foreground font-semibold">
+              {formatCurrency(pendingCommitted)}
+            </span>{' '}
+            pendiente
+          </span>
+        </p>
       ) : null}
     </div>
   )

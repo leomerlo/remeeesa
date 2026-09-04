@@ -58,7 +58,7 @@ export function AppShell({
                     cn(
                       'flex min-h-11 min-w-11 flex-col items-center justify-center gap-1 rounded-2xl px-3 py-1.5 text-xs font-medium transition-colors',
                       isActive
-                        ? 'text-primary bg-primary/10'
+                        ? 'text-primary bg-primary-subtle'
                         : 'text-muted-foreground',
                     )
                   }

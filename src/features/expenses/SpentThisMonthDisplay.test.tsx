@@ -188,9 +188,12 @@ describe('SpentThisMonthDisplay', () => {
     expect(
       await screen.findByRole('status', { name: 'Gastado este mes $5.100,00' }),
     ).toHaveTextContent('$5.100,00')
-    expect(
-      screen.getByText('$100,00 pagado + $5.000,00 pendiente'),
-    ).toBeInTheDocument()
+    // The two halves are separate elements so the line can break between
+    // them, so they are asserted separately rather than as one string.
+    expect(screen.getByText(/pagado/)).toHaveTextContent('$100,00 pagado')
+    expect(screen.getByText(/pendiente/)).toHaveTextContent(
+      '$5.000,00 pendiente',
+    )
   })
 
   it('omits a Pendiente with no expected amount yet from the pending total', async () => {
