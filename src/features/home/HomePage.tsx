@@ -20,7 +20,6 @@ import { currentMonthRange } from '@/lib/expenses'
 import { OnboardingForm } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
 import { markReturningUser } from '@/features/onboarding/returningUserStorage'
-import { authorDisplayNameFromAuth } from '@/lib/displayName'
 import { useFirebase } from '@/lib/firebaseContext'
 import {
   createFirestoreHouseholdsDb,
@@ -167,9 +166,12 @@ export function HomePage({
     return <LoadingIndicator />
   }
 
-  const authorDisplayName =
-    authorDisplayNameProp ??
-    authorDisplayNameFromAuth(firebase.auth?.currentUser)
+  // The household member's own editable name (set in Ajustes via
+  // updateMemberDisplayName), not the raw Firebase Auth profile -- using the
+  // Auth profile directly ignored whatever name a member had chosen for
+  // themselves, silently reverting every new Expense/Pendiente they created
+  // back to their Google account's name. Per direct feedback.
+  const authorDisplayName = authorDisplayNameProp ?? membership.displayName
 
   return (
     <div className="flex w-full flex-col items-center gap-6">
