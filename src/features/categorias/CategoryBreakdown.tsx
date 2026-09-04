@@ -11,6 +11,7 @@ import {
 import {
   currentMonthRange,
   formatCurrency,
+  isDateInCurrentMonth,
   listCategories,
   listExpensesInMonth,
   summarizeByCategory,
@@ -23,28 +24,44 @@ import { CategoryDonut } from './CategoryDonut'
 export type CategoryBreakdownProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
+  // Defaults to the current month. Categorías passes the month picked in its
+  // own MonthPager, so this reads whichever month is in view instead of
+  // always the current one -- per direct feedback, an all-time breakdown is
+  // too much at once, and even a fixed "this month" wasn't enough: seeing a
+  // past month's split needed a way to page back to it.
+  readonly monthStart?: Date
+  readonly monthEnd?: Date
 }
 
 function formatShare(share: number): string {
   return `${String(Math.round(share * 100))}%`
 }
 
-// This month's spend, split by category and by person. Reads the same
-// month-scoped cache entry Home's mini-summaries already populate, so opening
-// this screen after Home costs no extra Firestore reads.
+// The viewed month's spend, split by category and by person. Reads the same
+// month-scoped cache entry Home's mini-summaries already populate for the
+// current month, so opening this screen after Home costs no extra Firestore
+// reads for that one case.
 export function CategoryBreakdown({
   db,
   householdId,
+  monthStart: monthStartProp,
+  monthEnd: monthEndProp,
 }: CategoryBreakdownProps): ReactElement {
-  const monthRange = useMemo(() => currentMonthRange(), [])
+  const defaultRange = useMemo(() => currentMonthRange(), [])
+  const monthStart = monthStartProp ?? defaultRange.monthStart
+  const monthEnd = monthEndProp ?? defaultRange.monthEnd
+  const isCurrentMonth = isDateInCurrentMonth(monthStart)
   const expensesQuery = useQuery({
-    queryKey: expensesInMonthQueryKey({ householdId }),
+    queryKey: [
+      ...expensesInMonthQueryKey({ householdId }),
+      monthStart.getTime(),
+    ],
     queryFn: () =>
       listExpensesInMonth({
         db,
         householdId,
-        monthStart: monthRange.monthStart,
-        monthEnd: monthRange.monthEnd,
+        monthStart,
+        monthEnd,
       }),
   })
   const categoriesQuery = useQuery({
@@ -104,22 +121,23 @@ export function CategoryBreakdown({
   const byCategory = summarizeByCategory({
     expenses,
     categories,
-    pendientes: pendientesDueInMonth(
-      pending,
-      monthRange.monthStart,
-      monthRange.monthEnd,
-    ),
+    pendientes: pendientesDueInMonth(pending, monthStart, monthEnd),
   })
   const total = byCategory.reduce((sum, entry) => sum + entry.total, 0)
 
   // An empty month gets the illustration and a sentence, never a donut with
-  // no arcs -- a ring drawn from zero slices reads as a broken chart.
+  // no arcs -- a ring drawn from zero slices reads as a broken chart. The
+  // wording only names "este mes" for the current month -- the MonthPager
+  // above already shows which month is in view for any other one, so
+  // repeating its label here would be redundant.
   if (byCategory.length === 0) {
     return (
       <div className="flex w-full flex-col items-center gap-4">
         <Illustration src={categoriesCalc} className="mx-auto h-32 w-40" />
         <p role="status" className="text-sm font-medium">
-          Todavía no hay gastos este mes
+          {isCurrentMonth
+            ? 'Todavía no hay gastos este mes'
+            : 'No hay gastos en este mes'}
         </p>
       </div>
     )

@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react'
+import { fireEvent, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
@@ -81,6 +81,66 @@ describe('CategoriasPage', () => {
     expect(
       await screen.findByRole('heading', { name: 'Por mes' }),
     ).toBeInTheDocument()
+  })
+
+  // Per direct feedback: an all-time breakdown is too much at once, and a
+  // breakdown fixed to the current month wasn't enough either -- paging
+  // needs to move "Por categoría"/"Por persona" to a different month.
+  it('pages the breakdown to a previous month via the MonthPager', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 1000,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories.find((category) => category.name === 'Comida')
+    if (comida === undefined) {
+      throw new Error('expected the seeded Comida category')
+    }
+    const now = new Date()
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 15)
+    await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Alquiler pasado',
+      price: 500,
+      comments: '',
+      expenseDate: lastMonth,
+    })
+    await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Super de este mes',
+      price: 120,
+      comments: '',
+      expenseDate: now,
+    })
+
+    renderPage(<CategoriasPage currentUserId="user-1" householdsDb={db} />)
+
+    // Scoped to the category list, not a bare findByText -- with a single
+    // category in view, the header total and the row's own amount are
+    // identical, so an unscoped query matches more than one element.
+    const breakdownList = await screen.findByRole('list', {
+      name: 'Gastos por categoría',
+    })
+    expect(within(breakdownList).getByText('$120,00')).toBeInTheDocument()
+    expect(screen.queryByText('$500,00')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mes anterior' }))
+
+    expect(
+      await within(breakdownList).findByText('$500,00'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('$120,00')).not.toBeInTheDocument()
   })
 
   it('offers the management actions on the same screen, not a separate one', async () => {
