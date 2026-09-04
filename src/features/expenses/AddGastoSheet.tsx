@@ -16,7 +16,7 @@ export type AddGastoSheetProps = {
 }
 
 // Home's single "add" entry point -- replaces the old side-by-side
-// "Agregar gasto" / "Nuevo recurrente" triggers. See AddGastoForm for why
+// "Agregar gasto" / "Agregar Servicio" triggers. See AddGastoForm for why
 // one form covers both.
 export function AddGastoSheet({
   open,

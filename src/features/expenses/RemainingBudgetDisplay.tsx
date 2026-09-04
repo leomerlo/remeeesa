@@ -4,6 +4,7 @@ import type { ReactElement } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { householdQueryKey } from '@/features/household'
 import {
+  budgetGradient,
   computePendingCommitted,
   computePercentUsed,
   computeRemainingBudget,
@@ -107,9 +108,19 @@ export function RemainingBudgetDisplay({
     expenses,
     pendingCommitted,
   )
+  const gradient = budgetGradient(percentUsed)
 
   return (
-    <div className="from-primary to-[var(--surface-action-gradient-end)] relative flex w-full flex-col gap-6 rounded-3xl bg-gradient-to-br p-6">
+    <div
+      // The card's own colour tracks how much of the budget is gone --
+      // violet while there is room, red as it runs out. Inline rather than a
+      // class because the two stops are computed per render; see
+      // lib/expenses/budgetHeat.
+      style={{
+        backgroundImage: `linear-gradient(to bottom right, ${gradient.from}, ${gradient.to})`,
+      }}
+      className="relative flex w-full flex-col gap-6 rounded-3xl p-6 transition-[background-image] duration-500"
+    >
       {/* Deliberately no overflow-hidden: the illustration is meant to poke
           above and past the card edge, and clipping it cut off its top half.
           Pushed right into the corner (negative right offset) rather than

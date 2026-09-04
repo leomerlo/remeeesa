@@ -77,7 +77,7 @@ describe('AddPendienteSheet', () => {
     )
 
     expect(
-      screen.getByRole('button', { name: 'Nuevo recurrente' }),
+      screen.getByRole('button', { name: 'Agregar Servicio' }),
     ).toBeInTheDocument()
     expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     expect(
@@ -97,13 +97,13 @@ describe('AddPendienteSheet', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Nuevo recurrente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar Servicio' }))
 
     expect(await screen.findByLabelText('Nombre')).toBeInTheDocument()
     expect(screen.getByLabelText('Categoría')).toBeInTheDocument()
     expect(screen.getByLabelText('Fecha de vencimiento')).toBeInTheDocument()
     expect(
-      screen.queryByRole('button', { name: 'Nuevo recurrente' }),
+      screen.queryByRole('button', { name: 'Agregar Servicio' }),
     ).not.toBeInTheDocument()
   })
 
@@ -128,7 +128,7 @@ describe('AddPendienteSheet', () => {
 
     expect(await screen.findByText('Pending pendientes: 0')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Nuevo recurrente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar Servicio' }))
     fireEvent.change(await screen.findByLabelText('Nombre'), {
       target: { value: 'Alquiler' },
     })
@@ -144,7 +144,7 @@ describe('AddPendienteSheet', () => {
       expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
     expect(
-      screen.getByRole('button', { name: 'Nuevo recurrente' }),
+      screen.getByRole('button', { name: 'Agregar Servicio' }),
     ).toBeInTheDocument()
     // A sibling consumer of the same query key sees the new pendiente once the
     // sheet's mutation invalidates it -- proving invalidation actually
@@ -166,7 +166,7 @@ describe('AddPendienteSheet', () => {
       />,
     )
 
-    const trigger = screen.getByRole('button', { name: 'Nuevo recurrente' })
+    const trigger = screen.getByRole('button', { name: 'Agregar Servicio' })
     trigger.focus()
     expect(trigger).toHaveFocus()
 
@@ -180,7 +180,7 @@ describe('AddPendienteSheet', () => {
       expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
     expect(
-      screen.getByRole('button', { name: 'Nuevo recurrente' }),
+      screen.getByRole('button', { name: 'Agregar Servicio' }),
     ).toHaveFocus()
   })
 
@@ -207,7 +207,7 @@ describe('AddPendienteSheet', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Nuevo recurrente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar Servicio' }))
     fireEvent.change(await screen.findByLabelText('Nombre'), {
       target: { value: 'Alquiler' },
     })
@@ -267,12 +267,12 @@ describe('AddPendienteSheet', () => {
     ).toBeInTheDocument()
     const sheetContent = document.querySelector('[data-slot="sheet-content"]')
     expect(sheetContent).not.toBeNull()
-    expect(sheetContent).toHaveTextContent('Editar pendiente')
+    expect(sheetContent).toHaveTextContent('Editar servicio')
 
-    // No "Nuevo recurrente" trigger while the sheet is open editing: the two
+    // No "Agregar Servicio" trigger while the sheet is open editing: the two
     // flows never coexist on screen, so there's no name collision.
     expect(
-      screen.queryByRole('button', { name: 'Nuevo recurrente' }),
+      screen.queryByRole('button', { name: 'Agregar Servicio' }),
     ).not.toBeInTheDocument()
   })
 

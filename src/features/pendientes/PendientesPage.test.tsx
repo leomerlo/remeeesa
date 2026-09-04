@@ -125,7 +125,7 @@ describe('PendientesPage', () => {
     expect(await screen.findByText('Home')).toBeInTheDocument()
   })
 
-  it('shows the pendientes list and the "Nuevo recurrente" trigger for a signed-in member', async () => {
+  it('shows the pendientes list and the "Agregar Servicio" trigger for a signed-in member', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     await createHouseholdWithMembership({
       db,
@@ -142,12 +142,12 @@ describe('PendientesPage', () => {
       await screen.findByRole('heading', { name: 'Pendientes' }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Nuevo recurrente' }),
+      screen.getByRole('button', { name: 'Agregar Servicio' }),
     ).toBeInTheDocument()
     expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
   })
 
-  it('opens the add-pendiente form when the "Nuevo recurrente" trigger is clicked', async () => {
+  it('opens the add-pendiente form when the "Agregar Servicio" trigger is clicked', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     await createHouseholdWithMembership({
       db,
@@ -161,7 +161,7 @@ describe('PendientesPage', () => {
     )
 
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Nuevo recurrente' }),
+      await screen.findByRole('button', { name: 'Agregar Servicio' }),
     )
 
     expect(await screen.findByLabelText('Nombre')).toBeInTheDocument()
@@ -429,7 +429,7 @@ describe('PendientesPage', () => {
     })
   })
 
-  it('restores focus to the Nuevo recurrente trigger when Cancelar edición is clicked', async () => {
+  it('restores focus to the Agregar Servicio trigger when Cancelar edición is clicked', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -470,9 +470,9 @@ describe('PendientesPage', () => {
     // The row is still there (nothing was saved), but the sheet's own
     // trigger-focus restoration (AddPendienteSheet's, shared by every
     // externally-triggered edit -- see onEditPendiente's identical flow)
-    // lands on "Nuevo recurrente", not the row's own "Pagar" button.
+    // lands on "Agregar Servicio", not the row's own "Pagar" button.
     expect(
-      screen.getByRole('button', { name: 'Nuevo recurrente' }),
+      screen.getByRole('button', { name: 'Agregar Servicio' }),
     ).toHaveFocus()
   })
 })

@@ -173,7 +173,7 @@ describe('App', () => {
       await screen.findByRole('heading', { name: 'Pendientes' }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Nuevo recurrente' }),
+      screen.getByRole('button', { name: 'Agregar Servicio' }),
     ).toBeInTheDocument()
 
     // /pendientes is intentionally unlinked from Home in this ticket -- the nav

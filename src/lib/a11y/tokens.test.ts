@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { BUDGET_GRADIENT_CALM } from '@/lib/expenses'
 import { contrastRatio } from './contrast'
 
 // Guards the two accessibility rules this app committed to, per direct
@@ -124,6 +125,16 @@ describe('colour tokens meet WCAG AA', () => {
       )
     })
   }
+})
+
+describe('the budget card keeps its colours in step with the tokens', () => {
+  // The hero card computes its gradient in TS (it interpolates toward red
+  // as the budget runs out), so its calm end is a second copy of two token
+  // values. This is what stops that copy drifting from the real ones.
+  it('starts from exactly the action tokens the rest of the app uses', () => {
+    expect(BUDGET_GRADIENT_CALM.from).toBe(light('--surface-action'))
+    expect(BUDGET_GRADIENT_CALM.to).toBe(light('--surface-action-gradient-end'))
+  })
 })
 
 describe('nothing renders below 14px', () => {
