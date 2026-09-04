@@ -9,10 +9,9 @@ import {
   computeRemainingBudget,
   currentMonthRange,
   formatBudgetAmount,
-  isDateInCurrentMonth,
   listExpensesInMonth,
 } from '@/lib/expenses'
-import { listPendientes } from '@/lib/pendientes'
+import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
 import { pendientesQueryKey } from '@/features/pendientes'
 import { getHousehold } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
@@ -42,7 +41,6 @@ export function RemainingBudgetDisplay({
   const defaultRange = useMemo(() => currentMonthRange(), [])
   const monthStart = monthStartProp ?? defaultRange.monthStart
   const monthEnd = monthEndProp ?? defaultRange.monthEnd
-  const includesPending = isDateInCurrentMonth(monthStart)
   // The query key changes with the viewed month, so paging keeps each
   // month's expenses cached under its own entry instead of refetching the
   // same month every time it's revisited.
@@ -60,16 +58,16 @@ export function RemainingBudgetDisplay({
       }),
   })
   // Per direct feedback: a Pendiente still owed has to count against what's
-  // "left" too, not just once it's paid -- see SpentThisMonthDisplay's
-  // identical query for the full reasoning (shares its cache entry).
+  // "left" too, but only for the month it's actually due in -- see
+  // SpentThisMonthDisplay's identical query for the full reasoning (shares
+  // its cache entry).
   const pendingQuery = useQuery({
     queryKey: [...pendientesQueryKey({ householdId }), 'committed'],
     queryFn: () => listPendientes({ db, householdId }),
-    enabled: includesPending,
   })
   const household = householdQuery.data
   const expenses = expensesQuery.data
-  const pending = includesPending ? pendingQuery.data : []
+  const pending = pendingQuery.data
 
   if (
     household === undefined ||
@@ -95,7 +93,9 @@ export function RemainingBudgetDisplay({
     )
   }
 
-  const pendingCommitted = computePendingCommitted(pending)
+  const pendingCommitted = computePendingCommitted(
+    pendientesDueInMonth(pending, monthStart, monthEnd),
+  )
   const remaining = computeRemainingBudget(
     household.monthlyBudget,
     expenses,

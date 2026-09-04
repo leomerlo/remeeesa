@@ -214,9 +214,10 @@ describe('SpentThisMonthDisplay', () => {
     expect(screen.queryByText(/pendiente$/)).not.toBeInTheDocument()
   })
 
-  // Pending is a "right now" figure -- a past month is closed history, so
-  // today's still-owed bills have no bearing on what was left back then.
-  it('does not add pending Pendientes when viewing a past month', async () => {
+  // A Pendiente due in a different month than the one being viewed doesn't
+  // belong to that month's total -- a bill due today shouldn't already
+  // reduce last month's (closed) figure just because it's still unpaid.
+  it('does not add a pending Pendiente due in a different month than the one being viewed', async () => {
     const { db, household, comida } = await seedHousehold()
     const lastMonth = new Date()
     lastMonth.setMonth(lastMonth.getMonth() - 1, 15)
@@ -266,6 +267,45 @@ describe('SpentThisMonthDisplay', () => {
     expect(
       await screen.findByRole('status', { name: 'Gastado este mes $60,00' }),
     ).toHaveTextContent('$60,00')
+    expect(screen.queryByText(/pendiente$/)).not.toBeInTheDocument()
+  })
+
+  // Regression: Cuentas por pagar shows every pending Pendiente regardless
+  // of due date, so a bill due next month is still "pending" today -- but
+  // it shouldn't already eat into *this* month's total. Per direct
+  // feedback, after seeing a real month's worth of bills due in a later
+  // month inflate this figure unexpectedly.
+  it("does not add a pending Pendiente due next month to the current month's total", async () => {
+    const { db, household, comida } = await seedHousehold()
+    await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Super',
+      price: 100,
+      comments: '',
+      expenseDate: new Date(),
+    })
+    const now = new Date()
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 15)
+    await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Cuota Visa',
+      dueDate: nextMonth,
+      expectedAmount: 917000,
+    })
+
+    renderWithProviders(
+      <SpentThisMonthDisplay db={db} householdId={household.id} />,
+    )
+
+    expect(
+      await screen.findByRole('status', { name: 'Gastado este mes $100,00' }),
+    ).toHaveTextContent('$100,00')
     expect(screen.queryByText(/pendiente$/)).not.toBeInTheDocument()
   })
 })

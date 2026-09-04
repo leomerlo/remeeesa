@@ -4,6 +4,7 @@ export {
   isNextCycleAfterAPaidThisPeriod,
   isSupersededByNextCycle,
 } from './nextCycle'
+export { pendientesDueInMonth } from './pendingForMonth'
 export {
   createPendiente,
   PendienteAlreadyPaidError,
