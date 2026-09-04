@@ -28,7 +28,6 @@ import {
 } from '@/lib/households'
 import type { Household, HouseholdMember, HouseholdsDb } from '@/lib/households'
 import { CategoryMiniSummary } from './CategoryMiniSummary'
-import { PersonMiniSummary } from './PersonMiniSummary'
 
 export type HomePageProps = {
   readonly currentUserId?: string | null
@@ -283,12 +282,6 @@ export function HomePage({
         />
       </div>
       <CategoryMiniSummary
-        db={db}
-        householdId={membership.householdId}
-        monthStart={monthStart}
-        monthEnd={monthEnd}
-      />
-      <PersonMiniSummary
         db={db}
         householdId={membership.householdId}
         monthStart={monthStart}

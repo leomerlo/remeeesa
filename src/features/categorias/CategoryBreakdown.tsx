@@ -14,7 +14,6 @@ import {
   listCategories,
   listExpensesInMonth,
   summarizeByCategory,
-  summarizeByPerson,
 } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
 import { CategoryDonut } from './CategoryDonut'
@@ -87,7 +86,6 @@ export function CategoryBreakdown({
   }
 
   const byCategory = summarizeByCategory({ expenses, categories })
-  const byPerson = summarizeByPerson({ expenses })
   const total = byCategory.reduce((sum, entry) => sum + entry.total, 0)
 
   // An empty month gets the illustration and a sentence, never a donut with
@@ -161,53 +159,6 @@ export function CategoryBreakdown({
             ))}
           </ul>
         </div>
-      </section>
-
-      <section
-        aria-labelledby="por-persona-heading"
-        className="bg-card shadow-resting flex w-full flex-col gap-4 rounded-3xl p-6"
-      >
-        <h2 id="por-persona-heading" className="text-title font-semibold">
-          Por persona
-        </h2>
-        {/* Bars rather than a second donut: two or three people with wildly
-            different totals compare far more easily side by side than as
-            arcs of the same ring. */}
-        <ul
-          aria-label="Gastos por persona"
-          className="flex flex-col gap-3 text-sm"
-        >
-          {byPerson.map((entry) => (
-            <li key={entry.authorDisplayName} className="flex flex-col gap-1">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="text-foreground truncate">
-                  {entry.authorDisplayName}
-                </span>
-                <span className="text-foreground font-medium">
-                  {formatCurrency(entry.total)}
-                </span>
-              </div>
-              {/* A bar compares one person against another. With a single
-                  spender it is always full, which says nothing the amount
-                  beside the name has not already said. */}
-              {byPerson.length > 1 ? (
-                <div
-                  role="presentation"
-                  className="bg-muted h-2 w-full overflow-hidden rounded-full"
-                >
-                  <div
-                    className="bg-primary h-full rounded-full"
-                    style={{
-                      width: `${String(
-                        total > 0 ? Math.round((entry.total / total) * 100) : 0,
-                      )}%`,
-                    }}
-                  />
-                </div>
-              ) : null}
-            </li>
-          ))}
-        </ul>
       </section>
     </div>
   )

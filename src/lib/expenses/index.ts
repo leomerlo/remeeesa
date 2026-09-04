@@ -31,8 +31,8 @@ export {
 } from './remainingBudget'
 export { lastNMonthRanges, MONTHLY_TOTALS_MONTH_COUNT } from './monthlyTotals'
 export type { MonthRange } from './monthlyTotals'
-export { summarizeByCategory, summarizeByPerson } from './summaries'
-export type { CategorySummary, PersonSummary } from './summaries'
+export { summarizeByCategory } from './summaries'
+export type { CategorySummary } from './summaries'
 export { isServicio } from './servicio'
 export {
   categoryDocumentId,

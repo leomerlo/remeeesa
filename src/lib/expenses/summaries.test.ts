@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { colorForCategoryName } from './categoryColor'
-import { summarizeByCategory, summarizeByPerson } from './summaries'
+import { summarizeByCategory } from './summaries'
 import type { Category, Expense } from './types'
 
 function makeExpense(overrides: Partial<Expense> = {}): Expense {
@@ -152,39 +152,6 @@ describe('summarizeByCategory', () => {
         share: 1,
       },
     ])
-  })
-})
-
-describe('summarizeByPerson', () => {
-  it('groups by authorDisplayName and sums the price', () => {
-    const expenses = [
-      makeExpense({ id: 'e1', authorDisplayName: 'Ada', price: 10 }),
-      makeExpense({ id: 'e2', authorDisplayName: 'Bob', price: 20 }),
-      makeExpense({ id: 'e3', authorDisplayName: 'Ada', price: 5 }),
-    ]
-
-    const summary = summarizeByPerson({ expenses })
-
-    expect(summary).toEqual([
-      { authorDisplayName: 'Bob', total: 20 },
-      { authorDisplayName: 'Ada', total: 15 },
-    ])
-  })
-
-  it('returns an empty list for no expenses', () => {
-    expect(summarizeByPerson({ expenses: [] })).toEqual([])
-  })
-
-  it('sums correctly when every expense is from the same person, including zero and fractional prices', () => {
-    const expenses = [
-      makeExpense({ id: 'e1', authorDisplayName: 'Ada', price: 10.25 }),
-      makeExpense({ id: 'e2', authorDisplayName: 'Ada', price: 0 }),
-      makeExpense({ id: 'e3', authorDisplayName: 'Ada', price: 4.75 }),
-    ]
-
-    const summary = summarizeByPerson({ expenses })
-
-    expect(summary).toEqual([{ authorDisplayName: 'Ada', total: 15 }])
   })
 })
 
