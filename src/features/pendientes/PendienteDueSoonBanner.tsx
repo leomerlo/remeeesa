@@ -145,9 +145,11 @@ export function PendienteDueSoonBanner({
                   every other row on Home, but none of its colours come from
                   the category: whatever is about to come due should read as
                   one thing, not as five differently-tinted things. Per
-                  direct feedback. White carries 12.12:1 on this fill, and
-                  8.90:1 on the chip below. */}
-              <div className="bg-due-soon flex w-full items-center gap-3 rounded-2xl p-4 text-white">
+                  direct feedback, it carries the budget card's own gradient
+                  run the other way -- deep wine into the lighter one. Wine,
+                  not red: the budget card's ramp still has the brand violet
+                  in it at that point, and the two have to match. */}
+              <div className="flex w-full items-center gap-3 rounded-2xl bg-[linear-gradient(to_bottom_right,var(--surface-due-soon-from),var(--surface-due-soon-to))] p-4 text-white">
                 <span
                   aria-hidden="true"
                   className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white/15"

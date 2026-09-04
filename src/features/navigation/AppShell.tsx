@@ -17,24 +17,17 @@ type NavItem = {
   readonly label: string
   readonly icon: LucideIcon
   readonly end: boolean
-  // Desktop-only entries. The phone's bar has room for four without the
-  // targets getting cramped, and Servicios is already one tap from Home
-  // there; on desktop it is the screen the whole layout exists for (the
-  // start-of-month sit-down), so it earns a permanent place.
-  readonly desktopOnly?: boolean
 }
 
+// Servicios sits between Histórico and Categorías at every width. It was
+// desktop-only while the phone's bar was assumed to have room for only
+// four, but it is a top-level destination and reaching it sideways from
+// Home was never right. Per direct feedback.
 const NAV_ITEMS: readonly NavItem[] = [
   { to: '/', label: 'Inicio', icon: Home, end: true },
   { to: '/historico', label: 'Histórico', icon: History, end: false },
+  { to: '/pendientes', label: 'Servicios', icon: Receipt, end: false },
   { to: '/categorias', label: 'Categorías', icon: LayoutGrid, end: false },
-  {
-    to: '/pendientes',
-    label: 'Servicios',
-    icon: Receipt,
-    end: false,
-    desktopOnly: true,
-  },
   { to: '/household', label: 'Ajustes', icon: Settings, end: false },
 ]
 
@@ -93,14 +86,14 @@ export function AppShell({
               AppHeader steps aside at the same breakpoint. */}
           <Logo className="mb-8 hidden h-5 lg:block" />
           <ul className="flex items-stretch justify-around lg:flex-col lg:justify-start lg:gap-1">
-            {NAV_ITEMS.map(({ to, label, icon: Icon, end, desktopOnly }) => (
-              <li key={to} className={cn(desktopOnly && 'hidden lg:block')}>
+            {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+              <li key={to}>
                 <NavLink
                   to={to}
                   end={end}
                   className={({ isActive }) =>
                     cn(
-                      'flex min-h-11 min-w-11 flex-col items-center justify-center gap-1 rounded-2xl px-3 py-1.5 text-xs font-medium transition-colors',
+                      'flex min-h-11 min-w-11 flex-col items-center justify-center gap-1 rounded-2xl px-2 py-1.5 text-xs font-medium transition-colors sm:px-3',
                       'lg:w-full lg:flex-row lg:justify-start lg:gap-3 lg:px-4 lg:py-3 lg:text-sm',
                       isActive
                         ? 'text-primary bg-primary-subtle'

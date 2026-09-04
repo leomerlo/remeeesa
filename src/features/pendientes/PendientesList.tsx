@@ -1,13 +1,19 @@
 import { useQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
 import type { ReactElement } from 'react'
 import { cssVars } from '@/lib/cssVars'
 import { CategoryBadge } from '@/components/CategoryBadge'
 import { Button } from '@/components/ui/button'
+import { Check } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
-import { listPendientes } from '@/lib/pendientes'
+import { listPendientesForMonth } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import { EmptyExpensesIllustration } from '@/features/expenses'
-import { formatBudgetAmount, listCategories } from '@/lib/expenses'
+import {
+  currentMonthRange,
+  formatBudgetAmount,
+  listCategories,
+} from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { formatDate } from '@/lib/format'
@@ -31,11 +37,18 @@ export function PendientesList({
   onEditPendiente,
   onMarkPaid,
 }: PendientesListProps): ReactElement {
+  // Everything still owed, whichever month it falls in, *plus* what has
+  // already been paid this month. Home deliberately shows neither of those
+  // -- it is only ever "what is left to pay this month" -- but this screen
+  // is the one the household sits down with, and there the settled rows are
+  // the point: they are how you tell "we have not paid the gas yet" from
+  // "we already did". Per direct feedback.
+  const { monthStart, monthEnd } = useMemo(() => currentMonthRange(), [])
   const pendientesQuery = useQuery({
     queryKey: pendientesQueryKey({ householdId }),
     queryFn: async () => {
       const [pendientes, categories] = await Promise.all([
-        listPendientes({ db, householdId }),
+        listPendientesForMonth({ db, householdId, monthStart, monthEnd }),
         listCategories({ db, householdId }),
       ])
       return { pendientes, categories }
@@ -126,6 +139,8 @@ export function PendientesList({
         // name truncating early to make room for it. Reading down the column
         // now answers "what is this / when is it / how much" in that order,
         // and the name gets the full width and a size to match its job.
+        const isPaid = pendiente.status === 'paid'
+
         const rowContent = (
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <span
@@ -143,6 +158,12 @@ export function PendientesList({
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                 <CategoryBadge name={categoryName} color={categoryColor} />
                 <span>{formatDate(pendiente.dueDate)}</span>
+                {isPaid ? (
+                  <span className="text-success inline-flex items-center gap-1 font-semibold">
+                    <Check className="size-3.5" aria-hidden="true" />
+                    Pagado
+                  </span>
+                ) : null}
               </div>
               {amount}
             </div>
@@ -157,16 +178,19 @@ export function PendientesList({
         // They sit under the name rather than beside the amount because
         // sharing that line truncated names like "Expensas" to "Expen…" at
         // 375px.
+        // A paid row keeps Editar -- that is the way back from a mistaken
+        // payment -- but not Pagar, which has nothing left to do.
+        const canMarkPaid = onMarkPaid !== undefined && !isPaid
         const actions =
-          onMarkPaid === undefined && onEditPendiente === undefined ? null : (
+          !canMarkPaid && onEditPendiente === undefined ? null : (
             <div className="flex gap-2 lg:shrink-0 lg:justify-end">
-              {onMarkPaid !== undefined ? (
+              {canMarkPaid ? (
                 <Button
                   type="button"
                   className="flex-1 lg:w-32 lg:flex-none"
                   aria-label={`Marcar pagado ${pendiente.name}`}
                   onClick={() => {
-                    onMarkPaid(pendiente, category?.name ?? '')
+                    onMarkPaid?.(pendiente, category?.name ?? '')
                   }}
                 >
                   Pagar

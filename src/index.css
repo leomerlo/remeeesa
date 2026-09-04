@@ -69,12 +69,17 @@
   --color-red-700: #8f1f17;
   --color-red-800: #701812;
   --color-red-900: #4e1511;
-  /* The deep maroon the "Vencimientos que se acercan" card is filled with.
-     It is the shade the budget card's own gradient has already reached by
-     the time the month is nearly spent, which is the association wanted:
-     something is about to come due. */
-  --color-red-850: #681627;
   --color-red-950: #350e0b;
+
+  /* Wine: not a hue of its own so much as where the budget card's gradient
+     actually lands once the month is nearly spent. That gradient starts on
+     the brand violet and walks toward red, so by 94% it is a burgundy with
+     the violet still in it -- visibly not the pure red of the scale above.
+     "Vencimientos que se acercan" is filled with that same pair, so the two
+     warnings in the app read as the same colour rather than as two
+     different reds. */
+  --color-wine-800: #681627;
+  --color-wine-600: #a52935;
 
   /* Color: yellow (warning), seed #F6A823, anchor step 500 */
   --color-yellow-50: #fbf6ec;
@@ -225,9 +230,13 @@
   --surface-success: var(--color-green-50);
   --surface-error: var(--color-red-50);
   /* A dark card in an otherwise light interface, on purpose: whatever is
-     about to come due should not look like every other row. White carries
-     12.12:1 on it. */
-  --surface-due-soon: var(--color-red-850);
+     about to come due should not look like every other row. It runs the
+     budget card's own gradient the other way -- deep wine into the lighter
+     one -- so the two warnings in the app are the same colour, not two
+     different reds. White carries 12.12:1 at the dark end and 7.07:1 at the
+     light one, and 8.14 / 5.26 on the chip that sits on it. */
+  --surface-due-soon-from: var(--color-wine-800);
+  --surface-due-soon-to: var(--color-wine-600);
   --surface-warning: var(--color-yellow-50);
   /* The gradient used to run *lighter*, ending on purple-200 (#AF9CFC).
      White text sits on top of it (the budget hero's numeral, the "% usado"
@@ -287,7 +296,8 @@
   --surface-disabled: var(--color-grey-300);
   --surface-success: var(--color-green-800);
   --surface-error: var(--color-red-800);
-  --surface-due-soon: var(--color-red-850);
+  --surface-due-soon-from: var(--color-wine-800);
+  --surface-due-soon-to: var(--color-wine-600);
   --surface-warning: var(--color-yellow-800);
   --surface-action-gradient-end: var(--color-purple-600);
   --surface-action-subtle: var(--color-purple-950);
@@ -357,7 +367,6 @@
   --color-input: var(--border-primary);
   --color-ring: var(--border-focus);
   --color-success: var(--text-success);
-  --color-due-soon: var(--surface-due-soon);
   --color-error: var(--text-error);
   --color-warning: var(--text-warning);
   /* Tailwind's own text-xs is 12px. Nothing in this app may render below

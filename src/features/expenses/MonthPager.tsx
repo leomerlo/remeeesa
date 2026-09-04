@@ -43,25 +43,25 @@ export function MonthPager({
         <Button
           type="button"
           variant="outline"
-          size="icon-lg"
+          size="icon-mini"
           aria-label="Mes anterior"
           onClick={() => {
             onViewedMonthChange(addMonths(viewedMonth, -1))
           }}
         >
-          <ChevronLeft aria-hidden="true" className="size-7" />
+          <ChevronLeft aria-hidden="true" />
         </Button>
         <Button
           type="button"
           variant="outline"
-          size="icon-lg"
+          size="icon-mini"
           aria-label="Mes siguiente"
           disabled={isCurrentMonth}
           onClick={() => {
             onViewedMonthChange(addMonths(viewedMonth, 1))
           }}
         >
-          <ChevronRight aria-hidden="true" className="size-7" />
+          <ChevronRight aria-hidden="true" />
         </Button>
       </div>
     </div>

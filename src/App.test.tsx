@@ -158,7 +158,7 @@ describe('App', () => {
     },
   )
 
-  it('renders /pendientes for a signed-in member, reachable from the nav on a wide window', async () => {
+  it('renders /pendientes for a signed-in member, reachable from the nav', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     await createHouseholdWithMembership({
       db,
@@ -180,13 +180,9 @@ describe('App', () => {
       screen.getByRole('button', { name: 'Agregar Servicio' }),
     ).toBeInTheDocument()
 
-    // The nav's Servicios entry points here. It is `display: none` below
-    // lg -- on a phone this page is one tap from Home instead, so the bar
-    // keeps four roomy targets.
     const nav = await screen.findByRole('navigation')
     const servicios = within(nav).getByRole('link', { name: /servicios/i })
     expect(servicios).toHaveAttribute('href', '/pendientes')
-    expect(servicios.closest('li')).toHaveClass('hidden', 'lg:block')
     expect(
       within(nav).queryByRole('link', { name: /pendientes/i }),
     ).not.toBeInTheDocument()

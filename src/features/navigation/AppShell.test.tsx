@@ -97,10 +97,9 @@ describe('AppShell', () => {
     expect(within(nav).getAllByRole('link')).toHaveLength(5)
   })
 
-  // Servicios is in the markup at every width but `display: none` below lg,
-  // so the phone's bar keeps its four roomy targets (Servicios is one tap
-  // from Home there) while the sidebar carries all five.
-  it('carries Servicios as a desktop-only link, hidden on a phone', async () => {
+  // Per direct feedback: Servicios is a top-level destination at every
+  // width, between Histórico and Categorías.
+  it('carries Servicios in the nav at every width', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     await createHouseholdWithMembership({
       db,
@@ -114,11 +113,19 @@ describe('AppShell', () => {
     const nav = await screen.findByRole('navigation')
     const servicios = within(nav).getByRole('link', { name: /servicios/i })
     expect(servicios).toHaveAttribute('href', '/pendientes')
-    expect(servicios.closest('li')).toHaveClass('hidden', 'lg:block')
-    for (const label of [/inicio/i, /histórico/i, /categorías/i, /ajustes/i]) {
-      expect(
-        within(nav).getByRole('link', { name: label }).closest('li'),
-      ).not.toHaveClass('hidden')
+    // No entry is hidden at any width, and Servicios sits third.
+    const labels = within(nav)
+      .getAllByRole('link')
+      .map((link) => link.textContent)
+    expect(labels).toEqual([
+      'Inicio',
+      'Histórico',
+      'Servicios',
+      'Categorías',
+      'Ajustes',
+    ])
+    for (const link of within(nav).getAllByRole('link')) {
+      expect(link.closest('li')).not.toHaveClass('hidden')
     }
   })
 

@@ -127,22 +127,22 @@ export function CarouselArrows({
       <Button
         type="button"
         variant="outline"
-        size="icon"
+        size="icon-mini"
         aria-label={`${label}: anterior`}
         disabled={!controls.canScrollBack}
         onClick={controls.scrollBack}
       >
-        <ChevronLeft className="size-5" aria-hidden="true" />
+        <ChevronLeft aria-hidden="true" />
       </Button>
       <Button
         type="button"
         variant="outline"
-        size="icon"
+        size="icon-mini"
         aria-label={`${label}: siguiente`}
         disabled={!controls.canScrollForward}
         onClick={controls.scrollForward}
       >
-        <ChevronRight className="size-5" aria-hidden="true" />
+        <ChevronRight aria-hidden="true" />
       </Button>
     </div>
   )

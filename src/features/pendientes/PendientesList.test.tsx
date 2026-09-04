@@ -164,7 +164,10 @@ describe('PendientesList', () => {
     expect(row.closest('li')).toHaveTextContent('$ --,--')
   })
 
-  it('does not show a manually-seeded paid pendiente in the same household', async () => {
+  // Per direct feedback: this screen shows what has already been settled
+  // this month alongside what is still owed -- that pairing is the point of
+  // it. (Home shows only what is left to pay; see PorPagarSection.)
+  it('shows a paid pendiente as paid, with no way to pay it again', async () => {
     const store = createMemoryHouseholdsDb()
     const db = store.asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -204,8 +207,14 @@ describe('PendientesList', () => {
     renderWithProviders(<PendientesList db={db} householdId={household.id} />)
 
     expect(await screen.findByText(pending.name)).toBeInTheDocument()
-    expect(screen.queryByText('Ya pagada')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('listitem')).toHaveLength(1)
+    const paidRow = screen.getByText('Ya pagada').closest('li')
+    expect(paidRow).not.toBeNull()
+    expect(paidRow).toHaveTextContent('Pagado')
+    expect(
+      within(paidRow as HTMLElement).queryByRole('button', { name: /Pagar/ }),
+    ).not.toBeInTheDocument()
+    // Both rows: the one still owed and the one already settled.
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
   })
 
   it('does not show a pendiente from a different household', async () => {

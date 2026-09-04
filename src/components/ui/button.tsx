@@ -42,6 +42,12 @@ const buttonVariants = cva(
         sm: "h-11 gap-1 px-2.5 text-sm has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
         lg: 'h-11 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2',
         icon: 'size-11',
+        // The icon buttons that are only ever chrome: a carousel's arrows, a
+        // month pager's. 36px at every width, per direct feedback -- at 44px
+        // they read as enormous next to the text they sit beside, on a
+        // phone as much as on a monitor. Still well clear of WCAG 2.2's
+        // 24px target-size minimum.
+        'icon-mini': "size-9 [&_svg:not([class*='size-'])]:size-4",
         'icon-xs': "size-11 [&_svg:not([class*='size-'])]:size-3",
         'icon-sm': 'size-11',
         'icon-lg': 'size-12',

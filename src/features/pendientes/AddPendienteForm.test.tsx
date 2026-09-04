@@ -949,13 +949,16 @@ describe('EditPendienteFlow', () => {
       screen.getByRole('button', { name: 'Guardar y marcar pagado' }),
     )
 
-    // The edit (renamed, re-priced) is applied, and the pendiente itself
-    // disappears from the pending list -- it's paid now.
+    // The edit (renamed, re-priced) is applied, and the row is now settled
+    // rather than gone: this screen keeps what was paid this month.
     await waitFor(() => {
-      expect(screen.queryByText('Alquiler nuevo')).not.toBeInTheDocument()
-      expect(screen.queryByText('Alquiler')).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: /Marcar pagado/ }),
+      ).not.toBeInTheDocument()
     })
-    expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
+    expect(screen.getByText('Alquiler nuevo').closest('li')).toHaveTextContent(
+      'Pagado',
+    )
     expect(await listPendientes({ db, householdId })).toEqual([])
 
     // A real Expense was created from the edited (not stale) fields, for
