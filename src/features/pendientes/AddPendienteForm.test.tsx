@@ -702,7 +702,9 @@ describe('EditPendienteFlow', () => {
     await waitFor(() => {
       expect(screen.queryByText('Alquiler')).not.toBeInTheDocument()
     })
-    expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
+    expect(
+      await screen.findByText('No hay servicios en este mes'),
+    ).toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Guardar cambios' }),
     ).not.toBeInTheDocument()
@@ -790,7 +792,9 @@ describe('EditPendienteFlow', () => {
       ).not.toBeInTheDocument()
     })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
+    expect(
+      await screen.findByText('No hay servicios en este mes'),
+    ).toBeInTheDocument()
   })
 
   it('closes the edit form with no alert when the pendiente was marked paid elsewhere before saving', async () => {
@@ -823,7 +827,9 @@ describe('EditPendienteFlow', () => {
       ).not.toBeInTheDocument()
     })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
+    expect(
+      await screen.findByText('No hay servicios en este mes'),
+    ).toBeInTheDocument()
   })
 
   it('closes the confirmation with no persistent error when deleting a pendiente already deleted elsewhere', async () => {
@@ -855,7 +861,9 @@ describe('EditPendienteFlow', () => {
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
+    expect(
+      await screen.findByText('No hay servicios en este mes'),
+    ).toBeInTheDocument()
   })
 
   it('shows an alert and keeps the edit form open when deleting fails for another reason', async () => {

@@ -144,7 +144,9 @@ describe('PendientesPage', () => {
     expect(
       screen.getByRole('button', { name: 'Agregar Servicio' }),
     ).toBeInTheDocument()
-    expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
+    expect(
+      await screen.findByText('No hay servicios en este mes'),
+    ).toBeInTheDocument()
   })
 
   it('opens the add-pendiente form when the "Agregar Servicio" trigger is clicked', async () => {
@@ -352,31 +354,31 @@ describe('PendientesPage', () => {
     await waitFor(() => {
       expect(screen.queryByLabelText('Fecha de pago')).not.toBeInTheDocument()
     })
-    // Both cycles carry the same name, so the due date -- not the name -- is
-    // what tells the new row apart from the one just paid.
+    // The screen reads one month at a time, so the cycle just settled stays
+    // here, marked as such, and the one it spawned is next month's business.
     await waitFor(() => {
       expect(
-        screen.getByText(formatPendienteDueDate(new Date(2026, 9, 10))),
-      ).toBeInTheDocument()
+        screen.getByText(formatPendienteDueDate(paidDueDate)).closest('li'),
+      ).toHaveTextContent('Pagado')
     })
+    expect(screen.getAllByRole('listitem')).toHaveLength(1)
+    expect(
+      screen.queryByText(formatPendienteDueDate(new Date(2026, 9, 10))),
+    ).not.toBeInTheDocument()
 
-    // Two rows now: the cycle just settled, and the one it spawned. They
-    // carry the same name, so the due date is what tells them apart.
-    const rows = screen.getAllByRole('listitem')
-    expect(rows).toHaveLength(2)
-    const nextCycle = screen
-      .getByText(formatPendienteDueDate(new Date(2026, 9, 10)))
-      .closest('li')
+    fireEvent.click(screen.getByRole('button', { name: 'Mes siguiente' }))
+
+    // Both cycles carry the same name, so the due date -- not the name --
+    // is what tells the new row apart from the one just paid.
+    const nextCycle = (
+      await screen.findByText(formatPendienteDueDate(new Date(2026, 9, 10)))
+    ).closest('li')
     expect(nextCycle).toHaveTextContent('Alquiler')
     expect(nextCycle).toHaveTextContent('Comida')
     expect(nextCycle).not.toHaveTextContent('Pagado')
     // The next cycle is pre-filled with the amount just paid, an editable
     // starting point rather than a blank "$ --,--" placeholder.
     expect(nextCycle).toHaveTextContent('$500')
-    // And the cycle just paid is still on screen, marked as settled.
-    expect(
-      screen.getByText(formatPendienteDueDate(paidDueDate)).closest('li'),
-    ).toHaveTextContent('Pagado')
   })
 
   it('keeps the mark-paid sheet open with a clear alert and refreshes the stale row out of the pending list when the pendiente was already paid', async () => {

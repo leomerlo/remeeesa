@@ -5,6 +5,7 @@ import { AlertMessage } from '@/components/ui/alert-message'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import { membersQueryKey } from '@/features/household'
 import {
@@ -282,26 +283,32 @@ export function ExpenseHistory({
       <div
         role="tablist"
         aria-label="Filtrar histórico"
-        className="flex w-full gap-2"
+        // A segmented control, not three separate buttons: one track holding
+        // the three, with the selected one filled inside it. Three outlined
+        // pills in a row read as three unrelated actions -- this reads as
+        // one choice with three positions, which is what it is. Per direct
+        // feedback. Inactive labels clear AA on the track (4.95:1), the
+        // selected one on its fill (5.71:1).
+        className="bg-muted flex w-full gap-1 rounded-full p-1"
       >
-        {/* The Button component itself, not a look-alike: these are the
-            same primary/secondary pair every other control in the app uses,
-            and hand-rolling them here is how they drifted to a 1px border
-            while the real secondary went to 2px. Per direct feedback. */}
         {HISTORY_FILTERS.map(({ value, label }) => (
-          <Button
+          <button
             key={value}
             type="button"
             role="tab"
             aria-selected={filter === value}
-            variant={filter === value ? 'default' : 'outline'}
-            className="flex-1"
             onClick={() => {
               setFilter(value)
             }}
+            className={cn(
+              'focus-visible:ring-ring/50 h-9 flex-1 rounded-full text-sm font-medium transition-colors outline-none focus-visible:ring-3',
+              filter === value
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
           >
             {label}
-          </Button>
+          </button>
         ))}
       </div>
       {monthGroups.length === 0 ? (
