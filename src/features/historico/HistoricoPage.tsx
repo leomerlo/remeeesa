@@ -37,7 +37,7 @@ export function HistoricoPage({
   // permanently instead of showing its empty state.
   if (currentUserId === undefined) {
     return (
-      <div className="flex w-full flex-col gap-6">
+      <div className="flex w-full flex-col gap-8">
         {header}
         <LoadingIndicator />
       </div>
@@ -46,7 +46,7 @@ export function HistoricoPage({
 
   if (currentUserId === null || membership === null) {
     return (
-      <div className="flex w-full flex-col gap-6">
+      <div className="flex w-full flex-col gap-8">
         {header}
         <p role="status" className="text-sm font-medium">
           Todavía no hay gastos
@@ -57,7 +57,7 @@ export function HistoricoPage({
 
   if (membership === undefined) {
     return (
-      <div className="flex w-full flex-col gap-6">
+      <div className="flex w-full flex-col gap-8">
         {header}
         <LoadingIndicator />
       </div>
@@ -65,7 +65,7 @@ export function HistoricoPage({
   }
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full flex-col gap-8">
       {header}
       {/* Editing from here reuses the very same sheet as Home, so correcting
           an expense from an old month behaves identically to correcting one

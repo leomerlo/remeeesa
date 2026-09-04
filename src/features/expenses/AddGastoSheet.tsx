@@ -57,7 +57,10 @@ export function AddGastoSheet({
       {!open ? (
         <Button
           ref={triggerRef}
-          className="w-full gap-1.5 lg:w-auto lg:self-start lg:px-6"
+          // Right-aligned on a wide window, landing under the budget card
+          // rather than under the spent one -- per direct feedback. Home's
+          // one action belongs on the same side as the number it changes.
+          className="w-full gap-1.5 lg:w-auto lg:self-end lg:px-6"
           onClick={() => {
             onOpenChange(true)
           }}

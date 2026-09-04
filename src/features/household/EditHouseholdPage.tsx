@@ -110,7 +110,7 @@ export function EditHouseholdPage({
   }
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full flex-col gap-8">
       {/* No "Volver" back-link: Ajustes is a primary bottom-nav destination
           like Home/Histórico/Categorías, not a drill-down sub-page -- the
           nav already gets you back in one tap. */}

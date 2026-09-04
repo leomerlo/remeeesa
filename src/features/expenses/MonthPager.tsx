@@ -31,7 +31,7 @@ export function MonthPager({
     <div className="flex w-full items-center justify-between">
       <Button
         type="button"
-        variant="ghost"
+        variant="outline"
         size="icon-lg"
         aria-label="Mes anterior"
         onClick={() => {
@@ -49,7 +49,7 @@ export function MonthPager({
       </span>
       <Button
         type="button"
-        variant="ghost"
+        variant="outline"
         size="icon-lg"
         aria-label="Mes siguiente"
         disabled={isCurrentMonth}

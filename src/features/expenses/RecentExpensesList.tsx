@@ -1,9 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
+import { CategoryBadge } from '@/components/CategoryBadge'
 import { AlertMessage } from '@/components/ui/alert-message'
+import { Button } from '@/components/ui/button'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
 import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 import { categoriesQueryKey } from '@/features/expenses'
 import { membersQueryKey } from '@/features/household'
 import {
@@ -15,7 +18,7 @@ import {
 } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
-import { formatShortDate } from '@/lib/format'
+import { formatDate } from '@/lib/format'
 import type { Expense } from '@/lib/expenses'
 import { listHouseholdMembers } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
@@ -34,7 +37,13 @@ export type RecentExpensesListProps = {
   readonly monthEnd?: Date
 }
 
+// A phone shows five before "Ver más"; a desktop window has the height for
+// ten, so all ten are rendered and the last five are hidden below `lg` with
+// a class rather than with a JS media query -- the month's expenses are
+// already in hand either way, so this costs no extra read and nothing has
+// to re-render when the window is resized across the breakpoint.
 const RECENT_EXPENSES_LIMIT = 5
+const RECENT_EXPENSES_LIMIT_WIDE = 10
 
 // This month's one-off spending ("Últimos gastos del mes" on Home), most
 // recent first, capped so an active month doesn't turn Home into a second
@@ -139,7 +148,7 @@ export function RecentExpensesList({
   const oneOffExpenses = expensesQuery.data.filter(
     (expense) => !isServicio(expense),
   )
-  const expenses = oneOffExpenses.slice(0, RECENT_EXPENSES_LIMIT)
+  const expenses = oneOffExpenses.slice(0, RECENT_EXPENSES_LIMIT_WIDE)
   const hasOverflow = oneOffExpenses.length > RECENT_EXPENSES_LIMIT
   const categories = categoriesQuery.data
   if (expenses.length === 0) {
@@ -166,7 +175,7 @@ export function RecentExpensesList({
         aria-label="Últimos gastos del mes"
         className="flex w-full flex-col gap-3 text-sm"
       >
-        {expenses.map((expense) => {
+        {expenses.map((expense, index) => {
           const category = categoryById.get(expense.categoryId)
           const categoryName = category?.name ?? 'Categoría desconocida'
           const categoryColor =
@@ -195,10 +204,9 @@ export function RecentExpensesList({
                     {formatCurrency(expense.price)}
                   </span>
                 </div>
-                <div className="flex flex-wrap gap-x-1.5 text-xs text-muted-foreground">
-                  <span>{categoryName}</span>
-                  <span aria-hidden="true">·</span>
-                  <span>{formatShortDate(expense.expenseDate)}</span>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                  <CategoryBadge name={categoryName} color={categoryColor} />
+                  <span>{formatDate(expense.expenseDate)}</span>
                   <span aria-hidden="true">·</span>
                   <span>
                     {memberById.get(expense.memberId)?.displayName ??
@@ -210,7 +218,12 @@ export function RecentExpensesList({
           )
 
           return (
-            <li key={expense.id}>
+            <li
+              key={expense.id}
+              className={cn(
+                index >= RECENT_EXPENSES_LIMIT && 'hidden lg:block',
+              )}
+            >
               {onEditExpense !== undefined ? (
                 <button
                   type="button"
@@ -232,12 +245,13 @@ export function RecentExpensesList({
         })}
       </ul>
       {hasOverflow ? (
-        <Link
-          to="/historico"
-          className="text-primary self-center text-sm font-medium underline-offset-4 hover:underline"
-        >
-          Ver más
-        </Link>
+        // A secondary button, not a bare text link: it is the one thing to
+        // do at the foot of this list, and a link floating under a column
+        // of cards read as a caption rather than as something to press.
+        // Per direct feedback, at every width.
+        <Button asChild variant="outline" className="self-center px-8">
+          <Link to="/historico">Ver más</Link>
+        </Button>
       ) : null}
     </div>
   )

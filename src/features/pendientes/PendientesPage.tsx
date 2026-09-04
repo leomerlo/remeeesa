@@ -48,20 +48,27 @@ export function PendientesPage({
   const authorDisplayName = membership.displayName
 
   return (
-    <div className="flex w-full flex-col gap-6">
-      <PageHeader title="Servicios" headingRef={headingRef} />
-      <AddPendienteSheet
-        open={isAddPendienteSheetOpen}
-        onOpenChange={setIsAddPendienteSheetOpen}
-        db={db}
-        householdId={membership.householdId}
-        memberId={currentUserId}
-        authorDisplayName={authorDisplayName}
-        editPendiente={editPendiente}
-        onEditFinished={() => {
-          setEditPendiente(null)
-        }}
-      />
+    <div className="flex w-full flex-col gap-8">
+      {/* Stacked on a phone -- the button is full-width there and wants its
+          own line. On a wide window a full-width title with a button on the
+          line below it wastes the whole right half of the screen, so the
+          two share one row. */}
+      <div className="flex w-full flex-col gap-8 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+        <PageHeader title="Servicios" headingRef={headingRef} />
+        <AddPendienteSheet
+          triggerClassName="w-full lg:w-auto lg:px-6"
+          open={isAddPendienteSheetOpen}
+          onOpenChange={setIsAddPendienteSheetOpen}
+          db={db}
+          householdId={membership.householdId}
+          memberId={currentUserId}
+          authorDisplayName={authorDisplayName}
+          editPendiente={editPendiente}
+          onEditFinished={() => {
+            setEditPendiente(null)
+          }}
+        />
+      </div>
       <PendientesList
         db={db}
         householdId={membership.householdId}

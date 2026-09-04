@@ -341,6 +341,9 @@
   --color-muted-foreground: var(--text-tertiary);
   --color-primary-subtle: var(--surface-action-subtle);
   --color-border: var(--border-primary);
+  /* The hairline between rows inside one card -- decorative, and a
+     component-boundary weight there reads as a table grid. */
+  --color-border-subtle: var(--border-subtle);
   --color-input: var(--border-primary);
   --color-ring: var(--border-focus);
   --color-success: var(--text-success);

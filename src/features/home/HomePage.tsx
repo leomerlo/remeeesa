@@ -148,7 +148,7 @@ export function HomePage({
 
   if (currentUserId === null || membership === null) {
     return (
-      <div className="flex w-full flex-col items-center gap-6">
+      <div className="flex w-full flex-col items-center gap-8">
         {showLogout ? <LogoutButton /> : null}
         <OnboardingForm
           householdsDb={householdsDb}
@@ -173,7 +173,7 @@ export function HomePage({
   const authorDisplayName = authorDisplayNameProp ?? membership.displayName
 
   return (
-    <div className="flex w-full flex-col items-center gap-6">
+    <div className="flex w-full flex-col items-center gap-8">
       {/* No settings shortcut here: Ajustes is already one tap away in the
           bottom nav, so a second icon-link to the same destination is
           redundant. */}
@@ -225,8 +225,8 @@ export function HomePage({
       {/* One column on a phone, two from lg: the month's outstanding
           services and the recent movements are the things being read, the
           category split is a reference panel beside them. */}
-      <div className="flex w-full flex-col gap-6 lg:grid lg:grid-cols-3 lg:items-start">
-        <div className="flex w-full flex-col gap-6 lg:col-span-2">
+      <div className="flex w-full flex-col gap-8 lg:grid lg:grid-cols-3 lg:items-start">
+        <div className="flex w-full flex-col gap-8 lg:col-span-2">
           <PorPagarSection
             db={db}
             householdId={membership.householdId}

@@ -38,7 +38,7 @@ export function AppRoutes({
           can place that column. Each route below therefore owns its own
           container from `lg` up: AppShell for everything inside the app,
           and the join route for itself. */}
-      <main className="mx-auto flex min-h-svh w-full max-w-md flex-col items-center gap-6 px-6 pt-6 sm:max-w-lg sm:px-8 lg:max-w-none lg:px-0 lg:pt-0">
+      <main className="mx-auto flex min-h-svh w-full max-w-md flex-col items-center gap-8 px-6 pt-6 sm:max-w-lg sm:px-8 lg:max-w-none lg:px-0 lg:pt-0">
         <Routes>
           <Route
             element={
@@ -101,7 +101,7 @@ export function AppRoutes({
               // Reached from an invite link by someone who may not have an
               // account yet -- a sign-up-shaped screen, so it keeps a narrow
               // column on a wide window rather than taking the app layout.
-              <div className="flex w-full flex-col items-center gap-6 lg:mx-auto lg:max-w-lg lg:px-8 lg:pt-6">
+              <div className="flex w-full flex-col items-center gap-8 lg:mx-auto lg:max-w-lg lg:px-8 lg:pt-6">
                 <JoinHouseholdPage
                   currentUserId={currentUserId}
                   signupAuth={signupAuth}

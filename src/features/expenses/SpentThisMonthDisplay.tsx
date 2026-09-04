@@ -130,7 +130,7 @@ export function SpentThisMonthDisplay({
           recedes: the two numbers are what's being compared, and at one
           uniform grey there was nothing to compare -- just a sentence. */}
       {pendingCommitted > 0 ? (
-        <p className="text-muted-foreground flex flex-wrap items-baseline gap-x-2 gap-y-1 pr-28 text-sm">
+        <p className="text-muted-foreground flex flex-wrap items-baseline gap-x-2 gap-y-1 pr-28 text-sm lg:pr-0">
           <span className="whitespace-nowrap">
             <span
               aria-hidden="true"

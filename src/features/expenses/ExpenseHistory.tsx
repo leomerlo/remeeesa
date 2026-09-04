@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { CategoryBadge } from '@/components/CategoryBadge'
 import { AlertMessage } from '@/components/ui/alert-message'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
@@ -16,7 +17,7 @@ import type { LucideIcon } from 'lucide-react'
 import type { Category, Expense, ExpenseHistoryCursor } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
-import { formatMonthLabel, formatShortDate } from '@/lib/format'
+import { formatMonthLabel, formatDate } from '@/lib/format'
 import { listHouseholdMembers } from '@/lib/households'
 import type { HouseholdMember, HouseholdsDb } from '@/lib/households'
 import { EmptyExpensesIllustration } from './EmptyExpensesIllustration'
@@ -123,7 +124,7 @@ function ExpenseRow({
             {formatCurrency(expense.price)}
           </span>
         </div>
-        <div className="text-muted-foreground flex flex-wrap items-center gap-x-1.5 text-xs">
+        <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
           {/* "Servicio" marks an Expense created by paying a Pendiente
               (a bill), or one manually tagged as such (isService), so it
               reads apart from a plain Gasto logged directly -- there was
@@ -136,9 +137,8 @@ function ExpenseRow({
               <span aria-hidden="true">·</span>
             </>
           ) : null}
-          <span>{categoryName}</span>
-          <span aria-hidden="true">·</span>
-          <span>{formatShortDate(expense.expenseDate)}</span>
+          <CategoryBadge name={categoryName} color={categoryColor} />
+          <span>{formatDate(expense.expenseDate)}</span>
           <span aria-hidden="true">·</span>
           <span>{authorDisplayName}</span>
         </div>
@@ -210,7 +210,7 @@ export function ExpenseHistory({
       <div
         role="status"
         aria-label="Cargando…"
-        className="flex w-full flex-col gap-6"
+        className="flex w-full flex-col gap-8"
       >
         <span className="sr-only">Cargando…</span>
         <div className="flex w-full flex-col gap-3">
@@ -274,7 +274,7 @@ export function ExpenseHistory({
   const monthGroups = groupByMonth(filteredExpenses)
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full flex-col gap-8">
       {/* Per direct feedback: no way to separate what a household pays as a
           recurring bill (Servicio) from a one-off, in-the-moment purchase
           (Gasto) -- each month's total below already updates for whichever
@@ -293,11 +293,16 @@ export function ExpenseHistory({
             onClick={() => {
               setFilter(value)
             }}
+            // The unselected tabs used to be grey fill on grey text, which
+            // is what a disabled control looks like -- so two of the three
+            // read as unavailable. They are outlined now, the same secondary
+            // treatment every other pressable-but-not-primary control in the
+            // app uses. Per direct feedback.
             className={cn(
-              'h-9 flex-1 rounded-full text-sm font-medium transition-colors',
+              'h-9 flex-1 rounded-full border text-sm font-medium transition-colors',
               filter === value
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted text-muted-foreground',
+                ? 'bg-primary text-primary-foreground border-transparent'
+                : 'border-border bg-background text-foreground hover:bg-muted',
             )}
           >
             {label}

@@ -35,7 +35,9 @@ export function PageHeader({
       <h1
         ref={headingRef}
         tabIndex={-1}
-        className="flex items-center gap-2 text-title font-semibold outline-none"
+        // A page title on a monitor can afford a step up from the 20px it
+        // takes on a phone. Per direct feedback.
+        className="flex items-center gap-2 text-title font-semibold outline-none lg:text-2xl"
       >
         {gradient ? (
           <Home className="text-primary size-5 shrink-0" aria-hidden="true" />

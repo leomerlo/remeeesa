@@ -123,15 +123,23 @@ describe('CategoryMiniSummary', () => {
     expect(swatch).toHaveStyle({ backgroundColor: comida.color })
   })
 
-  it('shows only the top 5 categories', async () => {
+  // Per direct feedback: no longer capped. The donut above the list draws
+  // every category, so a list showing five of them would not add up to the
+  // ring it sits under.
+  it('lists every category with spend this month, not a top few', async () => {
     const { db, household } = await seedHousehold()
-    const extra = await findOrCreateCategory({
+    await findOrCreateCategory({
       db,
       householdId: household.id,
       name: 'Regalos',
     })
-    const categories = await listCategories({ db, householdId: household.id })
-    const allCategories = [...categories, extra]
+    // listCategories already includes the one just created, so this is the
+    // full set -- it used to be concatenated with `extra` again, which
+    // double-counted it into a length the old cap of 5 never exercised.
+    const allCategories = await listCategories({
+      db,
+      householdId: household.id,
+    })
     expect(allCategories.length).toBeGreaterThanOrEqual(6)
 
     for (const [index, category] of allCategories.entries()) {
@@ -155,7 +163,12 @@ describe('CategoryMiniSummary', () => {
     const list = await screen.findByRole('list', {
       name: 'Gastos por categoría',
     })
-    expect(within(list).getAllByRole('listitem')).toHaveLength(5)
+    expect(within(list).getAllByRole('listitem')).toHaveLength(
+      allCategories.length,
+    )
+    for (const category of allCategories) {
+      expect(within(list).getByText(category.name)).toBeInTheDocument()
+    }
   })
 
   // CategoryMiniSummary has no isError branch (unlike RecentExpensesList) --

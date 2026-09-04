@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
+import { CategoryBadge } from '@/components/CategoryBadge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { listPendientes } from '@/lib/pendientes'
@@ -8,7 +9,7 @@ import { EmptyExpensesIllustration } from '@/features/expenses'
 import { formatBudgetAmount, listCategories } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
-import { formatShortDate } from '@/lib/format'
+import { formatDate } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
 import { pendientesQueryKey } from './queryKeys'
 import { AlertMessage } from '@/components/ui/alert-message'
@@ -104,8 +105,31 @@ export function PendientesList({
 
         const CategoryIcon = iconForCategoryName(categoryName)
 
+        const amount =
+          pendiente.expectedAmount !== null ? (
+            <span className="font-display text-lg text-foreground">
+              {formatBudgetAmount(pendiente.expectedAmount)}
+            </span>
+          ) : pendiente.recurring ? (
+            // A recurring bill with no amount yet reads as incomplete/broken
+            // with nothing where a price usually is -- a placeholder says
+            // "not filled in yet" instead of looking like a rendering bug. A
+            // one-off Pendiente with no amount is a different, deliberate
+            // case (see AddPendienteForm's "Monto esperado" comment) and
+            // stays blank.
+            <span className="font-display text-muted-foreground text-lg">
+              $ --,--
+            </span>
+          ) : null
+
+        // Name, then what and when, then the amount underneath -- per direct
+        // feedback. The amount used to sit off on the right on the name's
+        // line, which made the row read as two unrelated halves and left the
+        // name truncating early to make room for it. Reading down the column
+        // now answers "what is this / when is it / how much" in that order,
+        // and the name gets the full width and a size to match its job.
         const rowContent = (
-          <>
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <span
               aria-hidden="true"
               data-testid="category-icon"
@@ -114,35 +138,17 @@ export function PendientesList({
             >
               <CategoryIcon className="size-5 text-white" aria-hidden="true" />
             </span>
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="truncate text-foreground font-medium">
-                  {pendiente.name}
-                </span>
-                {pendiente.expectedAmount !== null ? (
-                  <span className="font-display text-lg text-foreground">
-                    {formatBudgetAmount(pendiente.expectedAmount)}
-                  </span>
-                ) : pendiente.recurring ? (
-                  // A recurring bill with no amount yet reads as
-                  // incomplete/broken with nothing where a price usually
-                  // is -- a placeholder says "not filled in yet" instead of
-                  // looking like a rendering bug. A one-off Pendiente with
-                  // no amount is a different, deliberate case (see
-                  // AddPendienteForm's "Monto esperado" comment) and stays
-                  // blank.
-                  <span className="font-display text-muted-foreground text-lg">
-                    $ --,--
-                  </span>
-                ) : null}
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <span className="truncate text-lg font-semibold text-foreground">
+                {pendiente.name}
+              </span>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                <CategoryBadge name={categoryName} color={categoryColor} />
+                <span>{formatDate(pendiente.dueDate)}</span>
               </div>
-              <div className="flex flex-wrap gap-x-1.5 text-xs text-muted-foreground">
-                <span>{categoryName}</span>
-                <span aria-hidden="true">·</span>
-                <span>{formatShortDate(pendiente.dueDate)}</span>
-              </div>
+              {amount}
             </div>
-          </>
+          </div>
         )
 
         // Both actions are spelled out on their own row under the name.
@@ -155,7 +161,7 @@ export function PendientesList({
         // 375px.
         const actions =
           onMarkPaid === undefined && onEditPendiente === undefined ? null : (
-            <div className="flex gap-2 lg:justify-end">
+            <div className="flex gap-2 lg:shrink-0 lg:justify-end">
               {onMarkPaid !== undefined ? (
                 <Button
                   type="button"
@@ -186,10 +192,12 @@ export function PendientesList({
 
         return (
           <li key={pendiente.id}>
-            <div className="bg-card shadow-resting flex flex-col gap-3 rounded-2xl p-4">
-              <div className="flex w-full min-w-0 items-center gap-3">
-                {rowContent}
-              </div>
+            {/* Stacked on a phone, one row from `lg`. In a row everything
+                centres against the card's own height, so the icon and the
+                two buttons line up with the middle of the block of text
+                rather than with its first line. */}
+            <div className="bg-card shadow-resting flex flex-col gap-3 rounded-2xl p-4 lg:flex-row lg:items-center lg:gap-4">
+              {rowContent}
               {actions}
             </div>
           </li>

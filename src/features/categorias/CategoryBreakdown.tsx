@@ -91,7 +91,7 @@ export function CategoryBreakdown({
       <div
         role="status"
         aria-label="Cargando…"
-        className="flex w-full flex-col gap-6"
+        className="flex w-full flex-col gap-8"
       >
         <span className="sr-only">Cargando…</span>
         <div className="bg-card shadow-resting flex w-full flex-col gap-4 rounded-3xl p-6">
@@ -144,7 +144,7 @@ export function CategoryBreakdown({
   }
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full flex-col gap-8">
       <section
         aria-labelledby="por-categoria-heading"
         className="bg-card shadow-resting flex w-full flex-col gap-4 rounded-3xl p-6"

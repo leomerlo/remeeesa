@@ -68,7 +68,7 @@ export function AppShell({
       <div className={cn('w-full', showNav && 'pb-24 lg:pb-0 lg:pl-64')}>
         <div
           className={cn(
-            'mx-auto flex w-full flex-col items-center gap-6',
+            'mx-auto flex w-full flex-col items-center gap-8',
             // <main> hands the whole canvas over at lg (see App.tsx), so the
             // column width and page padding are owned here from that point up.
             showNav

@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { formatMonthLabel, formatShortDate } from './format'
+import { formatMonthLabel, formatDate } from './format'
 
-describe('formatShortDate', () => {
+describe('formatDate', () => {
   it('includes the day and full year', () => {
-    const formatted = formatShortDate(new Date(2026, 8, 10))
+    const formatted = formatDate(new Date(2026, 8, 10))
     expect(formatted).toContain('10')
     expect(formatted).toContain('2026')
   })
 
   it('produces different output for different dates', () => {
-    expect(formatShortDate(new Date(2026, 0, 1))).not.toBe(
-      formatShortDate(new Date(2026, 11, 31)),
+    expect(formatDate(new Date(2026, 0, 1))).not.toBe(
+      formatDate(new Date(2026, 11, 31)),
     )
   })
 })

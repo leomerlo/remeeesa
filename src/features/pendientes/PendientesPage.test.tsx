@@ -20,15 +20,15 @@ import { renderWithProviders } from '@/test/renderWithProviders'
 import { PendientesPage } from './PendientesPage'
 
 // Same local copy of the row's date formatting that
-// PendientesList.test.tsx keeps, rather than importing formatShortDate --
+// PendientesList.test.tsx keeps, rather than importing formatDate --
 // asserting against the very function under render would pass even if the
 // formatting changed underneath.
 function formatPendienteDueDate(date: Date): string {
-  return date.toLocaleDateString('es-AR', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
+  // "06/09/2026". Written long-hand here on purpose: asserting with the
+  // very function under render would still pass if the formatting silently
+  // changed.
+  const pad = (value: number): string => String(value).padStart(2, '0')
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${String(date.getFullYear())}`
 }
 
 function renderPendientesPage(

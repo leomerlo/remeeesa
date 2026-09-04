@@ -94,7 +94,7 @@ export function OnboardingForm({
   }
 
   return (
-    <div className="flex w-full flex-col items-center gap-6">
+    <div className="flex w-full flex-col items-center gap-8">
       <AuthHero />
       <form
         className="bg-card shadow-resting flex w-full flex-col items-center gap-6 rounded-3xl p-6"

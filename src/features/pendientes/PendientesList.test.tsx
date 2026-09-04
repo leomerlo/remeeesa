@@ -15,11 +15,11 @@ import type { AddPendienteSheetProps } from './AddPendienteSheet'
 import { PendientesList } from './PendientesList'
 
 function formatPendienteDueDate(date: Date): string {
-  return date.toLocaleDateString('es-AR', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
+  // "06/09/2026". Written long-hand here on purpose: asserting with the
+  // very function under render would still pass if the formatting silently
+  // changed.
+  const pad = (value: number): string => String(value).padStart(2, '0')
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${String(date.getFullYear())}`
 }
 
 function AddPendienteSheetHarness(

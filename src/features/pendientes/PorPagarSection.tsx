@@ -1,7 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
+import {
+  CarouselArrows,
+  useCarouselControls,
+} from '@/components/ui/carousel-arrows'
+import { CategoryBadge } from '@/components/CategoryBadge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
@@ -12,7 +17,7 @@ import {
 } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
-import { formatShortDate } from '@/lib/format'
+import { formatDate } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
 import { pendientesQueryKey } from './queryKeys'
 
@@ -54,6 +59,8 @@ export function PorPagarSection({
   monthStart: monthStartProp,
   monthEnd: monthEndProp,
 }: PorPagarSectionProps): ReactElement | null {
+  const scrollerRef = useRef<HTMLUListElement>(null)
+  const carousel = useCarouselControls(scrollerRef)
   const defaultRange = useMemo(() => currentMonthRange(), [])
   const monthStart = monthStartProp ?? defaultRange.monthStart
   const monthEnd = monthEndProp ?? defaultRange.monthEnd
@@ -87,7 +94,7 @@ export function PorPagarSection({
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="bg-card shadow-resting flex aspect-square w-44 shrink-0 flex-col gap-2 rounded-2xl p-4"
+              className="bg-card shadow-resting flex aspect-square w-[calc((100%-0.75rem)/2)] shrink-0 flex-col gap-2 rounded-2xl p-4 sm:w-[calc((100%-1.5rem)/3)]"
             >
               <Skeleton className="size-11 shrink-0 rounded-full" />
               <div className="mt-auto flex flex-col gap-2">
@@ -133,21 +140,29 @@ export function PorPagarSection({
         <h2 id="por-pagar-heading" className="text-title font-semibold">
           Servicios o pagos recurrentes
         </h2>
-        {/* Not an overflow escape hatch any more (every pendiente shows in
-            the carousel below) -- kept as the only way to reach Pendientes'
-            own edit/delete management, which isn't in the bottom nav. */}
-        <Link
-          to="/pendientes"
-          className="text-primary text-sm font-medium underline-offset-4 hover:underline"
-        >
-          Ver todas
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <CarouselArrows controls={carousel} label="Servicios" />
+          {/* Not an overflow escape hatch any more (every pendiente shows in
+              the carousel below) -- kept as the only way to reach Servicios'
+              own edit/delete management. */}
+          <Link
+            to="/pendientes"
+            className="text-primary text-sm font-medium underline-offset-4 hover:underline"
+          >
+            Ver todas
+          </Link>
+        </div>
       </div>
-      {/* Horizontally swipeable, scrollbar hidden -- a partially-cut-off
-          card at the edge is the affordance, same pattern as CategoryChips. */}
+      {/* Cards are sized so a whole number of them fills the track at every
+          width -- two on a phone, three once there is room -- and the track
+          snaps, so it never comes to rest with a card sliced down the
+          middle. Per direct feedback: "todo muy fit". The arrows above
+          scroll it a full view at a time. */}
       <ul
+        ref={scrollerRef}
+        onScroll={carousel.onScroll}
         aria-label="Pendientes por pagar"
-        className="mt-3 flex w-full flex-nowrap gap-3 overflow-x-auto text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="mt-3 flex w-full snap-x snap-mandatory flex-nowrap gap-3 overflow-x-auto text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {visiblePendientes.map((pendiente) => {
           const category = categoryById.get(pendiente.categoryId)
@@ -189,21 +204,23 @@ export function PorPagarSection({
                   {pendiente.name}
                 </span>
                 {amount}
-                <div className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
-                  <span>{categoryName}</span>
-                  <span aria-hidden="true">·</span>
-                  <span>{formatShortDate(pendiente.dueDate)}</span>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                  <CategoryBadge name={categoryName} color={categoryColor} />
+                  <span>{formatDate(pendiente.dueDate)}</span>
                 </div>
               </div>
             </>
           )
 
           return (
-            <li key={pendiente.id} className="shrink-0">
+            <li
+              key={pendiente.id}
+              className="w-[calc((100%-0.75rem)/2)] shrink-0 snap-start sm:w-[calc((100%-1.5rem)/3)]"
+            >
               <button
                 type="button"
                 aria-label={`Marcar pagado ${pendiente.name}`}
-                className="bg-card shadow-resting flex aspect-square w-44 flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
+                className="bg-card shadow-resting flex aspect-square w-full flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
                 onClick={() => {
                   onMarkPaid(pendiente, categoryName)
                 }}
