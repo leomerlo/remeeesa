@@ -19,12 +19,16 @@ import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { formatShortDate } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
+import { cn } from '@/lib/utils'
 import { pendientesQueryKey } from './queryKeys'
 
 export type PorPagarSectionProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly onMarkPaid: (pendiente: Pendiente, categoryName: string) => void
+  // Opens the same edit sheet as onMarkPaid, but for an already-paid card --
+  // per direct feedback, marking something paid by mistake needs a way back.
+  readonly onEditPaid: (pendiente: Pendiente, categoryName: string) => void
   // Defaults to the current month. MonthNavigator's viewed month flows down
   // to this the same way it does to RecentExpensesList, so paging back a
   // month shows what was actually paid that month, not always "right now".
@@ -41,8 +45,9 @@ export type PorPagarSectionProps = {
 // grid (and a vertical list before that), this time showing every item
 // instead of a 5-card preview with a "Ver todas" overflow link. A pending
 // card's whole area is a single tap target into the mark-paid flow, same as
-// before; a paid card is display-only, marked with a check badge and
-// "Pagado" instead of a due date -- there's nothing left to do with it here.
+// before; a paid card is also tappable, marked with a check badge and
+// "Pagado" instead of a due date -- opening the same edit sheet with "Ya lo
+// pagué" pre-checked, so a mistaken mark-paid can be undone.
 //
 // Reads the same pendientesQueryKey prefix every other Pendiente view reads
 // (suffixed with the viewed month's timestamp, same convention as
@@ -52,6 +57,7 @@ export function PorPagarSection({
   db,
   householdId,
   onMarkPaid,
+  onEditPaid,
   monthStart: monthStartProp,
   monthEnd: monthEndProp,
 }: PorPagarSectionProps): ReactElement | null {
@@ -231,22 +237,27 @@ export function PorPagarSection({
 
           return (
             <li key={pendiente.id} className="shrink-0">
-              {isPaid ? (
-                <div className="bg-card shadow-resting flex aspect-square w-44 flex-col gap-2 rounded-2xl p-4 opacity-70">
-                  {cardContent}
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  aria-label={`Marcar pagado ${pendiente.name}`}
-                  className="bg-card shadow-resting flex aspect-square w-44 flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
-                  onClick={() => {
+              <button
+                type="button"
+                aria-label={
+                  isPaid
+                    ? `Editar pago de ${pendiente.name}`
+                    : `Marcar pagado ${pendiente.name}`
+                }
+                className={cn(
+                  'bg-card shadow-resting flex aspect-square w-44 flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]',
+                  isPaid && 'opacity-70',
+                )}
+                onClick={() => {
+                  if (isPaid) {
+                    onEditPaid(pendiente, categoryName)
+                  } else {
                     onMarkPaid(pendiente, categoryName)
-                  }}
-                >
-                  {cardContent}
-                </button>
-              )}
+                  }
+                }}
+              >
+                {cardContent}
+              </button>
             </li>
           )
         })}

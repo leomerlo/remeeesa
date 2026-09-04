@@ -25,6 +25,7 @@ import {
 import {
   PendienteAlreadyPaidError,
   PendienteNotFoundError,
+  PendienteNotPaidError,
 } from '@/lib/pendientes/pendientes'
 import { nextCycleDueDate } from '@/lib/pendientes/recurrence'
 import { chunkForWriteBatch } from '@/lib/expenses/batching'
@@ -1089,6 +1090,61 @@ export function createFirestoreHouseholdsDb(
                 isService: false,
                 createdAt,
               },
+            }
+          })
+        },
+        {
+          pendienteId: input.pendienteId,
+          householdId: input.householdId,
+        },
+      )
+    },
+    async unmarkPendientePaid(input) {
+      return withHouseholdAccess(
+        'unmarkPendientePaid',
+        async () => {
+          const pendienteRef = doc(firestore, 'pendientes', input.pendienteId)
+
+          return runTransaction(firestore, async (tx) => {
+            const pendienteSnap = await tx.get(pendienteRef)
+            if (
+              !pendienteSnap.exists() ||
+              pendienteSnap.data().household_id !== input.householdId
+            ) {
+              throw new PendienteNotFoundError()
+            }
+            const current = parsePendienteDocument({
+              id: pendienteSnap.id,
+              data: pendienteSnap.data(),
+            })
+            // Re-check against this fresh read (not just the domain layer's
+            // earlier getPendiente) so a pendiente that was, say, deleted or
+            // unmarked by someone else between that check and this write
+            // surfaces cleanly instead of a generic rules-level denial.
+            if (current.status !== 'paid') {
+              throw new PendienteNotPaidError()
+            }
+
+            // The Expense markPendientePaid created is deleted outright,
+            // not just unlinked -- it only exists because of this payment,
+            // so once the payment is undone there is nothing left for it to
+            // represent. isValidExpenseUpdate never allows pendiente_id to
+            // move (see firestore.rules), so this id can't have drifted
+            // onto an unrelated Expense since it was written.
+            if (current.paidExpenseId !== null) {
+              tx.delete(doc(firestore, 'expenses', current.paidExpenseId))
+            }
+            tx.update(pendienteRef, {
+              status: 'pending',
+              paid_expense_id: null,
+              paid_at: null,
+            })
+
+            return {
+              ...current,
+              status: 'pending' as const,
+              paidExpenseId: null,
+              paidAt: null,
             }
           })
         },

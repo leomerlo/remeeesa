@@ -64,6 +64,7 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
+        onEditPaid={vi.fn()}
       />,
     )
 
@@ -90,6 +91,7 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
+        onEditPaid={vi.fn()}
       />,
     )
 
@@ -121,6 +123,7 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
+        onEditPaid={vi.fn()}
       />,
     )
 
@@ -155,6 +158,7 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
+        onEditPaid={vi.fn()}
       />,
     )
 
@@ -182,6 +186,7 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
+        onEditPaid={vi.fn()}
       />,
     )
 
@@ -211,6 +216,7 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
+        onEditPaid={vi.fn()}
       />,
     )
 
@@ -241,6 +247,7 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
+        onEditPaid={vi.fn()}
       />,
     )
 
@@ -266,6 +273,7 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={onMarkPaid}
+        onEditPaid={vi.fn()}
       />,
     )
 
@@ -299,6 +307,7 @@ describe('PorPagarSection', () => {
         db={store.asUser('user-2')}
         householdId={household.id}
         onMarkPaid={vi.fn()}
+        onEditPaid={vi.fn()}
       />,
       queryClient,
     )
@@ -315,7 +324,10 @@ describe('PorPagarSection', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('shows a pendiente paid this month with a "Pagado" badge, not as a mark-paid button', async () => {
+  // Per direct feedback: a paid card used to be display-only, with no way
+  // back from a mistaken "Ya lo pagué" -- it's tappable again, into
+  // onEditPaid (not onMarkPaid, which is only for a still-pending one).
+  it('shows a pendiente paid this month with a "Pagado" badge, tappable into onEditPaid', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
     const pendiente = await seedPendiente({
       db,
@@ -334,12 +346,15 @@ describe('PorPagarSection', () => {
       finalAmount: 1000,
       paymentDate: new Date(),
     })
+    const onMarkPaid = vi.fn()
+    const onEditPaid = vi.fn()
 
     renderSection(
       <PorPagarSection
         db={db}
         householdId={householdId}
-        onMarkPaid={vi.fn()}
+        onMarkPaid={onMarkPaid}
+        onEditPaid={onEditPaid}
       />,
     )
 
@@ -349,9 +364,15 @@ describe('PorPagarSection', () => {
     const row = within(list).getByText('Gas').closest('li')
     expect(row).not.toBeNull()
     expect(row).toHaveTextContent('Pagado')
-    expect(
-      within(row as HTMLElement).queryByRole('button'),
-    ).not.toBeInTheDocument()
+
+    fireEvent.click(
+      within(row as HTMLElement).getByRole('button', {
+        name: 'Editar pago de Gas',
+      }),
+    )
+    expect(onEditPaid).toHaveBeenCalledTimes(1)
+    expect(onEditPaid.mock.calls[0]?.[0]).toMatchObject({ id: pendiente.id })
+    expect(onMarkPaid).not.toHaveBeenCalled()
   })
 
   // Per direct feedback: paying a recurring pendiente this month
@@ -383,6 +404,7 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
+        onEditPaid={vi.fn()}
       />,
     )
 
@@ -436,6 +458,7 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
+        onEditPaid={vi.fn()}
       />,
     )
 
@@ -473,6 +496,7 @@ describe('PorPagarSection', () => {
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
+        onEditPaid={vi.fn()}
         monthStart={new Date(2026, 5, 1)}
         monthEnd={new Date(2026, 5, 30, 23, 59, 59, 999)}
       />,

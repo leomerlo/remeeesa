@@ -270,6 +270,24 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/expenses/$(request.resource.data.paid_expense_id)).data.household_id == resource.data.household_id;
     }
 
+    // Reverse of isValidPendienteMarkPaid -- undoes a mistaken mark-paid.
+    // Only the exact fields mark-paid touched move back: status,
+    // paid_expense_id, paid_at. resource.data.status must still be 'paid'
+    // (the only state this transition starts from). existsAfter (evaluated
+    // once every write in the same commit has landed) confirms the Expense
+    // that payment created was actually deleted in this same commit, not
+    // just unlinked here while it silently lingers as an orphan.
+    function isValidPendienteUnmarkPaid() {
+      return resource.data.status == 'paid'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paid_expense_id', 'paid_at'])
+        && request.resource.data.status == 'pending'
+        && request.resource.data.paid_expense_id == null
+        && request.resource.data.paid_at == null
+        && (!('paid_expense_id' in resource.data)
+          || resource.data.paid_expense_id == null
+          || !existsAfter(/databases/$(database)/documents/expenses/$(resource.data.paid_expense_id)));
+    }
+
     match /households/{householdId} {
       allow read: if isMemberOf(householdId);
       // Create must land in the same batch as the caller's membership row so
@@ -372,7 +390,7 @@ service cloud.firestore {
       allow create: if isMemberOf(request.resource.data.household_id)
         && isValidPendiente(request.resource.data);
       allow update: if isMemberOf(resource.data.household_id)
-        && (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint());
+        && (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid());
       allow delete: if isMemberOf(resource.data.household_id)
         && resource.data.status == 'pending';
     }

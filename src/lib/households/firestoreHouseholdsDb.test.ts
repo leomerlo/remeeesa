@@ -246,7 +246,7 @@ describe('firestore.rules pendiente category repoint', () => {
     expect(rules).toContain('function isPendienteCategoryRepoint()')
     expect(rules).toContain("hasOnly(['category_id'])")
     expect(rules).toContain(
-      '&& (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint());',
+      '&& (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid());',
     )
   })
 
@@ -396,7 +396,7 @@ describe('firestore.rules pendientes', () => {
       /function isValidPendienteUpdate\(\) \{[\s\S]*?!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'status', 'paid_expense_id', 'paid_at', 'created_at'\]\)/,
     )
     expect(rules).toMatch(
-      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\)\);/,
+      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isValidPendienteUnmarkPaid\(\)\);/,
     )
   })
 
@@ -468,7 +468,51 @@ describe('firestore.rules pendientes mark-paid', () => {
 
   it('ORs isValidPendienteMarkPaid into the pendiente update rule alongside isValidPendienteUpdate', () => {
     expect(rules).toMatch(
-      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\)\);/,
+      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isValidPendienteUnmarkPaid\(\)\);/,
+    )
+  })
+})
+
+describe('firestore.rules pendientes unmark-paid', () => {
+  // The reverse of mark-paid: undoes a mistaken payment. Diff restricted to
+  // exactly the same three fields mark-paid touches, moving the other way
+  // (paid -> pending, both id/date fields cleared), and only starting from
+  // a stored status of 'paid'.
+  it('defines isValidPendienteUnmarkPaid with a diff restricted to status, paid_expense_id, and paid_at, requiring the stored status to still be paid', () => {
+    expect(rules).toContain('function isValidPendienteUnmarkPaid()')
+    expect(rules).toMatch(
+      /function isValidPendienteUnmarkPaid\(\) \{[\s\S]*?resource\.data\.status == 'paid'/,
+    )
+    expect(rules).toMatch(
+      /function isValidPendienteUnmarkPaid\(\) \{[\s\S]*?request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\.hasOnly\(\['status', 'paid_expense_id', 'paid_at'\]\)/,
+    )
+    expect(rules).toMatch(
+      /function isValidPendienteUnmarkPaid\(\) \{[\s\S]*?request\.resource\.data\.status == 'pending'/,
+    )
+    expect(rules).toMatch(
+      /function isValidPendienteUnmarkPaid\(\) \{[\s\S]*?request\.resource\.data\.paid_expense_id == null/,
+    )
+    expect(rules).toMatch(
+      /function isValidPendienteUnmarkPaid\(\) \{[\s\S]*?request\.resource\.data\.paid_at == null/,
+    )
+  })
+
+  // The Expense mark-paid created must actually be gone by the end of this
+  // same commit -- otherwise a client could unlink it here while leaving it
+  // to linger as an orphan, silently keeping the household's real spend
+  // total higher than every visible Pendiente/Expense would suggest.
+  it('confirms the linked Expense was actually deleted in the same commit, not just unlinked', () => {
+    expect(rules).toMatch(
+      /function isValidPendienteUnmarkPaid\(\) \{[\s\S]*?!existsAfter\(\/databases\/\$\(database\)\/documents\/expenses\/\$\(resource\.data\.paid_expense_id\)\)/,
+    )
+  })
+
+  // Same missing-vs-null gotcha as mark-paid's own paid_at tolerance --
+  // guards a Pendiente doc where paid_expense_id is missing the key
+  // entirely rather than erroring the whole unmark attempt.
+  it('tolerates a Pendiente doc with no paid_expense_id key at all, not just a null one', () => {
+    expect(rules).toMatch(
+      /function isValidPendienteUnmarkPaid\(\) \{[\s\S]*?!\('paid_expense_id' in resource\.data\)\s*\|\|\s*resource\.data\.paid_expense_id == null/,
     )
   })
 })
@@ -541,6 +585,26 @@ describe('markPendientePaid adapter', () => {
   it('writes the next cycle as a fresh unpaid recurring pendiente', () => {
     expect(adapterSource).toMatch(
       /tx\.set\(nextPendienteRef, \{[\s\S]*?recurring: true,[\s\S]*?status: 'pending',[\s\S]*?paidExpenseId: null,/,
+    )
+  })
+})
+
+describe('unmarkPendientePaid adapter', () => {
+  it('runs the status transition and expense deletion inside a single Firestore transaction', () => {
+    expect(adapterSource).toMatch(
+      /async unmarkPendientePaid\(input\) \{[\s\S]*?runTransaction\(firestore, async \(tx\) => \{/,
+    )
+  })
+
+  it('reads the pendiente via tx.get before issuing any write, and throws PendienteNotPaidError when it is not paid', () => {
+    expect(adapterSource).toMatch(
+      /async unmarkPendientePaid\(input\) \{[\s\S]*?const pendienteSnap = await tx\.get\(pendienteRef\)[\s\S]*?if \(current\.status !== 'paid'\) \{[\s\S]*?throw new PendienteNotPaidError\(\)/,
+    )
+  })
+
+  it('deletes the paid Expense via tx.delete before updating the pendiente back to pending', () => {
+    expect(adapterSource).toMatch(
+      /async unmarkPendientePaid\(input\) \{[\s\S]*?tx\.delete\(doc\(firestore, 'expenses', current\.paidExpenseId\)\)[\s\S]*?tx\.update\(pendienteRef, \{[\s\S]*?status: 'pending',[\s\S]*?paid_expense_id: null,[\s\S]*?paid_at: null,/,
     )
   })
 })
