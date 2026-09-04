@@ -6,7 +6,6 @@ import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { cn } from '@/lib/utils'
 import { membersQueryKey } from '@/features/household'
 import {
   formatCurrency,
@@ -285,29 +284,24 @@ export function ExpenseHistory({
         aria-label="Filtrar histórico"
         className="flex w-full gap-2"
       >
+        {/* The Button component itself, not a look-alike: these are the
+            same primary/secondary pair every other control in the app uses,
+            and hand-rolling them here is how they drifted to a 1px border
+            while the real secondary went to 2px. Per direct feedback. */}
         {HISTORY_FILTERS.map(({ value, label }) => (
-          <button
+          <Button
             key={value}
             type="button"
             role="tab"
             aria-selected={filter === value}
+            variant={filter === value ? 'default' : 'outline'}
+            className="flex-1"
             onClick={() => {
               setFilter(value)
             }}
-            // The unselected tabs used to be grey fill on grey text, which
-            // is what a disabled control looks like -- so two of the three
-            // read as unavailable. They are outlined now, the same secondary
-            // treatment every other pressable-but-not-primary control in the
-            // app uses. Per direct feedback.
-            className={cn(
-              'h-9 flex-1 rounded-full border text-sm font-medium transition-colors',
-              filter === value
-                ? 'bg-primary text-primary-foreground border-transparent'
-                : 'border-border bg-background text-foreground hover:bg-muted',
-            )}
           >
             {label}
-          </button>
+          </Button>
         ))}
       </div>
       {monthGroups.length === 0 ? (

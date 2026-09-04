@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react'
+import { Button } from '@/components/ui/button'
 import { cssVars } from '@/lib/cssVars'
 import { cn } from '@/lib/utils'
 import type { Category } from '@/lib/expenses'
@@ -41,20 +42,22 @@ export function CategoryChips({
         const Icon = iconForCategoryName(category.name)
         const isSelected = normalize(category.name) === selected
         return (
-          <button
+          <Button
             key={category.id}
             type="button"
             aria-pressed={isSelected}
+            variant={isSelected ? 'default' : 'outline'}
             onClick={() => {
               // Tapping the selected chip clears it, so a mis-tap does not
               // strand the form on a category the user has to retype over.
               onChange(isSelected ? '' : category.name)
             }}
+            // A chip is the secondary button with one difference: selected,
+            // it fills with the category's own colour rather than the
+            // action colour, so a row of them reads as the palette it is.
             className={cn(
-              'focus-visible:ring-ring/50 flex h-11 shrink-0 items-center gap-2 rounded-full border px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-3',
-              isSelected
-                ? 'border-transparent bg-[var(--swatch-color)] text-white'
-                : 'border-border bg-background text-foreground',
+              'shrink-0 gap-2 px-3',
+              isSelected && 'border-transparent bg-[var(--swatch-color)]',
             )}
             style={cssVars({ '--swatch-color': category.color })}
           >
@@ -71,7 +74,7 @@ export function CategoryChips({
               <Icon className="size-3.5 text-white" aria-hidden="true" />
             </span>
             {category.name}
-          </button>
+          </Button>
         )
       })}
     </div>
