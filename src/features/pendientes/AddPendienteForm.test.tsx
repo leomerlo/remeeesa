@@ -16,6 +16,7 @@ import {
   createPendiente,
   deletePendiente,
   listPendientes,
+  markPendientePaid,
 } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
@@ -1002,5 +1003,201 @@ describe('EditPendienteFlow', () => {
     expect(
       screen.getByRole('button', { name: 'Guardar y marcar pagado' }),
     ).toBeInTheDocument()
+  })
+})
+
+function EditPaidPendienteHarness(props: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly initialEditPendiente: EditPendienteTarget
+}): ReactElement {
+  const [editPendiente, setEditPendiente] =
+    useState<EditPendienteTarget | null>(props.initialEditPendiente)
+
+  return (
+    <AddPendienteForm
+      db={props.db}
+      householdId={props.householdId}
+      memberId="user-1"
+      authorDisplayName="Ada"
+      editPendiente={editPendiente}
+      onEditFinished={() => {
+        setEditPendiente(null)
+      }}
+    />
+  )
+}
+
+async function seedPaidPendiente(input?: {
+  readonly name?: string
+  readonly expectedAmount?: number
+  readonly recurring?: boolean
+}): Promise<{
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly pendiente: Pendiente
+}> {
+  const db = createMemoryHouseholdsDb().asUser('user-1')
+  const household = await createHouseholdWithMembership({
+    db,
+    userId: 'user-1',
+    name: 'Casa Verde',
+    monthlyBudget: 100,
+  })
+  const categories = await listCategories({ db, householdId: household.id })
+  const comida = categories.find((category) => category.name === 'Comida')
+  if (comida === undefined) {
+    throw new Error('expected Comida category')
+  }
+  const now = new Date()
+  const created = await createPendiente({
+    db,
+    householdId: household.id,
+    categoryId: comida.id,
+    name: input?.name ?? 'Gimnasio',
+    dueDate: now,
+    expectedAmount: input?.expectedAmount ?? 8000,
+    recurring: input?.recurring ?? false,
+  })
+  const { pendiente } = await markPendientePaid({
+    db,
+    householdId: household.id,
+    pendienteId: created.id,
+    memberId: 'user-1',
+    authorDisplayName: 'Ada',
+    finalAmount: input?.expectedAmount ?? 8000,
+    paymentDate: now,
+  })
+  return { db, householdId: household.id, pendiente }
+}
+
+// Per direct feedback: marking a Pendiente paid by mistake needed a way
+// back. This form is that way back -- opened with EditPendienteTarget.isPaid,
+// it freezes every field except "Ya lo pagué", and unchecking it undoes the
+// payment instead of the normal add/edit path.
+describe('EditPaidPendienteFlow', () => {
+  it('freezes every field except "Ya lo pagué" for an already-paid pendiente', async () => {
+    const { db, householdId, pendiente } = await seedPaidPendiente({
+      name: 'Gimnasio',
+      expectedAmount: 8000,
+    })
+
+    renderWithProviders(
+      <EditPaidPendienteHarness
+        db={db}
+        householdId={householdId}
+        initialEditPendiente={{
+          pendienteId: pendiente.id,
+          name: 'Gimnasio',
+          categoryName: 'Comida',
+          dueDate: pendiente.dueDate,
+          expectedAmount: 8000,
+          recurring: false,
+          isPaid: true,
+        }}
+      />,
+    )
+
+    expect(await screen.findByLabelText('Nombre')).toBeDisabled()
+    expect(screen.getByLabelText('Monto esperado')).toBeDisabled()
+    expect(screen.getByLabelText('Fecha de vencimiento')).toBeDisabled()
+    expect(screen.getByLabelText('Recurrente')).toBeDisabled()
+    const markPaidToggle = screen.getByLabelText('Ya lo pagué')
+    expect(markPaidToggle).not.toBeDisabled()
+    expect(markPaidToggle).toHaveAttribute('data-state', 'checked')
+  })
+
+  it('does not offer "Eliminar pendiente" for an already-paid pendiente', async () => {
+    const { db, householdId, pendiente } = await seedPaidPendiente()
+
+    renderWithProviders(
+      <EditPaidPendienteHarness
+        db={db}
+        householdId={householdId}
+        initialEditPendiente={{
+          pendienteId: pendiente.id,
+          name: 'Gimnasio',
+          categoryName: 'Comida',
+          dueDate: pendiente.dueDate,
+          expectedAmount: 8000,
+          recurring: false,
+          isPaid: true,
+        }}
+      />,
+    )
+
+    await screen.findByLabelText('Nombre')
+    expect(
+      screen.queryByRole('button', { name: 'Eliminar pendiente' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('disables "Deshacer pago" while "Ya lo pagué" is still checked, since there is nothing to save', async () => {
+    const { db, householdId, pendiente } = await seedPaidPendiente()
+
+    renderWithProviders(
+      <EditPaidPendienteHarness
+        db={db}
+        householdId={householdId}
+        initialEditPendiente={{
+          pendienteId: pendiente.id,
+          name: 'Gimnasio',
+          categoryName: 'Comida',
+          dueDate: pendiente.dueDate,
+          expectedAmount: 8000,
+          recurring: false,
+          isPaid: true,
+        }}
+      />,
+    )
+
+    await screen.findByLabelText('Nombre')
+    expect(screen.getByRole('button', { name: 'Deshacer pago' })).toBeDisabled()
+
+    fireEvent.click(screen.getByLabelText('Ya lo pagué'))
+
+    expect(
+      screen.getByRole('button', { name: 'Deshacer pago' }),
+    ).not.toBeDisabled()
+  })
+
+  it('unchecking "Ya lo pagué" and saving restores the pendiente to pending and deletes the Expense it created', async () => {
+    const { db, householdId, pendiente } = await seedPaidPendiente({
+      name: 'Gimnasio',
+      expectedAmount: 8000,
+    })
+
+    renderWithProviders(
+      <EditPaidPendienteHarness
+        db={db}
+        householdId={householdId}
+        initialEditPendiente={{
+          pendienteId: pendiente.id,
+          name: 'Gimnasio',
+          categoryName: 'Comida',
+          dueDate: pendiente.dueDate,
+          expectedAmount: 8000,
+          recurring: false,
+          isPaid: true,
+        }}
+      />,
+    )
+
+    await screen.findByLabelText('Nombre')
+    fireEvent.click(screen.getByLabelText('Ya lo pagué'))
+    fireEvent.click(screen.getByRole('button', { name: 'Deshacer pago' }))
+
+    await waitFor(async () => {
+      const pending = await listPendientes({ db, householdId })
+      expect(pending).toEqual([
+        expect.objectContaining({ id: pendiente.id, status: 'pending' }),
+      ])
+    })
+    const expenses = await listExpensesInMonth({
+      db,
+      householdId,
+      ...currentMonthRange(),
+    })
+    expect(expenses).toEqual([])
   })
 })

@@ -242,6 +242,21 @@ export function HomePage({
             defaultMarkPaid: true,
           })
         }}
+        onEditPaid={(pendiente, categoryName) => {
+          // Same edit sheet, but flagged as already paid -- every field
+          // freezes except "Ya lo pagué", which unchecking undoes the
+          // payment through. Per direct feedback: a mistaken mark-paid
+          // needed a way back.
+          setEditPendiente({
+            pendienteId: pendiente.id,
+            name: pendiente.name,
+            categoryName,
+            dueDate: pendiente.dueDate,
+            expectedAmount: pendiente.expectedAmount,
+            recurring: pendiente.recurring,
+            isPaid: true,
+          })
+        }}
       />
       <div className="flex w-full flex-col gap-3">
         <h2 className="text-title font-semibold self-start">
