@@ -2,6 +2,7 @@ import { screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { createExpense, listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
+import { createPendiente } from '@/lib/pendientes'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { SpentThisMonthDisplay } from './SpentThisMonthDisplay'
@@ -154,5 +155,117 @@ describe('SpentThisMonthDisplay', () => {
     expect(
       await screen.findByRole('status', { name: 'Gastado este mes $60,00' }),
     ).toHaveTextContent('$60,00')
+  })
+
+  // Per direct feedback: a bill that's due but unpaid still has to count
+  // against the budget, not just once it's actually paid.
+  it("adds every currently-pending Pendiente's expected amount, with a paid/pendiente breakdown", async () => {
+    const { db, household, comida } = await seedHousehold()
+    await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Super',
+      price: 100,
+      comments: '',
+      expenseDate: new Date(),
+    })
+    await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Internet',
+      dueDate: new Date(),
+      expectedAmount: 5000,
+    })
+
+    renderWithProviders(
+      <SpentThisMonthDisplay db={db} householdId={household.id} />,
+    )
+
+    expect(
+      await screen.findByRole('status', { name: 'Gastado este mes $5.100,00' }),
+    ).toHaveTextContent('$5.100,00')
+    expect(
+      screen.getByText('$100,00 pagado + $5.000,00 pendiente'),
+    ).toBeInTheDocument()
+  })
+
+  it('omits a Pendiente with no expected amount yet from the pending total', async () => {
+    const { db, household, comida } = await seedHousehold()
+    await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Compras variables',
+      dueDate: new Date(),
+      expectedAmount: null,
+    })
+
+    renderWithProviders(
+      <SpentThisMonthDisplay db={db} householdId={household.id} />,
+    )
+
+    expect(
+      await screen.findByRole('status', { name: 'Gastado este mes $0,00' }),
+    ).toHaveTextContent('$0,00')
+    expect(screen.queryByText(/pendiente$/)).not.toBeInTheDocument()
+  })
+
+  // Pending is a "right now" figure -- a past month is closed history, so
+  // today's still-owed bills have no bearing on what was left back then.
+  it('does not add pending Pendientes when viewing a past month', async () => {
+    const { db, household, comida } = await seedHousehold()
+    const lastMonth = new Date()
+    lastMonth.setMonth(lastMonth.getMonth() - 1, 15)
+    await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Last month pizza',
+      price: 60,
+      comments: '',
+      expenseDate: lastMonth,
+    })
+    await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Internet',
+      dueDate: new Date(),
+      expectedAmount: 5000,
+    })
+    const monthStart = new Date(
+      lastMonth.getFullYear(),
+      lastMonth.getMonth(),
+      1,
+    )
+    const monthEnd = new Date(
+      lastMonth.getFullYear(),
+      lastMonth.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    )
+
+    renderWithProviders(
+      <SpentThisMonthDisplay
+        db={db}
+        householdId={household.id}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />,
+    )
+
+    expect(
+      await screen.findByRole('status', { name: 'Gastado este mes $60,00' }),
+    ).toHaveTextContent('$60,00')
+    expect(screen.queryByText(/pendiente$/)).not.toBeInTheDocument()
   })
 })

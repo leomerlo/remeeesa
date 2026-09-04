@@ -21,6 +21,7 @@ export {
 } from './categoryManagement'
 export { CATEGORY_COLOR_PALETTE } from './categoryColor'
 export {
+  computePendingCommitted,
   computePercentUsed,
   computeRemainingBudget,
   computeSpentThisMonth,

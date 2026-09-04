@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  computePendingCommitted,
   computePercentUsed,
   computeRemainingBudget,
   computeSpentThisMonth,
@@ -27,6 +28,30 @@ describe('computeSpentThisMonth', () => {
     expect(computeRemainingBudget(100, expenses)).toBe(
       100 - computeSpentThisMonth(expenses),
     )
+  })
+})
+
+describe('computePendingCommitted', () => {
+  it('returns zero with no pendientes', () => {
+    expect(computePendingCommitted([])).toBe(0)
+  })
+
+  it("sums every pendiente's expected amount", () => {
+    expect(
+      computePendingCommitted([
+        { expectedAmount: 300 },
+        { expectedAmount: 700 },
+      ]),
+    ).toBe(1000)
+  })
+
+  it('skips a pendiente with no expected amount yet, rather than treating it as zero', () => {
+    expect(
+      computePendingCommitted([
+        { expectedAmount: 300 },
+        { expectedAmount: null },
+      ]),
+    ).toBe(300)
   })
 })
 
@@ -80,6 +105,18 @@ describe('computeRemainingBudget', () => {
       computeRemainingBudget(100.5, [{ price: 10.25 }, { price: 0.25 }]),
     ).toBe(90)
   })
+
+  // Per direct feedback: a Pendiente still owed has to count against
+  // what's "left" too, not just once it's actually paid.
+  it('additionally subtracts pendingCommitted when given', () => {
+    expect(computeRemainingBudget(100, [{ price: 40 }], 30)).toBe(30)
+  })
+
+  it('defaults pendingCommitted to zero, unchanged from before this existed', () => {
+    expect(computeRemainingBudget(100, [{ price: 40 }])).toBe(
+      computeRemainingBudget(100, [{ price: 40 }], 0),
+    )
+  })
 })
 
 describe('computePercentUsed', () => {
@@ -131,6 +168,10 @@ describe('computePercentUsed', () => {
     // Math.round rounds half away from zero in JS, so this must come out
     // one whole point higher than truncation would give.
     expect(computePercentUsed(200, [{ price: 101 }])).toBe(51)
+  })
+
+  it('folds pendingCommitted into the percentage when given', () => {
+    expect(computePercentUsed(100, [{ price: 40 }], 30)).toBe(70)
   })
 })
 
