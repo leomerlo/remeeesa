@@ -343,6 +343,7 @@
   --color-border: var(--border-primary);
   --color-input: var(--border-primary);
   --color-ring: var(--border-focus);
+  --color-success: var(--text-success);
   --color-error: var(--text-error);
   --color-warning: var(--text-warning);
   /* Tailwind's own text-xs is 12px. Nothing in this app may render below

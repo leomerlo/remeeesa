@@ -106,6 +106,10 @@ describe('colour tokens meet WCAG AA', () => {
     ['input outline against the page', '--border-primary', '--surface-page'],
     ['focus ring against the page', '--border-focus', '--surface-page'],
     ['focus ring against a card', '--border-focus', '--surface-card'],
+    // The paid/pending dots under "Gastado este mes" -- they are what tells
+    // the two figures apart at a glance, so they carry meaning.
+    ['paid dot on a card', '--text-success', '--surface-card'],
+    ['pending dot on a card', '--text-warning', '--surface-card'],
   ] as const
 
   for (const [what, fg, bg] of nonTextPairs) {
