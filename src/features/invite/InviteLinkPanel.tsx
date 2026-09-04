@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { getOrCreateHouseholdInvite } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
+import { AlertMessage } from '@/components/ui/alert-message'
 
 export type InviteClipboard = {
   readonly writeText: (text: string) => Promise<void>
@@ -42,7 +43,7 @@ export function InviteLinkPanel({
       const message =
         caught instanceof Error
           ? caught.message
-          : 'Could not generate invite link'
+          : 'No se pudo generar el link de invitación'
       setError(message)
     }
   }
@@ -57,7 +58,7 @@ export function InviteLinkPanel({
   return (
     <div className="flex w-full flex-col gap-2">
       <Button type="button" onClick={() => void onGenerate()}>
-        Generate invite link
+        Generar link de invitación
       </Button>
       {inviteUrl !== null ? (
         <>
@@ -65,19 +66,15 @@ export function InviteLinkPanel({
             htmlFor="invite-url"
             className="text-muted-foreground font-medium"
           >
-            Invite link
+            Link de invitación
           </Label>
           <Input id="invite-url" name="invite-url" readOnly value={inviteUrl} />
           <Button type="button" variant="outline" onClick={() => void onCopy()}>
-            Copy
+            Copiar
           </Button>
         </>
       ) : null}
-      {error !== null ? (
-        <p role="alert" className="text-sm font-medium">
-          {error}
-        </p>
-      ) : null}
+      {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
     </div>
   )
 }

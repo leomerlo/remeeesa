@@ -3,47 +3,325 @@
 @import 'shadcn/tailwind.css';
 @import '@fontsource-variable/geist';
 
+/* ============================================================
+   Layer 1 — Primitive: raw values, no meaning yet.
+   Generated via .claude/skills/design-tokens (scripts/generate-scale.mjs),
+   HSL-interpolated 11-step scales from one seed hex per hue.
+   ============================================================ */
 @theme {
+  /* Color: purple (primary), seed #7B5CFA, anchor step 400 */
+  --color-purple-50: #f0edfc;
+  --color-purple-100: #dad3f7;
+  --color-purple-200: #af9cfc;
+  --color-purple-300: #7f60fa;
+  --color-purple-400: #7b5cfa;
+  --color-purple-500: #3307e8;
+  --color-purple-600: #2c06c6;
+  --color-purple-700: #2405a3;
+  --color-purple-800: #1c0480;
+  --color-purple-900: #170759;
+  --color-purple-950: #10053d;
+
+  /* Color: grey (neutral, brand-tinted), seed #7B7887, anchor step 500 */
+  --color-grey-50: #f1f1f2;
+  --color-grey-100: #e2e1e4;
+  --color-grey-200: #c7c6cc;
+  --color-grey-300: #a7a5af;
+  --color-grey-400: #888592;
+  --color-grey-500: #7b7887;
+  --color-grey-600: #5f5d69;
+  --color-grey-700: #4e4c56;
+  --color-grey-800: #3d3b43;
+  --color-grey-900: #2c2b30;
+  --color-grey-950: #1d1c20;
+  --color-grey-white: #ffffff;
+  --color-grey-black: #000000;
+
+  /* Color: green (success), seed #3FA665, anchor step 600 */
+  --color-green-50: #eef7f1;
+  --color-green-100: #daece1;
+  --color-green-200: #b1e2c3;
+  --color-green-300: #85d1a1;
+  --color-green-400: #59c07f;
+  --color-green-500: #41aa68;
+  --color-green-600: #3fa665;
+  --color-green-700: #2d7648;
+  --color-green-800: #235d38;
+  --color-green-900: #1b4129;
+  --color-green-950: #122b1b;
+
+  /* Color: red (error), seed #DF453A, anchor step 500 */
+  --color-red-50: #faeeed;
+  --color-red-100: #f3d8d6;
+  --color-red-200: #f0aaa5;
+  --color-red-300: #e87870;
+  --color-red-400: #df473c;
+  --color-red-500: #df453a;
+  --color-red-600: #ad261c;
+  --color-red-700: #8f1f17;
+  --color-red-800: #701812;
+  --color-red-900: #4e1511;
+  --color-red-950: #350e0b;
+
+  /* Color: yellow (warning), seed #F6A823, anchor step 500 */
+  --color-yellow-50: #fbf6ec;
+  --color-yellow-100: #f7e9d2;
+  --color-yellow-200: #fbd79b;
+  --color-yellow-300: #f8c060;
+  --color-yellow-400: #f6a925;
+  --color-yellow-500: #f6a823;
+  --color-yellow-600: #c27d08;
+  --color-yellow-700: #9f6707;
+  --color-yellow-800: #7d5105;
+  --color-yellow-900: #563908;
+  --color-yellow-950: #3a2705;
+
+  /* Color: teal (category accent), seed #45A29F sampled from the approved
+     Home comp's "Agua"/water-bill icon, anchor step 500 */
+  --color-teal-50: #ebf4f4;
+  --color-teal-100: #d7eae9;
+  --color-teal-200: #b0dedc;
+  --color-teal-300: #86cbc9;
+  --color-teal-400: #5bb9b6;
+  --color-teal-500: #45a29f;
+  --color-teal-600: #3a8886;
+  --color-teal-700: #2f6f6d;
+  --color-teal-800: #255654;
+  --color-teal-900: #1c3b3a;
+  --color-teal-950: #122626;
+
+  /* Color: blue (category accent), seed #4E91C5 sampled from the approved
+     Home comp's "Regalo"/gift icon, anchor step 500 */
+  --color-blue-50: #eff4f8;
+  --color-blue-100: #d9e5ee;
+  --color-blue-200: #b0cee5;
+  --color-blue-300: #82b1d6;
+  --color-blue-400: #5394c7;
+  --color-blue-500: #4e91c5;
+  --color-blue-600: #326b97;
+  --color-blue-700: #29587c;
+  --color-blue-800: #204561;
+  --color-blue-900: #193144;
+  --color-blue-950: #11212e;
+
+  /* Color: orange (category accent), seed #F2A25C sampled from the approved
+     Home comp's "Cafe"/coffee icon, anchor step 400 */
+  --color-orange-50: #fbf4ed;
+  --color-orange-100: #f6e4d4;
+  --color-orange-200: #f7c89f;
+  --color-orange-300: #f3a867;
+  --color-orange-400: #f2a25c;
+  --color-orange-500: #dd7012;
+  --color-orange-600: #bc600f;
+  --color-orange-700: #9b4f0c;
+  --color-orange-800: #793e0a;
+  --color-orange-900: #542d0b;
+  --color-orange-950: #391f08;
+
+  /* Color: pink (piggy-bank illustration), seed #F472B6 -- the color of the
+     real 3D piggy-bank reference photo the Home hero comp was approved
+     against, anchor step 400 */
+  --color-pink-50: #fcf0f6;
+  --color-pink-100: #f6d7e7;
+  --color-pink-200: #f8a2cf;
+  --color-pink-300: #f474b7;
+  --color-pink-400: #f472b6;
+  --color-pink-500: #e0127e;
+  --color-pink-600: #bf0f6b;
+  --color-pink-700: #9e0c59;
+  --color-pink-800: #7d0a46;
+  --color-pink-900: #580b33;
+  --color-pink-950: #3d0823;
+
+  /* Radius: 4px-grid steps for the moderate Container radius track, aliased
+     as --radius-2xl/--radius-3xl in @theme inline below. Independent steps,
+     not a calc() derivation from one root value. */
+  --radius-20: 20px;
+  --radius-24: 24px;
+
+  /* Type: Geist Variable ships the full 100-900 axis (verified via
+     node_modules/@fontsource-variable/geist/index.css: font-weight: 100 900),
+     so every step below names a weight that actually exists in the font. */
+  --font-weight-thin: 100;
+  --font-weight-extralight: 200;
+  --font-weight-light: 300;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  --font-weight-black: 900;
   --font-weight-display: 700;
+
+  /* Type scale: a real ramp, not just weight tokens. Named for role (hero
+     numeral down to captions) rather than t-shirt size, matching how the
+     approved Home comp actually uses type -- one huge bold numeral, section
+     headers, card titles, and small muted metadata, nothing in between. */
+  --text-display: 2rem; /* 32px -- the hero "$284.50" numeral */
+  --text-display--line-height: 1.05;
+  --text-title: 1.25rem; /* 20px -- section headers ("Por pagar") */
+  --text-title--line-height: 1.3;
+  --text-body: 1rem; /* 16px -- card titles, primary row text */
+  --text-body--line-height: 1.4;
+  --text-caption: 0.8125rem; /* 13px -- muted metadata (category - date) */
+  --text-caption--line-height: 1.35;
+
+  /* Elevation: soft, low-contrast card shadows -- the comp's cards read as
+     "resting on" the lavender page background, not bordered boxes. Two
+     steps: resting cards (list/por-pagar rows) and raised surfaces (sheets,
+     popovers). No shadow on the gradient hero card itself -- it's a filled
+     surface, not a floating one. */
+  --shadow-resting: 0 1px 2px 0 rgb(23 7 89 / 0.04), 0 1px 3px 0 rgb(23 7 89 / 0.06);
+  --shadow-raised: 0 4px 8px -2px rgb(23 7 89 / 0.08), 0 12px 24px -4px rgb(23 7 89 / 0.1);
 }
 
+/* ============================================================
+   Layer 2 — Semantic: Light/Dark, aliases Primitive only.
+   No dark-mode toggle exists in the app yet; this table is built anyway
+   per the design-tokens skill's standard convention, guarded by
+   [data-theme="dark"] so it costs nothing now and needs no rework later.
+
+   Deviation from REFERENCE.md: the generic guidance points *-action and
+   *-focus roles at the primary hue's step 500. This primary's generator
+   anchor landed at step 400 (#7B5CFA, the exact color acceptance criterion
+   #2 requires), so the four action/focus roles below alias purple-400
+   instead of purple-500 to keep the alias chain exact.
+   ============================================================ */
+:root {
+  /* Surface */
+  /* Page sits on a light lavender tint, not white -- sampled from the
+     approved Home comp's page background (#F2F2FE), which purple-50 lands
+     almost exactly on. Cards are --surface-card (white), floating on top
+     with --shadow-resting -- this pairing (tinted page + white elevated
+     cards) is what gives the comp its "wallet" warmth instead of a flat
+     white app shell. */
+  --surface-page: var(--color-purple-50);
+  --surface-card: var(--color-grey-white);
+  --surface-primary: var(--color-grey-50);
+  --surface-secondary: var(--color-grey-100);
+  --surface-action: var(--color-purple-400);
+  --surface-action-hover: var(--color-purple-700);
+  --surface-disabled: var(--color-grey-300);
+  --surface-success: var(--color-green-50);
+  --surface-error: var(--color-red-50);
+  --surface-warning: var(--color-yellow-50);
+  /* Gradient-end for the ADR's ~#C4B5FD lavender-pink: no generated step
+     lands exactly on it, nearest is purple-200 (#AF9CFC) between Primitive
+     steps 100 and 200. Aliased rather than hardcoded or inserted as a
+     one-off scale step. */
+  --surface-action-gradient-end: var(--color-purple-200);
+
+  /* Text (Icon reuses this table 1:1, see --icon-* below) */
+  --text-primary: var(--color-grey-900);
+  --text-secondary: var(--color-grey-700);
+  --text-tertiary: var(--color-grey-500);
+  --text-on-action: var(--color-grey-white);
+  --text-action: var(--color-purple-400);
+  --text-disabled: var(--color-grey-300);
+  --text-success: var(--color-green-700);
+  --text-error: var(--color-red-700);
+  --text-warning: var(--color-yellow-800);
+
+  /* Icon — identical mapping to Text */
+  --icon-primary: var(--color-grey-900);
+  --icon-secondary: var(--color-grey-700);
+  --icon-tertiary: var(--color-grey-500);
+  --icon-on-action: var(--color-grey-white);
+  --icon-action: var(--color-purple-400);
+  --icon-disabled: var(--color-grey-300);
+  --icon-success: var(--color-green-700);
+  --icon-error: var(--color-red-700);
+  --icon-warning: var(--color-yellow-800);
+
+  /* Border */
+  --border-primary: var(--color-grey-300);
+  --border-secondary: var(--color-grey-200);
+  --border-subtle: var(--color-grey-100);
+  --border-action: var(--color-purple-400);
+  --border-focus: var(--color-purple-400);
+  --border-success: var(--color-green-500);
+  --border-error: var(--color-red-500);
+  --border-warning: var(--color-yellow-500);
+}
+
+[data-theme='dark'] {
+  /* Surface */
+  --surface-page: var(--color-grey-950);
+  --surface-card: var(--color-grey-900);
+  --surface-primary: var(--color-grey-900);
+  --surface-secondary: var(--color-grey-800);
+  --surface-action: var(--color-purple-400);
+  --surface-action-hover: var(--color-purple-700);
+  --surface-disabled: var(--color-grey-300);
+  --surface-success: var(--color-green-800);
+  --surface-error: var(--color-red-800);
+  --surface-warning: var(--color-yellow-800);
+  --surface-action-gradient-end: var(--color-purple-200);
+
+  /* Text */
+  --text-primary: var(--color-grey-white);
+  --text-secondary: var(--color-grey-50);
+  --text-tertiary: var(--color-grey-400);
+  --text-on-action: var(--color-grey-white);
+  --text-action: var(--color-purple-400);
+  --text-disabled: var(--color-grey-300);
+  --text-success: var(--color-green-400);
+  --text-error: var(--color-red-400);
+  --text-warning: var(--color-yellow-400);
+
+  /* Icon */
+  --icon-primary: var(--color-grey-white);
+  --icon-secondary: var(--color-grey-50);
+  --icon-tertiary: var(--color-grey-400);
+  --icon-on-action: var(--color-grey-white);
+  --icon-action: var(--color-purple-400);
+  --icon-disabled: var(--color-grey-300);
+  --icon-success: var(--color-green-400);
+  --icon-error: var(--color-red-400);
+  --icon-warning: var(--color-yellow-400);
+
+  /* Border */
+  --border-primary: var(--color-grey-700);
+  --border-secondary: var(--color-grey-800);
+  --border-subtle: var(--color-grey-900);
+  --border-action: var(--color-purple-400);
+  --border-focus: var(--color-purple-400);
+  --border-success: var(--color-green-500);
+  --border-error: var(--color-red-500);
+  --border-warning: var(--color-yellow-500);
+}
+
+/* ============================================================
+   Layer 3 — Responsive: aliases Primitive only. Thin for this issue —
+   no section-jumper or heading-scale tokens are consumed by any component
+   in scope (Button/Input/Label carry no responsive-driven sizing today).
+   Left deliberately near-empty rather than padded out with unused tokens;
+   populate as real breakpoint-driven needs appear in later slices.
+   ============================================================ */
+
+/* ============================================================
+   Tailwind-consumed aliases: repoints the existing utility-class names
+   (bg-primary, text-muted-foreground, etc.) at the Semantic layer above,
+   so component class names never had to change for color.
+   ============================================================ */
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: 'Geist Variable', sans-serif;
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
-}
-
-/* Every control is a stadium: shadcn derives the whole --radius-* scale from
-   this one value, and a fraction of 9999px is still a stadium.
-   Every colour holds chroma 0, the middle oklch number. A non-zero chroma
-   appearing in this block is the moment the monochrome palette starts to
-   drift, and it is checkable by reading one block. */
-:root {
-  --radius: 9999px;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0 0 0);
-  --primary: oklch(0 0 0);
-  --primary-foreground: oklch(1 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.55 0 0);
-  --border: oklch(0 0 0);
-  --input: oklch(0 0 0);
-  --ring: oklch(0 0 0);
+  --color-background: var(--surface-page);
+  --color-foreground: var(--text-primary);
+  --color-card: var(--surface-card);
+  --color-card-foreground: var(--text-primary);
+  --color-primary: var(--surface-action);
+  --color-primary-foreground: var(--text-on-action);
+  --color-muted: var(--surface-secondary);
+  --color-muted-foreground: var(--text-tertiary);
+  --color-border: var(--border-primary);
+  --color-input: var(--border-primary);
+  --color-ring: var(--border-focus);
+  --color-error: var(--text-error);
+  --color-warning: var(--text-warning);
+  --radius-2xl: var(--radius-20);
+  --radius-3xl: var(--radius-24);
 }
 
 @layer base {

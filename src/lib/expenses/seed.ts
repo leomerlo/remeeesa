@@ -1,3 +1,4 @@
+import { colorForCategoryName } from './categoryColor'
 import type { Category } from './types'
 
 export const DEFAULT_CATEGORY_NAMES = [
@@ -24,6 +25,7 @@ export function defaultCategoryRecords(input: {
     id: categoryDocumentId({ householdId: input.householdId, name }),
     householdId: input.householdId,
     name,
+    color: colorForCategoryName(name),
     createdAt: input.createdAt,
   }))
 }

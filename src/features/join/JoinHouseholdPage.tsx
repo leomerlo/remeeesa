@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
+import { LoadingIndicator } from '@/components/ui/loading-indicator'
+import { AlertMessage } from '@/components/ui/alert-message'
 import type { FormEvent, ReactElement } from 'react'
 import { useParams } from 'react-router-dom'
+import { Lock, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { AuthHero } from '@/features/onboarding/AuthHero'
 import { createFirebaseSignupAuth } from '@/features/onboarding/signupAuth'
 import type { SignupAuth } from '@/features/onboarding/signupAuth'
+import { authorDisplayNameFromAuth } from '@/lib/displayName'
 import { useFirebase } from '@/lib/firebaseContext'
 import {
   AlreadyInHouseholdError,
@@ -16,9 +21,9 @@ import type { HouseholdsDb } from '@/lib/households'
 
 function messageForJoinError(error: unknown): string {
   if (error instanceof AlreadyInHouseholdError) {
-    return 'Leave your current household first'
+    return 'Primero salí de tu hogar actual'
   }
-  return 'Could not join household'
+  return 'No se pudo unir al hogar'
 }
 
 export type JoinHouseholdPageProps = {
@@ -66,7 +71,12 @@ export function JoinHouseholdPage({
     let cancelled = false
     void (async () => {
       try {
-        await joinHousehold({ db, userId: currentUserId, token })
+        await joinHousehold({
+          db,
+          userId: currentUserId,
+          token,
+          displayName: authorDisplayNameFromAuth(firebase.auth?.currentUser),
+        })
         if (!cancelled) {
           setJoined(true)
         }
@@ -79,13 +89,18 @@ export function JoinHouseholdPage({
     return () => {
       cancelled = true
     }
+    // firebase.auth?.currentUser is a live, imperatively-mutated snapshot,
+    // not reactive state -- read fresh each run rather than watched as a
+    // dependency, same idiom the auth-state effect above already uses for
+    // firebase.auth itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserId, token, db])
 
   async function joinAfterAuth(
     authenticate: () => Promise<{ readonly userId: string }>,
   ): Promise<void> {
     if (token === undefined) {
-      setError('Could not join household')
+      setError('No se pudo unir al hogar')
       return
     }
     setError(null)
@@ -96,12 +111,17 @@ export function JoinHouseholdPage({
         const signedIn = await authenticate()
         userId = signedIn.userId
       } catch {
-        setError('Could not create account')
+        setError('No se pudo crear la cuenta')
         return
       }
 
       try {
-        await joinHousehold({ db, userId, token })
+        await joinHousehold({
+          db,
+          userId,
+          token,
+          displayName: authorDisplayNameFromAuth(firebase.auth?.currentUser),
+        })
         setJoined(true)
       } catch (error) {
         setError(messageForJoinError(error))
@@ -119,88 +139,94 @@ export function JoinHouseholdPage({
   if (joined) {
     return (
       <p role="status" className="text-sm font-medium">
-        Joined household
+        Te uniste al hogar
       </p>
     )
   }
 
   if (currentUserId !== null) {
     if (error !== null) {
-      return (
-        <p role="alert" className="text-sm font-medium">
-          {error}
-        </p>
-      )
+      return <AlertMessage>{error}</AlertMessage>
     }
-    return (
-      <p role="status" className="text-sm font-medium">
-        Joining…
-      </p>
-    )
+    return <LoadingIndicator label="Uniéndote…" />
   }
 
   return (
-    <div className="flex w-full flex-col items-center gap-8">
-      <form className="flex w-full flex-col gap-8" onSubmit={onSubmit}>
-        <div className="flex w-full flex-col gap-2">
-          <Label
-            htmlFor="signup-email"
-            className="text-muted-foreground font-medium"
-          >
-            Email
-          </Label>
-          <Input
-            id="signup-email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(event) => {
-              setEmail(event.target.value)
-            }}
-          />
-        </div>
+    <div className="flex w-full flex-col items-center gap-6">
+      <AuthHero />
+      <div className="bg-card shadow-resting flex w-full flex-col items-center gap-6 rounded-3xl p-6">
+        <form className="flex w-full flex-col gap-6" onSubmit={onSubmit}>
+          <div className="flex w-full flex-col gap-2">
+            <Label
+              htmlFor="signup-email"
+              className="text-muted-foreground font-medium"
+            >
+              Email
+            </Label>
+            <div className="relative flex items-center">
+              <Mail
+                aria-hidden="true"
+                className="text-muted-foreground pointer-events-none absolute left-3.5 size-4"
+              />
+              <Input
+                id="signup-email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value)
+                }}
+                className="pl-10"
+              />
+            </div>
+          </div>
 
-        <div className="flex w-full flex-col gap-2">
-          <Label
-            htmlFor="signup-password"
-            className="text-muted-foreground font-medium"
-          >
-            Password
-          </Label>
-          <Input
-            id="signup-password"
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(event) => {
-              setPassword(event.target.value)
-            }}
-          />
-        </div>
+          <div className="flex w-full flex-col gap-2">
+            <Label
+              htmlFor="signup-password"
+              className="text-muted-foreground font-medium"
+            >
+              Contraseña
+            </Label>
+            <div className="relative flex items-center">
+              <Lock
+                aria-hidden="true"
+                className="text-muted-foreground pointer-events-none absolute left-3.5 size-4"
+              />
+              <Input
+                id="signup-password"
+                name="password"
+                type="password"
+                autoComplete="new-password"
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value)
+                }}
+                className="pl-10"
+              />
+            </div>
+          </div>
 
-        {error !== null ? (
-          <p role="alert" className="text-sm font-medium">
-            {error}
-          </p>
-        ) : null}
+          {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
 
-        <Button type="submit" disabled={pending}>
-          Create account
+          <Button type="submit" disabled={pending} className="w-full">
+            Crear cuenta
+          </Button>
+        </form>
+
+        <Button
+          type="button"
+          variant="outline"
+          disabled={pending}
+          className="w-full"
+          onClick={() => {
+            void joinAfterAuth(() => auth.signUpWithGoogle())
+          }}
+        >
+          Continuar con Google
         </Button>
-      </form>
-
-      <Button
-        type="button"
-        variant="outline"
-        disabled={pending}
-        onClick={() => {
-          void joinAfterAuth(() => auth.signUpWithGoogle())
-        }}
-      >
-        Continue with Google
-      </Button>
+      </div>
     </div>
   )
 }

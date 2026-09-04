@@ -1,4 +1,10 @@
 import { Timestamp } from 'firebase/firestore'
+import {
+  isRecord,
+  parseRequiredString,
+  parseTimestamp,
+} from '@/lib/firestore/documentParsing'
+import { colorForCategoryName } from './categoryColor'
 import type { Category, Expense } from './types'
 import {
   parseCategoryName,
@@ -6,35 +12,29 @@ import {
   parseExpensePrice,
 } from './validate'
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-function hasToDate(value: unknown): value is { toDate: () => unknown } {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'toDate' in value &&
-    typeof value.toDate === 'function'
-  )
-}
-
-function parseTimestamp(value: unknown, field: string): Date {
-  if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return value
+function parseNullableString(value: unknown, field: string): string | null {
+  if (value === null || value === undefined) {
+    return null
   }
-  if (hasToDate(value)) {
-    const date = value.toDate()
-    if (date instanceof Date && !Number.isNaN(date.getTime())) {
-      return date
-    }
+  if (typeof value !== 'string') {
+    throw new Error(`${field} must be a string or null`)
   }
-  throw new Error(`${field} must be a timestamp`)
+  return value
 }
 
-function parseRequiredString(value: unknown, field: string): string {
-  if (typeof value !== 'string' || value.trim() === '') {
-    throw new Error(`${field} must be a non-empty string`)
+// Missing (not just an explicit false) on any Expense doc written before
+// this field existed -- treated the same as "not manually marked", the same
+// legacy-doc fallback pattern as pendiente_id/paid_at elsewhere.
+function parseOptionalBoolean(
+  value: unknown,
+  field: string,
+  fallback: boolean,
+): boolean {
+  if (value === undefined || value === null) {
+    return fallback
+  }
+  if (typeof value !== 'boolean') {
+    throw new Error(`${field} must be a boolean`)
   }
   return value
 }
@@ -50,15 +50,27 @@ export function parseCategoryDocument(input: {
     throw new Error('Category document must be an object')
   }
 
-  const { household_id, name, created_at } = input.data
+  const { household_id, name, color, created_at } = input.data
   if (typeof name !== 'string') {
     throw new Error('Category name must be a string')
   }
 
+  const parsedName = parseCategoryName(name)
+  // Legacy categories created before this field existed have no stored color.
+  // Fall back to computing it from the name (same rule as creation) instead
+  // of rejecting the document -- this repo has real household data
+  // predating this field. The computed value is not written back here; it's
+  // only ever persisted the next time the category is actually written.
+  const parsedColor =
+    typeof color === 'string' && color.trim() !== ''
+      ? color
+      : colorForCategoryName(parsedName)
+
   return {
     id: input.id,
     householdId: parseRequiredString(household_id, 'household_id'),
-    name: parseCategoryName(name),
+    name: parsedName,
+    color: parsedColor,
     createdAt: parseTimestamp(created_at, 'created_at'),
   }
 }
@@ -66,15 +78,18 @@ export function parseCategoryDocument(input: {
 export function categoryToDocument(input: {
   readonly householdId: string
   readonly name: string
+  readonly color: string
   readonly createdAt: Date
 }): {
   readonly household_id: string
   readonly name: string
+  readonly color: string
   readonly created_at: Date
 } {
   return {
     household_id: input.householdId,
     name: input.name,
+    color: input.color,
     created_at: input.createdAt,
   }
 }
@@ -99,6 +114,8 @@ export function parseExpenseDocument(input: {
     price,
     comments,
     expense_date,
+    pendiente_id,
+    is_service,
     created_at,
   } = input.data
   if (typeof name !== 'string') {
@@ -127,13 +144,17 @@ export function parseExpenseDocument(input: {
     price: parseExpensePrice(price),
     comments,
     expenseDate: parseTimestamp(expense_date, 'expense_date'),
+    // Missing (not just null) on any Expense doc written before this field
+    // existed -- treated the same as "not from a Pendiente".
+    pendienteId: parseNullableString(pendiente_id, 'pendiente_id'),
+    isService: parseOptionalBoolean(is_service, 'is_service', false),
     createdAt: parseTimestamp(created_at, 'created_at'),
   }
 }
 
 export function toFirestoreExpenseDate(date: Date): Timestamp {
-  // Midday local keeps the calendar day stable under Firestore's
-  // expense_date <= request.time rule across time zones.
+  // Midday local stays on the picked calendar day and within 12 hours of
+  // "now", so rules can allow today with expense_date < request.time + 1d.
   const normalized = new Date(
     date.getFullYear(),
     date.getMonth(),
@@ -155,6 +176,8 @@ export function expenseToDocument(input: {
   readonly price: number
   readonly comments: string
   readonly expenseDate: Date
+  readonly pendienteId: string | null
+  readonly isService: boolean
   readonly createdAt: Date
 }): {
   readonly household_id: string
@@ -165,6 +188,8 @@ export function expenseToDocument(input: {
   readonly price: number
   readonly comments: string
   readonly expense_date: Date
+  readonly pendiente_id: string | null
+  readonly is_service: boolean
   readonly created_at: Date
 } {
   return {
@@ -176,6 +201,8 @@ export function expenseToDocument(input: {
     price: input.price,
     comments: input.comments,
     expense_date: input.expenseDate,
+    pendiente_id: input.pendienteId,
+    is_service: input.isService,
     created_at: input.createdAt,
   }
 }

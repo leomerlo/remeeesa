@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { colorForCategoryName } from './categoryColor'
 import { categoryDocumentId, defaultCategoryRecords } from './seed'
 
 describe('categoryDocumentId', () => {
@@ -36,5 +37,20 @@ describe('categoryDocumentId', () => {
       'Salud',
       'Otros',
     ])
+  })
+})
+
+describe('defaultCategoryRecords colors', () => {
+  it('assigns a deterministic color to every default category', () => {
+    const createdAt = new Date('2026-01-15T12:00:00.000Z')
+    const first = defaultCategoryRecords({ householdId: 'h1', createdAt })
+    const second = defaultCategoryRecords({ householdId: 'h1', createdAt })
+
+    for (const category of first) {
+      expect(category.color).toBe(colorForCategoryName(category.name))
+    }
+    expect(first.map((category) => category.color)).toEqual(
+      second.map((category) => category.color),
+    )
   })
 })

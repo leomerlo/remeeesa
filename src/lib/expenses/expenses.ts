@@ -1,11 +1,10 @@
 import type { HouseholdsDb } from '@/lib/households/types'
+import type { ExpenseHistoryCursor, ExpenseHistoryPage } from './history'
 import type { Category, Expense } from './types'
 import {
-  assertExpenseInCurrentMonth,
   parseAuthorDisplayName,
   parseCategoryName,
   parseExpenseDate,
-  parseExpenseDateInCurrentMonth,
   parseExpenseName,
   parseExpensePrice,
 } from './validate'
@@ -73,6 +72,28 @@ export async function listExpensesInMonth(input: {
   })
 }
 
+export async function listRecentExpenses(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly limit: number
+}): Promise<readonly Expense[]> {
+  return input.db.listRecentExpenses({
+    householdId: input.householdId,
+    limit: input.limit,
+  })
+}
+
+export async function listExpenseHistoryPage(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly after?: ExpenseHistoryCursor
+}): Promise<ExpenseHistoryPage> {
+  return input.db.listExpenseHistoryPage({
+    householdId: input.householdId,
+    ...(input.after === undefined ? {} : { after: input.after }),
+  })
+}
+
 export async function updateExpense(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
@@ -82,6 +103,15 @@ export async function updateExpense(input: {
   readonly categoryId?: string
   readonly comments?: string
   readonly expenseDate?: Date
+  // Reassigns which member this Expense is attributed to -- both or
+  // neither, since a mismatched pair (a memberId with the wrong name)
+  // isn't a state any real household member picker could produce.
+  readonly memberId?: string
+  readonly authorDisplayName?: string
+  // A manual "count this as a servicio" override -- only meaningful (and
+  // only ever offered by the edit form) when the Expense isn't already
+  // linked to a real Pendiente via pendienteId.
+  readonly isService?: boolean
   readonly now?: Date
 }): Promise<Expense> {
   const now = input.now ?? new Date()
@@ -92,7 +122,6 @@ export async function updateExpense(input: {
   if (existing === null) {
     throw new ExpenseNotFoundError()
   }
-  assertExpenseInCurrentMonth(existing.expenseDate, now)
 
   const name =
     input.name !== undefined ? parseExpenseName(input.name) : existing.name
@@ -101,10 +130,20 @@ export async function updateExpense(input: {
   const comments =
     input.comments !== undefined ? input.comments : existing.comments
   const categoryId = input.categoryId ?? existing.categoryId
+  // Any month, not just the current one: Histórico lets a member open an
+  // expense from any month, so both the expense being edited and the date it
+  // is moved to are unrestricted. Future dates are still rejected, by the
+  // same rule that governs creating one.
   const expenseDate =
     input.expenseDate !== undefined
-      ? parseExpenseDateInCurrentMonth(input.expenseDate, now)
+      ? parseExpenseDate(input.expenseDate, now)
       : existing.expenseDate
+  const memberId = input.memberId ?? existing.memberId
+  const authorDisplayName =
+    input.authorDisplayName !== undefined
+      ? parseAuthorDisplayName(input.authorDisplayName)
+      : existing.authorDisplayName
+  const isService = input.isService ?? existing.isService
 
   return input.db.updateExpense({
     householdId: input.householdId,
@@ -114,6 +153,9 @@ export async function updateExpense(input: {
     price,
     comments,
     expenseDate,
+    memberId,
+    authorDisplayName,
+    isService,
   })
 }
 

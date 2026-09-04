@@ -80,10 +80,10 @@ function submitEmailSignup(): void {
   fireEvent.change(screen.getByLabelText('Email'), {
     target: { value: 'ada@example.com' },
   })
-  fireEvent.change(screen.getByLabelText('Password'), {
+  fireEvent.change(screen.getByLabelText('Contraseña'), {
     target: { value: 'secret12' },
   })
-  fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }))
 }
 
 describe('SignupForm', () => {
@@ -96,7 +96,7 @@ describe('SignupForm', () => {
     submitEmailSignup()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Could not save household',
+      'No se pudo guardar el hogar',
     )
     expect(createHouseholdAndMembership).not.toHaveBeenCalled()
     expect(onFinished).not.toHaveBeenCalled()
@@ -128,14 +128,43 @@ describe('SignupForm', () => {
       userId: 'user-1',
       name: 'The Smiths',
       monthlyBudget: 1500,
+      displayName: 'Miembro',
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Could not save household',
+      'No se pudo guardar el hogar',
     )
     expect(createHouseholdAndMembership).toHaveBeenCalledTimes(1)
     expect(onFinished).toHaveBeenCalledOnce()
+  })
+
+  // The escape hatch that used to be missing: mode="login" is reached
+  // automatically for a returning visitor (hasReturningUser()), so a wrong
+  // guess -- a shared computer, a second household member's first sign-in on
+  // this device -- had no way back to account creation short of a reload.
+  it('offers a way back to signup from login mode, but not from signup mode', () => {
+    const onNoAccount = vi.fn()
+    renderSignup({ mode: 'login', onNoAccount }, null)
+
+    fireEvent.click(screen.getByRole('button', { name: 'No tengo una cuenta' }))
+    expect(onNoAccount).toHaveBeenCalledOnce()
+  })
+
+  it('does not offer "No tengo una cuenta" in signup mode', () => {
+    renderSignup({ onNoAccount: vi.fn() }, null)
+
+    expect(
+      screen.queryByRole('button', { name: 'No tengo una cuenta' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('does not offer "Ya tengo una cuenta" in login mode', () => {
+    renderSignup({ mode: 'login', onAlreadyHaveAccount: vi.fn() }, null)
+
+    expect(
+      screen.queryByRole('button', { name: 'Ya tengo una cuenta' }),
+    ).not.toBeInTheDocument()
   })
 })

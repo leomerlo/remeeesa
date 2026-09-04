@@ -21,7 +21,7 @@ describe('LeaveHouseholdButton', () => {
 
     renderWithProviders(<LeaveHouseholdButton db={db} userId="user-1" />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Leave household' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Salir del hogar' }))
 
     await waitFor(async () => {
       const next = await createHouseholdWithMembership({
@@ -48,7 +48,7 @@ describe('LeaveHouseholdButton', () => {
 
     renderWithProviders(<LeaveHouseholdButton db={leaverDb} userId="user-1" />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Leave household' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Salir del hogar' }))
 
     await waitFor(async () => {
       await expect(
@@ -63,6 +63,7 @@ describe('LeaveHouseholdButton', () => {
         householdId: household.id,
         userId: 'user-2',
         joinedAt: expect.any(Date),
+        displayName: 'Miembro',
       },
     ])
   })

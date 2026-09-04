@@ -28,3 +28,15 @@ coverage/
 *.sln
 *.sw?
 .audit/
+.gstack/
+
+# Claude Code worktrees created while working issues (local scratch, never shared)
+.claude/worktrees/
+
+# impeccable design-workflow decision-round comps: large, regeneratable working
+# artifacts, not needed to build/run the app. .impeccable/config.json and PRODUCT.md
+# (durable decisions) stay tracked.
+.impeccable/mocks/
+
+# Local scheduler artifact, not part of the project
+.claude/scheduled_tasks.lock

@@ -1,7 +1,12 @@
 import type { ReactElement } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { HomePage } from '@/features/home'
+import { EditHouseholdPage } from '@/features/household'
 import { JoinHouseholdPage } from '@/features/join'
+import { AppHeader, AppShell } from '@/features/navigation'
+import { HistoricoPage } from '@/features/historico'
+import { CategoriasPage } from '@/features/categorias'
+import { PendientesPage } from '@/features/pendientes'
 import { HouseholdDraftProvider } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
 import type { HouseholdsDb } from '@/lib/households'
@@ -19,19 +24,70 @@ export function AppRoutes({
 }: AppProps): ReactElement {
   return (
     <HouseholdDraftProvider>
-      <main className="mx-auto flex min-h-svh w-full max-w-sm flex-col items-center justify-center gap-8 px-6">
-        <h1 className="font-display text-2xl tracking-tight">remeeesa</h1>
+      <AppHeader currentUserId={currentUserId} householdsDb={householdsDb} />
+      {/* justify-start (Tailwind's flex default), not justify-center: every
+          screen -- including short ones like the Histórico/Categorías
+          placeholders -- reads as content starting from the top, not
+          vertically centered with a dead gap above it. Tall screens (Home,
+          the auth flow) already overflow past one viewport, where centering
+          would have had no visible effect anyway. */}
+      <main className="mx-auto flex min-h-svh w-full max-w-md flex-col items-center gap-6 px-6 pt-6 sm:max-w-lg sm:px-8">
         <Routes>
           <Route
-            path="/"
             element={
-              <HomePage
+              <AppShell
                 currentUserId={currentUserId}
                 householdsDb={householdsDb}
-                signupAuth={signupAuth}
               />
             }
-          />
+          >
+            <Route
+              path="/"
+              element={
+                <HomePage
+                  currentUserId={currentUserId}
+                  householdsDb={householdsDb}
+                  signupAuth={signupAuth}
+                />
+              }
+            />
+            <Route
+              path="/historico"
+              element={
+                <HistoricoPage
+                  currentUserId={currentUserId}
+                  householdsDb={householdsDb}
+                />
+              }
+            />
+            <Route
+              path="/categorias"
+              element={
+                <CategoriasPage
+                  currentUserId={currentUserId}
+                  householdsDb={householdsDb}
+                />
+              }
+            />
+            <Route
+              path="/pendientes"
+              element={
+                <PendientesPage
+                  currentUserId={currentUserId}
+                  householdsDb={householdsDb}
+                />
+              }
+            />
+            <Route
+              path="/household"
+              element={
+                <EditHouseholdPage
+                  currentUserId={currentUserId}
+                  householdsDb={householdsDb}
+                />
+              }
+            />
+          </Route>
           <Route
             path="/join/:token"
             element={

@@ -52,7 +52,7 @@ describe('parseHouseholdDocument', () => {
           created_at: new Date('2026-01-15T12:00:00.000Z'),
         },
       }),
-    ).toThrow('Household name must be non-empty')
+    ).toThrow('El nombre del hogar no puede estar vacío')
   })
 
   it('rejects a non-positive monthly_budget', () => {
@@ -65,7 +65,7 @@ describe('parseHouseholdDocument', () => {
           created_at: new Date('2026-01-15T12:00:00.000Z'),
         },
       }),
-    ).toThrow('Monthly budget must be a positive number')
+    ).toThrow('El presupuesto mensual debe ser un número positivo')
   })
 })
 
@@ -77,14 +77,36 @@ describe('parseHouseholdMemberDocument', () => {
         data: {
           household_id: 'h1',
           joined_at: new Date('2026-01-15T12:00:00.000Z'),
+          display_name: 'Ada',
         },
       }),
     ).toEqual({
       householdId: 'h1',
       userId: 'user-1',
       joinedAt: new Date('2026-01-15T12:00:00.000Z'),
+      displayName: 'Ada',
     })
   })
+
+  // A membership doc written before display_name existed (or blank/
+  // whitespace-only, though the rules should never let that land) reads as
+  // a normal, expected shape -- not a corrupt document -- via this generic
+  // fallback.
+  it.each(['no display_name at all', 'a blank display_name'] as const)(
+    'falls back to a generic label for %s',
+    (kind) => {
+      expect(
+        parseHouseholdMemberDocument({
+          userId: 'user-1',
+          data: {
+            household_id: 'h1',
+            joined_at: new Date('2026-01-15T12:00:00.000Z'),
+            ...(kind === 'a blank display_name' ? { display_name: '   ' } : {}),
+          },
+        }).displayName,
+      ).toBe('Miembro')
+    },
+  )
 
   it('reads a Firestore Timestamp via toDate', () => {
     const joinedAt = new Date('2026-01-15T12:00:00.000Z')
@@ -107,12 +129,14 @@ describe('parseHouseholdMemberDocument', () => {
           household_id: 'h1',
           joined_at: new Date('2026-01-15T12:00:00.000Z'),
           invite_token: 'invite-token',
+          display_name: 'Bob',
         },
       }),
     ).toEqual({
       householdId: 'h1',
       userId: 'user-2',
       joinedAt: new Date('2026-01-15T12:00:00.000Z'),
+      displayName: 'Bob',
     })
   })
 })
@@ -166,9 +190,12 @@ describe('toDocument converters', () => {
 
   it('maps a membership to snake_case Firestore fields', () => {
     const joinedAt = new Date('2026-01-15T12:00:00.000Z')
-    expect(membershipToDocument({ householdId: 'h1', joinedAt })).toEqual({
+    expect(
+      membershipToDocument({ householdId: 'h1', joinedAt, displayName: 'Ada' }),
+    ).toEqual({
       household_id: 'h1',
       joined_at: joinedAt,
+      display_name: 'Ada',
     })
   })
 
@@ -179,11 +206,13 @@ describe('toDocument converters', () => {
         householdId: 'h1',
         joinedAt,
         inviteToken: 'invite-token',
+        displayName: 'Ada',
       }),
     ).toEqual({
       household_id: 'h1',
       joined_at: joinedAt,
       invite_token: 'invite-token',
+      display_name: 'Ada',
     })
   })
 

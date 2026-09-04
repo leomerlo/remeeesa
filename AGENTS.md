@@ -1,0 +1,55 @@
+# Project
+
+## Description
+
+A household budgeting app. Each expense shows how much budget is left after it, supporting multiple users per household sharing the same budget.
+
+## Technologies
+
+- Frontend: React
+- Backend: Firebase (Auth + Firestore)
+
+## Principles
+
+- **Build the minimum viable change; don't overengineer.** Grow the code only when a concrete need appears. No speculative abstractions.
+- **All new code ships with unit tests.** A feature without tests is not done.
+- All code, docs, comments, and commit messages in English.
+
+## Commands
+
+<!-- Fill in per project. Every project must define at least: -->
+
+- `npm test` — run all unit tests
+- `npm run typecheck` — static type checking
+- `npm run lint` — linting across the repo
+
+Run the typecheck and test commands before considering a change done. Wire them into a pre-commit hook (e.g. Husky + lint-staged) and CI.
+
+## Testing conventions
+
+- Tests are colocated with the code: `*.test.*` next to the module they cover.
+- Test through public boundaries (exported app/API for backends, rendered output and user interactions for UIs), not implementation details.
+
+## Releases
+
+- Branches compared for a release: `dev` (collects work) and `main` (release)
+- Release checklist location: `docs/release/`
+
+## Skills
+
+- `explain` — plain-language walkthrough of this template: what it is, the skill order, what each piece does. Runs automatically on first clone (via the `session-start-project-intro` hook); re-run any time with `/explain`
+- `create-story` — interview the user to produce a user story in `docs/stories/`
+- `story-to-tickets` — break a user story into a design doc and GitHub issues
+- `work-issue` — plan from an issue, implement, test, 3 code-review rounds + security review
+- `implement-feat` — work every subtask of a parent/feature issue in dependency order via `work-issue`, merging into a shared feature branch
+- `sync-project-info` — re-scan the codebase and refresh this file's Description/Technologies (e.g. after copying an existing app into the template)
+- `prepare-release` — produce a manual test checklist for a release: fixed smoke tests plus feature tests derived from the diff between the release branches above
+- `impeccable`, `design-tokens`, `animate`, `apple-design` — design workflow for UI work inside `work-issue`; see [docs/design-workflow-context.md](docs/design-workflow-context.md) and `.claude/agents/ui-ux-developer.md` for how they fit together
+
+## Agents
+
+`product-manager`, `ui-ux-developer`, `backend-developer`, `qa-tester`, `code-review`, `security-review` in `.claude/agents/`.
+
+## Hooks
+
+- `session-start-project-intro` — on the first session in a repo cloned from this template (while the `# Project` placeholder in this file is still unfilled), first invokes the `explain` skill to walk the user through the template, then interviews them about what the project does and its technologies and fills in `## Description` and `## Technologies` here. If the `prepare-release` skill is present, it also asks about the release conventions above and the golden-path smoke tests, filling in `## Releases` here and `.claude/skills/prepare-release/SMOKE-TESTS.md`. See `.claude/hooks/session-start-project-intro.sh`.

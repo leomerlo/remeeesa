@@ -8,6 +8,24 @@
         { "fieldPath": "expense_date", "order": "DESCENDING" },
         { "fieldPath": "created_at", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "pendientes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "household_id", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "due_date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pendientes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "household_id", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "paid_at", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

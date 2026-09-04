@@ -11,6 +11,7 @@ import {
   joinHousehold,
   leaveHousehold,
   listHouseholdMembers,
+  updateHousehold,
   updateHouseholdBudget,
 } from './households'
 
@@ -57,7 +58,7 @@ describe('createHouseholdWithMembership', () => {
         name: '',
         monthlyBudget: 100,
       }),
-    ).rejects.toThrow('Household name must be non-empty')
+    ).rejects.toThrow('El nombre del hogar no puede estar vacío')
   })
 
   it('rejects a whitespace-only household name', async () => {
@@ -70,7 +71,7 @@ describe('createHouseholdWithMembership', () => {
         name: '   ',
         monthlyBudget: 100,
       }),
-    ).rejects.toThrow('Household name must be non-empty')
+    ).rejects.toThrow('El nombre del hogar no puede estar vacío')
   })
 
   it('rejects a non-positive monthly budget', async () => {
@@ -83,7 +84,7 @@ describe('createHouseholdWithMembership', () => {
         name: 'Casa Verde',
         monthlyBudget: 0,
       }),
-    ).rejects.toThrow('Monthly budget must be a positive number')
+    ).rejects.toThrow('El presupuesto mensual debe ser un número positivo')
   })
 
   it('rejects a negative monthly budget', async () => {
@@ -96,7 +97,7 @@ describe('createHouseholdWithMembership', () => {
         name: 'Casa Verde',
         monthlyBudget: -10,
       }),
-    ).rejects.toThrow('Monthly budget must be a positive number')
+    ).rejects.toThrow('El presupuesto mensual debe ser un número positivo')
   })
 
   it('rejects a second membership for the same user', async () => {
@@ -192,7 +193,111 @@ describe('updateHouseholdBudget', () => {
         householdId: household.id,
         monthlyBudget: 0,
       }),
-    ).rejects.toThrow('Monthly budget must be a positive number')
+    ).rejects.toThrow('El presupuesto mensual debe ser un número positivo')
+  })
+})
+
+describe('updateHousehold', () => {
+  it('lets a member update the household name and budget together', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    const updated = await updateHousehold({
+      db,
+      householdId: household.id,
+      name: 'Casa Azul',
+      monthlyBudget: 250.75,
+    })
+
+    expect(updated).toEqual({
+      ...household,
+      name: 'Casa Azul',
+      monthlyBudget: 250.75,
+    })
+    await expect(
+      getHousehold({ db, householdId: household.id }),
+    ).resolves.toEqual(updated)
+  })
+
+  it('trims surrounding whitespace from the household name', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    const updated = await updateHousehold({
+      db,
+      householdId: household.id,
+      name: '  Casa Azul  ',
+      monthlyBudget: household.monthlyBudget,
+    })
+
+    expect(updated.name).toBe('Casa Azul')
+  })
+
+  it('rejects an empty household name', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    await expect(
+      updateHousehold({
+        db,
+        householdId: household.id,
+        name: '',
+        monthlyBudget: household.monthlyBudget,
+      }),
+    ).rejects.toThrow('El nombre del hogar no puede estar vacío')
+  })
+
+  it('rejects a whitespace-only household name', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    await expect(
+      updateHousehold({
+        db,
+        householdId: household.id,
+        name: '   ',
+        monthlyBudget: household.monthlyBudget,
+      }),
+    ).rejects.toThrow('El nombre del hogar no puede estar vacío')
+  })
+
+  it('rejects a non-positive monthly budget', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    await expect(
+      updateHousehold({
+        db,
+        householdId: household.id,
+        name: 'Casa Azul',
+        monthlyBudget: 0,
+      }),
+    ).rejects.toThrow('El presupuesto mensual debe ser un número positivo')
   })
 })
 
@@ -221,6 +326,15 @@ describe('household member access', () => {
       updateHouseholdBudget({
         db: strangerDb,
         householdId: household.id,
+        monthlyBudget: 50,
+      }),
+    ).rejects.toThrow(HouseholdAccessDeniedError)
+
+    await expect(
+      updateHousehold({
+        db: strangerDb,
+        householdId: household.id,
+        name: 'Hacked',
         monthlyBudget: 50,
       }),
     ).rejects.toThrow(HouseholdAccessDeniedError)
@@ -259,6 +373,15 @@ describe('household member access', () => {
         monthlyBudget: 50,
       }),
     ).rejects.toThrow(HouseholdAccessDeniedError)
+
+    await expect(
+      updateHousehold({
+        db: otherDb,
+        householdId: household.id,
+        name: 'Hacked',
+        monthlyBudget: 50,
+      }),
+    ).rejects.toThrow(HouseholdAccessDeniedError)
   })
 
   it('lets a member read the household and its members list', async () => {
@@ -281,6 +404,7 @@ describe('household member access', () => {
         householdId: household.id,
         userId: 'user-1',
         joinedAt: expect.any(Date),
+        displayName: 'Miembro',
       },
     ])
   })
@@ -300,6 +424,7 @@ describe('getMembership', () => {
       householdId: household.id,
       userId: 'user-1',
       joinedAt: expect.any(Date),
+      displayName: 'Miembro',
     })
   })
 
@@ -483,6 +608,7 @@ describe('joinHousehold', () => {
       householdId: household.id,
       userId: 'user-2',
       joinedAt: expect.any(Date),
+      displayName: 'Miembro',
     })
     await expect(
       listHouseholdMembers({ db: joinerDb, householdId: household.id }),
@@ -492,11 +618,13 @@ describe('joinHousehold', () => {
           householdId: household.id,
           userId: 'user-1',
           joinedAt: expect.any(Date),
+          displayName: 'Miembro',
         },
         {
           householdId: household.id,
           userId: 'user-2',
           joinedAt: expect.any(Date),
+          displayName: 'Miembro',
         },
       ]),
     )
@@ -528,6 +656,7 @@ describe('joinHousehold', () => {
         householdId: household.id,
         userId: 'user-1',
         joinedAt: expect.any(Date),
+        displayName: 'Miembro',
       },
     ])
   })
@@ -568,6 +697,7 @@ describe('joinHousehold', () => {
         householdId: household.id,
         userId: 'user-1',
         joinedAt: expect.any(Date),
+        displayName: 'Miembro',
       },
     ])
   })
@@ -634,6 +764,7 @@ describe('joinHousehold', () => {
         householdId: household.id,
         userId: 'user-1',
         joinedAt: expect.any(Date),
+        displayName: 'Miembro',
       },
     ])
   })
@@ -704,6 +835,7 @@ describe('joinHousehold', () => {
         householdId: household.id,
         userId: 'user-1',
         joinedAt: expect.any(Date),
+        displayName: 'Miembro',
       },
     ])
   })
@@ -745,6 +877,7 @@ describe('joinHousehold', () => {
         householdId: founded.id,
         userId: 'user-3',
         joinedAt: expect.any(Date),
+        displayName: 'Miembro',
       },
     ])
   })
@@ -798,6 +931,7 @@ describe('leaveHousehold', () => {
         householdId: household.id,
         userId: 'user-2',
         joinedAt: expect.any(Date),
+        displayName: 'Miembro',
       },
     ])
 
@@ -811,7 +945,9 @@ describe('leaveHousehold', () => {
 
     await expect(
       getHousehold({ db: leaverDb, householdId: household.id }),
-    ).rejects.toThrow('Only household members can access this household')
+    ).rejects.toThrow(
+      'Solo los integrantes del hogar pueden acceder a este hogar',
+    )
   })
 
   it('does not delete the household when the last member leaves', async () => {
@@ -828,7 +964,9 @@ describe('leaveHousehold', () => {
 
     await expect(
       getHousehold({ db: store.asUser('user-2'), householdId: household.id }),
-    ).rejects.toThrow('Only household members can access this household')
+    ).rejects.toThrow(
+      'Solo los integrantes del hogar pueden acceder a este hogar',
+    )
 
     store.addMember({ userId: 'user-2', householdId: household.id })
 

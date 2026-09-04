@@ -19,7 +19,7 @@ export function LeaveHouseholdButton({
         void leaveHousehold({ db, userId })
       }}
     >
-      Leave household
+      Salir del hogar
     </Button>
   )
 }

@@ -1,0 +1,1 @@
+export { HistoricoPage } from './HistoricoPage'

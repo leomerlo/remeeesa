@@ -27,7 +27,7 @@ describe('InviteLinkPanel', () => {
     )
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Generate invite link' }),
+      screen.getByRole('button', { name: 'Generar link de invitación' }),
     )
 
     const invite = await getOrCreateHouseholdInvite({
@@ -59,7 +59,7 @@ describe('InviteLinkPanel', () => {
     )
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Generate invite link' }),
+      screen.getByRole('button', { name: 'Generar link de invitación' }),
     )
     const invite = await getOrCreateHouseholdInvite({
       db,
@@ -71,7 +71,7 @@ describe('InviteLinkPanel', () => {
     })
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Generate invite link' }),
+      screen.getByRole('button', { name: 'Generar link de invitación' }),
     )
     await waitFor(() => {
       expect(screen.getByDisplayValue(expectedUrl)).toBeInTheDocument()
@@ -98,7 +98,7 @@ describe('InviteLinkPanel', () => {
     )
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Generate invite link' }),
+      screen.getByRole('button', { name: 'Generar link de invitación' }),
     )
     const invite = await getOrCreateHouseholdInvite({
       db,
@@ -109,7 +109,7 @@ describe('InviteLinkPanel', () => {
       expect(screen.getByDisplayValue(expectedUrl)).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Copy' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Copiar' }))
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(expectedUrl)
     })
@@ -127,7 +127,7 @@ describe('InviteLinkPanel', () => {
     renderWithProviders(<InviteLinkPanel db={db} householdId={household.id} />)
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Generate invite link' }),
+      screen.getByRole('button', { name: 'Generar link de invitación' }),
     )
     const invite = await getOrCreateHouseholdInvite({
       db,
@@ -161,20 +161,20 @@ describe('InviteLinkPanel', () => {
     )
 
     expect(
-      screen.queryByRole('button', { name: 'Copy' }),
+      screen.queryByRole('button', { name: 'Copiar' }),
     ).not.toBeInTheDocument()
 
     fireEvent.click(
-      screen.getByRole('button', { name: 'Generate invite link' }),
+      screen.getByRole('button', { name: 'Generar link de invitación' }),
     )
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Only household members can access this household',
+        'Solo los integrantes del hogar pueden acceder a este hogar',
       )
     })
     expect(
-      screen.queryByRole('button', { name: 'Copy' }),
+      screen.queryByRole('button', { name: 'Copiar' }),
     ).not.toBeInTheDocument()
   })
 })

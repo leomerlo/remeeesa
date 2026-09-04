@@ -1,0 +1,18 @@
+{
+  "buildPath": "comp",
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "gradient-text",
+        "value": "*",
+        "files": [
+          "src/components/PageHeader.tsx"
+        ],
+        "createdAt": "2026-09-02T18:43:00.874Z",
+        "reason": "user confirmed: asked for a distinctive visual treatment for the household name title; reuses the existing from-primary/--surface-action-gradient-end pair already sanctioned for the budget hero and auth cards, not a novel decorative flourish"
+      }
+    ]
+  }
+}

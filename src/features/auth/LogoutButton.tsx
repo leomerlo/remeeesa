@@ -28,7 +28,7 @@ export function LogoutButton({
         })()
       }}
     >
-      Log out
+      Cerrar sesión
     </Button>
   )
 }

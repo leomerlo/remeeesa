@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { ReactElement } from 'react'
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import {
   createExpense,
@@ -11,11 +11,12 @@ import {
 import { createHouseholdWithMembership } from '@/lib/households'
 import type { Expense } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
+import { createPendiente, markPendientePaid } from '@/lib/pendientes'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { AddExpenseForm } from './AddExpenseForm'
 import type { EditExpenseTarget } from './AddExpenseForm'
-import { ExpenseList } from './ExpenseList'
+import { RecentExpensesList } from './RecentExpensesList'
 import { RemainingBudgetDisplay } from './RemainingBudgetDisplay'
 
 function localDateInputValue(date: Date): string {
@@ -73,7 +74,7 @@ function EditExpenseHarness(props: {
           setEditExpense(null)
         }}
       />
-      <ExpenseList
+      <RecentExpensesList
         db={props.db}
         householdId={props.householdId}
         onEditExpense={(expense, categoryName) => {
@@ -84,6 +85,9 @@ function EditExpenseHarness(props: {
             categoryName,
             comments: expense.comments,
             expenseDate: expense.expenseDate,
+            memberId: expense.memberId,
+            pendienteId: expense.pendienteId,
+            isService: expense.isService,
           })
         }}
       />
@@ -121,7 +125,7 @@ async function seedCurrentMonthExpense(input: {
 }
 
 describe('EditExpenseFlow', () => {
-  it('opens a pre-filled form when edit is clicked on a list row', async () => {
+  it('opens a pre-filled form when a list row is tapped', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -145,17 +149,20 @@ describe('EditExpenseFlow', () => {
       />,
     )
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit Pizza' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
 
-    expect(screen.getByLabelText('Name')).toHaveValue('Pizza')
-    expect(screen.getByLabelText('Price')).toHaveValue('12.5')
-    expect(screen.getByLabelText('Category')).toHaveValue('Comida')
-    expect(screen.getByLabelText('Comments')).toHaveValue('Friday dinner')
-    expect(screen.getByLabelText('Date')).toHaveValue(
+    expect(screen.getByLabelText('Nombre')).toHaveValue('Pizza')
+    // FormattedAmountInput displays with es-AR grouping/decimal ("12,5"),
+    // not the raw "12.5" the field's underlying (Number()-parseable) value
+    // actually holds.
+    expect(screen.getByLabelText('Precio')).toHaveValue('12,5')
+    expect(screen.getByLabelText('Categoría')).toHaveValue('Comida')
+    expect(screen.getByLabelText('Comentario')).toHaveValue('Friday dinner')
+    expect(screen.getByLabelText('Fecha')).toHaveValue(
       localDateInputValue(currentMonthDate(15)),
     )
     expect(
-      screen.getByRole('button', { name: 'Save changes' }),
+      screen.getByRole('button', { name: 'Guardar cambios' }),
     ).toBeInTheDocument()
   })
 
@@ -183,23 +190,23 @@ describe('EditExpenseFlow', () => {
       />,
     )
 
-    expect(await screen.findByText('$90')).toBeInTheDocument()
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit Pizza' }))
-    fireEvent.change(screen.getByLabelText('Name'), {
+    expect(await screen.findByText('$90,00')).toBeInTheDocument()
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
+    fireEvent.change(screen.getByLabelText('Nombre'), {
       target: { value: 'Pasta' },
     })
-    fireEvent.change(screen.getByLabelText('Price'), {
+    fireEvent.change(screen.getByLabelText('Precio'), {
       target: { value: '25' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     await waitFor(() => {
       expect(screen.getByText('Pasta')).toBeInTheDocument()
       expect(screen.queryByText('Pizza')).not.toBeInTheDocument()
-      expect(screen.getByText('$75')).toBeInTheDocument()
+      expect(screen.getByText('$75,00')).toBeInTheDocument()
     })
     expect(
-      screen.queryByRole('button', { name: 'Save changes' }),
+      screen.queryByRole('button', { name: 'Guardar cambios' }),
     ).not.toBeInTheDocument()
 
     const listed = await listExpensesInMonth({
@@ -215,7 +222,7 @@ describe('EditExpenseFlow', () => {
     ])
   })
 
-  it('shows the out-of-month validation message and keeps the form open', async () => {
+  it('accepts a date edit that moves the expense to a past month', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -239,23 +246,36 @@ describe('EditExpenseFlow', () => {
       />,
     )
 
-    const lastMonth = new Date()
-    lastMonth.setMonth(lastMonth.getMonth() - 1)
-    lastMonth.setDate(15)
+    // Built directly (not via setMonth on a mutated "today") because
+    // setMonth(-1) on a date still holding today's day-of-month rolls
+    // forward whenever the previous month has fewer days than today's date
+    // (e.g. running this on the 31st with a 30-day or February previous
+    // month), landing back in the current month instead of last month.
+    const today = new Date()
+    const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 15)
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit Pizza' }))
-    fireEvent.change(screen.getByLabelText('Date'), {
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
+    fireEvent.change(screen.getByLabelText('Fecha'), {
       target: { value: localDateInputValue(lastMonth) },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Expense date must be in the current calendar month',
-    )
-    expect(
-      screen.getByRole('button', { name: 'Save changes' }),
-    ).toBeInTheDocument()
-    expect(screen.getByText('Pizza')).toBeInTheDocument()
+    // The edit is accepted now that Histórico surfaces every month: the form
+    // closes instead of surfacing an out-of-month error.
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('button', { name: 'Guardar cambios' }),
+      ).not.toBeInTheDocument()
+    })
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+    const listed = await listExpensesInMonth({
+      db,
+      householdId: household.id,
+      ...currentMonthRange(),
+    })
+    // It left the current month, so the month-scoped read no longer sees it.
+    expect(listed).toEqual([])
   })
 
   it('shows a stale-expense message and refetches the list when the row was deleted elsewhere', async () => {
@@ -284,23 +304,25 @@ describe('EditExpenseFlow', () => {
       />,
     )
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit Pizza' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
     await deleteExpense({
       db: store.asUser('user-2'),
       householdId: household.id,
       expenseId: expense.id,
     })
-    fireEvent.change(screen.getByLabelText('Name'), {
+    fireEvent.change(screen.getByLabelText('Nombre'), {
       target: { value: 'Stale edit' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'This expense no longer exists',
+      'Este gasto ya no existe',
     )
     await waitFor(() => {
       expect(screen.queryByText('Pizza')).not.toBeInTheDocument()
-      expect(screen.getByText('No expenses this month')).toBeInTheDocument()
+      expect(
+        screen.getByText('Todavía no hay gastos este mes'),
+      ).toBeInTheDocument()
     })
   })
 
@@ -312,6 +334,7 @@ describe('EditExpenseFlow', () => {
       userId: 'user-1',
       name: 'Casa Verde',
       monthlyBudget: 100,
+      displayName: 'Ada',
     })
     store.seedMembership({ userId: 'user-2', householdId: household.id })
     await seedCurrentMonthExpense({
@@ -333,11 +356,11 @@ describe('EditExpenseFlow', () => {
       />,
     )
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit Pizza' }))
-    fireEvent.change(screen.getByLabelText('Name'), {
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
+    fireEvent.change(screen.getByLabelText('Nombre'), {
       target: { value: 'Shared edit' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
 
     await waitFor(() => {
       expect(screen.getByText('Shared edit')).toBeInTheDocument()
@@ -355,5 +378,265 @@ describe('EditExpenseFlow', () => {
         authorDisplayName: 'Ada',
       }),
     ])
+  })
+
+  // Deleting now lives inside the edit form (the row itself has no
+  // buttons, matching the approved comp) -- opening a row, confirming
+  // delete, removes the expense and refetches the list and budget.
+  it('deletes the expense from within the edit form and refetches the list and budget', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    await seedCurrentMonthExpense({
+      db,
+      householdId: household.id,
+      name: 'Pizza',
+      price: 30,
+    })
+
+    renderWithProviders(
+      <EditExpenseHarness
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
+    )
+
+    expect(
+      await screen.findByRole('status', {
+        name: 'Presupuesto restante $70,00',
+      }),
+    ).toBeInTheDocument()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar gasto' }))
+
+    const dialog = screen.getByRole('alertdialog')
+    expect(dialog).toHaveTextContent('¿Eliminar el gasto?')
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Eliminar gasto' }),
+    )
+
+    await waitFor(() => {
+      expect(screen.queryByText('Pizza')).not.toBeInTheDocument()
+    })
+    expect(
+      await screen.findByText('Todavía no hay gastos este mes'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('status', { name: 'Presupuesto restante $100,00' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Guardar cambios' }),
+    ).not.toBeInTheDocument()
+  })
+
+  it('cancels the delete confirmation and keeps the expense', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    await seedCurrentMonthExpense({
+      db,
+      householdId: household.id,
+      name: 'Pizza',
+      price: 10,
+    })
+
+    renderWithProviders(
+      <EditExpenseHarness
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar gasto' }))
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Cancelar',
+      }),
+    )
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Guardar cambios' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Pizza')).toBeInTheDocument()
+  })
+
+  it('reassigns an expense to a different household member via the Autor picker', async () => {
+    const store = createMemoryHouseholdsDb()
+    const db = store.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+      displayName: 'Florencia',
+    })
+    store.seedMembership({
+      userId: 'user-2',
+      householdId: household.id,
+      displayName: 'Leo',
+    })
+    await seedCurrentMonthExpense({
+      db,
+      householdId: household.id,
+      name: 'Gimnasio',
+      price: 10,
+    })
+
+    renderWithProviders(
+      <EditExpenseHarness
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Florencia"
+      />,
+    )
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Editar Gimnasio' }),
+    )
+    const authorSelect = await screen.findByLabelText('Autor')
+    expect(authorSelect).toHaveValue('user-1')
+
+    fireEvent.change(authorSelect, { target: { value: 'user-2' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    await waitFor(async () => {
+      const [updated] = await listExpensesInMonth({
+        db,
+        householdId: household.id,
+        ...currentMonthRange(),
+      })
+      expect(updated).toEqual(
+        expect.objectContaining({
+          memberId: 'user-2',
+          authorDisplayName: 'Leo',
+        }),
+      )
+    })
+  })
+
+  // isService is the only way to reclassify an Expense that predates
+  // pendienteId (or was logged as a plain Gasto that should have gone
+  // through Pendientes), since there's no real Pendiente to link it to.
+  it('lets a plain expense be manually flagged as a servicio via the toggle', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    await seedCurrentMonthExpense({
+      db,
+      householdId: household.id,
+      name: 'Gimnasio',
+      price: 10,
+    })
+
+    renderWithProviders(
+      <EditExpenseHarness
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
+    )
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Editar Gimnasio' }),
+    )
+    const toggle = await screen.findByLabelText('Marcar como servicio')
+    expect(toggle).not.toBeChecked()
+
+    fireEvent.click(toggle)
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    await waitFor(async () => {
+      const [updated] = await listExpensesInMonth({
+        db,
+        householdId: household.id,
+        ...currentMonthRange(),
+      })
+      expect(updated).toEqual(expect.objectContaining({ isService: true }))
+    })
+  })
+
+  // pendienteId already determines "servicio" on its own for an Expense
+  // created by paying a Pendiente -- the manual toggle would have nothing to
+  // change, so it isn't offered.
+  it('hides the servicio toggle for an expense already linked to a Pendiente', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories.find((category) => category.name === 'Comida')
+    if (comida === undefined) {
+      throw new Error('expected Comida category')
+    }
+    const pendiente = await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Internet',
+      dueDate: currentMonthDate(10),
+      expectedAmount: 5000,
+    })
+    const { expense } = await markPendientePaid({
+      db,
+      householdId: household.id,
+      pendienteId: pendiente.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 5000,
+      paymentDate: currentMonthDate(10),
+    })
+
+    // Rendered directly (not via the RecentExpensesList-tap harness the
+    // other tests here use) -- a paid servicio's Expense is deliberately
+    // excluded from "Últimos gastos del mes" (Cuentas por pagar already
+    // shows it), so there's no row to tap it open from there any more.
+    renderWithProviders(
+      <AddExpenseForm
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+        editExpense={{
+          expenseId: expense.id,
+          name: expense.name,
+          price: expense.price,
+          categoryName: 'Comida',
+          comments: expense.comments,
+          expenseDate: expense.expenseDate,
+          memberId: expense.memberId,
+          pendienteId: expense.pendienteId,
+          isService: expense.isService,
+        }}
+      />,
+    )
+
+    expect(await screen.findByLabelText('Nombre')).toHaveValue('Internet')
+    expect(
+      screen.queryByLabelText('Marcar como servicio'),
+    ).not.toBeInTheDocument()
   })
 })

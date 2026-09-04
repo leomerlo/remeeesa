@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
-  assertExpenseInCurrentMonth,
   parseAuthorDisplayName,
   parseCategoryName,
   parseExpenseDate,
-  parseExpenseDateInCurrentMonth,
   parseExpenseName,
   parseExpensePrice,
 } from './validate'
@@ -12,7 +10,7 @@ import {
 describe('parseCategoryName', () => {
   it('rejects an empty string', () => {
     expect(() => parseCategoryName('')).toThrow(
-      'Category name must be non-empty',
+      'El nombre de la categoría no puede estar vacío',
     )
   })
 })
@@ -20,7 +18,7 @@ describe('parseCategoryName', () => {
 describe('parseExpenseName', () => {
   it('rejects an empty string', () => {
     expect(() => parseExpenseName('   ')).toThrow(
-      'Expense name must be non-empty',
+      'El nombre del gasto no puede estar vacío',
     )
   })
 })
@@ -28,16 +26,16 @@ describe('parseExpenseName', () => {
 describe('parseExpensePrice', () => {
   it('rejects NaN, Infinity, and non-positive values', () => {
     expect(() => parseExpensePrice(Number.NaN)).toThrow(
-      'Expense price must be a positive number',
+      'El precio del gasto debe ser un número positivo',
     )
     expect(() => parseExpensePrice(Number.POSITIVE_INFINITY)).toThrow(
-      'Expense price must be a positive number',
+      'El precio del gasto debe ser un número positivo',
     )
     expect(() => parseExpensePrice(0)).toThrow(
-      'Expense price must be a positive number',
+      'El precio del gasto debe ser un número positivo',
     )
     expect(() => parseExpensePrice(-1)).toThrow(
-      'Expense price must be a positive number',
+      'El precio del gasto debe ser un número positivo',
     )
   })
 
@@ -48,7 +46,7 @@ describe('parseExpensePrice', () => {
 
   it('rejects a positive value that rounds to zero', () => {
     expect(() => parseExpensePrice(0.001)).toThrow(
-      'Expense price must be a positive number',
+      'El precio del gasto debe ser un número positivo',
     )
   })
 })
@@ -56,7 +54,7 @@ describe('parseExpensePrice', () => {
 describe('parseAuthorDisplayName', () => {
   it('rejects an empty string', () => {
     expect(() => parseAuthorDisplayName('  ')).toThrow(
-      'Author display name must be non-empty',
+      'El nombre del autor no puede estar vacío',
     )
   })
 })
@@ -66,7 +64,7 @@ describe('parseExpenseDate', () => {
     const now = new Date(2026, 7, 28, 12, 0, 0)
     const tomorrow = new Date(2026, 7, 29, 0, 0, 0)
     expect(() => parseExpenseDate(tomorrow, now)).toThrow(
-      'Expense date cannot be in the future',
+      'La fecha del gasto no puede ser futura',
     )
   })
 
@@ -82,35 +80,7 @@ describe('parseExpenseDate', () => {
 
   it('rejects an invalid date', () => {
     expect(() => parseExpenseDate(new Date('not-a-date'))).toThrow(
-      'Expense date must be a valid date',
+      'La fecha del gasto no es válida',
     )
-  })
-})
-
-describe('parseExpenseDateInCurrentMonth', () => {
-  it('rejects a calendar date outside the current month', () => {
-    const now = new Date(2026, 7, 28, 12, 0, 0)
-    expect(() =>
-      parseExpenseDateInCurrentMonth(new Date(2026, 6, 31), now),
-    ).toThrow('Expense date must be in the current calendar month')
-  })
-
-  it('allows any date within the current month that is not in the future', () => {
-    const now = new Date(2026, 7, 28, 12, 0, 0)
-    expect(parseExpenseDateInCurrentMonth(new Date(2026, 7, 1), now)).toEqual(
-      new Date(2026, 7, 1),
-    )
-    expect(parseExpenseDateInCurrentMonth(new Date(2026, 7, 28), now)).toEqual(
-      new Date(2026, 7, 28),
-    )
-  })
-})
-
-describe('assertExpenseInCurrentMonth', () => {
-  it('rejects an expense dated outside the current month', () => {
-    const now = new Date(2026, 7, 28, 12, 0, 0)
-    expect(() =>
-      assertExpenseInCurrentMonth(new Date(2026, 6, 15), now),
-    ).toThrow('Expense is not in the current calendar month')
   })
 })
