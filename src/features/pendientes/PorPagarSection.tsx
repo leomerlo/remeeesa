@@ -3,10 +3,7 @@ import { useMemo } from 'react'
 import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  isNextCycleAfterAPaidThisPeriod,
-  listPendientesForMonth,
-} from '@/lib/pendientes'
+import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import {
   currentMonthRange,
@@ -24,29 +21,32 @@ export type PorPagarSectionProps = {
   readonly householdId: string
   readonly onMarkPaid: (pendiente: Pendiente, categoryName: string) => void
   // Defaults to the current month. MonthNavigator's viewed month flows down
-  // to this the same way it does to RecentExpensesList, so paging back a
-  // month shows what was actually paid that month, not always "right now".
-  // Pending items ignore this and always show regardless of viewed month --
-  // see listPendientesForMonth.
+  // to this the same way it does to RecentExpensesList: the section shows
+  // what is still owed *for that month*.
   readonly monthStart?: Date
   readonly monthEnd?: Date
 }
 
-// Home's "Cuentas por pagar": every currently-pending Pendiente plus
-// whichever ones were paid this month, all of them (no cap), as a
-// horizontally-swipeable carousel of square cards ordered soonest-due-first
-// -- per direct feedback, back to a carousel after a stint as a 2-column
-// grid (and a vertical list before that), this time showing every item
-// instead of a 5-card preview with a "Ver todas" overflow link. A pending
-// card's whole area is a single tap target into the mark-paid flow, same as
-// before; a paid card is also tappable, marked with a check badge and
-// "Pagado" instead of a due date -- opening the same edit sheet with "Ya lo
-// pagué" pre-checked, so a mistaken mark-paid can be undone.
+// Home's "Servicios o pagos recurrentes": every still-unpaid bill due in
+// the viewed month, all of them (no cap), as a horizontally-swipeable
+// carousel of square cards ordered soonest-due-first. Each card's whole
+// area is a single tap target into the mark-paid flow.
 //
-// Reads the same pendientesQueryKey prefix every other Pendiente view reads
-// (suffixed with the viewed month's timestamp, same convention as
-// RecentExpensesList/expensesInMonthQueryKey), so a mutation from any screen
-// still refreshes this section -- invalidateQueries matches by prefix.
+// Two things are deliberately absent, both per direct feedback. A bill
+// leaves the moment it is paid -- what was paid lives on as an Expense, in
+// Histórico -- and a bill due in a later month does not appear yet. What is
+// left is exactly the month's outstanding list, which is also precisely the
+// pending figure "Gastado este mes" and "Por categoría" count, so the
+// section and the cards above it can no longer disagree.
+//
+// Note this means an unpaid bill from a past month shows under *that*
+// month, not the current one; reaching it means paging back to it.
+//
+// Reads the same pendientesQueryKey prefix every other Pendiente view reads,
+// so a mutation from any screen still refreshes this section --
+// invalidateQueries matches by prefix. The fetch itself is month-independent
+// (the month only narrows what is rendered), so the key carries no month and
+// paging between months costs no extra read.
 export function PorPagarSection({
   db,
   householdId,
@@ -58,10 +58,10 @@ export function PorPagarSection({
   const monthStart = monthStartProp ?? defaultRange.monthStart
   const monthEnd = monthEndProp ?? defaultRange.monthEnd
   const pendientesQuery = useQuery({
-    queryKey: [...pendientesQueryKey({ householdId }), monthStart.getTime()],
+    queryKey: [...pendientesQueryKey({ householdId }), 'with-categories'],
     queryFn: async () => {
       const [pendientes, categories] = await Promise.all([
-        listPendientesForMonth({ db, householdId, monthStart, monthEnd }),
+        listPendientes({ db, householdId }),
         listCategories({ db, householdId }),
       ])
       return { pendientes, categories }
@@ -110,16 +110,12 @@ export function PorPagarSection({
 
   const { pendientes, categories } = pendientesQuery.data
 
-  // Only what's still owed. A bill stops belonging here the moment it's
-  // paid -- per direct feedback, a one-off ("Osde Flor", paid once and
-  // done) lingering under "Cuentas por pagar" reads as something still to
-  // do. What was paid lives on as an Expense, in Histórico.
-  //
-  // The full `pendientes` array (paid ones included) still feeds the badge
-  // lookup below: that's what tells a freshly-spawned next cycle apart from
-  // a genuinely outstanding bill.
-  const visiblePendientes = pendientes.filter(
-    (pendiente) => pendiente.status !== 'paid',
+  // Still unpaid *and* due this month -- the same narrowing the budget
+  // cards apply to the pending total they show.
+  const visiblePendientes = pendientesDueInMonth(
+    pendientes,
+    monthStart,
+    monthEnd,
   )
 
   // Nothing outstanding: render nothing at all, not an empty box.
@@ -159,15 +155,6 @@ export function PorPagarSection({
           const categoryColor =
             category?.color ?? colorForCategoryName(categoryName)
           const CategoryIcon = iconForCategoryName(categoryName)
-          // A recurring pendiente's next cycle is a brand-new row with no
-          // link back to the one just paid -- without this, "Gimnasio" due
-          // next month reads as an outstanding debt due *now*, when this
-          // month's was already settled. Per direct feedback.
-          const isNextCycle = isNextCycleAfterAPaidThisPeriod(
-            pendiente,
-            pendientes,
-          )
-
           const amount =
             pendiente.expectedAmount !== null ? (
               <span className="font-display text-lg text-foreground">
@@ -203,11 +190,6 @@ export function PorPagarSection({
                 </span>
                 {amount}
                 <div className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
-                  {isNextCycle ? (
-                    <span className="bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
-                      Ya pagaste este mes
-                    </span>
-                  ) : null}
                   <span>{categoryName}</span>
                   <span aria-hidden="true">·</span>
                   <span>{formatShortDate(pendiente.dueDate)}</span>

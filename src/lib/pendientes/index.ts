@@ -1,9 +1,5 @@
 export type { Pendiente, PendienteStatus } from './types'
 export { DUE_SOON_WINDOW_DAYS, pendientesDueSoon } from './dueSoon'
-export {
-  isNextCycleAfterAPaidThisPeriod,
-  isSupersededByNextCycle,
-} from './nextCycle'
 export { pendientesDueInMonth } from './pendingForMonth'
 export {
   createPendiente,

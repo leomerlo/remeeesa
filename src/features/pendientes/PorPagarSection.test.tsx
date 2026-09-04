@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import type { ReactElement } from 'react'
+import type { ComponentProps, ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { createPendiente, markPendientePaid } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
@@ -34,6 +34,19 @@ async function seedHousehold() {
   return { db, householdId: household.id, categoryId: category.id }
 }
 
+// The section only shows what is due in the month it is given, so every
+// seeded due date lands in one fixed month and every render pins that same
+// month. A test that cares about a different month passes its own props,
+// which win over these.
+const MONTH_START = new Date(2026, 10, 1)
+const MONTH_END = new Date(2026, 11, 0, 23, 59, 59, 999)
+
+function Section(props: ComponentProps<typeof PorPagarSection>): ReactElement {
+  return (
+    <PorPagarSection monthStart={MONTH_START} monthEnd={MONTH_END} {...props} />
+  )
+}
+
 // Due dates are days apart so ordering assertions are unambiguous.
 async function seedPendiente(input: {
   readonly db: HouseholdsDb
@@ -60,11 +73,7 @@ describe('PorPagarSection', () => {
     const { db, householdId } = await seedHousehold()
 
     const { container } = renderSection(
-      <PorPagarSection
-        db={db}
-        householdId={householdId}
-        onMarkPaid={vi.fn()}
-      />,
+      <Section db={db} householdId={householdId} onMarkPaid={vi.fn()} />,
     )
 
     // Skeleton first, then the section removes itself entirely -- no empty box.
@@ -86,11 +95,7 @@ describe('PorPagarSection', () => {
     })
 
     renderSection(
-      <PorPagarSection
-        db={db}
-        householdId={householdId}
-        onMarkPaid={vi.fn()}
-      />,
+      <Section db={db} householdId={householdId} onMarkPaid={vi.fn()} />,
     )
 
     expect(screen.getByRole('status')).toHaveTextContent('Cargando…')
@@ -117,11 +122,7 @@ describe('PorPagarSection', () => {
     })
 
     renderSection(
-      <PorPagarSection
-        db={db}
-        householdId={householdId}
-        onMarkPaid={vi.fn()}
-      />,
+      <Section db={db} householdId={householdId} onMarkPaid={vi.fn()} />,
     )
 
     expect(
@@ -153,11 +154,7 @@ describe('PorPagarSection', () => {
     })
 
     renderSection(
-      <PorPagarSection
-        db={db}
-        householdId={householdId}
-        onMarkPaid={vi.fn()}
-      />,
+      <Section db={db} householdId={householdId} onMarkPaid={vi.fn()} />,
     )
 
     const card = await screen.findByRole('button', {
@@ -180,11 +177,7 @@ describe('PorPagarSection', () => {
     })
 
     renderSection(
-      <PorPagarSection
-        db={db}
-        householdId={householdId}
-        onMarkPaid={vi.fn()}
-      />,
+      <Section db={db} householdId={householdId} onMarkPaid={vi.fn()} />,
     )
 
     const card = await screen.findByRole('button', {
@@ -209,11 +202,7 @@ describe('PorPagarSection', () => {
     }
 
     renderSection(
-      <PorPagarSection
-        db={db}
-        householdId={householdId}
-        onMarkPaid={vi.fn()}
-      />,
+      <Section db={db} householdId={householdId} onMarkPaid={vi.fn()} />,
     )
 
     const list = await screen.findByRole('list', {
@@ -239,11 +228,7 @@ describe('PorPagarSection', () => {
     })
 
     renderSection(
-      <PorPagarSection
-        db={db}
-        householdId={householdId}
-        onMarkPaid={vi.fn()}
-      />,
+      <Section db={db} householdId={householdId} onMarkPaid={vi.fn()} />,
     )
 
     expect(
@@ -264,11 +249,7 @@ describe('PorPagarSection', () => {
     const onMarkPaid = vi.fn()
 
     renderSection(
-      <PorPagarSection
-        db={db}
-        householdId={householdId}
-        onMarkPaid={onMarkPaid}
-      />,
+      <Section db={db} householdId={householdId} onMarkPaid={onMarkPaid} />,
     )
 
     fireEvent.click(
@@ -297,7 +278,7 @@ describe('PorPagarSection', () => {
 
     // A non-member db makes listPendientes reject.
     const { container } = renderSection(
-      <PorPagarSection
+      <Section
         db={store.asUser('user-2')}
         householdId={household.id}
         onMarkPaid={vi.fn()}
@@ -349,11 +330,7 @@ describe('PorPagarSection', () => {
     })
 
     renderSection(
-      <PorPagarSection
-        db={db}
-        householdId={householdId}
-        onMarkPaid={vi.fn()}
-      />,
+      <Section db={db} householdId={householdId} onMarkPaid={vi.fn()} />,
     )
 
     const list = await screen.findByRole('list', {
@@ -385,11 +362,7 @@ describe('PorPagarSection', () => {
     })
 
     const { container } = renderSection(
-      <PorPagarSection
-        db={db}
-        householdId={householdId}
-        onMarkPaid={vi.fn()}
-      />,
+      <Section db={db} householdId={householdId} onMarkPaid={vi.fn()} />,
     )
 
     await waitFor(() => {
@@ -398,10 +371,46 @@ describe('PorPagarSection', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  // Per direct feedback: paying a recurring pendiente this month
-  // (Gimnasio) spawns a brand-new pending row for next month's cycle --
-  // without a badge, that row reads as an outstanding debt due *now*.
-  it('shows only the next cycle (badged), not a separate already-paid row, once the previous cycle is paid', async () => {
+  // Paying a recurring pendiente spawns a brand-new pending row for next
+  // month's cycle. That row used to appear here immediately, reading as a
+  // debt due *now*, and needed a "Ya pagaste este mes" badge to explain
+  // itself away. Scoping the section to the viewed month removes the
+  // problem rather than labelling it.
+  it("does not show next month's cycle after paying a recurring bill", async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    const gym = await seedPendiente({
+      db,
+      householdId,
+      categoryId,
+      name: 'Gimnasio',
+      dayOfMonth: 10,
+      expectedAmount: 8000,
+      recurring: true,
+    })
+    await markPendientePaid({
+      db,
+      householdId,
+      pendienteId: gym.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 8000,
+      paymentDate: new Date(),
+    })
+
+    const { container } = renderSection(
+      <Section db={db} householdId={householdId} onMarkPaid={vi.fn()} />,
+    )
+
+    // Neither the settled cycle nor next month's: nothing is owed for this
+    // month any more, so the section removes itself entirely.
+    await waitFor(() => {
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+    expect(screen.queryByText('Gimnasio')).not.toBeInTheDocument()
+    expect(container).toBeEmptyDOMElement()
+  })
+
+  it('shows that next cycle once the viewed month reaches it', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
     const gym = await seedPendiente({
       db,
@@ -423,27 +432,23 @@ describe('PorPagarSection', () => {
     })
 
     renderSection(
-      <PorPagarSection
+      <Section
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
+        monthStart={new Date(2026, 11, 1)}
+        monthEnd={new Date(2026, 11, 31, 23, 59, 59, 999)}
       />,
     )
 
     const list = await screen.findByRole('list', {
       name: 'Pendientes por pagar',
     })
-    // Showing both the settled cycle and its next one under the identical
-    // name/amount reads as a duplicate, not two months of one series -- only
-    // the next cycle (badged) shows.
+    // Exactly one row, and an actionable one -- not a display-only paid row.
     const rows = within(list).getAllByText('Gimnasio')
     expect(rows).toHaveLength(1)
-    const nextCycleRow = rows[0]?.closest('li')
-    expect(nextCycleRow).toHaveTextContent('Ya pagaste este mes')
-    expect(nextCycleRow).not.toHaveTextContent('Pagado')
-    // Still an actionable "mark paid" button, not a display-only paid row.
     expect(
-      within(nextCycleRow as HTMLElement).getByRole('button'),
+      within(rows[0]?.closest('li') as HTMLElement).getByRole('button'),
     ).toBeInTheDocument()
   })
 
@@ -476,11 +481,7 @@ describe('PorPagarSection', () => {
     })
 
     renderSection(
-      <PorPagarSection
-        db={db}
-        householdId={householdId}
-        onMarkPaid={vi.fn()}
-      />,
+      <Section db={db} householdId={householdId} onMarkPaid={vi.fn()} />,
     )
 
     const list = await screen.findByRole('list', {
@@ -492,9 +493,9 @@ describe('PorPagarSection', () => {
     expect(within(list).queryByText('Gas')).not.toBeInTheDocument()
   })
 
-  it('does not show a pendiente paid in a different viewed month', async () => {
+  it('does not show a bill due in another month', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
-    const paid = await seedPendiente({
+    await seedPendiente({
       db,
       householdId,
       categoryId,
@@ -502,32 +503,41 @@ describe('PorPagarSection', () => {
       dayOfMonth: 10,
       expectedAmount: 1000,
     })
-    // Paid in the past, well outside the viewed month below.
-    await markPendientePaid({
-      db,
-      householdId,
-      pendienteId: paid.id,
-      memberId: 'user-1',
-      authorDisplayName: 'Ada',
-      finalAmount: 1000,
-      paymentDate: new Date(2026, 0, 15),
-    })
 
+    // Same unpaid bill, viewed from the month before the one it is due in.
     renderSection(
-      <PorPagarSection
+      <Section
         db={db}
         householdId={householdId}
         onMarkPaid={vi.fn()}
-        monthStart={new Date(2026, 5, 1)}
-        monthEnd={new Date(2026, 5, 30, 23, 59, 59, 999)}
+        monthStart={new Date(2026, 9, 1)}
+        monthEnd={new Date(2026, 9, 31, 23, 59, 59, 999)}
       />,
     )
 
-    // Nothing else pending and nothing paid in the *viewed* month -- the
-    // section removes itself entirely, same as the empty-state test above.
+    // Nothing due in the viewed month -- the section removes itself
+    // entirely, same as the empty-state test above.
     await waitFor(() => {
       expect(screen.queryByRole('status')).not.toBeInTheDocument()
     })
     expect(screen.queryByText('Gas')).not.toBeInTheDocument()
+  })
+
+  it('shows that same bill once the viewed month is the one it is due in', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    await seedPendiente({
+      db,
+      householdId,
+      categoryId,
+      name: 'Gas',
+      dayOfMonth: 10,
+      expectedAmount: 1000,
+    })
+
+    renderSection(
+      <Section db={db} householdId={householdId} onMarkPaid={vi.fn()} />,
+    )
+
+    expect(await screen.findByText('Gas')).toBeInTheDocument()
   })
 })

@@ -130,7 +130,7 @@ function ExpenseRow({
               previously no way to tell them apart in Histórico. */}
           {isServicio(expense) ? (
             <>
-              <span className="bg-primary/10 text-primary rounded-full px-1.5 py-0.5 text-[10px] font-semibold">
+              <span className="bg-primary-subtle text-primary rounded-full px-2 py-0.5 text-xs font-semibold">
                 Servicio
               </span>
               <span aria-hidden="true">·</span>
