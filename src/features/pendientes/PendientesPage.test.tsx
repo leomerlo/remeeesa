@@ -221,11 +221,10 @@ describe('PendientesPage', () => {
       expect(screen.queryByText('Alquiler')).not.toBeInTheDocument()
     })
     expect(await listPendientes({ db, householdId: household.id })).toEqual([])
-    // authorDisplayName is derived from the signed-in Firebase user rather
-    // than passed as a test prop (unlike HomePage) -- the default stub has
-    // no auth.currentUser at all, so this pins the 'Miembro' fallback branch
-    // actually reaching markPendientePaid instead of silently reaching the db
-    // with an empty/undefined value.
+    // authorDisplayName comes from the signed-in member's own household
+    // membership (its default here is the generic 'Miembro' fallback) --
+    // this pins that value actually reaching markPendientePaid, rather than
+    // silently reaching the db with an empty/undefined value.
     const paidExpenses = await listExpensesInMonth({
       db,
       householdId: household.id,
@@ -235,6 +234,61 @@ describe('PendientesPage', () => {
       expect.objectContaining({
         name: 'Alquiler',
         authorDisplayName: 'Miembro',
+      }),
+    ])
+  })
+
+  // Regression: a paid Pendiente's resulting Expense used to be attributed
+  // using the raw Firebase Auth profile name, ignoring whatever name a
+  // member had chosen for themselves in Ajustes -- silently reverting back
+  // to their Google account's name. Per direct feedback.
+  it("attributes a paid pendiente's expense using the member's own chosen display name, not their Auth profile name", async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+      displayName: 'Leo',
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories.find((category) => category.name === 'Comida')
+    if (comida === undefined) {
+      throw new Error('expected seeded Comida category')
+    }
+    await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Alquiler',
+      dueDate: new Date(2026, 8, 10),
+      expectedAmount: 500,
+    })
+
+    renderPendientesPage(
+      <PendientesPage currentUserId="user-1" householdsDb={db} />,
+    )
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Marcar pagado Alquiler' }),
+    )
+    await screen.findByLabelText('Monto esperado')
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Guardar y marcar pagado' }),
+    )
+
+    await waitFor(() => {
+      expect(screen.queryByText('Alquiler')).not.toBeInTheDocument()
+    })
+    const paidExpenses = await listExpensesInMonth({
+      db,
+      householdId: household.id,
+      ...currentMonthRange(),
+    })
+    expect(paidExpenses).toEqual([
+      expect.objectContaining({
+        name: 'Alquiler',
+        authorDisplayName: 'Leo',
       }),
     ])
   })

@@ -2,8 +2,6 @@ import { useRef, useState } from 'react'
 import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import type { ReactElement } from 'react'
 import { Navigate } from 'react-router-dom'
-import { authorDisplayNameFromAuth } from '@/lib/displayName'
-import { useFirebase } from '@/lib/firebaseContext'
 import { useHouseholdMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { PageHeader } from '@/components/PageHeader'
@@ -20,7 +18,6 @@ export function PendientesPage({
   currentUserId: currentUserIdProp,
   householdsDb,
 }: PendientesPageProps): ReactElement {
-  const firebase = useFirebase()
   const { currentUserId, db, membership } = useHouseholdMembership({
     currentUserId: currentUserIdProp,
     householdsDb,
@@ -46,9 +43,9 @@ export function PendientesPage({
     return <Navigate to="/" replace />
   }
 
-  const authorDisplayName = authorDisplayNameFromAuth(
-    firebase.auth?.currentUser,
-  )
+  // The household member's own editable name (set in Ajustes), not the raw
+  // Firebase Auth profile -- see HomePage's identical fix for why.
+  const authorDisplayName = membership.displayName
 
   return (
     <div className="flex w-full flex-col gap-6">

@@ -356,7 +356,7 @@ describe('HomePage', () => {
     ).toHaveTextContent('Ada')
   })
 
-  it('attributes a submitted expense to the signed-in member with a Member display name', async () => {
+  it('attributes a submitted expense to the signed-in member with the generic fallback name, absent one of their own', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -391,6 +391,53 @@ describe('HomePage', () => {
         expect.objectContaining({
           memberId: 'user-1',
           authorDisplayName: 'Miembro',
+          name: 'Pizza',
+          price: 10,
+        }),
+      ])
+    })
+  })
+
+  // Regression: a submitted expense used to be attributed using the raw
+  // Firebase Auth profile name, ignoring whatever name a member had chosen
+  // for themselves in Ajustes -- silently reverting every new Expense back
+  // to their Google account's name. Per direct feedback.
+  it("attributes a submitted expense using the member's own chosen display name, not their Auth profile name", async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+      displayName: 'Jlors',
+    })
+
+    renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Agregar gasto' }),
+    )
+    fireEvent.change(await screen.findByLabelText('Nombre'), {
+      target: { value: 'Pizza' },
+    })
+    fireEvent.change(screen.getByLabelText('Precio'), {
+      target: { value: '10' },
+    })
+    fireEvent.change(screen.getByLabelText('Categoría'), {
+      target: { value: 'Comida' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
+
+    await waitFor(async () => {
+      const listed = await listExpensesInMonth({
+        db,
+        householdId: household.id,
+        ...currentMonthRange(),
+      })
+      expect(listed).toEqual([
+        expect.objectContaining({
+          memberId: 'user-1',
+          authorDisplayName: 'Jlors',
           name: 'Pizza',
           price: 10,
         }),
