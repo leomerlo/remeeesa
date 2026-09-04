@@ -26,8 +26,12 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: 'bg-primary text-primary-foreground hover:bg-primary/80',
+        // The secondary button: a 2px neutral outline, label in the ordinary
+        // text colour. The weight is what tells it apart from a disabled
+        // control -- at 1px it read as one -- and the colour stays grey so
+        // it does not compete with the primary. Per direct feedback.
         outline:
-          'border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground',
+          'border-2 border-border bg-background text-foreground hover:bg-muted aria-expanded:bg-muted aria-expanded:text-foreground',
         ghost:
           'hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground',
       },

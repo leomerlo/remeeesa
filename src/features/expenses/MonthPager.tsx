@@ -28,18 +28,10 @@ export function MonthPager({
   const isCurrentMonth = isDateInCurrentMonth(viewedMonth)
 
   return (
-    <div className="flex w-full items-center justify-between">
-      <Button
-        type="button"
-        variant="outline"
-        size="icon-lg"
-        aria-label="Mes anterior"
-        onClick={() => {
-          onViewedMonthChange(addMonths(viewedMonth, -1))
-        }}
-      >
-        <ChevronLeft aria-hidden="true" className="size-7" />
-      </Button>
+    // Month on the left, its two arrows together on the right -- the same
+    // shape every other pager in the app has, rather than one arrow pinned
+    // to each edge of the screen with the label marooned in between.
+    <div className="flex w-full items-center justify-between gap-2">
       <span
         role="status"
         aria-live="polite"
@@ -47,18 +39,31 @@ export function MonthPager({
       >
         {formatMonthLabel(viewedMonth)}
       </span>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon-lg"
-        aria-label="Mes siguiente"
-        disabled={isCurrentMonth}
-        onClick={() => {
-          onViewedMonthChange(addMonths(viewedMonth, 1))
-        }}
-      >
-        <ChevronRight aria-hidden="true" className="size-7" />
-      </Button>
+      <div className="flex shrink-0 items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-lg"
+          aria-label="Mes anterior"
+          onClick={() => {
+            onViewedMonthChange(addMonths(viewedMonth, -1))
+          }}
+        >
+          <ChevronLeft aria-hidden="true" className="size-7" />
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-lg"
+          aria-label="Mes siguiente"
+          disabled={isCurrentMonth}
+          onClick={() => {
+            onViewedMonthChange(addMonths(viewedMonth, 1))
+          }}
+        >
+          <ChevronRight aria-hidden="true" className="size-7" />
+        </Button>
+      </div>
     </div>
   )
 }

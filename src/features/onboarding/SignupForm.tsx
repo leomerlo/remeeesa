@@ -121,7 +121,7 @@ export function SignupForm({
   return (
     <div className="flex w-full flex-col items-center gap-8">
       <AuthHero />
-      <div className="bg-card shadow-resting flex w-full flex-col items-center gap-6 rounded-3xl p-6">
+      <div className="bg-card flex w-full flex-col items-center gap-6 rounded-3xl p-6">
         <form className="flex w-full flex-col gap-6" onSubmit={onSubmit}>
           <div className="flex w-full flex-col gap-2">
             <Label
@@ -199,7 +199,7 @@ export function SignupForm({
         {!isLogin && onAlreadyHaveAccount !== undefined ? (
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             disabled={pending}
             onClick={onAlreadyHaveAccount}
           >
@@ -210,7 +210,7 @@ export function SignupForm({
         {isLogin && onNoAccount !== undefined ? (
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             disabled={pending}
             onClick={onNoAccount}
           >

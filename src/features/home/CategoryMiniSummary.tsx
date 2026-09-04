@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { cssVars } from '@/lib/cssVars'
 import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
@@ -61,7 +62,7 @@ export function CategoryMiniSummary({
     queryFn: () => listCategories({ db, householdId }),
   })
   // Still-unpaid bills count toward their category too, so this breakdown
-  // reconciles with "Gastado este mes" (which also counts them). Same
+  // reconciles with "Gastos de este mes" (which also counts them). Same
   // key/shape as the budget cards' own pending query, so they share one
   // fetch.
   const pendingQuery = useQuery({
@@ -106,7 +107,7 @@ export function CategoryMiniSummary({
       <h2 className="text-title font-semibold self-start">
         Gastos por categoría
       </h2>
-      <div className="bg-card shadow-resting divide-border-subtle flex w-full flex-col divide-y rounded-2xl text-sm">
+      <div className="bg-card divide-border-subtle flex w-full flex-col divide-y rounded-2xl text-sm">
         {/* A ring drawn from a single slice says only "100%", which the one
             row below it already says in words. */}
         {summary.length > 1 ? (
@@ -127,8 +128,8 @@ export function CategoryMiniSummary({
                 <span
                   aria-hidden="true"
                   data-testid="category-swatch"
-                  className="size-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: entry.color }}
+                  className="size-2.5 shrink-0 rounded-full bg-[var(--swatch-color)]"
+                  style={cssVars({ '--swatch-color': entry.color })}
                 />
                 <span className="truncate text-foreground">{entry.name}</span>
               </span>

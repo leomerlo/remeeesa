@@ -597,7 +597,7 @@ describe('PendientesList', () => {
 
     const row = (await screen.findByText('Expensas')).closest('li')
     expect(row).toHaveTextContent('Expensas')
-    expect(row).toHaveTextContent('$145.000,00')
+    expect(row).toHaveTextContent('$145.000')
     expect(
       within(row as HTMLElement).getByRole('button', {
         name: 'Marcar pagado Expensas',

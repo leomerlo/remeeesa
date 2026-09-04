@@ -84,7 +84,7 @@ export function SpentThisMonthDisplay({
       <div
         role="status"
         aria-label="Cargando…"
-        className="bg-card shadow-resting flex w-full flex-col gap-2 rounded-3xl p-6"
+        className="bg-card flex w-full flex-col gap-2 rounded-3xl p-6"
       >
         <span className="sr-only">Cargando…</span>
         <Skeleton className="h-4 w-36" />
@@ -100,17 +100,17 @@ export function SpentThisMonthDisplay({
   const formattedSpent = formatCurrency(spent + pendingCommitted)
 
   return (
-    <div className="bg-card shadow-resting flex w-full flex-col gap-2 rounded-3xl p-6">
+    <div className="bg-card flex w-full flex-col gap-2 rounded-3xl p-6">
       {/* No month label here -- MonthNavigator (Home's shared control above
           both cards) is the one place that says which month is being
           viewed now; repeating it on every card it renders was three
           copies of the same sentence. */}
       <span className="text-foreground text-body font-medium">
-        Gastado este mes
+        Gastos de este mes
       </span>
       <p
         role="status"
-        aria-label={`Gastado este mes ${formattedSpent}`}
+        aria-label={`Gastos de este mes ${formattedSpent}`}
         className="text-foreground font-display text-display tracking-tight"
       >
         {formattedSpent}

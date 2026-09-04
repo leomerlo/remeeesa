@@ -132,15 +132,13 @@ describe('CategoriasPage', () => {
     const breakdownList = await screen.findByRole('list', {
       name: 'Gastos por categoría',
     })
-    expect(within(breakdownList).getByText('$120,00')).toBeInTheDocument()
-    expect(screen.queryByText('$500,00')).not.toBeInTheDocument()
+    expect(within(breakdownList).getByText('$120')).toBeInTheDocument()
+    expect(screen.queryByText('$500')).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Mes anterior' }))
 
-    expect(
-      await within(breakdownList).findByText('$500,00'),
-    ).toBeInTheDocument()
-    expect(screen.queryByText('$120,00')).not.toBeInTheDocument()
+    expect(await within(breakdownList).findByText('$500')).toBeInTheDocument()
+    expect(screen.queryByText('$120')).not.toBeInTheDocument()
   })
 
   it('offers the management actions on the same screen, not a separate one', async () => {

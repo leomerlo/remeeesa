@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import type { ReactElement } from 'react'
-import { PageHeader } from '@/components/PageHeader'
 import {
   AddExpenseSheet,
   AddGastoSheet,
@@ -21,12 +20,8 @@ import { OnboardingForm } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
 import { markReturningUser } from '@/features/onboarding/returningUserStorage'
 import { useFirebase } from '@/lib/firebaseContext'
-import {
-  createFirestoreHouseholdsDb,
-  getHousehold,
-  getMembership,
-} from '@/lib/households'
-import type { Household, HouseholdMember, HouseholdsDb } from '@/lib/households'
+import { createFirestoreHouseholdsDb, getMembership } from '@/lib/households'
+import type { HouseholdMember, HouseholdsDb } from '@/lib/households'
 import { CategoryMiniSummary } from './CategoryMiniSummary'
 
 export type HomePageProps = {
@@ -58,7 +53,6 @@ export function HomePage({
   const [membership, setMembership] = useState<
     HouseholdMember | null | undefined
   >(undefined)
-  const [household, setHousehold] = useState<Household | null>(null)
   const [homeEpoch, setHomeEpoch] = useState(0)
   const [editExpense, setEditExpense] = useState<EditExpenseTarget | null>(null)
   const [isAddGastoSheetOpen, setIsAddGastoSheetOpen] = useState(false)
@@ -110,30 +104,18 @@ export function HomePage({
       return
     }
     let cancelled = false
+    // Only the membership: the household document itself is no longer read
+    // here, now that its name is the app header's job rather than this
+    // page's title.
     void (async () => {
       try {
         const member = await getMembership({ db, userId: currentUserId })
-        if (cancelled) {
-          return
+        if (!cancelled) {
+          setMembership(member)
         }
-        if (member === null) {
-          setMembership(null)
-          setHousehold(null)
-          return
-        }
-        const loaded = await getHousehold({
-          db,
-          householdId: member.householdId,
-        })
-        if (cancelled) {
-          return
-        }
-        setMembership(member)
-        setHousehold(loaded)
       } catch {
         if (!cancelled) {
           setMembership(null)
-          setHousehold(null)
         }
       }
     })()
@@ -174,25 +156,28 @@ export function HomePage({
 
   return (
     <div className="flex w-full flex-col items-center gap-8">
-      {/* No settings shortcut here: Ajustes is already one tap away in the
-          bottom nav, so a second icon-link to the same destination is
-          redundant. */}
-      <PageHeader title={household?.name ?? 'Hogar'} gradient />
+      {/* No page title here: the household's name is in the app header now,
+          on every screen, rather than being Home's heading. */}
       <PendienteDueSoonBanner db={db} householdId={membership.householdId} />
-      <MonthNavigator
-        db={db}
-        householdId={membership.householdId}
-        viewedMonth={viewedMonth}
-        onViewedMonthChange={setViewedMonth}
-      />
-      <AddGastoSheet
-        open={isAddGastoSheetOpen}
-        onOpenChange={setIsAddGastoSheetOpen}
-        db={db}
-        householdId={membership.householdId}
-        memberId={currentUserId}
-        authorDisplayName={authorDisplayName}
-      />
+      {/* The month, its two cards and the one action they lead to are one
+          block -- at the page's own 32px rhythm the button floated between
+          sections and read as belonging to neither. */}
+      <div className="flex w-full flex-col gap-3">
+        <MonthNavigator
+          db={db}
+          householdId={membership.householdId}
+          viewedMonth={viewedMonth}
+          onViewedMonthChange={setViewedMonth}
+        />
+        <AddGastoSheet
+          open={isAddGastoSheetOpen}
+          onOpenChange={setIsAddGastoSheetOpen}
+          db={db}
+          householdId={membership.householdId}
+          memberId={currentUserId}
+          authorDisplayName={authorDisplayName}
+        />
+      </div>
       {/* Both mounted purely to edit/mark-paid a row they were handed
           (editExpense/editPendiente) -- adding goes through AddGastoSheet
           above instead, so neither shows its own trigger here. */}

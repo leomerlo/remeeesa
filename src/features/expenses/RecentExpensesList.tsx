@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { cssVars } from '@/lib/cssVars'
 import { CategoryBadge } from '@/components/CategoryBadge'
 import { AlertMessage } from '@/components/ui/alert-message'
 import { Button } from '@/components/ui/button'
@@ -117,7 +118,7 @@ export function RecentExpensesList({
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className="bg-card shadow-resting flex w-full items-center gap-3 rounded-2xl p-4"
+            className="bg-card flex w-full items-center gap-3 rounded-2xl p-4"
           >
             <Skeleton className="size-11 shrink-0 rounded-full" />
             <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -187,8 +188,8 @@ export function RecentExpensesList({
               <span
                 aria-hidden="true"
                 data-testid="category-icon"
-                className="flex size-11 shrink-0 items-center justify-center rounded-full"
-                style={{ backgroundColor: categoryColor }}
+                className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--swatch-color)]"
+                style={cssVars({ '--swatch-color': categoryColor })}
               >
                 <CategoryIcon
                   className="size-5 text-white"
@@ -227,7 +228,7 @@ export function RecentExpensesList({
               {onEditExpense !== undefined ? (
                 <button
                   type="button"
-                  className="bg-card shadow-resting flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
+                  className="bg-card flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
                   aria-label={`Editar ${expense.name}`}
                   onClick={() => {
                     onEditExpense(expense, category?.name ?? '')
@@ -236,7 +237,7 @@ export function RecentExpensesList({
                   {rowContent}
                 </button>
               ) : (
-                <div className="bg-card shadow-resting flex w-full items-center gap-3 rounded-2xl p-4">
+                <div className="bg-card flex w-full items-center gap-3 rounded-2xl p-4">
                   {rowContent}
                 </div>
               )}

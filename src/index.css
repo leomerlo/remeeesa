@@ -69,6 +69,11 @@
   --color-red-700: #8f1f17;
   --color-red-800: #701812;
   --color-red-900: #4e1511;
+  /* The deep maroon the "Vencimientos que se acercan" card is filled with.
+     It is the shade the budget card's own gradient has already reached by
+     the time the month is nearly spent, which is the association wanted:
+     something is about to come due. */
+  --color-red-850: #681627;
   --color-red-950: #350e0b;
 
   /* Color: yellow (warning), seed #F6A823, anchor step 500 */
@@ -177,12 +182,12 @@
   --text-caption: 0.875rem; /* 14px -- muted metadata (category - date) */
   --text-caption--line-height: 1.4;
 
-  /* Elevation: soft, low-contrast card shadows -- the comp's cards read as
-     "resting on" the lavender page background, not bordered boxes. Two
-     steps: resting cards (list/por-pagar rows) and raised surfaces (sheets,
-     popovers). No shadow on the gradient hero card itself -- it's a filled
-     surface, not a floating one. */
-  --shadow-resting: 0 1px 2px 0 rgb(23 7 89 / 0.04), 0 1px 3px 0 rgb(23 7 89 / 0.06);
+  /* Elevation: one step, for surfaces that genuinely float above the page
+     -- the sheet/modal and the nav. Cards carry no shadow at all: per
+     direct feedback they sit *on* the lavender ground rather than hovering
+     over it, and the tint alone is enough to separate white from it. The
+     resting step that used to exist for them is gone rather than left
+     defined and unused. */
   --shadow-raised: 0 4px 8px -2px rgb(23 7 89 / 0.08), 0 12px 24px -4px rgb(23 7 89 / 0.1);
 }
 
@@ -203,9 +208,9 @@
   /* Page sits on a light lavender tint, not white -- sampled from the
      approved Home comp's page background (#F2F2FE), which purple-50 lands
      almost exactly on. Cards are --surface-card (white), floating on top
-     with --shadow-resting -- this pairing (tinted page + white elevated
-     cards) is what gives the comp its "wallet" warmth instead of a flat
-     white app shell. */
+     on top of it -- this pairing (tinted page + white cards, no shadow
+     under them) is what gives the app its "wallet" warmth instead of a flat
+     white shell. */
   --surface-page: var(--color-purple-50);
   --surface-card: var(--color-grey-white);
   --surface-primary: var(--color-grey-50);
@@ -219,6 +224,10 @@
   --surface-disabled: var(--color-grey-300);
   --surface-success: var(--color-green-50);
   --surface-error: var(--color-red-50);
+  /* A dark card in an otherwise light interface, on purpose: whatever is
+     about to come due should not look like every other row. White carries
+     12.12:1 on it. */
+  --surface-due-soon: var(--color-red-850);
   --surface-warning: var(--color-yellow-50);
   /* The gradient used to run *lighter*, ending on purple-200 (#AF9CFC).
      White text sits on top of it (the budget hero's numeral, the "% usado"
@@ -278,6 +287,7 @@
   --surface-disabled: var(--color-grey-300);
   --surface-success: var(--color-green-800);
   --surface-error: var(--color-red-800);
+  --surface-due-soon: var(--color-red-850);
   --surface-warning: var(--color-yellow-800);
   --surface-action-gradient-end: var(--color-purple-600);
   --surface-action-subtle: var(--color-purple-950);
@@ -347,6 +357,7 @@
   --color-input: var(--border-primary);
   --color-ring: var(--border-focus);
   --color-success: var(--text-success);
+  --color-due-soon: var(--surface-due-soon);
   --color-error: var(--text-error);
   --color-warning: var(--text-warning);
   /* Tailwind's own text-xs is 12px. Nothing in this app may render below

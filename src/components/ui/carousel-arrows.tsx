@@ -106,13 +106,21 @@ export function CarouselArrows({
   controls,
   label,
   className,
-}: CarouselArrowsProps): ReactElement {
+}: CarouselArrowsProps): ReactElement | null {
+  // Nothing to page through -- every card already fits -- so there is
+  // nothing for these to do. Two permanently-dead buttons next to a section
+  // title are worse than no buttons at all. Per direct feedback. The
+  // measurement runs in a layout effect, so this is settled before the
+  // browser paints and the arrows never flash in and out.
+  if (!controls.canScrollBack && !controls.canScrollForward) {
+    return null
+  }
+
   return (
-    // Hidden below `sm`: on a phone the gesture is the swipe, and this row
-    // shares its line with a section title that already wraps at 375px.
-    <div
-      className={cn('hidden shrink-0 items-center gap-2 sm:flex', className)}
-    >
+    // Visibility is the caller's call: a strip whose arrows sit on their own
+    // line under it can show them at every width; one sharing a line with a
+    // section title cannot.
+    <div className={cn('flex shrink-0 items-center gap-2', className)}>
       {/* The app's own secondary button, not a bespoke icon button: a
           carousel's arrows are ordinary pressable controls and should look
           like every other one. Per direct feedback. */}

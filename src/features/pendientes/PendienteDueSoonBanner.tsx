@@ -5,10 +5,8 @@ import {
   CarouselArrows,
   useCarouselControls,
 } from '@/components/ui/carousel-arrows'
-import { CategoryBadge } from '@/components/CategoryBadge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatBudgetAmount, listCategories } from '@/lib/expenses'
-import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { formatDate } from '@/lib/format'
 import { listPendientes, pendientesDueSoon } from '@/lib/pendientes'
@@ -114,7 +112,13 @@ export function PendienteDueSoonBanner({
           Vencimientos que se acercan
         </h2>
         {dueSoon.length > 1 ? (
-          <CarouselArrows controls={carousel} label="Vencimientos" />
+          <CarouselArrows
+            controls={carousel}
+            label="Vencimientos"
+            // Shares its line with the section title, which already wraps at
+            // 375px; on a phone the swipe is the gesture anyway.
+            className="hidden sm:flex"
+          />
         ) : null}
       </div>
       <ul
@@ -126,8 +130,6 @@ export function PendienteDueSoonBanner({
         {dueSoon.map((pendiente) => {
           const category = categoryById.get(pendiente.categoryId)
           const categoryName = category?.name ?? 'Categoría desconocida'
-          const categoryColor =
-            category?.color ?? colorForCategoryName(categoryName)
           const CategoryIcon = iconForCategoryName(categoryName)
 
           return (
@@ -139,14 +141,16 @@ export function PendienteDueSoonBanner({
               key={pendiente.id}
               className="w-full shrink-0 snap-start lg:w-[calc((100%-1rem)/2)]"
             >
-              {/* Same row shape as every other list on Home -- the only
-                  deliberate difference is the color, tinted orange so it
-                  reads as a heads-up rather than just another row. */}
-              <div className="bg-orange-100 flex w-full items-center gap-3 rounded-2xl p-4">
+              {/* The one dark card in a light interface. Same structure as
+                  every other row on Home, but none of its colours come from
+                  the category: whatever is about to come due should read as
+                  one thing, not as five differently-tinted things. Per
+                  direct feedback. White carries 12.12:1 on this fill, and
+                  8.90:1 on the chip below. */}
+              <div className="bg-due-soon flex w-full items-center gap-3 rounded-2xl p-4 text-white">
                 <span
                   aria-hidden="true"
-                  className="flex size-11 shrink-0 items-center justify-center rounded-full"
-                  style={{ backgroundColor: categoryColor }}
+                  className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white/15"
                 >
                   <CategoryIcon
                     className="size-5 text-white"
@@ -155,22 +159,24 @@ export function PendienteDueSoonBanner({
                 </span>
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="truncate text-foreground font-medium">
+                    <span className="truncate font-medium">
                       {pendiente.name}
                     </span>
                     {pendiente.expectedAmount !== null ? (
-                      <span className="font-display text-lg text-foreground">
+                      <span className="font-display text-lg">
                         {formatBudgetAmount(pendiente.expectedAmount)}
                       </span>
                     ) : pendiente.recurring ? (
-                      <span className="font-display text-muted-foreground text-lg">
+                      <span className="font-display text-lg text-white/70">
                         $ --,--
                       </span>
                     ) : null}
                   </div>
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                    <CategoryBadge name={categoryName} color={categoryColor} />
-                    <span className="text-warning font-medium">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                    <span className="rounded bg-white/15 px-1.5 py-0.5 font-medium">
+                      {categoryName}
+                    </span>
+                    <span className="font-medium">
                       Vence {formatDate(pendiente.dueDate)}
                     </span>
                   </div>

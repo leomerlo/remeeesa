@@ -355,7 +355,7 @@ describe('PendientesPage', () => {
     ).not.toBeInTheDocument()
     // The next cycle is pre-filled with the amount just paid, an editable
     // starting point rather than a blank "$ --,--" placeholder.
-    expect(rows[0]).toHaveTextContent('$500,00')
+    expect(rows[0]).toHaveTextContent('$500')
   })
 
   it('keeps the mark-paid sheet open with a clear alert and refreshes the stale row out of the pending list when the pendiente was already paid', async () => {

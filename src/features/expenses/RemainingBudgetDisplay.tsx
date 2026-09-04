@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { cssVars } from '@/lib/cssVars'
 import { householdQueryKey } from '@/features/household'
 import {
   budgetGradient,
@@ -82,7 +83,7 @@ export function RemainingBudgetDisplay({
       <div
         role="status"
         aria-label="Cargando…"
-        className="bg-card shadow-resting flex w-full flex-col gap-6 rounded-3xl p-6"
+        className="bg-card flex w-full flex-col gap-6 rounded-3xl p-6"
       >
         <span className="sr-only">Cargando…</span>
         <div className="flex flex-col gap-2">
@@ -116,16 +117,17 @@ export function RemainingBudgetDisplay({
       // violet while there is room, red as it runs out. Inline rather than a
       // class because the two stops are computed per render; see
       // lib/expenses/budgetHeat.
-      style={{
-        backgroundImage: `linear-gradient(to bottom right, ${gradient.from}, ${gradient.to})`,
-      }}
-      className="relative flex w-full flex-col gap-6 rounded-3xl p-6 transition-[background-image] duration-500"
+      style={cssVars({
+        '--budget-from': gradient.from,
+        '--budget-to': gradient.to,
+      })}
+      className="relative flex w-full flex-col gap-6 rounded-3xl bg-[linear-gradient(to_bottom_right,var(--budget-from),var(--budget-to))] p-6 transition-[background-image] duration-500"
     >
       {/* Deliberately no overflow-hidden: the illustration is meant to poke
           past the card edge, and clipping it cut off half of it.
 
           On a phone it overhangs the top, where this card sits under the
-          "Gastado este mes" card and there is room. From `lg` the two cards
+          "Gastos de este mes" card and there is room. From `lg` the two cards
           sit side by side directly under the month pager and that same
           overhang landed on top of the pager's next-month arrow, so there
           it sits centred inside the card's right edge instead -- which the
@@ -159,8 +161,8 @@ export function RemainingBudgetDisplay({
           className="h-2 w-full overflow-hidden rounded-full bg-white/30"
         >
           <div
-            className="h-full rounded-full bg-white transition-[width]"
-            style={{ width: `${String(percentUsed)}%` }}
+            className="h-full w-[var(--progress)] rounded-full bg-white transition-[width]"
+            style={cssVars({ '--progress': `${String(percentUsed)}%` })}
           />
         </div>
         <span className="text-primary-foreground text-xs font-medium">

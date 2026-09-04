@@ -726,7 +726,7 @@ function PendienteFormBody({
           <div
             role="alertdialog"
             aria-labelledby="delete-pendiente-title"
-            className="bg-card shadow-raised flex w-full flex-col gap-4 rounded-2xl border border-border p-4"
+            className="bg-card flex w-full flex-col gap-4 rounded-2xl border border-border p-4"
           >
             <p id="delete-pendiente-title" className="text-sm font-medium">
               ¿Eliminar el pendiente?
@@ -800,7 +800,7 @@ function PendienteFormBody({
                 {isPaidPendiente ? null : (
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     className="text-error hover:text-error"
                     disabled={mutation.isPending}
                     onClick={() => {

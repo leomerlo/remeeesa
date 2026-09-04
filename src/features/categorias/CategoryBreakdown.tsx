@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
+import { cssVars } from '@/lib/cssVars'
 import { Illustration } from '@/components/Illustration'
 import { Skeleton } from '@/components/ui/skeleton'
 import categoriesCalc from '@/assets/illustrations/categories-calc.webp'
@@ -70,7 +71,7 @@ export function CategoryBreakdown({
   })
 
   // Still-unpaid bills count toward their category too, so this breakdown
-  // reconciles with "Gastado este mes" (which also counts them). Same
+  // reconciles with "Gastos de este mes" (which also counts them). Same
   // key/shape as the budget cards' own pending query, so they share one
   // fetch.
   const pendingQuery = useQuery({
@@ -94,7 +95,7 @@ export function CategoryBreakdown({
         className="flex w-full flex-col gap-8"
       >
         <span className="sr-only">Cargando…</span>
-        <div className="bg-card shadow-resting flex w-full flex-col gap-4 rounded-3xl p-6">
+        <div className="bg-card flex w-full flex-col gap-4 rounded-3xl p-6">
           <Skeleton className="h-5 w-32" />
           <div className="flex items-center gap-4">
             <Skeleton className="size-32 shrink-0 rounded-full" />
@@ -105,7 +106,7 @@ export function CategoryBreakdown({
             </div>
           </div>
         </div>
-        <div className="bg-card shadow-resting flex w-full flex-col gap-4 rounded-3xl p-6">
+        <div className="bg-card flex w-full flex-col gap-4 rounded-3xl p-6">
           <Skeleton className="h-5 w-28" />
           {[0, 1].map((i) => (
             <div key={i} className="flex flex-col gap-1.5">
@@ -147,7 +148,7 @@ export function CategoryBreakdown({
     <div className="flex w-full flex-col gap-8">
       <section
         aria-labelledby="por-categoria-heading"
-        className="bg-card shadow-resting flex w-full flex-col gap-4 rounded-3xl p-6"
+        className="bg-card flex w-full flex-col gap-4 rounded-3xl p-6"
       >
         {/* The month's total rides in the heading row rather than inside the
             donut's hole: "$250.000,00" is far wider than the hole and used to
@@ -184,8 +185,8 @@ export function CategoryBreakdown({
                   <span
                     aria-hidden="true"
                     data-testid="category-swatch"
-                    className="size-2.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: entry.color }}
+                    className="size-2.5 shrink-0 rounded-full bg-[var(--swatch-color)]"
+                    style={cssVars({ '--swatch-color': entry.color })}
                   />
                   <span className="text-foreground truncate">{entry.name}</span>
                 </span>

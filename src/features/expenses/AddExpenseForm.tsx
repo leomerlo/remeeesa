@@ -561,7 +561,7 @@ function ExpenseFormBody({
           <div
             role="alertdialog"
             aria-labelledby="delete-expense-title"
-            className="bg-card shadow-raised flex w-full flex-col gap-4 rounded-2xl border border-border p-4"
+            className="bg-card flex w-full flex-col gap-4 rounded-2xl border border-border p-4"
           >
             <p id="delete-expense-title" className="text-sm font-medium">
               {isFromPendiente
@@ -617,7 +617,7 @@ function ExpenseFormBody({
                 </Button>
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="outline"
                   className="text-error hover:text-error"
                   disabled={mutation.isPending}
                   onClick={() => {

@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react'
+import { cssVars } from '@/lib/cssVars'
 import { categoryBadgeColors } from '@/lib/expenses/categoryBadge'
 import { cn } from '@/lib/utils'
 
@@ -24,10 +25,10 @@ export function CategoryBadge({
   return (
     <span
       className={cn(
-        'inline-block max-w-full truncate rounded px-1.5 py-0.5 text-xs font-medium',
+        'inline-block max-w-full truncate rounded bg-[var(--badge-bg)] px-1.5 py-0.5 text-xs font-medium text-[var(--badge-fg)]',
         className,
       )}
-      style={{ backgroundColor: background, color: foreground }}
+      style={cssVars({ '--badge-bg': background, '--badge-fg': foreground })}
     >
       {name}
     </span>

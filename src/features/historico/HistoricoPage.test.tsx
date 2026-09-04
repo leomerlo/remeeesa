@@ -111,7 +111,7 @@ describe('HistoricoPage', () => {
     expect(rows[0]).toHaveTextContent('Cafe agosto')
     expect(rows[0]).toHaveTextContent('$4,70')
     expect(rows[1]).toHaveTextContent('Alquiler agosto')
-    expect(rows[1]).toHaveTextContent('$300,00')
+    expect(rows[1]).toHaveTextContent('$300')
   })
 
   it('loads a fixed page of expenses at a time, regardless of month, and stops offering more at the end', async () => {
@@ -269,7 +269,7 @@ describe('HistoricoPage', () => {
 
     await screen.findByText('Uno')
     const monthHeading = screen.getAllByRole('heading', { level: 2 })[0]
-    expect(monthHeading?.parentElement).toHaveTextContent('$100,00')
+    expect(monthHeading?.parentElement).toHaveTextContent('$100')
   })
 
   // A page can now land mid-month (see the pagination test above), so the

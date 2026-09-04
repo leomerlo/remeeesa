@@ -84,18 +84,18 @@ describe('MonthlyTotalsChart', () => {
       // by a screen reader on focus, without needing to tap anything.
       expect(
         within(bars[3] as HTMLElement).getByRole('button', {
-          name: 'jul: $300,00',
+          name: 'jul: $300',
         }),
       ).toBeInTheDocument()
       expect(
         within(bars[5] as HTMLElement).getByRole('button', {
-          name: 'sept: $120,00',
+          name: 'sept: $120',
         }),
       ).toBeInTheDocument()
       // Every other month had no spend at all.
       expect(
         within(bars[0] as HTMLElement).getByRole('button', {
-          name: 'abr: $0,00',
+          name: 'abr: $0',
         }),
       ).toBeInTheDocument()
     } finally {
@@ -125,12 +125,12 @@ describe('MonthlyTotalsChart', () => {
       )
 
       const bar = await screen.findByRole('button', {
-        name: 'sept: $45.230,00',
+        name: 'sept: $45.230',
       })
       expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
 
       fireEvent.click(bar)
-      expect(screen.getByRole('tooltip')).toHaveTextContent('$45.230,00')
+      expect(screen.getByRole('tooltip')).toHaveTextContent('$45.230')
       expect(bar).toHaveAttribute('aria-expanded', 'true')
 
       fireEvent.click(bar)
@@ -174,18 +174,18 @@ describe('MonthlyTotalsChart', () => {
       )
 
       const julyBar = await screen.findByRole('button', {
-        name: 'jul: $300,00',
+        name: 'jul: $300',
       })
       const septemberBar = screen.getByRole('button', {
-        name: 'sept: $120,00',
+        name: 'sept: $120',
       })
 
       fireEvent.click(julyBar)
-      expect(screen.getByRole('tooltip')).toHaveTextContent('$300,00')
+      expect(screen.getByRole('tooltip')).toHaveTextContent('$300')
 
       fireEvent.click(septemberBar)
       expect(screen.getAllByRole('tooltip')).toHaveLength(1)
-      expect(screen.getByRole('tooltip')).toHaveTextContent('$120,00')
+      expect(screen.getByRole('tooltip')).toHaveTextContent('$120')
       expect(julyBar).toHaveAttribute('aria-expanded', 'false')
     } finally {
       vi.useRealTimers()

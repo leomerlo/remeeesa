@@ -190,7 +190,7 @@ describe('EditExpenseFlow', () => {
       />,
     )
 
-    expect(await screen.findByText('$90,00')).toBeInTheDocument()
+    expect(await screen.findByText('$90')).toBeInTheDocument()
     fireEvent.click(await screen.findByRole('button', { name: 'Editar Pizza' }))
     fireEvent.change(screen.getByLabelText('Nombre'), {
       target: { value: 'Pasta' },
@@ -203,7 +203,7 @@ describe('EditExpenseFlow', () => {
     await waitFor(() => {
       expect(screen.getByText('Pasta')).toBeInTheDocument()
       expect(screen.queryByText('Pizza')).not.toBeInTheDocument()
-      expect(screen.getByText('$75,00')).toBeInTheDocument()
+      expect(screen.getByText('$75')).toBeInTheDocument()
     })
     expect(
       screen.queryByRole('button', { name: 'Guardar cambios' }),
@@ -409,7 +409,7 @@ describe('EditExpenseFlow', () => {
 
     expect(
       await screen.findByRole('status', {
-        name: 'Presupuesto restante $70,00',
+        name: 'Presupuesto restante $70',
       }),
     ).toBeInTheDocument()
 
@@ -429,7 +429,7 @@ describe('EditExpenseFlow', () => {
       await screen.findByText('Todavía no hay gastos este mes'),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('status', { name: 'Presupuesto restante $100,00' }),
+      screen.getByRole('status', { name: 'Presupuesto restante $100' }),
     ).toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Guardar cambios' }),

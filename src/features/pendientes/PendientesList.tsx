@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
+import { cssVars } from '@/lib/cssVars'
 import { CategoryBadge } from '@/components/CategoryBadge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -50,10 +51,7 @@ export function PendientesList({
       >
         <span className="sr-only">Cargando…</span>
         {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            className="bg-card shadow-resting flex flex-col gap-3 rounded-2xl p-4"
-          >
+          <div key={i} className="bg-card flex flex-col gap-3 rounded-2xl p-4">
             <div className="flex w-full items-center gap-3">
               <Skeleton className="size-11 shrink-0 rounded-full" />
               <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -133,8 +131,8 @@ export function PendientesList({
             <span
               aria-hidden="true"
               data-testid="category-icon"
-              className="flex size-11 shrink-0 items-center justify-center rounded-full"
-              style={{ backgroundColor: categoryColor }}
+              className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--swatch-color)]"
+              style={cssVars({ '--swatch-color': categoryColor })}
             >
               <CategoryIcon className="size-5 text-white" aria-hidden="true" />
             </span>
@@ -196,7 +194,7 @@ export function PendientesList({
                 centres against the card's own height, so the icon and the
                 two buttons line up with the middle of the block of text
                 rather than with its first line. */}
-            <div className="bg-card shadow-resting flex flex-col gap-3 rounded-2xl p-4 lg:flex-row lg:items-center lg:gap-4">
+            <div className="bg-card flex flex-col gap-3 rounded-2xl p-4 lg:flex-row lg:items-center lg:gap-4">
               {rowContent}
               {actions}
             </div>

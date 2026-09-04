@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react'
+import { cssVars } from '@/lib/cssVars'
 import { cn } from '@/lib/utils'
 import type { Category } from '@/lib/expenses'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
@@ -52,20 +53,20 @@ export function CategoryChips({
             className={cn(
               'focus-visible:ring-ring/50 flex h-11 shrink-0 items-center gap-2 rounded-full border px-3 text-sm font-medium outline-none transition-colors focus-visible:ring-3',
               isSelected
-                ? 'border-transparent text-white'
+                ? 'border-transparent bg-[var(--swatch-color)] text-white'
                 : 'border-border bg-background text-foreground',
             )}
-            style={isSelected ? { backgroundColor: category.color } : undefined}
+            style={cssVars({ '--swatch-color': category.color })}
           >
             <span
               aria-hidden="true"
               className={cn(
                 'flex size-6 shrink-0 items-center justify-center rounded-full',
-                isSelected ? 'bg-white/25' : '',
+                // On a selected chip the colour is already the chip itself,
+                // so the disc reads as a lighter well in it rather than a
+                // second block of the same colour.
+                isSelected ? 'bg-white/25' : 'bg-[var(--swatch-color)]',
               )}
-              style={
-                isSelected ? undefined : { backgroundColor: category.color }
-              }
             >
               <Icon className="size-3.5 text-white" aria-hidden="true" />
             </span>

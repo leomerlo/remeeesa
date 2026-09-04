@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
+import { cssVars } from '@/lib/cssVars'
 import { Skeleton } from '@/components/ui/skeleton'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { listHouseholdMembers } from '@/lib/households'
@@ -75,8 +76,8 @@ export function MemberList({
             <li key={member.userId} className="flex items-center gap-3 text-sm">
               <span
                 aria-hidden="true"
-                className="flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
-                style={{ backgroundColor: avatarColor }}
+                className="flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white bg-[var(--swatch-color)]"
+                style={cssVars({ '--swatch-color': avatarColor })}
               >
                 {member.displayName.charAt(0).toUpperCase()}
               </span>

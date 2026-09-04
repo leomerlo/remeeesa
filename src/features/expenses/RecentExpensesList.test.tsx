@@ -552,9 +552,9 @@ describe('RecentExpensesList', () => {
     renderPage(<RecentExpensesList db={db} householdId={household.id} />)
 
     const row = await screen.findByRole('listitem')
-    const icon = row.querySelector('[data-testid="category-icon"]')
+    const icon = row.querySelector<HTMLElement>('[data-testid="category-icon"]')
     expect(icon).not.toBeNull()
-    expect(icon).toHaveStyle({ backgroundColor: comida.color })
+    expect(icon?.style.getPropertyValue('--swatch-color')).toBe(comida.color)
   })
 
   it('shows an error when the current user is not a household member', async () => {

@@ -6,7 +6,9 @@ import {
   CarouselArrows,
   useCarouselControls,
 } from '@/components/ui/carousel-arrows'
+import { cssVars } from '@/lib/cssVars'
 import { CategoryBadge } from '@/components/CategoryBadge'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
@@ -41,7 +43,7 @@ export type PorPagarSectionProps = {
 // leaves the moment it is paid -- what was paid lives on as an Expense, in
 // Histórico -- and a bill due in a later month does not appear yet. What is
 // left is exactly the month's outstanding list, which is also precisely the
-// pending figure "Gastado este mes" and "Por categoría" count, so the
+// pending figure "Gastos de este mes" and "Por categoría" count, so the
 // section and the cards above it can no longer disagree.
 //
 // Note this means an unpaid bill from a past month shows under *that*
@@ -94,7 +96,7 @@ export function PorPagarSection({
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="bg-card shadow-resting flex aspect-square w-[calc((100%-0.75rem)/2)] shrink-0 flex-col gap-2 rounded-2xl p-4 sm:w-[calc((100%-1.5rem)/3)]"
+              className="bg-card flex aspect-square w-[calc((100%-0.75rem)/2)] shrink-0 flex-col gap-2 rounded-2xl p-4 sm:w-[calc((100%-1.5rem)/3)]"
             >
               <Skeleton className="size-11 shrink-0 rounded-full" />
               <div className="mt-auto flex flex-col gap-2">
@@ -136,23 +138,9 @@ export function PorPagarSection({
 
   return (
     <section aria-labelledby="por-pagar-heading" className="w-full">
-      <div className="flex items-baseline justify-between gap-2">
-        <h2 id="por-pagar-heading" className="text-title font-semibold">
-          Servicios o pagos recurrentes
-        </h2>
-        <div className="flex shrink-0 items-center gap-2">
-          <CarouselArrows controls={carousel} label="Servicios" />
-          {/* Not an overflow escape hatch any more (every pendiente shows in
-              the carousel below) -- kept as the only way to reach Servicios'
-              own edit/delete management. */}
-          <Link
-            to="/pendientes"
-            className="text-primary text-sm font-medium underline-offset-4 hover:underline"
-          >
-            Ver todas
-          </Link>
-        </div>
-      </div>
+      <h2 id="por-pagar-heading" className="text-title font-semibold">
+        Servicios o pagos recurrentes
+      </h2>
       {/* Cards are sized so a whole number of them fills the track at every
           width -- two on a phone, three once there is room -- and the track
           snaps, so it never comes to rest with a card sliced down the
@@ -188,8 +176,8 @@ export function PorPagarSection({
             <>
               <span
                 aria-hidden="true"
-                className="flex size-11 shrink-0 items-center justify-center rounded-full"
-                style={{ backgroundColor: categoryColor }}
+                className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--swatch-color)]"
+                style={cssVars({ '--swatch-color': categoryColor })}
               >
                 <CategoryIcon
                   className="size-5 text-white"
@@ -206,7 +194,13 @@ export function PorPagarSection({
                 {amount}
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                   <CategoryBadge name={categoryName} color={categoryColor} />
-                  <span>{formatDate(pendiente.dueDate)}</span>
+                  {/* Always its own line, whether or not it would have fit
+                      beside the badge: a card whose date wraps next to one
+                      whose date does not leaves the row looking ragged even
+                      though the boxes are the same height. */}
+                  <span className="w-full">
+                    {formatDate(pendiente.dueDate)}
+                  </span>
                 </div>
               </div>
             </>
@@ -220,7 +214,7 @@ export function PorPagarSection({
               <button
                 type="button"
                 aria-label={`Marcar pagado ${pendiente.name}`}
-                className="bg-card shadow-resting flex aspect-square w-full flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
+                className="bg-card flex aspect-square w-full flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
                 onClick={() => {
                   onMarkPaid(pendiente, categoryName)
                 }}
@@ -231,6 +225,19 @@ export function PorPagarSection({
           )
         })}
       </ul>
+      {/* Both controls sit under the strip, not up beside the title: they
+          act on what is below them, and on a phone a title long enough to
+          wrap left them nowhere to go. Arrows on the left where the paging
+          happens, the way out on the right. */}
+      <div className="mt-3 flex items-center gap-2">
+        <CarouselArrows controls={carousel} label="Servicios" />
+        {/* Not an overflow escape hatch any more (every pendiente shows in
+            the carousel above) -- kept as the only way to reach Servicios'
+            own edit/delete management. */}
+        <Button asChild variant="outline" className="ml-auto px-6">
+          <Link to="/pendientes">Ver todas</Link>
+        </Button>
+      </div>
     </section>
   )
 }
