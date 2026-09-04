@@ -8,11 +8,13 @@ export {
   createPendiente,
   PendienteAlreadyPaidError,
   PendienteNotFoundError,
+  PendienteNotPaidError,
   deletePendiente,
   getPendiente,
   listPendientes,
   listPendientesForMonth,
   markPendientePaid,
+  unmarkPendientePaid,
   updatePendiente,
 } from './pendientes'
 export {
