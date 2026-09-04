@@ -283,7 +283,7 @@ function ExpenseFormBody({
   })
 
   // Deleting lives here (inside the edit form) rather than on the
-  // "Últimos movimientos" row itself -- the approved comp shows those rows
+  // "Últimos gastos" row itself -- the approved comp shows those rows
   // as plain, buttonless cards, so the only affordance left on a row is
   // tapping it open to edit.
   //

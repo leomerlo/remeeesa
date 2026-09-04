@@ -12,11 +12,6 @@ export type CategorySummary = {
   readonly share: number
 }
 
-export type PersonSummary = {
-  readonly authorDisplayName: string
-  readonly total: number
-}
-
 const UNKNOWN_CATEGORY_NAME = 'Categoría desconocida'
 
 // Groups expenses by categoryId and sums their price. An expense whose
@@ -66,23 +61,5 @@ export function summarizeByCategory(input: {
       ...entry,
       share: grandTotal > 0 ? entry.total / grandTotal : 0,
     }))
-    .sort((left, right) => right.total - left.total)
-}
-
-// Groups expenses by the snapshotted authorDisplayName and sums their
-// price. Sort is descending by total, stable for ties (see
-// summarizeByCategory).
-export function summarizeByPerson(input: {
-  readonly expenses: readonly Expense[]
-}): readonly PersonSummary[] {
-  const totals = new Map<string, number>()
-
-  for (const expense of input.expenses) {
-    const existing = totals.get(expense.authorDisplayName)
-    totals.set(expense.authorDisplayName, (existing ?? 0) + expense.price)
-  }
-
-  return Array.from(totals.entries())
-    .map(([authorDisplayName, total]) => ({ authorDisplayName, total }))
     .sort((left, right) => right.total - left.total)
 }

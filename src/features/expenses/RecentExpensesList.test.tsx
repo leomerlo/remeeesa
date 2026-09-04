@@ -2,12 +2,13 @@ import { fireEvent, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { createExpense, listCategories } from '@/lib/expenses'
+import { createExpense, listCategories, updateExpense } from '@/lib/expenses'
 import {
   createHouseholdWithMembership,
   leaveHousehold,
   updateMemberDisplayName,
 } from '@/lib/households'
+import { createPendiente, markPendientePaid } from '@/lib/pendientes'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { RecentExpensesList } from './RecentExpensesList'
@@ -186,6 +187,76 @@ describe('RecentExpensesList', () => {
       await screen.findByText('Todavía no hay gastos este mes'),
     ).toBeInTheDocument()
     expect(screen.queryByText('Old rent')).not.toBeInTheDocument()
+  })
+
+  // Per direct feedback: a servicio (whether linked via a real Pendiente or
+  // manually tagged) belongs in Cuentas por pagar and Histórico, not
+  // repeated here too.
+  it('excludes servicios, whether linked via a Pendiente or manually tagged, showing only one-off gastos', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories.find((category) => category.name === 'Comida')
+    if (comida === undefined) {
+      throw new Error('expected Comida category')
+    }
+
+    await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Super',
+      price: 100,
+      comments: '',
+      expenseDate: currentMonthDate(15),
+    })
+    const pendiente = await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Internet',
+      dueDate: currentMonthDate(10),
+      expectedAmount: 5000,
+    })
+    await markPendientePaid({
+      db,
+      householdId: household.id,
+      pendienteId: pendiente.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 5000,
+      paymentDate: currentMonthDate(10),
+    })
+    const manualServicio = await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Gimnasio',
+      price: 8000,
+      comments: '',
+      expenseDate: currentMonthDate(12),
+    })
+    await updateExpense({
+      db,
+      householdId: household.id,
+      expenseId: manualServicio.id,
+      isService: true,
+    })
+
+    renderPage(<RecentExpensesList db={db} householdId={household.id} />)
+
+    expect(await screen.findByText('Super')).toBeInTheDocument()
+    expect(screen.queryByText('Internet')).not.toBeInTheDocument()
+    expect(screen.queryByText('Gimnasio')).not.toBeInTheDocument()
   })
 
   it('caps the list at the 5 most recent expenses and offers a "Ver más" link to Histórico', async () => {

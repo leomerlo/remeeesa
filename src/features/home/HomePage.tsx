@@ -28,7 +28,6 @@ import {
 } from '@/lib/households'
 import type { Household, HouseholdMember, HouseholdsDb } from '@/lib/households'
 import { CategoryMiniSummary } from './CategoryMiniSummary'
-import { PersonMiniSummary } from './PersonMiniSummary'
 
 export type HomePageProps = {
   readonly currentUserId?: string | null
@@ -260,7 +259,7 @@ export function HomePage({
       />
       <div className="flex w-full flex-col gap-3">
         <h2 className="text-title font-semibold self-start">
-          Últimos movimientos del mes
+          Últimos gastos del mes
         </h2>
         <RecentExpensesList
           db={db}
@@ -283,12 +282,6 @@ export function HomePage({
         />
       </div>
       <CategoryMiniSummary
-        db={db}
-        householdId={membership.householdId}
-        monthStart={monthStart}
-        monthEnd={monthEnd}
-      />
-      <PersonMiniSummary
         db={db}
         householdId={membership.householdId}
         monthStart={monthStart}

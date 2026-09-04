@@ -9,6 +9,7 @@ import { membersQueryKey } from '@/features/household'
 import {
   currentMonthRange,
   formatCurrency,
+  isServicio,
   listCategories,
   listExpensesInMonth,
 } from '@/lib/expenses'
@@ -35,13 +36,16 @@ export type RecentExpensesListProps = {
 
 const RECENT_EXPENSES_LIMIT = 5
 
-// This month's movements ("Últimos movimientos" on Home), most recent
-// first, capped so an active month doesn't turn Home into a second
-// Histórico -- that screen is where "see everything" belongs. Matches the
-// approved comp's plain, buttonless cards -- there is no edit/delete
-// affordance on the row itself. Tapping a row opens it for editing
-// (onEditExpense), and deleting lives inside that edit form
-// (AddExpenseForm) instead.
+// This month's one-off spending ("Últimos gastos del mes" on Home), most
+// recent first, capped so an active month doesn't turn Home into a second
+// Histórico -- that screen is where "see everything" belongs. Excludes
+// servicios (recurring bills, whether linked via a real Pendiente or
+// manually tagged) -- per direct feedback, Home already shows those up in
+// Cuentas por pagar, so repeating them here read as double-counting; a
+// servicio's own history still shows in Histórico. Matches the approved
+// comp's plain, buttonless cards -- there is no edit/delete affordance on
+// the row itself. Tapping a row opens it for editing (onEditExpense), and
+// deleting lives inside that edit form (AddExpenseForm) instead.
 //
 // Two separate queries, not one combined fetch: CategoryMiniSummary,
 // PersonMiniSummary and MonthNavigator's current-month card all read
@@ -130,9 +134,13 @@ export function RecentExpensesList({
     return <AlertMessage>{message}</AlertMessage>
   }
 
-  const allExpenses = expensesQuery.data
-  const expenses = allExpenses.slice(0, RECENT_EXPENSES_LIMIT)
-  const hasOverflow = allExpenses.length > RECENT_EXPENSES_LIMIT
+  // Servicios (recurring bills) are excluded -- Cuentas por pagar already
+  // shows those, and a servicio's own history still shows in Histórico.
+  const oneOffExpenses = expensesQuery.data.filter(
+    (expense) => !isServicio(expense),
+  )
+  const expenses = oneOffExpenses.slice(0, RECENT_EXPENSES_LIMIT)
+  const hasOverflow = oneOffExpenses.length > RECENT_EXPENSES_LIMIT
   const categories = categoriesQuery.data
   if (expenses.length === 0) {
     return (
@@ -155,7 +163,7 @@ export function RecentExpensesList({
   return (
     <div className="flex w-full flex-col gap-3">
       <ul
-        aria-label="Últimos movimientos del mes"
+        aria-label="Últimos gastos del mes"
         className="flex w-full flex-col gap-3 text-sm"
       >
         {expenses.map((expense) => {

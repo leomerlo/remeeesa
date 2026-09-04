@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { membersQueryKey } from '@/features/household'
 import {
   formatCurrency,
+  isServicio,
   listCategories,
   listExpenseHistoryPage,
 } from '@/lib/expenses'
@@ -34,14 +35,6 @@ const HISTORY_FILTERS: readonly { value: HistoryFilter; label: string }[] = [
   { value: 'servicio', label: 'Servicios' },
   { value: 'gasto', label: 'Gastos' },
 ]
-
-// An Expense reads as a "servicio" either because it was created by paying
-// a real Pendiente (pendienteId) or because someone manually tagged it that
-// way (isService) -- the only route available for an Expense that predates
-// pendienteId, or that was logged as a plain Gasto but should count as one.
-function isServicio(expense: Expense): boolean {
-  return expense.pendienteId !== null || expense.isService
-}
 
 function matchesFilter(expense: Expense, filter: HistoryFilter): boolean {
   if (filter === 'servicio') {

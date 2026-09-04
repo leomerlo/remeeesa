@@ -83,7 +83,7 @@ export function CategoryMiniSummary({
 
   // Title outside; rows share one card, separated by a thin divider --
   // a tidy list rather than a card per row (that treatment stays on
-  // "Últimos movimientos" above, whose rows carry more weight: an icon,
+  // "Últimos gastos" above, whose rows carry more weight: an icon,
   // amount, and two lines of meta, vs. this section's plain name + total).
   return (
     <div className="flex w-full flex-col gap-3">

@@ -63,10 +63,11 @@ describe('CategoriasPage', () => {
     expect(
       await screen.findByRole('heading', { name: 'Por categoría' }),
     ).toBeInTheDocument()
+    // No per-person breakdown here any more -- per direct feedback, who
+    // spent what is still recorded on every Expense, just not shown.
     expect(
-      screen.getByRole('heading', { name: 'Por persona' }),
-    ).toBeInTheDocument()
-    expect(screen.getByText('Ada')).toBeInTheDocument()
+      screen.queryByRole('heading', { name: 'Por persona' }),
+    ).not.toBeInTheDocument()
 
     // "Comida" appears twice on this screen -- once in the breakdown and once
     // in the management list below it -- so each is asserted in its own list.

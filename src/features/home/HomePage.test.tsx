@@ -124,9 +124,6 @@ describe('HomePage', () => {
       screen.queryByRole('heading', { name: 'Categorías' }),
     ).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('heading', { name: 'Integrantes' }),
-    ).not.toBeInTheDocument()
-    expect(
       screen.queryAllByText('Todavía no hay gastos este mes'),
     ).toHaveLength(1)
     expect(screen.queryByText('Por pagar')).not.toBeInTheDocument()
@@ -351,9 +348,6 @@ describe('HomePage', () => {
     expect(
       await screen.findByRole('list', { name: 'Gastos por categoría' }),
     ).toHaveTextContent('Comida')
-    expect(
-      await screen.findByRole('list', { name: 'Gastos por persona' }),
-    ).toHaveTextContent('Ada')
   })
 
   it('attributes a submitted expense to the signed-in member with the generic fallback name, absent one of their own', async () => {
