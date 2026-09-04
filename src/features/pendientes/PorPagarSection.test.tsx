@@ -191,37 +191,10 @@ describe('PorPagarSection', () => {
     expect(card).toHaveTextContent('$ --,--')
   })
 
-  it('caps the preview at 5 and only then offers the overflow link', async () => {
-    const { db, householdId, categoryId } = await seedHousehold()
-    for (let day = 1; day <= 5; day += 1) {
-      await seedPendiente({
-        db,
-        householdId,
-        categoryId,
-        name: `Pendiente ${String(day)}`,
-        dayOfMonth: day,
-      })
-    }
-
-    renderSection(
-      <PorPagarSection
-        db={db}
-        householdId={householdId}
-        onMarkPaid={vi.fn()}
-      />,
-    )
-
-    const list = await screen.findByRole('list', {
-      name: 'Pendientes por pagar',
-    })
-    expect(within(list).getAllByRole('listitem')).toHaveLength(5)
-    // Exactly at the cap, nothing is hidden, so no overflow link.
-    expect(
-      screen.queryByRole('link', { name: 'Ver todas' }),
-    ).not.toBeInTheDocument()
-  })
-
-  it('shows only the 5 soonest and links to the full list when more are pending', async () => {
+  // Per direct feedback: back to a carousel, and this time with no preview
+  // cap at all -- every pending/paid-this-month pendiente shows, however
+  // many there are.
+  it('shows every pendiente, with no cap, ordered soonest-due-first', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
     for (let day = 1; day <= 7; day += 1) {
       await seedPendiente({
@@ -244,16 +217,36 @@ describe('PorPagarSection', () => {
     const list = await screen.findByRole('list', {
       name: 'Pendientes por pagar',
     })
-    expect(within(list).getAllByRole('listitem')).toHaveLength(5)
-    // The two latest-due ones are the ones dropped.
-    expect(screen.getByText('Pendiente 1')).toBeInTheDocument()
-    expect(screen.getByText('Pendiente 5')).toBeInTheDocument()
-    expect(screen.queryByText('Pendiente 6')).not.toBeInTheDocument()
-    expect(screen.queryByText('Pendiente 7')).not.toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Ver todas' })).toHaveAttribute(
-      'href',
-      '/pendientes',
+    const items = within(list).getAllByRole('listitem')
+    expect(items).toHaveLength(7)
+    expect(items[0]).toHaveTextContent('Pendiente 1')
+    expect(items[6]).toHaveTextContent('Pendiente 7')
+  })
+
+  // No longer an overflow escape hatch (every pendiente already shows), but
+  // still the only way to reach Pendientes' own edit/delete management,
+  // which isn't in the bottom nav -- so it stays, unconditionally.
+  it('always links to Pendientes, regardless of how many are shown', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    await seedPendiente({
+      db,
+      householdId,
+      categoryId,
+      name: 'Internet',
+      dayOfMonth: 5,
+    })
+
+    renderSection(
+      <PorPagarSection
+        db={db}
+        householdId={householdId}
+        onMarkPaid={vi.fn()}
+      />,
     )
+
+    expect(
+      await screen.findByRole('link', { name: 'Ver todas' }),
+    ).toHaveAttribute('href', '/pendientes')
   })
 
   it('hands the tapped pendiente to onMarkPaid', async () => {

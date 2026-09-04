@@ -34,15 +34,15 @@ export type PorPagarSectionProps = {
   readonly monthEnd?: Date
 }
 
-const HOME_PREVIEW_LIMIT = 5
-
 // Home's "Cuentas por pagar": every currently-pending Pendiente plus
-// whichever ones were paid this month, as a 2-column grid of square cards
-// (per direct feedback -- this used to be a vertical list of rows, and
-// before that a horizontally-scrolling carousel). A pending card's whole
-// area is a single tap target into the mark-paid flow, same as before; a
-// paid card is display-only, marked with a check badge and "Pagado" instead
-// of a due date -- there's nothing left to do with it here.
+// whichever ones were paid this month, all of them (no cap), as a
+// horizontally-swipeable carousel of square cards ordered soonest-due-first
+// -- per direct feedback, back to a carousel after a stint as a 2-column
+// grid (and a vertical list before that), this time showing every item
+// instead of a 5-card preview with a "Ver todas" overflow link. A pending
+// card's whole area is a single tap target into the mark-paid flow, same as
+// before; a paid card is display-only, marked with a check badge and
+// "Pagado" instead of a due date -- there's nothing left to do with it here.
 //
 // Reads the same pendientesQueryKey prefix every other Pendiente view reads
 // (suffixed with the viewed month's timestamp, same convention as
@@ -82,13 +82,13 @@ export function PorPagarSection({
         <div
           role="status"
           aria-label="Cargando…"
-          className="mt-3 grid w-full grid-cols-2 gap-3"
+          className="mt-3 flex w-full flex-nowrap gap-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           <span className="sr-only">Cargando…</span>
-          {[0, 1, 2, 3].map((i) => (
+          {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="bg-card shadow-resting flex aspect-square w-full flex-col gap-2 rounded-2xl p-4"
+              className="bg-card shadow-resting flex aspect-square w-44 shrink-0 flex-col gap-2 rounded-2xl p-4"
             >
               <Skeleton className="size-11 shrink-0 rounded-full" />
               <div className="mt-auto flex flex-col gap-2">
@@ -130,11 +130,6 @@ export function PorPagarSection({
   const categoryById = new Map(
     categories.map((category) => [category.id, category]),
   )
-  // listPendientesForMonth already returns pending (soonest-due-first) ahead
-  // of paid-this-month (most-recently-paid-first), so this is a plain head
-  // slice, not a re-sort.
-  const preview = visiblePendientes.slice(0, HOME_PREVIEW_LIMIT)
-  const hasOverflow = visiblePendientes.length > HOME_PREVIEW_LIMIT
 
   return (
     <section aria-labelledby="por-pagar-heading" className="w-full">
@@ -142,20 +137,23 @@ export function PorPagarSection({
         <h2 id="por-pagar-heading" className="text-title font-semibold">
           Cuentas por pagar
         </h2>
-        {hasOverflow ? (
-          <Link
-            to="/pendientes"
-            className="text-primary text-sm font-medium underline-offset-4 hover:underline"
-          >
-            Ver todas
-          </Link>
-        ) : null}
+        {/* Not an overflow escape hatch any more (every pendiente shows in
+            the carousel below) -- kept as the only way to reach Pendientes'
+            own edit/delete management, which isn't in the bottom nav. */}
+        <Link
+          to="/pendientes"
+          className="text-primary text-sm font-medium underline-offset-4 hover:underline"
+        >
+          Ver todas
+        </Link>
       </div>
+      {/* Horizontally swipeable, scrollbar hidden -- a partially-cut-off
+          card at the edge is the affordance, same pattern as CategoryChips. */}
       <ul
         aria-label="Pendientes por pagar"
-        className="mt-3 grid w-full grid-cols-2 gap-3 text-sm"
+        className="mt-3 flex w-full flex-nowrap gap-3 overflow-x-auto text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {preview.map((pendiente) => {
+        {visiblePendientes.map((pendiente) => {
           const category = categoryById.get(pendiente.categoryId)
           const categoryName = category?.name ?? 'Categoría desconocida'
           const categoryColor =
@@ -232,16 +230,16 @@ export function PorPagarSection({
           )
 
           return (
-            <li key={pendiente.id}>
+            <li key={pendiente.id} className="shrink-0">
               {isPaid ? (
-                <div className="bg-card shadow-resting flex aspect-square w-full flex-col gap-2 rounded-2xl p-4 opacity-70">
+                <div className="bg-card shadow-resting flex aspect-square w-44 flex-col gap-2 rounded-2xl p-4 opacity-70">
                   {cardContent}
                 </div>
               ) : (
                 <button
                   type="button"
                   aria-label={`Marcar pagado ${pendiente.name}`}
-                  className="bg-card shadow-resting flex aspect-square w-full flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
+                  className="bg-card shadow-resting flex aspect-square w-44 flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
                   onClick={() => {
                     onMarkPaid(pendiente, categoryName)
                   }}
