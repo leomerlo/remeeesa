@@ -145,34 +145,21 @@ export function PendientesList({
           </>
         )
 
-        // "Pagar" sits on its own row rather than beside the amount. Sharing
-        // one line with the name and the amount left names like "Expensas"
-        // truncated to "Expen…" at 375px, and squeezed the button into a
-        // flattened oval.
-        return (
-          <li key={pendiente.id}>
-            <div className="bg-card shadow-resting flex flex-col gap-3 rounded-2xl p-4">
-              {onEditPendiente !== undefined ? (
-                <button
-                  type="button"
-                  className="flex w-full min-w-0 items-center gap-3 text-left transition-transform active:scale-[0.98]"
-                  aria-label={`Editar ${pendiente.name}`}
-                  onClick={() => {
-                    onEditPendiente(pendiente, category?.name ?? '')
-                  }}
-                >
-                  {rowContent}
-                </button>
-              ) : (
-                <div className="flex w-full min-w-0 items-center gap-3">
-                  {rowContent}
-                </div>
-              )}
+        // Both actions are spelled out on their own row under the name.
+        // "Editar" used to be the whole row being secretly tappable, which
+        // is not an affordance anyone can see; and "Pagar" carried the same
+        // weight as everything else on the card. Per direct feedback: the
+        // two actions are Pagar and Editar, and Pagar is the primary one.
+        // They sit under the name rather than beside the amount because
+        // sharing that line truncated names like "Expensas" to "Expen…" at
+        // 375px.
+        const actions =
+          onMarkPaid === undefined && onEditPendiente === undefined ? null : (
+            <div className="flex gap-2">
               {onMarkPaid !== undefined ? (
                 <Button
                   type="button"
-                  variant="outline"
-                  className="w-full"
+                  className="flex-1"
                   aria-label={`Marcar pagado ${pendiente.name}`}
                   onClick={() => {
                     onMarkPaid(pendiente, category?.name ?? '')
@@ -181,6 +168,29 @@ export function PendientesList({
                   Pagar
                 </Button>
               ) : null}
+              {onEditPendiente !== undefined ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  aria-label={`Editar ${pendiente.name}`}
+                  onClick={() => {
+                    onEditPendiente(pendiente, category?.name ?? '')
+                  }}
+                >
+                  Editar
+                </Button>
+              ) : null}
+            </div>
+          )
+
+        return (
+          <li key={pendiente.id}>
+            <div className="bg-card shadow-resting flex flex-col gap-3 rounded-2xl p-4">
+              <div className="flex w-full min-w-0 items-center gap-3">
+                {rowContent}
+              </div>
+              {actions}
             </div>
           </li>
         )

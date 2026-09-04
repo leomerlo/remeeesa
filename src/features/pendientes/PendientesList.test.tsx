@@ -273,7 +273,7 @@ describe('PendientesList', () => {
 
     expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Nuevo recurrente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar Servicio' }))
     await screen.findByLabelText('Nombre')
 
     fireEvent.change(screen.getByLabelText('Nombre'), {
@@ -384,6 +384,51 @@ describe('PendientesList', () => {
 
     expect(onEditPendiente).toHaveBeenCalledTimes(1)
     expect(onEditPendiente).toHaveBeenCalledWith(pendiente, 'Comida')
+  })
+
+  // Per direct feedback: the row's two actions are Pagar and Editar, both
+  // spelled out, with Pagar the primary of the two. Editar used to be the
+  // whole row being silently tappable, which nothing on screen announced.
+  it('offers Pagar and Editar as visible buttons, with Pagar the primary one', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const comidaId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Comida',
+    })
+    await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: comidaId,
+      name: 'Alquiler',
+      dueDate: new Date(2026, 0, 10),
+      expectedAmount: 500,
+    })
+
+    renderWithProviders(
+      <PendientesList
+        db={db}
+        householdId={household.id}
+        onMarkPaid={vi.fn()}
+        onEditPendiente={vi.fn()}
+      />,
+    )
+
+    const pagar = await screen.findByRole('button', {
+      name: 'Marcar pagado Alquiler',
+    })
+    const editar = screen.getByRole('button', { name: 'Editar Alquiler' })
+    expect(pagar).toHaveTextContent('Pagar')
+    expect(editar).toHaveTextContent('Editar')
+    // The hierarchy itself: only Pagar is filled with the action colour.
+    expect(pagar).toHaveClass('bg-primary')
+    expect(editar).not.toHaveClass('bg-primary')
   })
 
   it('renders a "Pagar" control per row and calls onMarkPaid with the pendiente when clicked, not onEditPendiente', async () => {

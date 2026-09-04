@@ -556,9 +556,9 @@ function PendienteFormBody({
         <h2 className="text-title font-semibold">
           {isEditing
             ? isPaidPendiente
-              ? 'Pendiente pagado'
-              : 'Editar pendiente'
-            : 'Nuevo recurrente'}
+              ? 'Servicio pagado'
+              : 'Editar servicio'
+            : 'Agregar Servicio'}
         </h2>
 
         {/* Frozen once paid -- a paid Pendiente's fields are frozen at the

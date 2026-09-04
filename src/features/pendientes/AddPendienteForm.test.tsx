@@ -50,7 +50,7 @@ async function renderForm() {
       authorDisplayName="Ada"
     />,
   )
-  fireEvent.click(screen.getByRole('button', { name: 'Nuevo recurrente' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Agregar Servicio' }))
   await screen.findByLabelText('Nombre')
   return { db, householdId: household.id }
 }
@@ -117,7 +117,7 @@ describe('AddPendienteForm', () => {
     await waitFor(() => {
       expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
       expect(
-        screen.queryByRole('button', { name: 'Nuevo recurrente' }),
+        screen.queryByRole('button', { name: 'Agregar Servicio' }),
       ).toBeInTheDocument()
     })
   })
@@ -425,7 +425,7 @@ describe('AddPendienteForm', () => {
         authorDisplayName="Ada"
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Nuevo recurrente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar Servicio' }))
     await screen.findByLabelText('Nombre')
 
     fillPendiente({
@@ -466,7 +466,7 @@ describe('AddPendienteForm', () => {
         authorDisplayName="Ada"
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Nuevo recurrente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar Servicio' }))
     await screen.findByLabelText('Nombre')
 
     fillPendiente({
@@ -508,7 +508,7 @@ describe('AddPendienteForm', () => {
         authorDisplayName="Ada"
       />,
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Nuevo recurrente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar Servicio' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'No se pudo cargar las categorías. Volvé a intentar.',
