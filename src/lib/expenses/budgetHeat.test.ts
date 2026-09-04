@@ -15,6 +15,17 @@ function warmth(hex: string): number {
   return red - blue
 }
 
+// How far one colour is from another, straight-line through RGB. Rough, but
+// enough to say which end of the ramp a midpoint belongs to.
+function distance(from: string, to: string): number {
+  const channels = [1, 3, 5].map((offset) => {
+    const a = parseInt(from.slice(offset, offset + 2), 16)
+    const b = parseInt(to.slice(offset, offset + 2), 16)
+    return (a - b) ** 2
+  })
+  return Math.sqrt(channels.reduce((sum, value) => sum + value, 0))
+}
+
 describe('budgetGradient', () => {
   it('is the untouched brand violet with nothing spent', () => {
     expect(budgetGradient(0)).toEqual(BUDGET_GRADIENT_CALM)
@@ -28,15 +39,24 @@ describe('budgetGradient', () => {
     let previous = -Infinity
     for (let percent = 0; percent <= 100; percent += 1) {
       const current = warmth(budgetGradient(percent).from)
-      expect(current).toBeGreaterThanOrEqual(previous)
+      // One unit of slack: the channels are rounded to whole bytes
+      // independently, so a step can round the wrong way by one without the
+      // ramp actually turning back on itself.
+      expect(current).toBeGreaterThanOrEqual(previous - 1)
       previous = current
     }
+    expect(warmth(budgetGradient(100).from)).toBeGreaterThan(
+      warmth(budgetGradient(0).from),
+    )
   })
 
-  it('still reads as violet at the halfway mark', () => {
+  it('is still much nearer its calm end at the halfway mark', () => {
     // Half the budget spent is not a warning, so the card should not look
-    // like one: blue still clearly leads red.
-    expect(warmth(budgetGradient(50).from)).toBeLessThan(0)
+    // like one yet.
+    const midpoint = budgetGradient(50).from
+    expect(distance(midpoint, BUDGET_GRADIENT_CALM.from)).toBeLessThan(
+      distance(midpoint, BUDGET_GRADIENT_SPENT.from),
+    )
   })
 
   it('has clearly turned red by the time the budget is nearly gone', () => {

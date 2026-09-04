@@ -216,16 +216,16 @@
      on top of it -- this pairing (tinted page + white cards, no shadow
      under them) is what gives the app its "wallet" warmth instead of a flat
      white shell. */
-  --surface-page: var(--color-purple-50);
+  --surface-page: var(--color-grey-50);
   --surface-card: var(--color-grey-white);
   --surface-primary: var(--color-grey-50);
   --surface-secondary: var(--color-grey-100);
-  --surface-action: var(--color-purple-450);
+  --surface-action: var(--color-grey-900);
   /* Solid, not an alpha of the action colour: bg-primary/10 composited
      against whatever sat underneath, so the same badge measured 4.93:1 on a
      card and 4.32:1 on the page. A solid tint is 4.96:1 wherever it lands. */
-  --surface-action-subtle: var(--color-purple-50);
-  --surface-action-hover: var(--color-purple-700);
+  --surface-action-subtle: var(--color-grey-200);
+  --surface-action-hover: var(--color-grey-800);
   --surface-disabled: var(--color-grey-300);
   --surface-success: var(--color-green-50);
   --surface-error: var(--color-red-50);
@@ -245,7 +245,7 @@
      white text does not exist: the lightest AA-safe end is barely distinct
      from the start. So it now runs the other way, violet into deep indigo,
      which keeps a real ramp and clears AA at both ends (5.71 and 10.78). */
-  --surface-action-gradient-end: var(--color-purple-600);
+  --surface-action-gradient-end: var(--color-grey-950);
 
   /* Text (Icon reuses this table 1:1, see --icon-* below) */
   --text-primary: var(--color-grey-900);
@@ -255,7 +255,7 @@
      5.60 / 4.95. */
   --text-tertiary: var(--color-grey-600);
   --text-on-action: var(--color-grey-white);
-  --text-action: var(--color-purple-450);
+  --text-action: var(--color-grey-900);
   --text-disabled: var(--color-grey-300);
   --text-success: var(--color-green-700);
   --text-error: var(--color-red-700);
@@ -266,7 +266,7 @@
   --icon-secondary: var(--color-grey-700);
   --icon-tertiary: var(--color-grey-600);
   --icon-on-action: var(--color-grey-white);
-  --icon-action: var(--color-purple-450);
+  --icon-action: var(--color-grey-900);
   --icon-disabled: var(--color-grey-300);
   --icon-success: var(--color-green-700);
   --icon-error: var(--color-red-700);
@@ -278,8 +278,8 @@
   --border-primary: var(--color-grey-400);
   --border-secondary: var(--color-grey-200);
   --border-subtle: var(--color-grey-100);
-  --border-action: var(--color-purple-450);
-  --border-focus: var(--color-purple-450);
+  --border-action: var(--color-grey-900);
+  --border-focus: var(--color-grey-900);
   --border-success: var(--color-green-500);
   --border-error: var(--color-red-500);
   --border-warning: var(--color-yellow-500);
@@ -291,23 +291,23 @@
   --surface-card: var(--color-grey-900);
   --surface-primary: var(--color-grey-900);
   --surface-secondary: var(--color-grey-800);
-  --surface-action: var(--color-purple-450);
-  --surface-action-hover: var(--color-purple-700);
+  --surface-action: var(--color-grey-50);
+  --surface-action-hover: var(--color-grey-200);
   --surface-disabled: var(--color-grey-300);
   --surface-success: var(--color-green-800);
   --surface-error: var(--color-red-800);
   --surface-due-soon-from: var(--color-wine-800);
   --surface-due-soon-to: var(--color-wine-600);
   --surface-warning: var(--color-yellow-800);
-  --surface-action-gradient-end: var(--color-purple-600);
-  --surface-action-subtle: var(--color-purple-950);
+  --surface-action-gradient-end: var(--color-grey-100);
+  --surface-action-subtle: var(--color-grey-800);
 
   /* Text */
   --text-primary: var(--color-grey-white);
   --text-secondary: var(--color-grey-50);
   --text-tertiary: var(--color-grey-300);
-  --text-on-action: var(--color-grey-white);
-  --text-action: var(--color-purple-200);
+  --text-on-action: var(--color-grey-950);
+  --text-action: var(--color-grey-50);
   --text-disabled: var(--color-grey-300);
   --text-success: var(--color-green-200);
   --text-error: var(--color-red-200);
@@ -317,8 +317,8 @@
   --icon-primary: var(--color-grey-white);
   --icon-secondary: var(--color-grey-50);
   --icon-tertiary: var(--color-grey-300);
-  --icon-on-action: var(--color-grey-white);
-  --icon-action: var(--color-purple-200);
+  --icon-on-action: var(--color-grey-950);
+  --icon-action: var(--color-grey-50);
   --icon-disabled: var(--color-grey-300);
   --icon-success: var(--color-green-200);
   --icon-error: var(--color-red-200);
@@ -328,8 +328,8 @@
   --border-primary: var(--color-grey-500);
   --border-secondary: var(--color-grey-800);
   --border-subtle: var(--color-grey-900);
-  --border-action: var(--color-purple-200);
-  --border-focus: var(--color-purple-200);
+  --border-action: var(--color-grey-50);
+  --border-focus: var(--color-grey-50);
   --border-success: var(--color-green-500);
   --border-error: var(--color-red-500);
   --border-warning: var(--color-yellow-500);
