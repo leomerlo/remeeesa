@@ -712,7 +712,10 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         comments: '',
         expenseDate: input.paymentDate,
         pendienteId: input.pendienteId,
-        isService: false,
+        // See firestoreHouseholdsDb: a Servicio is a recurring bill, not
+        // merely one that passed through Pendientes on its way to being
+        // paid.
+        isService: existing.recurring,
         createdAt,
       }
       const updated: Pendiente = {

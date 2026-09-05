@@ -323,6 +323,9 @@ describe('HistoricoPage', () => {
       name: 'Internet',
       dueDate: new Date(),
       expectedAmount: 5000,
+      // Recurring on purpose: that is what makes the Expense it generates a
+      // Servicio. A one-off bill produces an ordinary Gasto.
+      recurring: true,
     })
     await markPendientePaid({
       db,
@@ -408,6 +411,9 @@ describe('HistoricoPage', () => {
       name: 'Internet',
       dueDate: new Date(),
       expectedAmount: 5000,
+      // Recurring on purpose: that is what makes the Expense it generates a
+      // Servicio. A one-off bill produces an ordinary Gasto.
+      recurring: true,
     })
     await markPendientePaid({
       db,

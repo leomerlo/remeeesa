@@ -1015,7 +1015,14 @@ export function createFirestoreHouseholdsDb(
                 comments: '',
                 expenseDate: input.paymentDate,
                 pendienteId: input.pendienteId,
-                isService: false,
+                // A "Servicio" is a *recurring* bill, not merely one that
+                // was tracked as a Pendiente before being paid. A one-off
+                // (an Osde payment logged so it would not be forgotten)
+                // becomes an ordinary Gasto the moment it is paid. Recorded
+                // here, at payment, because the Expense cannot look up a
+                // Pendiente that may later be edited or deleted. Per direct
+                // feedback.
+                isService: current.recurring,
                 createdAt,
               }),
               expense_date: toFirestoreExpenseDate(input.paymentDate),
@@ -1093,7 +1100,14 @@ export function createFirestoreHouseholdsDb(
                 comments: '',
                 expenseDate: input.paymentDate,
                 pendienteId: input.pendienteId,
-                isService: false,
+                // A "Servicio" is a *recurring* bill, not merely one that
+                // was tracked as a Pendiente before being paid. A one-off
+                // (an Osde payment logged so it would not be forgotten)
+                // becomes an ordinary Gasto the moment it is paid. Recorded
+                // here, at payment, because the Expense cannot look up a
+                // Pendiente that may later be edited or deleted. Per direct
+                // feedback.
+                isService: current.recurring,
                 createdAt,
               },
             }
