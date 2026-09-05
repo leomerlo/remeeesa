@@ -1,10 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
-import { cssVars } from '@/lib/cssVars'
-import { CategoryBadge } from '@/components/CategoryBadge'
+import { MovementCard } from '@/components/MovementCard'
 import { Button } from '@/components/ui/button'
-import { Check } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { listPendientesForMonth, pendientesDueInMonth } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
@@ -16,7 +14,7 @@ import {
 } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
-import { formatDate } from '@/lib/format'
+import { dueDateLabel, isOverdue, paidDateLabel } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
 import { pendientesQueryKey } from './queryKeys'
 import { AlertMessage } from '@/components/ui/alert-message'
@@ -124,8 +122,8 @@ export function PendientesList({
     const category = categoryById.get(pendiente.categoryId)
     const categoryName = category?.name ?? 'Categoría desconocida'
     const categoryColor = category?.color ?? colorForCategoryName(categoryName)
-
-    const CategoryIcon = iconForCategoryName(categoryName)
+    const isPaid = pendiente.status === 'paid'
+    const overdue = !isPaid && isOverdue(pendiente.dueDate)
 
     const amount =
       pendiente.expectedAmount !== null ? (
@@ -134,61 +132,15 @@ export function PendientesList({
         </span>
       ) : pendiente.recurring ? (
         // A recurring bill with no amount yet reads as incomplete/broken
-        // with nothing where a price usually is -- a placeholder says
-        // "not filled in yet" instead of looking like a rendering bug. A
-        // one-off Pendiente with no amount is a different, deliberate
-        // case (see AddPendienteForm's "Monto esperado" comment) and
-        // stays blank.
+        // with nothing where a price usually is -- a placeholder says "not
+        // filled in yet" instead of looking like a rendering bug. A one-off
+        // Pendiente with no amount is a different, deliberate case (see
+        // AddPendienteForm's "Monto esperado" comment) and stays blank.
         <span className="font-display text-muted-foreground text-lg">
           $ --,--
         </span>
       ) : null
 
-    // Name, then what and when, then the amount underneath -- per direct
-    // feedback. The amount used to sit off on the right on the name's
-    // line, which made the row read as two unrelated halves and left the
-    // name truncating early to make room for it. Reading down the column
-    // now answers "what is this / when is it / how much" in that order,
-    // and the name gets the full width and a size to match its job.
-    const isPaid = pendiente.status === 'paid'
-
-    const rowContent = (
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        <span
-          aria-hidden="true"
-          data-testid="category-icon"
-          className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--swatch-color)]"
-          style={cssVars({ '--swatch-color': categoryColor })}
-        >
-          <CategoryIcon className="size-5 text-white" aria-hidden="true" />
-        </span>
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="truncate text-lg font-semibold text-foreground">
-            {pendiente.name}
-          </span>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-            <CategoryBadge name={categoryName} color={categoryColor} />
-            <span>{formatDate(pendiente.dueDate)}</span>
-            {isPaid ? (
-              <span className="text-success inline-flex items-center gap-1 font-semibold">
-                <Check className="size-3.5" aria-hidden="true" />
-                Pagado
-              </span>
-            ) : null}
-          </div>
-          {amount}
-        </div>
-      </div>
-    )
-
-    // Both actions are spelled out on their own row under the name.
-    // "Editar" used to be the whole row being secretly tappable, which
-    // is not an affordance anyone can see; and "Pagar" carried the same
-    // weight as everything else on the card. Per direct feedback: the
-    // two actions are Pagar and Editar, and Pagar is the primary one.
-    // They sit under the name rather than beside the amount because
-    // sharing that line truncated names like "Expensas" to "Expen…" at
-    // 375px.
     // A paid row keeps Editar -- that is the way back from a mistaken
     // payment -- but not Pagar, which has nothing left to do.
     const canMarkPaid = onMarkPaid !== undefined && !isPaid
@@ -225,14 +177,20 @@ export function PendientesList({
 
     return (
       <li key={pendiente.id}>
-        {/* Stacked on a phone, one row from `lg`. In a row everything
-            centres against the card's own height, so the icon and the two
-            buttons line up with the middle of the block of text rather than
-            with its first line. */}
-        <div className="bg-card flex flex-col gap-3 rounded-2xl p-4 lg:flex-row lg:items-center lg:gap-4">
-          {rowContent}
-          {actions}
-        </div>
+        <MovementCard
+          categoryName={categoryName}
+          categoryColor={categoryColor}
+          CategoryIcon={iconForCategoryName(categoryName)}
+          title={pendiente.name}
+          when={
+            isPaid
+              ? paidDateLabel(pendiente.paidAt ?? pendiente.dueDate)
+              : dueDateLabel(pendiente.dueDate)
+          }
+          isOverdue={overdue}
+          amount={amount}
+          {...(actions === null ? {} : { actions })}
+        />
       </li>
     )
   }

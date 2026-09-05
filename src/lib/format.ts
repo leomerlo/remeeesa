@@ -21,3 +21,25 @@ export function formatMonthLabel(date: Date): string {
   })
   return label.charAt(0).toUpperCase() + label.slice(1)
 }
+
+// A bill's due date, said as a sentence rather than left as a bare number:
+// "Vence el 06/09/2026" while it is still ahead, "Venció el 06/09/2026"
+// once the day has passed with nothing paid. Per direct feedback -- a date
+// on its own does not say which of the two it is, and those are opposite
+// situations.
+//
+// Compared at day granularity: a bill due today has not been missed.
+export function isOverdue(dueDate: Date, now: Date = new Date()): boolean {
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  return dueDate.getTime() < today.getTime()
+}
+
+export function dueDateLabel(dueDate: Date, now: Date = new Date()): string {
+  return `${isOverdue(dueDate, now) ? 'Venció' : 'Vence'} el ${formatDate(dueDate)}`
+}
+
+// The other half of the pair, for money that has already left: a settled
+// bill, or any expense in the history.
+export function paidDateLabel(date: Date): string {
+  return `Pagado el ${formatDate(date)}`
+}

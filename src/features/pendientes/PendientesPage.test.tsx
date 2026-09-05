@@ -357,13 +357,15 @@ describe('PendientesPage', () => {
     // The screen reads one month at a time, so the cycle just settled stays
     // here, marked as such, and the one it spawned is next month's business.
     await waitFor(() => {
-      expect(
-        screen.getByText(formatPendienteDueDate(paidDueDate)).closest('li'),
-      ).toHaveTextContent('Pagado')
+      // A settled bill says when it was *paid*, not when it was due -- the
+      // payment date is the useful fact once the money has gone.
+      expect(screen.getByText(/^Pagado el /)).toBeInTheDocument()
     })
     expect(screen.getAllByRole('listitem')).toHaveLength(1)
     expect(
-      screen.queryByText(formatPendienteDueDate(new Date(2026, 9, 10))),
+      screen.queryByText(
+        `Vence el ${formatPendienteDueDate(new Date(2026, 9, 10))}`,
+      ),
     ).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Mes siguiente' }))
@@ -371,7 +373,9 @@ describe('PendientesPage', () => {
     // Both cycles carry the same name, so the due date -- not the name --
     // is what tells the new row apart from the one just paid.
     const nextCycle = (
-      await screen.findByText(formatPendienteDueDate(new Date(2026, 9, 10)))
+      await screen.findByText(
+        `Vence el ${formatPendienteDueDate(new Date(2026, 9, 10))}`,
+      )
     ).closest('li')
     expect(nextCycle).toHaveTextContent('Alquiler')
     expect(nextCycle).toHaveTextContent('Comida')
