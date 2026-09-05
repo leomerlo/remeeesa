@@ -2,7 +2,11 @@ import { useState } from 'react'
 import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import type { ReactElement } from 'react'
 import { PageHeader } from '@/components/PageHeader'
-import { AddExpenseSheet, ExpenseHistory } from '@/features/expenses'
+import {
+  AddExpenseSheet,
+  AddGastoSheet,
+  ExpenseHistory,
+} from '@/features/expenses'
 import type { EditExpenseTarget } from '@/features/expenses/AddExpenseForm'
 import { useHouseholdMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
@@ -25,6 +29,7 @@ export function HistoricoPage({
     ...(householdsDb === undefined ? {} : { householdsDb }),
   })
   const [editExpense, setEditExpense] = useState<EditExpenseTarget | null>(null)
+  const [isAddGastoSheetOpen, setIsAddGastoSheetOpen] = useState(false)
 
   // The header renders in every state so this nav destination is never a
   // blank page while the session/membership resolve.
@@ -66,13 +71,27 @@ export function HistoricoPage({
 
   return (
     <div className="flex w-full flex-col gap-8">
-      {header}
+      {/* Title and the one action share a row on a wide window, the same
+          shape Servicios has. Adding a gasto from here rather than only
+          from Home: this is the screen you are on when you notice one is
+          missing. Per direct feedback. */}
+      <div className="flex w-full flex-col gap-8 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+        {header}
+        <AddGastoSheet
+          triggerClassName="w-full lg:w-auto lg:px-6"
+          open={isAddGastoSheetOpen}
+          onOpenChange={setIsAddGastoSheetOpen}
+          db={db}
+          householdId={membership.householdId}
+          memberId={currentUserId}
+          authorDisplayName={authorDisplayName}
+        />
+      </div>
       {/* Editing from here reuses the very same sheet as Home, so correcting
           an expense from an old month behaves identically to correcting one
           from this month -- including the delete action, which lives inside
-          that sheet rather than on the row. `open={false}` because this
-          screen has no "add" entry point: the sheet only ever opens because
-          editExpense was set by tapping a row. */}
+          that sheet rather than on the row. `open={false}` because the sheet
+          only ever opens because editExpense was set by tapping Editar. */}
       <AddExpenseSheet
         open={false}
         showTrigger={false}

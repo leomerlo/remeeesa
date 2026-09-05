@@ -209,11 +209,9 @@ describe('HistoricoPage', () => {
     expect(screen.queryByText('Gasto viejo')).not.toBeInTheDocument()
   })
 
-  // Histórico has no "add" entry point of its own -- it reuses the expense
-  // sheet purely to edit a row it was handed. The sheet rendered its trigger
-  // regardless, leaving an "Agregar gasto" button floating under the page
-  // title with nothing around it.
-  it('does not offer an add-expense button', async () => {
+  // Per direct feedback: this is the screen you are on when you notice a
+  // gasto is missing, so it gets the same title-row action Servicios has.
+  it('offers an add-expense button that opens the shared sheet', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
     await seed({
       db,
@@ -226,9 +224,10 @@ describe('HistoricoPage', () => {
     renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
 
     await screen.findByText('Gasto')
-    expect(
-      screen.queryByRole('button', { name: 'Agregar gasto' }),
-    ).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
+
+    expect(await screen.findByLabelText('Nombre')).toBeInTheDocument()
+    expect(screen.getByLabelText('Precio')).toBeInTheDocument()
   })
 
   // A history that only lists rows makes "what did we spend that month" a
