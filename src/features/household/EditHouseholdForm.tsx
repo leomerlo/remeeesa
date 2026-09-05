@@ -79,12 +79,7 @@ export function EditHouseholdForm({
       onSubmit={onSubmit}
     >
       <div className="flex w-full flex-col gap-2">
-        <Label
-          htmlFor="household-name"
-          className="text-muted-foreground font-medium"
-        >
-          Nombre del hogar
-        </Label>
+        <Label htmlFor="household-name">Nombre del hogar</Label>
         <Input
           id="household-name"
           name="household-name"
@@ -98,12 +93,7 @@ export function EditHouseholdForm({
 
       <div className="flex w-full flex-col gap-2">
         <div className="flex items-baseline justify-between gap-2">
-          <Label
-            htmlFor="monthly-budget"
-            className="text-muted-foreground font-medium"
-          >
-            Presupuesto mensual
-          </Label>
+          <Label htmlFor="monthly-budget">Presupuesto mensual</Label>
           {/* The confirmed, saved amount -- separate from `amount` above,
               which tracks the in-progress draft. Lets a rejected submission
               (e.g. a negative budget) visibly leave the real value unchanged
@@ -141,7 +131,7 @@ export function EditHouseholdForm({
 
       {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
 
-      <Button type="submit" className="w-full">
+      <Button type="submit" className="w-full lg:w-auto lg:self-end lg:px-8">
         Guardar
       </Button>
     </form>

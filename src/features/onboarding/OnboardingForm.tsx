@@ -101,12 +101,7 @@ export function OnboardingForm({
         onSubmit={onSubmit}
       >
         <div className="flex w-full flex-col gap-2">
-          <Label
-            htmlFor="household-name"
-            className="text-muted-foreground font-medium"
-          >
-            Nombre del hogar
-          </Label>
+          <Label htmlFor="household-name">Nombre del hogar</Label>
           <Input
             id="household-name"
             name="household-name"
@@ -119,12 +114,7 @@ export function OnboardingForm({
         </div>
 
         <div className="flex w-full flex-col items-center gap-2">
-          <Label
-            htmlFor="monthly-budget"
-            className="text-muted-foreground font-medium"
-          >
-            Presupuesto mensual
-          </Label>
+          <Label htmlFor="monthly-budget">Presupuesto mensual</Label>
           <FormattedAmountInput
             id="monthly-budget"
             name="monthly-budget"

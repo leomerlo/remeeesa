@@ -78,6 +78,11 @@
      "Vencimientos que se acercan" is filled with that same pair, so the two
      warnings in the app read as the same colour rather than as two
      different reds. */
+  /* Two of the category palette's own swatches, named here because the
+     paid/pending dots use them outside a category context. */
+  --color-green-strong: #16a34a;
+  --color-amber-strong: #f6a925;
+
   --color-wine-800: #681627;
   --color-wine-600: #a52935;
 
@@ -235,6 +240,16 @@
      one -- so the two warnings in the app are the same colour, not two
      different reds. White carries 12.12:1 at the dark end and 7.07:1 at the
      light one, and 8.14 / 5.26 on the chip that sits on it. */
+  /* The two dots that split "Gastos de este mes" into what is paid and
+     what is still owed. They are pulled from the category palette rather
+     than from the semantic text roles: those are darkened for contrast on
+     text, and as 8px dots they came out muddy -- a brown and a bottle
+     green. These are the vivid versions, and they are decorative (the
+     words beside them carry the meaning), so nothing rides on their
+     contrast. */
+  --dot-paid: var(--color-green-strong);
+  --dot-pending: var(--color-amber-strong);
+
   --surface-due-soon-from: var(--color-wine-800);
   --surface-due-soon-to: var(--color-wine-600);
   --surface-warning: var(--color-yellow-50);
@@ -366,6 +381,8 @@
   --color-border-subtle: var(--border-subtle);
   --color-input: var(--border-primary);
   --color-ring: var(--border-focus);
+  --color-dot-paid: var(--dot-paid);
+  --color-dot-pending: var(--dot-pending);
   --color-success: var(--text-success);
   --color-error: var(--text-error);
   --color-warning: var(--text-warning);

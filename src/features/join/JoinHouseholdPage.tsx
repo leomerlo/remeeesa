@@ -157,12 +157,7 @@ export function JoinHouseholdPage({
       <div className="bg-card flex w-full flex-col items-center gap-6 rounded-3xl p-6">
         <form className="flex w-full flex-col gap-6" onSubmit={onSubmit}>
           <div className="flex w-full flex-col gap-2">
-            <Label
-              htmlFor="signup-email"
-              className="text-muted-foreground font-medium"
-            >
-              Email
-            </Label>
+            <Label htmlFor="signup-email">Email</Label>
             <div className="relative flex items-center">
               <Mail
                 aria-hidden="true"
@@ -183,12 +178,7 @@ export function JoinHouseholdPage({
           </div>
 
           <div className="flex w-full flex-col gap-2">
-            <Label
-              htmlFor="signup-password"
-              className="text-muted-foreground font-medium"
-            >
-              Contraseña
-            </Label>
+            <Label htmlFor="signup-password">Contraseña</Label>
             <div className="relative flex items-center">
               <Lock
                 aria-hidden="true"

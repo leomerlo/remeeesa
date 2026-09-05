@@ -582,12 +582,7 @@ function PendienteFormBody({
               -- so it leads at the same hero size without being required,
               rather than forcing a number in before the bill is even known. */}
           <div className="flex w-full flex-col gap-2">
-            <Label
-              htmlFor="pendiente-expected-amount"
-              className="text-muted-foreground font-medium"
-            >
-              Monto esperado
-            </Label>
+            <Label htmlFor="pendiente-expected-amount">Monto esperado</Label>
             <div className="relative">
               <span
                 aria-hidden="true"
@@ -607,12 +602,7 @@ function PendienteFormBody({
           </div>
 
           <div className="flex w-full flex-col gap-2">
-            <Label
-              htmlFor="pendiente-name"
-              className="text-muted-foreground font-medium"
-            >
-              Nombre
-            </Label>
+            <Label htmlFor="pendiente-name">Nombre</Label>
             <Input
               id="pendiente-name"
               name="pendiente-name"
@@ -625,12 +615,7 @@ function PendienteFormBody({
           </div>
 
           <div className="flex w-full flex-col gap-2">
-            <Label
-              htmlFor="pendiente-category"
-              className="text-muted-foreground font-medium"
-            >
-              Categoría
-            </Label>
+            <Label htmlFor="pendiente-category">Categoría</Label>
             <CategoryChips
               categories={categories}
               value={category}
@@ -646,12 +631,7 @@ function PendienteFormBody({
           </div>
 
           <div className="flex w-full flex-col gap-2">
-            <Label
-              htmlFor="pendiente-due-date"
-              className="text-muted-foreground font-medium"
-            >
-              Fecha de vencimiento
-            </Label>
+            <Label htmlFor="pendiente-due-date">Fecha de vencimiento</Label>
             {/* Deliberately no `max`/`min` here, unlike the expense form's
                 date input -- a Pendiente's due date is explicitly allowed to
                 be in the past (e.g. logging an overdue bill) or the future. */}
@@ -666,30 +646,32 @@ function PendienteFormBody({
             />
           </div>
 
-          <div className="flex w-full items-center justify-between gap-2">
-            <Label htmlFor="pendiente-recurring" className="font-medium">
-              Recurrente
-            </Label>
-            <Switch
-              id="pendiente-recurring"
-              checked={recurring}
-              onCheckedChange={setRecurring}
+          {/* The bill's two properties share a line, switch then label,
+              split by a hairline -- the same shape the gasto form uses.
+              Débito automático means the household does not pay this one:
+              the bank takes it on the due date, so it settles itself rather
+              than waiting for someone to press Pagar. */}
+          <div className="flex w-full items-center gap-4">
+            <div className="flex flex-1 items-center gap-3">
+              <Switch
+                id="pendiente-recurring"
+                checked={recurring}
+                onCheckedChange={setRecurring}
+              />
+              <Label htmlFor="pendiente-recurring">Recurrente</Label>
+            </div>
+            <span
+              aria-hidden="true"
+              className="bg-border-subtle h-6 w-px shrink-0"
             />
-          </div>
-
-          {/* The household does not pay this one: the bank takes it on the
-              due date. It still belongs here so the money is budgeted before
-              it leaves, but it settles itself rather than waiting for
-              someone to press Pagar. Per direct feedback. */}
-          <div className="flex w-full items-center justify-between gap-2">
-            <Label htmlFor="pendiente-auto-debit" className="font-medium">
-              Débito automático
-            </Label>
-            <Switch
-              id="pendiente-auto-debit"
-              checked={autoDebit}
-              onCheckedChange={setAutoDebit}
-            />
+            <div className="flex flex-1 items-center gap-3">
+              <Switch
+                id="pendiente-auto-debit"
+                checked={autoDebit}
+                onCheckedChange={setAutoDebit}
+              />
+              <Label htmlFor="pendiente-auto-debit">Débito automático</Label>
+            </div>
           </div>
         </fieldset>
 
@@ -702,15 +684,13 @@ function PendienteFormBody({
             payment (per direct feedback -- there was no way back from a
             mistaken "Ya lo pagué"). */}
         <div className="flex w-full flex-col gap-2">
-          <div className="flex w-full items-center justify-between gap-2">
-            <Label htmlFor="pendiente-mark-paid" className="font-medium">
-              Ya lo pagué
-            </Label>
+          <div className="flex w-full items-center gap-3">
             <Switch
               id="pendiente-mark-paid"
               checked={markPaid}
               onCheckedChange={setMarkPaid}
             />
+            <Label htmlFor="pendiente-mark-paid">Ya lo pagué</Label>
           </div>
           {isPaidPendiente ? (
             <p className="text-muted-foreground text-xs">
@@ -720,12 +700,7 @@ function PendienteFormBody({
             </p>
           ) : markPaid ? (
             <div className="flex w-full flex-col gap-2">
-              <Label
-                htmlFor="pendiente-payment-date"
-                className="text-muted-foreground font-medium"
-              >
-                Fecha de pago
-              </Label>
+              <Label htmlFor="pendiente-payment-date">Fecha de pago</Label>
               <Input
                 id="pendiente-payment-date"
                 name="pendiente-payment-date"

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
+import { TintedBadge } from '@/components/CategoryBadge'
 import { cssVars } from '@/lib/cssVars'
 import { Skeleton } from '@/components/ui/skeleton'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
@@ -85,7 +86,7 @@ export function MemberList({
                 {member.displayName}
               </span>
               {isCurrentUser ? (
-                <span className="text-muted-foreground text-xs">Vos</span>
+                <TintedBadge label="Vos" color="#4e4c56" />
               ) : null}
             </li>
           )
