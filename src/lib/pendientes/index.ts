@@ -1,6 +1,7 @@
 export type { Pendiente, PendienteStatus } from './types'
 export { DUE_SOON_WINDOW_DAYS, pendientesDueSoon } from './dueSoon'
 export { pendientesDueInMonth } from './pendingForMonth'
+export { autoDebitsToSettle } from './autoDebit'
 export {
   createPendiente,
   PendienteAlreadyPaidError,

@@ -19,7 +19,12 @@ function Sheet({ open, onOpenChange, title, children }: SheetProps) {
         />
         <Dialog.Content
           data-slot="sheet-content"
-          className="bg-card shadow-raised fixed inset-x-0 bottom-0 z-50 flex max-h-[96vh] w-full flex-col rounded-t-3xl p-6 pt-8 data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom"
+          // A sheet rising from the bottom edge is a phone gesture -- the
+          // thumb is down there. On a pointer-driven window the same dialog
+          // becomes a centred modal: it stops travelling the full height of
+          // a tall screen, and it lands where the cursor already is. Below
+          // `lg` nothing changes.
+          className="bg-card shadow-raised fixed inset-x-0 bottom-0 z-50 flex max-h-[96vh] w-full flex-col rounded-t-3xl p-6 pt-8 data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom lg:inset-x-auto lg:top-1/2 lg:bottom-auto lg:left-1/2 lg:max-h-[85vh] lg:w-full lg:max-w-lg lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-3xl lg:data-[state=closed]:slide-out-to-bottom-2 lg:data-[state=open]:slide-in-from-bottom-2"
         >
           <VisuallyHidden.Root asChild>
             <Dialog.Title>{title}</Dialog.Title>

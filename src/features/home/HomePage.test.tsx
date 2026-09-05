@@ -91,18 +91,19 @@ describe('HomePage', () => {
 
     renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
 
-    expect(await screen.findByText('Casa Verde')).toBeInTheDocument()
+    // The household's name is the app header's now, not this page's -- see
+    // AppHeader.test.tsx. What says the household loaded here is its budget.
     expect(
       await screen.findByRole('status', {
         name: /presupuesto restante \$100/i,
       }),
-    ).toHaveTextContent('$100,00')
+    ).toHaveTextContent('$100')
     // The two cards read from the same month's expenses, from opposite
     // ends: Gastado counts up from zero, Presupuesto restante counts down
     // from the budget.
     expect(
-      screen.getByRole('status', { name: 'Gastado este mes $0,00' }),
-    ).toHaveTextContent('$0,00')
+      screen.getByRole('status', { name: 'Gastos de este mes $0' }),
+    ).toHaveTextContent('$0')
     expect(
       await screen.findByText('Todavía no hay gastos este mes'),
     ).toBeInTheDocument()
@@ -227,12 +228,13 @@ describe('HomePage', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Crear cuenta' }))
 
-    expect(await screen.findByText('Casa Verde')).toBeInTheDocument()
+    // The household's name is the app header's now, not this page's -- see
+    // AppHeader.test.tsx. What says the household loaded here is its budget.
     expect(
       await screen.findByRole('status', {
         name: /presupuesto restante \$100/i,
       }),
-    ).toHaveTextContent('$100,00')
+    ).toHaveTextContent('$100')
     expect(
       screen.getByRole('button', { name: 'Agregar gasto' }),
     ).toBeInTheDocument()
@@ -309,7 +311,7 @@ describe('HomePage', () => {
       await screen.findByRole('status', {
         name: /presupuesto restante \$100/i,
       }),
-    ).toHaveTextContent('$100,00')
+    ).toHaveTextContent('$100')
     expect(
       await screen.findByText('Todavía no hay gastos este mes'),
     ).toBeInTheDocument()
@@ -339,7 +341,7 @@ describe('HomePage', () => {
     expect(await screen.findByText('Pizza')).toBeInTheDocument()
     expect(
       await screen.findByRole('status', { name: /presupuesto restante \$90/i }),
-    ).toHaveTextContent('$90,00')
+    ).toHaveTextContent('$90')
     await waitFor(() => {
       expect(
         screen.getByRole('progressbar', { name: '% usado' }),

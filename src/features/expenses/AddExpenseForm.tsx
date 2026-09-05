@@ -397,41 +397,8 @@ function ExpenseFormBody({
         <h2 className="text-title font-semibold">
           {isEditing ? 'Editar gasto' : 'Agregar gasto'}
         </h2>
-        {/* The amount leads, at hero size. It is the one field every single
-            expense has to fill, and it used to be the fourth identical grey box
-            down the sheet -- indistinguishable from "Comentario". */}
         <div className="flex w-full flex-col gap-2">
-          <Label
-            htmlFor="expense-price"
-            className="text-muted-foreground font-medium"
-          >
-            Precio
-          </Label>
-          <div className="relative">
-            <span
-              aria-hidden="true"
-              className="text-muted-foreground font-display text-display pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
-            >
-              $
-            </span>
-            <FormattedAmountInput
-              id="expense-price"
-              name="expense-price"
-              className="font-display text-display h-20 pl-12 tracking-tight"
-              value={price}
-              onChange={setPrice}
-              autoComplete="off"
-            />
-          </div>
-        </div>
-
-        <div className="flex w-full flex-col gap-2">
-          <Label
-            htmlFor="expense-name"
-            className="text-muted-foreground font-medium"
-          >
-            Nombre
-          </Label>
+          <Label htmlFor="expense-name">Nombre</Label>
           <Input
             id="expense-name"
             name="expense-name"
@@ -443,13 +410,32 @@ function ExpenseFormBody({
           />
         </div>
 
+        {/* At ordinary field size, and after the name -- you know what you
+            bought before you know what it cost. It used to lead at hero
+            size, which pushed everything below it, the toggle included,
+            further down a sheet that already scrolls. Per direct feedback. */}
         <div className="flex w-full flex-col gap-2">
-          <Label
-            htmlFor="expense-category"
-            className="text-muted-foreground font-medium"
-          >
-            Categoría
-          </Label>
+          <Label htmlFor="expense-price">Precio</Label>
+          <div className="relative">
+            <span
+              aria-hidden="true"
+              className="text-muted-foreground pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
+            >
+              $
+            </span>
+            <FormattedAmountInput
+              id="expense-price"
+              name="expense-price"
+              className="pl-8"
+              value={price}
+              onChange={setPrice}
+              autoComplete="off"
+            />
+          </div>
+        </div>
+
+        <div className="flex w-full flex-col gap-2">
+          <Label htmlFor="expense-category">Categoría</Label>
           <CategoryChips
             categories={categories}
             value={category}
@@ -467,12 +453,7 @@ function ExpenseFormBody({
         </div>
 
         <div className="flex w-full flex-col gap-2">
-          <Label
-            htmlFor="expense-comments"
-            className="text-muted-foreground font-medium"
-          >
-            Comentario
-          </Label>
+          <Label htmlFor="expense-comments">Comentario</Label>
           <Input
             id="expense-comments"
             name="expense-comments"
@@ -485,12 +466,7 @@ function ExpenseFormBody({
         </div>
 
         <div className="flex w-full flex-col gap-2">
-          <Label
-            htmlFor="expense-date"
-            className="text-muted-foreground font-medium"
-          >
-            Fecha
-          </Label>
+          <Label htmlFor="expense-date">Fecha</Label>
           <Input
             id="expense-date"
             name="expense-date"
@@ -508,12 +484,7 @@ function ExpenseFormBody({
             logged under the wrong name, without deleting and re-adding it. */}
         {isEditing && members.length > 0 ? (
           <div className="flex w-full flex-col gap-2">
-            <Label
-              htmlFor="expense-author"
-              className="text-muted-foreground font-medium"
-            >
-              Autor
-            </Label>
+            <Label htmlFor="expense-author">Autor</Label>
             <select
               id="expense-author"
               name="expense-author"
@@ -539,15 +510,13 @@ function ExpenseFormBody({
             predates pendienteId, or one logged as a plain Gasto that
             should have gone through Pendientes. */}
         {isEditing && editExpense.pendienteId === null ? (
-          <div className="flex w-full items-center justify-between gap-2">
-            <Label htmlFor="expense-is-service" className="font-medium">
-              Marcar como servicio
-            </Label>
+          <div className="flex w-full items-center gap-3">
             <Switch
               id="expense-is-service"
               checked={isService}
               onCheckedChange={setIsService}
             />
+            <Label htmlFor="expense-is-service">Marcar como servicio</Label>
           </div>
         ) : null}
 
@@ -561,7 +530,7 @@ function ExpenseFormBody({
           <div
             role="alertdialog"
             aria-labelledby="delete-expense-title"
-            className="bg-card shadow-raised flex w-full flex-col gap-4 rounded-2xl border border-border p-4"
+            className="bg-card flex w-full flex-col gap-4 rounded-2xl border border-border p-4"
           >
             <p id="delete-expense-title" className="text-sm font-medium">
               {isFromPendiente
@@ -617,7 +586,7 @@ function ExpenseFormBody({
                 </Button>
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="outline"
                   className="text-error hover:text-error"
                   disabled={mutation.isPending}
                   onClick={() => {

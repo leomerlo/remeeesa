@@ -9,6 +9,9 @@ import { AddGastoForm } from './AddGastoForm'
 export type AddGastoSheetProps = {
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
+  // Home puts this button under the budget cards, right-aligned; Histórico
+  // shares a row with the page title. Same button, different place.
+  readonly triggerClassName?: string
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly memberId: string
@@ -21,6 +24,7 @@ export type AddGastoSheetProps = {
 export function AddGastoSheet({
   open,
   onOpenChange,
+  triggerClassName = 'w-full lg:w-auto lg:self-end lg:px-6',
   db,
   householdId,
   memberId,
@@ -57,7 +61,7 @@ export function AddGastoSheet({
       {!open ? (
         <Button
           ref={triggerRef}
-          className="w-full gap-1.5"
+          className={`gap-1.5 ${triggerClassName}`}
           onClick={() => {
             onOpenChange(true)
           }}

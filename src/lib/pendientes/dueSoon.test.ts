@@ -11,6 +11,7 @@ function pendiente(overrides: Partial<Pendiente>): Pendiente {
     dueDate: new Date(2026, 8, 10),
     expectedAmount: 5000,
     recurring: true,
+    autoDebit: false,
     status: 'pending',
     paidExpenseId: null,
     paidAt: null,

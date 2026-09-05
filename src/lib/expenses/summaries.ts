@@ -25,7 +25,7 @@ const UNKNOWN_CATEGORY_NAME = 'Categoría desconocida'
 // in the input array.
 //
 // `pendientes` (optional) folds still-unpaid bills into their own category's
-// total, so this breakdown reconciles with a "Gastado este mes" that also
+// total, so this breakdown reconciles with a "Gastos de este mes" that also
 // counts them -- per direct feedback. Unlike a person, a Pendiente always
 // carries a categoryId, so it can be attributed here. The caller narrows
 // them to the period first (pendientesDueInMonth); one with no expected

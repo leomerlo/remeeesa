@@ -8,15 +8,16 @@ export type UseShowNavInput = {
   readonly householdsDb?: HouseholdsDb
 }
 
-// Shared by AppShell (the bottom nav) and AppHeader (the always-visible logo
-// bar) -- both need the exact same "is there a signed-in member with a
-// household to show a page for" answer, so they pop in and out together
-// rather than the header appearing a tick before/after the nav if each
-// resolved it independently and happened to drift.
-export function useShowNav({
+// Shared by AppShell (the nav) and AppHeader (the persistent top bar) --
+// both need the exact same "is there a signed-in member with a household to
+// show a page for" answer, so they pop in and out together rather than one
+// appearing a tick before the other. AppHeader also needs the membership
+// itself, to name the household it belongs to, so this returns both rather
+// than making the header repeat the lookup.
+export function useCurrentMembership({
   currentUserId: currentUserIdProp,
   householdsDb,
-}: UseShowNavInput): boolean {
+}: UseShowNavInput): HouseholdMember | null | undefined {
   const firebase = useFirebase()
   const [sessionUserId, setSessionUserId] = useState<string | null | undefined>(
     undefined,
@@ -80,9 +81,10 @@ export function useShowNav({
     }
   }, [currentUserId, db])
 
-  return (
-    typeof currentUserId === 'string' &&
-    membership !== undefined &&
-    membership !== null
-  )
+  return typeof currentUserId === 'string' ? membership : null
+}
+
+export function useShowNav(input: UseShowNavInput): boolean {
+  const membership = useCurrentMembership(input)
+  return membership !== undefined && membership !== null
 }

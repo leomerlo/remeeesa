@@ -2,6 +2,7 @@ import { useQueries, useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { cssVars } from '@/lib/cssVars'
 import { expensesInMonthQueryKey } from '@/features/expenses'
 import {
   computePendingCommitted,
@@ -32,7 +33,7 @@ function shortMonthLabel(date: Date): string {
 // months of total spend as bars, so a one-off big month reads as a spike
 // against its neighbours instead of just a number on its own.
 //
-// Each bar counts the same money "Gastado este mes" and "Por categoría" do
+// Each bar counts the same money "Gastos de este mes" and "Por categoría" do
 // -- that month's Expenses plus the still-unpaid bills due in it. Per
 // direct feedback: counting only what had been paid here left this chart's
 // current-month bar disagreeing with the card right above it, two numbers
@@ -91,7 +92,7 @@ export function MonthlyTotalsChart({
       <section
         aria-label="Cargando…"
         role="status"
-        className="bg-card shadow-resting flex w-full flex-col gap-4 rounded-3xl p-6"
+        className="bg-card flex w-full flex-col gap-4 rounded-3xl p-6"
       >
         <span className="sr-only">Cargando…</span>
         <Skeleton className="h-5 w-24" />
@@ -140,7 +141,7 @@ export function MonthlyTotalsChart({
   return (
     <section
       aria-labelledby="por-mes-heading"
-      className="bg-card shadow-resting flex w-full flex-col gap-4 rounded-3xl p-6"
+      className="bg-card flex w-full flex-col gap-4 rounded-3xl p-6"
     >
       <h2 id="por-mes-heading" className="text-title font-semibold">
         Por mes
@@ -152,7 +153,10 @@ export function MonthlyTotalsChart({
           needed). */}
       <ul
         aria-label="Gasto total por mes"
-        className="flex h-32 w-full items-end gap-2"
+        // Capped on a wide window: six bars sharing a full-width card come
+        // out as broad slabs that read as a diagram of nothing. The chart
+        // is a shape to glance at, and the shape needs the bars narrow.
+        className="flex h-32 w-full items-end gap-2 lg:mx-auto lg:h-40 lg:max-w-2xl lg:gap-4"
       >
         {totals.map((entry, index) => {
           const heightPercent =
@@ -171,8 +175,8 @@ export function MonthlyTotalsChart({
                   edge, short or tall, rather than an offset guessed to clear
                   the month label below it. */}
               <div
-                className="relative w-full"
-                style={{ height: `${String(heightPercent)}%` }}
+                className="relative h-[var(--bar-height)] w-full"
+                style={cssVars({ '--bar-height': `${String(heightPercent)}%` })}
               >
                 {isSelected ? (
                   <div

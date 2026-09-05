@@ -44,7 +44,7 @@ export function CategoriasPage({
   // leave this screen stuck on "Cargando…" forever for a signed-out visitor.
   if (currentUserId === undefined) {
     return (
-      <div className="flex w-full flex-col items-center gap-6">
+      <div className="flex w-full flex-col items-center gap-8">
         {header}
         <LoadingIndicator />
       </div>
@@ -53,7 +53,7 @@ export function CategoriasPage({
 
   if (currentUserId === null || membership === null) {
     return (
-      <div className="flex w-full flex-col items-center gap-6">
+      <div className="flex w-full flex-col items-center gap-8">
         {header}
         <Illustration src={categoriesCalc} className="mx-auto h-32 w-40" />
         <p role="status" className="text-sm font-medium">
@@ -65,7 +65,7 @@ export function CategoriasPage({
 
   if (membership === undefined) {
     return (
-      <div className="flex w-full flex-col items-center gap-6">
+      <div className="flex w-full flex-col items-center gap-8">
         {header}
         <LoadingIndicator />
       </div>
@@ -73,7 +73,7 @@ export function CategoriasPage({
   }
 
   return (
-    <div className="flex w-full flex-col items-center gap-6">
+    <div className="flex w-full flex-col items-center gap-8">
       {header}
       <MonthPager
         viewedMonth={viewedMonth}

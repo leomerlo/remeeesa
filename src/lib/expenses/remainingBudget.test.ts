@@ -56,26 +56,34 @@ describe('computePendingCommitted', () => {
 })
 
 describe('formatCurrency', () => {
-  it('always shows two decimals, es-AR style (comma decimal separator)', () => {
-    expect(formatCurrency(100)).toBe('$100,00')
+  it('drops the decimals on a round amount', () => {
+    expect(formatCurrency(100)).toBe('$100')
   })
 
   it('inserts a period as the thousands separator', () => {
-    expect(formatCurrency(224300)).toBe('$224.300,00')
+    expect(formatCurrency(224300)).toBe('$224.300')
   })
 
-  it('rounds to two decimals', () => {
+  it('keeps both decimals, es-AR style, when there are cents', () => {
     expect(formatCurrency(99.5)).toBe('$99,50')
+    expect(formatCurrency(1234.05)).toBe('$1.234,05')
+  })
+
+  it('decides on the printed value, not the raw one', () => {
+    // Rounds to "$1", so it has no cents to show even though the input has.
+    expect(formatCurrency(0.999)).toBe('$1')
+    // Rounds to "$0,01", which does.
+    expect(formatCurrency(0.005)).toBe('$0,01')
   })
 })
 
 describe('formatBudgetAmount', () => {
-  it('prefixes whole amounts with a dollar sign', () => {
-    expect(formatBudgetAmount(100)).toBe('$100,00')
+  it('prefixes whole amounts with a dollar sign, no decimals', () => {
+    expect(formatBudgetAmount(100)).toBe('$100')
   })
 
   it('formats negative remaining as -$amount', () => {
-    expect(formatBudgetAmount(-50)).toBe('-$50,00')
+    expect(formatBudgetAmount(-50)).toBe('-$50')
   })
 
   it('keeps two decimals when needed', () => {
@@ -83,7 +91,7 @@ describe('formatBudgetAmount', () => {
   })
 
   it('formats a large negative remaining with a thousands separator', () => {
-    expect(formatBudgetAmount(-224300)).toBe('-$224.300,00')
+    expect(formatBudgetAmount(-224300)).toBe('-$224.300')
   })
 })
 

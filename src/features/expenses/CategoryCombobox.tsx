@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent, ReactElement } from 'react'
+import { cssVars } from '@/lib/cssVars'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
@@ -163,8 +164,8 @@ export function CategoryCombobox({
           {selectedColor !== null ? (
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute top-1/2 left-2.5 size-2.5 -translate-y-1/2 rounded-full"
-              style={{ backgroundColor: selectedColor }}
+              className="pointer-events-none absolute top-1/2 left-2.5 size-2.5 -translate-y-1/2 rounded-full bg-[var(--swatch-color)]"
+              style={cssVars({ '--swatch-color': selectedColor })}
             />
           ) : null}
           <Input
@@ -233,8 +234,8 @@ export function CategoryCombobox({
               >
                 <span
                   aria-hidden="true"
-                  className="size-2.5 shrink-0 rounded-full"
-                  style={{ backgroundColor: category.color }}
+                  className="size-2.5 shrink-0 rounded-full bg-[var(--swatch-color)]"
+                  style={cssVars({ '--swatch-color': category.color })}
                 />
                 <span className="truncate">{category.name}</span>
               </li>

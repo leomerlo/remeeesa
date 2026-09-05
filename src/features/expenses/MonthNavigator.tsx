@@ -39,18 +39,23 @@ export function MonthNavigator({
         viewedMonth={viewedMonth}
         onViewedMonthChange={setViewedMonth}
       />
-      <SpentThisMonthDisplay
-        db={db}
-        householdId={householdId}
-        monthStart={monthStart}
-        monthEnd={monthEnd}
-      />
-      <RemainingBudgetDisplay
-        db={db}
-        householdId={householdId}
-        monthStart={monthStart}
-        monthEnd={monthEnd}
-      />
+      {/* Peers -- one counts up, the other counts down -- so on a wide
+          window they sit next to each other and can be read in one glance
+          instead of one scrolling the other off. */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:gap-4 lg:*:flex-1">
+        <SpentThisMonthDisplay
+          db={db}
+          householdId={householdId}
+          monthStart={monthStart}
+          monthEnd={monthEnd}
+        />
+        <RemainingBudgetDisplay
+          db={db}
+          householdId={householdId}
+          monthStart={monthStart}
+          monthEnd={monthEnd}
+        />
+      </div>
     </div>
   )
 }

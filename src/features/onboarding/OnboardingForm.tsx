@@ -94,19 +94,14 @@ export function OnboardingForm({
   }
 
   return (
-    <div className="flex w-full flex-col items-center gap-6">
+    <div className="flex w-full flex-col items-center gap-8">
       <AuthHero />
       <form
-        className="bg-card shadow-resting flex w-full flex-col items-center gap-6 rounded-3xl p-6"
+        className="bg-card flex w-full flex-col items-center gap-6 rounded-3xl p-6"
         onSubmit={onSubmit}
       >
         <div className="flex w-full flex-col gap-2">
-          <Label
-            htmlFor="household-name"
-            className="text-muted-foreground font-medium"
-          >
-            Nombre del hogar
-          </Label>
+          <Label htmlFor="household-name">Nombre del hogar</Label>
           <Input
             id="household-name"
             name="household-name"
@@ -119,12 +114,7 @@ export function OnboardingForm({
         </div>
 
         <div className="flex w-full flex-col items-center gap-2">
-          <Label
-            htmlFor="monthly-budget"
-            className="text-muted-foreground font-medium"
-          >
-            Presupuesto mensual
-          </Label>
+          <Label htmlFor="monthly-budget">Presupuesto mensual</Label>
           <FormattedAmountInput
             id="monthly-budget"
             name="monthly-budget"
@@ -147,7 +137,7 @@ export function OnboardingForm({
 
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           onClick={() => {
             setStep('login')
           }}

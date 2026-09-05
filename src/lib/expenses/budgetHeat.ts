@@ -11,16 +11,20 @@
 //
 // Every colour this can return carries white text at 4.5:1 or better --
 // the whole ramp is asserted in budgetHeat.test.ts, not just its ends.
+
+// grey-900 into grey-950. With nothing owing, the card is simply the
+// darkest surface in the app -- the warning is the only colour on it.
 export const BUDGET_GRADIENT_CALM = {
-  from: '#6543f5',
-  to: '#2c06c6',
+  from: '#2c2b30',
+  to: '#1d1c20',
 } as const
 
-// red-600 and red-800. red-500 is the brighter, more obvious red, but white
-// on it is 4.16:1 -- under AA, and this card is white text on colour.
+// wine-600 into wine-800 -- exactly what "Vencimientos que se acercan" is
+// filled with, so a budget at its limit and a bill about to come due are
+// visibly the same warning rather than two different reds.
 export const BUDGET_GRADIENT_SPENT = {
-  from: '#ad261c',
-  to: '#701812',
+  from: '#a52935',
+  to: '#681627',
 } as const
 
 export type BudgetGradient = {
@@ -39,13 +43,15 @@ function mix(from: string, to: string, amount: number): string {
   return `#${channels.join('')}`
 }
 
-// Squared rather than linear: at a linear ramp the card is visibly warm by
+// Cubed rather than linear: on a linear ramp the card is visibly warm by
 // the middle of the month, which is exactly when there is nothing to warn
-// about yet. Squaring holds the violet through the early spend and moves
-// most of the way to red over the last third.
+// about yet. It was squared while the calm end was violet, where a little
+// red still read as violet; from a neutral charcoal any red at all shows
+// immediately, so the curve had to get steeper to hold the card grey
+// through the early spend and turn over the last quarter.
 export function budgetGradient(percentUsed: number): BudgetGradient {
   const clamped = Math.min(100, Math.max(0, percentUsed))
-  const heat = (clamped / 100) ** 2
+  const heat = (clamped / 100) ** 3
   return {
     from: mix(BUDGET_GRADIENT_CALM.from, BUDGET_GRADIENT_SPENT.from, heat),
     to: mix(BUDGET_GRADIENT_CALM.to, BUDGET_GRADIENT_SPENT.to, heat),

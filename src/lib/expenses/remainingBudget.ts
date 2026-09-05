@@ -1,15 +1,29 @@
 // Argentine peso formatting: thousands separator "." and decimal "," (e.g.
-// $224.300,00), always 2 decimals to match parseExpensePrice's stored
-// precision -- no built-in Intl currency style here, since 'ARS' inserts a
-// "$ " with a space that doesn't match how the app's own reference and
+// $224.300,50) -- no built-in Intl currency style here, since 'ARS' inserts
+// a "$ " with a space that doesn't match how the app's own reference and
 // every Argentine app actually renders amounts.
-const ARS_NUMBER_FORMAT = new Intl.NumberFormat('es-AR', {
+//
+// Cents are shown only when there are any. Most amounts a household enters
+// are round, and "$62.000,00" spends four characters saying nothing -- in a
+// column of figures, and inside the narrow cards, that is the difference
+// between a line fitting and wrapping. Per direct feedback. Amounts that do
+// carry cents still show both digits, so "$45,5" never appears.
+const ARS_ROUND = new Intl.NumberFormat('es-AR', {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+})
+const ARS_WITH_CENTS = new Intl.NumberFormat('es-AR', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 })
 
 export function formatCurrency(amount: number): string {
-  return `$${ARS_NUMBER_FORMAT.format(Math.abs(amount))}`
+  const magnitude = Math.abs(amount)
+  // Rounded to cents first: 0.005 formats as "0,01" with cents, so the
+  // decision has to be made on the value that will actually be printed.
+  const cents = Math.round(magnitude * 100) % 100
+  const format = cents === 0 ? ARS_ROUND : ARS_WITH_CENTS
+  return `$${format.format(magnitude)}`
 }
 
 export function formatBudgetAmount(amount: number): string {

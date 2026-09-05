@@ -57,17 +57,16 @@ export function InviteLinkPanel({
 
   return (
     <div className="flex w-full flex-col gap-2">
-      <Button type="button" onClick={() => void onGenerate()}>
+      <Button
+        type="button"
+        className="lg:w-auto lg:self-end lg:px-8"
+        onClick={() => void onGenerate()}
+      >
         Generar link de invitación
       </Button>
       {inviteUrl !== null ? (
         <>
-          <Label
-            htmlFor="invite-url"
-            className="text-muted-foreground font-medium"
-          >
-            Link de invitación
-          </Label>
+          <Label htmlFor="invite-url">Link de invitación</Label>
           <Input id="invite-url" name="invite-url" readOnly value={inviteUrl} />
           <Button type="button" variant="outline" onClick={() => void onCopy()}>
             Copiar

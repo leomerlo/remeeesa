@@ -20,15 +20,15 @@ import { renderWithProviders } from '@/test/renderWithProviders'
 import { PendientesPage } from './PendientesPage'
 
 // Same local copy of the row's date formatting that
-// PendientesList.test.tsx keeps, rather than importing formatShortDate --
+// PendientesList.test.tsx keeps, rather than importing formatDate --
 // asserting against the very function under render would pass even if the
 // formatting changed underneath.
 function formatPendienteDueDate(date: Date): string {
-  return date.toLocaleDateString('es-AR', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
+  // "06/09/2026". Written long-hand here on purpose: asserting with the
+  // very function under render would still pass if the formatting silently
+  // changed.
+  const pad = (value: number): string => String(value).padStart(2, '0')
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${String(date.getFullYear())}`
 }
 
 function renderPendientesPage(
@@ -83,7 +83,7 @@ describe('PendientesPage', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('heading', { name: 'Pendientes' }),
+        screen.getByRole('heading', { name: 'Servicios' }),
       ).toBeInTheDocument()
     })
   })
@@ -139,12 +139,14 @@ describe('PendientesPage', () => {
     )
 
     expect(
-      await screen.findByRole('heading', { name: 'Pendientes' }),
+      await screen.findByRole('heading', { name: 'Servicios' }),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'Agregar Servicio' }),
     ).toBeInTheDocument()
-    expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
+    expect(
+      await screen.findByText('No hay servicios en este mes'),
+    ).toBeInTheDocument()
   })
 
   it('opens the add-pendiente form when the "Agregar Servicio" trigger is clicked', async () => {
@@ -217,9 +219,16 @@ describe('PendientesPage', () => {
     await waitFor(() => {
       expect(screen.queryByLabelText('Fecha de pago')).not.toBeInTheDocument()
     })
+    // The row stays, now marked as settled rather than payable -- this
+    // screen shows what has been paid this month alongside what is owed.
     await waitFor(() => {
-      expect(screen.queryByText('Alquiler')).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: 'Marcar pagado Alquiler' }),
+      ).not.toBeInTheDocument()
     })
+    expect(screen.getByText('Alquiler').closest('li')).toHaveTextContent(
+      'Pagado',
+    )
     expect(await listPendientes({ db, householdId: household.id })).toEqual([])
     // authorDisplayName comes from the signed-in member's own household
     // membership (its default here is the generic 'Miembro' fallback) --
@@ -277,9 +286,16 @@ describe('PendientesPage', () => {
       screen.getByRole('button', { name: 'Guardar y marcar pagado' }),
     )
 
+    // The row stays, now marked as settled rather than payable -- this
+    // screen shows what has been paid this month alongside what is owed.
     await waitFor(() => {
-      expect(screen.queryByText('Alquiler')).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: 'Marcar pagado Alquiler' }),
+      ).not.toBeInTheDocument()
     })
+    expect(screen.getByText('Alquiler').closest('li')).toHaveTextContent(
+      'Pagado',
+    )
     const paidExpenses = await listExpensesInMonth({
       db,
       householdId: household.id,
@@ -321,6 +337,7 @@ describe('PendientesPage', () => {
       dueDate: paidDueDate,
       expectedAmount: 500,
       recurring: true,
+      autoDebit: false,
     })
 
     renderPendientesPage(
@@ -338,24 +355,35 @@ describe('PendientesPage', () => {
     await waitFor(() => {
       expect(screen.queryByLabelText('Fecha de pago')).not.toBeInTheDocument()
     })
-    // Both cycles carry the same name, so the due date -- not the name -- is
-    // what tells the new row apart from the one just paid.
+    // The screen reads one month at a time, so the cycle just settled stays
+    // here, marked as such, and the one it spawned is next month's business.
     await waitFor(() => {
-      expect(
-        screen.getByText(formatPendienteDueDate(new Date(2026, 9, 10))),
-      ).toBeInTheDocument()
+      // A settled bill says when it was *paid*, not when it was due -- the
+      // payment date is the useful fact once the money has gone.
+      expect(screen.getByText(/^Pagado el /)).toBeInTheDocument()
     })
-
-    const rows = screen.getAllByRole('listitem')
-    expect(rows).toHaveLength(1)
-    expect(rows[0]).toHaveTextContent('Alquiler')
-    expect(rows[0]).toHaveTextContent('Comida')
+    expect(screen.getAllByRole('listitem')).toHaveLength(1)
     expect(
-      screen.queryByText(formatPendienteDueDate(paidDueDate)),
+      screen.queryByText(
+        `Vence el ${formatPendienteDueDate(new Date(2026, 9, 10))}`,
+      ),
     ).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mes siguiente' }))
+
+    // Both cycles carry the same name, so the due date -- not the name --
+    // is what tells the new row apart from the one just paid.
+    const nextCycle = (
+      await screen.findByText(
+        `Vence el ${formatPendienteDueDate(new Date(2026, 9, 10))}`,
+      )
+    ).closest('li')
+    expect(nextCycle).toHaveTextContent('Alquiler')
+    expect(nextCycle).toHaveTextContent('Comida')
+    expect(nextCycle).not.toHaveTextContent('Pagado')
     // The next cycle is pre-filled with the amount just paid, an editable
     // starting point rather than a blank "$ --,--" placeholder.
-    expect(rows[0]).toHaveTextContent('$500,00')
+    expect(nextCycle).toHaveTextContent('$500')
   })
 
   it('keeps the mark-paid sheet open with a clear alert and refreshes the stale row out of the pending list when the pendiente was already paid', async () => {
@@ -423,7 +451,9 @@ describe('PendientesPage', () => {
     // The documented invalidateQueries-on-error refresh (see
     // AddPendienteForm.tsx's onError) must actually reach the list behind
     // the sheet, not just be called -- the stale row disappears even before
-    // the sheet is dismissed.
+    // the sheet is dismissed. It goes entirely, rather than turning into a
+    // settled row, because the race above paid it in a past month and this
+    // screen only keeps what was paid in the current one.
     await waitFor(() => {
       expect(screen.queryByText('Alquiler')).not.toBeInTheDocument()
     })

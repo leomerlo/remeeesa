@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { Category } from '@/lib/expenses'
 import { CategoryChips } from './CategoryChips'
@@ -82,9 +82,11 @@ describe('CategoryChips', () => {
       <CategoryChips categories={CATEGORIES} value="" onChange={() => {}} />,
     )
 
+    // The colour belongs to the chip and is handed to CSS as a custom
+    // property; the disc inside it and the chip's own fill when selected
+    // both read that one property.
     const chip = screen.getByRole('button', { name: /Comida/ })
-    const swatch = within(chip).getByRole('generic', { hidden: true })
-    expect(swatch).toHaveStyle({ backgroundColor: '#df473c' })
+    expect(chip.style.getPropertyValue('--swatch-color')).toBe('#df473c')
   })
 
   // Per direct feedback: a household with enough categories to wrap onto

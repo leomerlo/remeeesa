@@ -60,6 +60,7 @@ export function parsePendienteDocument(input: {
     due_date,
     expected_amount,
     recurring,
+    auto_debit,
     status,
     paid_expense_id,
     paid_at,
@@ -77,6 +78,11 @@ export function parsePendienteDocument(input: {
     dueDate: parseTimestamp(due_date, 'due_date'),
     expectedAmount: parseNullableNumber(expected_amount, 'expected_amount'),
     recurring: parseBoolean(recurring, 'recurring'),
+    // Missing on any Pendiente written before auto-debit existed -- absent
+    // means the household pays it themselves, which is what every one of
+    // those was.
+    autoDebit:
+      auto_debit === undefined ? false : parseBoolean(auto_debit, 'auto_debit'),
     status: parsePendienteStatus(status),
     paidExpenseId: parseNullableString(paid_expense_id, 'paid_expense_id'),
     // Missing (not just null) on any Pendiente doc written before this field
@@ -94,6 +100,7 @@ export function pendienteToDocument(input: {
   readonly dueDate: Date
   readonly expectedAmount: number | null
   readonly recurring: boolean
+  readonly autoDebit: boolean
   readonly status: PendienteStatus
   readonly paidExpenseId: string | null
   readonly paidAt: Date | null
@@ -105,6 +112,7 @@ export function pendienteToDocument(input: {
   readonly due_date: Date
   readonly expected_amount: number | null
   readonly recurring: boolean
+  readonly auto_debit: boolean
   readonly status: PendienteStatus
   readonly paid_expense_id: string | null
   readonly paid_at: Date | null
@@ -117,6 +125,7 @@ export function pendienteToDocument(input: {
     due_date: input.dueDate,
     expected_amount: input.expectedAmount,
     recurring: input.recurring,
+    auto_debit: input.autoDebit,
     status: input.status,
     paid_expense_id: input.paidExpenseId,
     paid_at: input.paidAt,

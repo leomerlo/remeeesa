@@ -244,6 +244,7 @@ describe('AddPendienteSheet', () => {
       dueDate: new Date(2026, 8, 10),
       expectedAmount: 500,
       recurring: false,
+      autoDebit: false,
     }
 
     renderWithProviders(
@@ -299,6 +300,7 @@ describe('AddPendienteSheet', () => {
       dueDate: new Date(2026, 8, 10),
       expectedAmount: 500,
       recurring: false,
+      autoDebit: false,
     }
 
     renderWithProviders(
@@ -338,6 +340,7 @@ describe('AddPendienteSheet', () => {
       dueDate: new Date(2026, 8, 10),
       expectedAmount: 500,
       recurring: false,
+      autoDebit: false,
     }
 
     renderWithProviders(

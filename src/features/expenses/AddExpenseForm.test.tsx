@@ -433,9 +433,13 @@ describe('AddExpenseForm', () => {
     fireEvent.focus(combobox)
 
     const option = await screen.findByRole('option', { name: 'Servicios' })
-    expect(option.querySelector('[aria-hidden="true"]')).toHaveStyle({
-      backgroundColor: servicios.color,
-    })
+    // The colour reaches CSS as a custom property the class reads, so it is
+    // the property that carries it, not a background-color declaration.
+    expect(
+      option
+        .querySelector<HTMLElement>('[aria-hidden="true"]')
+        ?.style.getPropertyValue('--swatch-color'),
+    ).toBe(servicios.color)
     fireEvent.click(option)
 
     expect(combobox).toHaveValue('Servicios')

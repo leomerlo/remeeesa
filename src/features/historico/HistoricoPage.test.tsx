@@ -1,10 +1,9 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
 import {
   createExpense,
-  EXPENSE_HISTORY_PAGE_SIZE,
   formatCurrency,
   listCategories,
   updateExpense,
@@ -37,6 +36,15 @@ async function seedHousehold() {
     throw new Error('expected a seeded category')
   }
   return { db, householdId: household.id, categoryId: category.id }
+}
+
+// Histórico reads one month at a time now, so a test that seeds into a past
+// month has to walk the pager back to it. The pager only appears once the
+// membership resolves, hence the find rather than a get.
+async function goBackMonths(count: number): Promise<void> {
+  for (let step = 0; step < count; step += 1) {
+    fireEvent.click(await screen.findByRole('button', { name: 'Mes anterior' }))
+  }
 }
 
 async function seed(input: {
@@ -81,10 +89,12 @@ describe('HistoricoPage', () => {
     expect(
       screen.getByRole('heading', { name: 'Histórico' }),
     ).toBeInTheDocument()
-    expect(await screen.findByText('Todavía no hay gastos')).toBeInTheDocument()
+    expect(
+      await screen.findByText('No hay movimientos en este mes'),
+    ).toBeInTheDocument()
   })
 
-  it('groups expenses under month headers, newest month first', async () => {
+  it('lists the viewed month newest first', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
     await seed({
       db,
@@ -105,70 +115,48 @@ describe('HistoricoPage', () => {
 
     renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
 
-    const august = await screen.findByRole('list', { name: 'Agosto de 2026' })
+    await goBackMonths(1)
+
+    const august = await screen.findByRole('list', {
+      name: 'Movimientos del mes',
+    })
     const rows = within(august).getAllByRole('listitem')
     // Newest-first within the month.
     expect(rows[0]).toHaveTextContent('Cafe agosto')
     expect(rows[0]).toHaveTextContent('$4,70')
     expect(rows[1]).toHaveTextContent('Alquiler agosto')
-    expect(rows[1]).toHaveTextContent('$300,00')
+    expect(rows[1]).toHaveTextContent('$300')
   })
 
-  it('loads a fixed page of expenses at a time, regardless of month, and stops offering more at the end', async () => {
+  // Per direct feedback: the history is read a month at a time, paged by
+  // the same control Home and Servicios use, rather than an endless
+  // cursor-walk behind a "Cargar más" button.
+  it('shows one month at a time and pages between them', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
-    // EXPENSE_HISTORY_PAGE_SIZE in August (newest), plus 3 more in July --
-    // the page boundary lands mid-history, not at the month line.
-    for (let day = 1; day <= EXPENSE_HISTORY_PAGE_SIZE; day += 1) {
-      await seed({
-        db,
-        householdId,
-        categoryId,
-        name: `Ago ${String(day)}`,
-        date: new Date(2026, 7, day),
-      })
-    }
-    for (let day = 1; day <= 3; day += 1) {
-      await seed({
-        db,
-        householdId,
-        categoryId,
-        name: `Jul ${String(day)}`,
-        date: new Date(2026, 6, day),
-      })
-    }
+    await seed({
+      db,
+      householdId,
+      categoryId,
+      name: 'Ago 1',
+      date: new Date(2026, 7, 1),
+    })
+    await seed({
+      db,
+      householdId,
+      categoryId,
+      name: 'Jul 1',
+      date: new Date(2026, 6, 1),
+    })
 
     renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
 
-    // Only the first page (all of August, the newest EXPENSE_HISTORY_PAGE_SIZE
-    // rows) at first -- July is behind "Cargar más".
-    expect(
-      await screen.findByText(`Ago ${String(EXPENSE_HISTORY_PAGE_SIZE)}`),
-    ).toBeInTheDocument()
-    expect(screen.getByText('Ago 1')).toBeInTheDocument()
+    await goBackMonths(1)
+    expect(await screen.findByText('Ago 1')).toBeInTheDocument()
     expect(screen.queryByText('Jul 1')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cargar más' }))
-
+    await goBackMonths(1)
     expect(await screen.findByText('Jul 1')).toBeInTheDocument()
-    // Both months are now on screen, each under its own header, rendered
-    // once even though July only fully arrived on the second page.
-    expect(
-      screen.getByRole('list', { name: 'Agosto de 2026' }),
-    ).toBeInTheDocument()
-    expect(
-      screen.getByRole('list', { name: 'Julio de 2026' }),
-    ).toBeInTheDocument()
-    expect(
-      within(screen.getByRole('list', { name: 'Julio de 2026' })).getAllByRole(
-        'listitem',
-      ),
-    ).toHaveLength(3)
-    // Nothing older left, so the button is gone rather than returning empty.
-    await waitFor(() => {
-      expect(
-        screen.queryByRole('button', { name: 'Cargar más' }),
-      ).not.toBeInTheDocument()
-    })
+    expect(screen.queryByText('Ago 1')).not.toBeInTheDocument()
   })
 
   it('opens the shared edit sheet for an expense from a past month', async () => {
@@ -178,7 +166,7 @@ describe('HistoricoPage', () => {
       householdId,
       categoryId,
       name: 'Gasto viejo',
-      date: new Date(2026, 2, 15),
+      date: new Date(),
       price: 55,
     })
 
@@ -204,7 +192,7 @@ describe('HistoricoPage', () => {
       householdId,
       categoryId,
       name: 'Gasto viejo',
-      date: new Date(2026, 2, 15),
+      date: new Date(),
     })
 
     renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
@@ -221,11 +209,9 @@ describe('HistoricoPage', () => {
     expect(screen.queryByText('Gasto viejo')).not.toBeInTheDocument()
   })
 
-  // Histórico has no "add" entry point of its own -- it reuses the expense
-  // sheet purely to edit a row it was handed. The sheet rendered its trigger
-  // regardless, leaving an "Agregar gasto" button floating under the page
-  // title with nothing around it.
-  it('does not offer an add-expense button', async () => {
+  // Per direct feedback: this is the screen you are on when you notice a
+  // gasto is missing, so it gets the same title-row action Servicios has.
+  it('offers an add-expense button that opens the shared sheet', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
     await seed({
       db,
@@ -238,9 +224,10 @@ describe('HistoricoPage', () => {
     renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
 
     await screen.findByText('Gasto')
-    expect(
-      screen.queryByRole('button', { name: 'Agregar gasto' }),
-    ).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
+
+    expect(await screen.findByLabelText('Nombre')).toBeInTheDocument()
+    expect(screen.getByLabelText('Precio')).toBeInTheDocument()
   })
 
   // A history that only lists rows makes "what did we spend that month" a
@@ -268,43 +255,9 @@ describe('HistoricoPage', () => {
     renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
 
     await screen.findByText('Uno')
-    const monthHeading = screen.getAllByRole('heading', { level: 2 })[0]
-    expect(monthHeading?.parentElement).toHaveTextContent('$100,00')
-  })
-
-  // A page can now land mid-month (see the pagination test above), so the
-  // last month on screen might not be fully loaded yet -- showing its
-  // running total as if it were final would undercount it.
-  it('hides the last month\'s total while more of that month may still be behind "Cargar más"', async () => {
-    const { db, householdId, categoryId } = await seedHousehold()
-    for (let day = 1; day <= EXPENSE_HISTORY_PAGE_SIZE + 3; day += 1) {
-      await seed({
-        db,
-        householdId,
-        categoryId,
-        name: `Ago ${String(day)}`,
-        date: new Date(2026, 7, day),
-      })
-    }
-
-    renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
-
-    await screen.findByText(`Ago ${String(EXPENSE_HISTORY_PAGE_SIZE)}`)
-    const monthHeading = screen.getByRole('heading', {
-      name: 'Agosto de 2026',
-    })
-    // No total shown yet -- only 15 of the 18 August expenses have loaded.
-    expect(monthHeading.parentElement).toHaveTextContent('Agosto de 2026')
-    expect(monthHeading.parentElement?.querySelector('span')).toBeNull()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Cargar más' }))
-
-    // Now the whole month has loaded (nothing older exists), so the total
-    // appears, and is the full month's sum.
-    await screen.findByText(`Ago ${String(EXPENSE_HISTORY_PAGE_SIZE + 3)}`)
-    expect(monthHeading.parentElement).toHaveTextContent(
-      formatCurrency(10 * (EXPENSE_HISTORY_PAGE_SIZE + 3)),
-    )
+    expect(
+      screen.getByRole('heading', { name: 'Total del mes' }).parentElement,
+    ).toHaveTextContent('$100')
   })
 
   // Regression: authorDisplayName is a snapshot taken when the expense was
@@ -330,7 +283,7 @@ describe('HistoricoPage', () => {
       householdId: household.id,
       categoryId: category.id,
       name: 'Veterinario',
-      date: new Date(2026, 2, 15),
+      date: new Date(),
     })
 
     await updateMemberDisplayName({
@@ -342,9 +295,11 @@ describe('HistoricoPage', () => {
 
     renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
 
-    const row = await screen.findByRole('button', {
-      name: 'Editar Veterinario',
-    })
+    // Editing is its own button now, so the name is asserted on the row it
+    // sits in rather than on the button.
+    const row = (
+      await screen.findByRole('button', { name: 'Editar Veterinario' })
+    ).closest('li')
     expect(row).toHaveTextContent('Jlors')
     expect(row).not.toHaveTextContent('Florencia Sepúlveda')
   })
@@ -359,15 +314,18 @@ describe('HistoricoPage', () => {
       householdId,
       categoryId,
       name: 'Super',
-      date: new Date(2026, 7, 5),
+      date: new Date(),
     })
     const pendiente = await createPendiente({
       db,
       householdId,
       categoryId,
       name: 'Internet',
-      dueDate: new Date(2026, 7, 10),
+      dueDate: new Date(),
       expectedAmount: 5000,
+      // Recurring on purpose: that is what makes the Expense it generates a
+      // Servicio. A one-off bill produces an ordinary Gasto.
+      recurring: true,
     })
     await markPendientePaid({
       db,
@@ -376,7 +334,7 @@ describe('HistoricoPage', () => {
       memberId: 'user-1',
       authorDisplayName: 'Ada',
       finalAmount: 5000,
-      paymentDate: new Date(2026, 7, 10),
+      paymentDate: new Date(),
     })
 
     renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
@@ -402,14 +360,14 @@ describe('HistoricoPage', () => {
       householdId,
       categoryId,
       name: 'Super',
-      date: new Date(2026, 7, 5),
+      date: new Date(),
     })
     const manualServicio = await seed({
       db,
       householdId,
       categoryId,
       name: 'Gimnasio',
-      date: new Date(2026, 7, 8),
+      date: new Date(),
     })
     await updateExpense({
       db,
@@ -443,7 +401,7 @@ describe('HistoricoPage', () => {
       householdId,
       categoryId,
       name: 'Super',
-      date: new Date(2026, 7, 5),
+      date: new Date(),
       price: 100,
     })
     const pendiente = await createPendiente({
@@ -451,8 +409,11 @@ describe('HistoricoPage', () => {
       householdId,
       categoryId,
       name: 'Internet',
-      dueDate: new Date(2026, 7, 10),
+      dueDate: new Date(),
       expectedAmount: 5000,
+      // Recurring on purpose: that is what makes the Expense it generates a
+      // Servicio. A one-off bill produces an ordinary Gasto.
+      recurring: true,
     })
     await markPendientePaid({
       db,
@@ -461,7 +422,7 @@ describe('HistoricoPage', () => {
       memberId: 'user-1',
       authorDisplayName: 'Ada',
       finalAmount: 5000,
-      paymentDate: new Date(2026, 7, 10),
+      paymentDate: new Date(),
     })
 
     renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
@@ -469,21 +430,22 @@ describe('HistoricoPage', () => {
     await screen.findByText('Super')
     expect(screen.getByText('Internet')).toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: 'Agosto de 2026' }).parentElement,
+      screen.getByRole('heading', { name: 'Total del mes' }).parentElement,
     ).toHaveTextContent(formatCurrency(5100))
 
     fireEvent.click(screen.getByRole('tab', { name: 'Servicios' }))
     expect(screen.queryByText('Super')).not.toBeInTheDocument()
     expect(screen.getByText('Internet')).toBeInTheDocument()
+    // The label follows the tab, so it says what the figure is a total of.
     expect(
-      screen.getByRole('heading', { name: 'Agosto de 2026' }).parentElement,
+      screen.getByRole('heading', { name: 'Total en servicios' }).parentElement,
     ).toHaveTextContent(formatCurrency(5000))
 
     fireEvent.click(screen.getByRole('tab', { name: 'Gastos' }))
     expect(screen.getByText('Super')).toBeInTheDocument()
     expect(screen.queryByText('Internet')).not.toBeInTheDocument()
     expect(
-      screen.getByRole('heading', { name: 'Agosto de 2026' }).parentElement,
+      screen.getByRole('heading', { name: 'Total en gastos' }).parentElement,
     ).toHaveTextContent(formatCurrency(100))
 
     fireEvent.click(screen.getByRole('tab', { name: 'Todos' }))
@@ -498,7 +460,7 @@ describe('HistoricoPage', () => {
       householdId,
       categoryId,
       name: 'Super',
-      date: new Date(2026, 7, 5),
+      date: new Date(),
     })
 
     renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
@@ -507,7 +469,7 @@ describe('HistoricoPage', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Servicios' }))
 
     expect(
-      await screen.findByText('No hay servicios en tu histórico'),
+      await screen.findByText('No hay servicios en este mes'),
     ).toBeInTheDocument()
     expect(screen.queryByText('Super')).not.toBeInTheDocument()
   })

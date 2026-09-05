@@ -36,7 +36,7 @@ export function AddPendienteSheet({
   authorDisplayName,
   editPendiente = null,
   onEditFinished,
-  triggerClassName = 'w-full',
+  triggerClassName = 'w-full lg:w-auto lg:self-start lg:px-6',
   showTrigger = true,
 }: AddPendienteSheetProps): ReactElement {
   const [isSubmitting, setIsSubmitting] = useState(false)

@@ -161,6 +161,7 @@ export type HouseholdsDb = {
     readonly dueDate: Date
     readonly expectedAmount: number | null
     readonly recurring?: boolean
+    readonly autoDebit?: boolean
   }): Promise<Pendiente>
   getPendiente(input: {
     readonly householdId: string
@@ -186,6 +187,7 @@ export type HouseholdsDb = {
     readonly dueDate: Date
     readonly expectedAmount: number | null
     readonly recurring: boolean
+    readonly autoDebit: boolean
   }): Promise<Pendiente>
   deletePendiente(input: {
     readonly householdId: string
