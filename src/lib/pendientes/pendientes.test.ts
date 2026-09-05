@@ -57,6 +57,7 @@ describe('createPendiente', () => {
       dueDate,
       expectedAmount: 500,
       recurring: false,
+      autoDebit: false,
       status: 'pending',
       paidExpenseId: null,
       paidAt: null,
@@ -87,6 +88,7 @@ describe('createPendiente', () => {
       dueDate: new Date(2026, 8, 10),
       expectedAmount: 15,
       recurring: true,
+      autoDebit: false,
     })
 
     expect(pendiente.recurring).toBe(true)
@@ -510,6 +512,7 @@ describe('listPendientes', () => {
       dueDate: new Date(2026, 8, 1),
       expectedAmount: 300,
       recurring: false,
+      autoDebit: false,
       status: 'paid',
       paidExpenseId: 'expense-1',
       paidAt: new Date(),
@@ -598,6 +601,7 @@ describe('listPendientes', () => {
 async function seedPendingPendiente(input?: {
   readonly expectedAmount?: number | null
   readonly recurring?: boolean
+  readonly autoDebit?: boolean
 }) {
   const db = createMemoryHouseholdsDb().asUser('user-1')
   const household = await createHouseholdWithMembership({
@@ -803,6 +807,7 @@ describe('updatePendiente', () => {
   it('toggles recurring via updatePendiente', async () => {
     const { db, household, pendiente } = await seedPendingPendiente({
       recurring: false,
+      autoDebit: false,
     })
     expect(pendiente.recurring).toBe(false)
 
@@ -811,6 +816,7 @@ describe('updatePendiente', () => {
       householdId: household.id,
       pendienteId: pendiente.id,
       recurring: true,
+      autoDebit: false,
     })
 
     expect(updated.recurring).toBe(true)
@@ -819,6 +825,7 @@ describe('updatePendiente', () => {
   it('toggles recurring off via updatePendiente', async () => {
     const { db, household, pendiente } = await seedPendingPendiente({
       recurring: true,
+      autoDebit: false,
     })
     expect(pendiente.recurring).toBe(true)
 
@@ -827,6 +834,7 @@ describe('updatePendiente', () => {
       householdId: household.id,
       pendienteId: pendiente.id,
       recurring: false,
+      autoDebit: false,
     })
 
     expect(updated.recurring).toBe(false)
@@ -850,6 +858,7 @@ describe('updatePendiente', () => {
       dueDate: newDueDate,
       expectedAmount: 650.456,
       recurring: true,
+      autoDebit: false,
     })
 
     expect(updated).toEqual({
@@ -859,6 +868,7 @@ describe('updatePendiente', () => {
       dueDate: newDueDate,
       expectedAmount: 650.46,
       recurring: true,
+      autoDebit: false,
     })
   })
 
@@ -1087,6 +1097,7 @@ describe('updatePendiente', () => {
       dueDate: new Date(2026, 8, 1),
       expectedAmount: 300,
       recurring: false,
+      autoDebit: false,
       status: 'paid',
       paidExpenseId: 'expense-1',
       paidAt: new Date(),
@@ -1267,6 +1278,7 @@ describe('deletePendiente', () => {
       dueDate: new Date(2026, 8, 1),
       expectedAmount: 300,
       recurring: false,
+      autoDebit: false,
       status: 'paid',
       paidExpenseId: 'expense-1',
       paidAt: new Date(),
@@ -1367,6 +1379,7 @@ describe('memoryHouseholdsDb updatePendiente/deletePendiente (bypassing the doma
         dueDate: pendiente.dueDate,
         expectedAmount: pendiente.expectedAmount,
         recurring: false,
+        autoDebit: false,
       }),
     ).rejects.toThrow(PendienteAlreadyPaidError)
   })
@@ -1549,6 +1562,7 @@ describe('markPendientePaid', () => {
   it('leaves no orphaned state -- not even a dangling next cycle -- when a recurring mark-paid fails midway', async () => {
     const { db, household, pendiente } = await seedPendingPendiente({
       recurring: true,
+      autoDebit: false,
     })
     const randomUUIDSpy = vi
       .spyOn(crypto, 'randomUUID')
@@ -1751,6 +1765,7 @@ describe('markPendientePaid', () => {
   it('spawns the next cycle for a recurring pendiente: same name and category, still recurring, pending, one month later, with a fresh id', async () => {
     const { db, household, comida, pendiente } = await seedPendingPendiente({
       recurring: true,
+      autoDebit: false,
     })
 
     const { nextPendiente } = await markPendientePaid({
@@ -1777,6 +1792,7 @@ describe('markPendientePaid', () => {
   it('leaves the next cycle unpaid, with paidAt still null', async () => {
     const { db, household, pendiente } = await seedPendingPendiente({
       recurring: true,
+      autoDebit: false,
     })
 
     const { nextPendiente } = await markPendientePaid({
@@ -1795,6 +1811,7 @@ describe('markPendientePaid', () => {
   it('pre-fills the next cycle expected amount with the amount just paid, not the earlier estimate', async () => {
     const { db, household, pendiente } = await seedPendingPendiente({
       recurring: true,
+      autoDebit: false,
       expectedAmount: 480,
     })
     expect(pendiente.expectedAmount).toBe(480)
@@ -1818,6 +1835,7 @@ describe('markPendientePaid', () => {
   it('leaves the next cycle as the only pending pendiente right after a recurring mark-paid', async () => {
     const { db, household, pendiente } = await seedPendingPendiente({
       recurring: true,
+      autoDebit: false,
     })
 
     const { nextPendiente } = await markPendientePaid({
@@ -1842,6 +1860,7 @@ describe('markPendientePaid', () => {
   it('keeps the series going: the auto-created cycle can itself be marked paid and spawns a third cycle', async () => {
     const { db, household, pendiente } = await seedPendingPendiente({
       recurring: true,
+      autoDebit: false,
     })
 
     const { nextPendiente: second } = await markPendientePaid({
@@ -1888,6 +1907,7 @@ describe('markPendientePaid', () => {
       dueDate: new Date(2026, 1, 10),
       expectedAmount: null,
       recurring: true,
+      autoDebit: false,
     })
 
     const { nextPendiente } = await markPendientePaid({
@@ -1913,6 +1933,7 @@ describe('markPendientePaid', () => {
       dueDate: new Date(2026, 0, 31),
       expectedAmount: null,
       recurring: true,
+      autoDebit: false,
     })
 
     const { nextPendiente } = await markPendientePaid({
@@ -1931,6 +1952,7 @@ describe('markPendientePaid', () => {
   it('creates no next cycle for a non-recurring pendiente', async () => {
     const { db, household, pendiente } = await seedPendingPendiente({
       recurring: false,
+      autoDebit: false,
     })
 
     const { nextPendiente } = await markPendientePaid({
@@ -1958,6 +1980,7 @@ describe('markPendientePaid', () => {
   it('spawns exactly one next cycle when a recurring pendiente is marked paid twice back-to-back', async () => {
     const { db, household, pendiente } = await seedPendingPendiente({
       recurring: true,
+      autoDebit: false,
     })
 
     const outcomes = await Promise.allSettled([

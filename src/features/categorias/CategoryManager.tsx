@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { Pencil, Plus } from 'lucide-react'
+import { cssVars } from '@/lib/cssVars'
 import { Button } from '@/components/ui/button'
 import { Sheet } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -42,7 +43,7 @@ export function CategoryManager({
   return (
     <section
       aria-labelledby="tus-categorias-heading"
-      className="bg-card shadow-resting flex w-full flex-col gap-4 rounded-3xl p-6"
+      className="bg-card flex w-full flex-col gap-4 rounded-3xl p-6"
     >
       <div className="flex items-center justify-between gap-2">
         <h2 id="tus-categorias-heading" className="text-title font-semibold">
@@ -50,7 +51,7 @@ export function CategoryManager({
         </h2>
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           size="sm"
           className="gap-1"
           onClick={() => {
@@ -93,8 +94,8 @@ export function CategoryManager({
                 <span
                   aria-hidden="true"
                   data-testid="manager-swatch"
-                  className="size-6 shrink-0 rounded-full"
-                  style={{ backgroundColor: category.color }}
+                  className="size-6 shrink-0 rounded-full bg-[var(--swatch-color)]"
+                  style={cssVars({ '--swatch-color': category.color })}
                 />
                 <span className="min-w-0 flex-1 truncate text-sm">
                   {category.name}

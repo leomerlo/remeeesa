@@ -94,7 +94,39 @@ describe('AppShell', () => {
     expect(
       within(nav).getByRole('link', { name: /ajustes/i }),
     ).toBeInTheDocument()
-    expect(within(nav).getAllByRole('link')).toHaveLength(4)
+    expect(within(nav).getAllByRole('link')).toHaveLength(5)
+  })
+
+  // Per direct feedback: Servicios is a top-level destination at every
+  // width, between Histórico and Categorías.
+  it('carries Servicios in the nav at every width', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderShell({ currentUserId: 'user-1', householdsDb: db })
+
+    const nav = await screen.findByRole('navigation')
+    const servicios = within(nav).getByRole('link', { name: /servicios/i })
+    expect(servicios).toHaveAttribute('href', '/pendientes')
+    // No entry is hidden at any width, and Servicios sits third.
+    const labels = within(nav)
+      .getAllByRole('link')
+      .map((link) => link.textContent)
+    expect(labels).toEqual([
+      'Inicio',
+      'Histórico',
+      'Servicios',
+      'Categorías',
+      'Ajustes',
+    ])
+    for (const link of within(nav).getAllByRole('link')) {
+      expect(link.closest('li')).not.toHaveClass('hidden')
+    }
   })
 
   it('marks Ajustes active at /household', async () => {

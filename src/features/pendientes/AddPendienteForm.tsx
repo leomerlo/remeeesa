@@ -43,6 +43,7 @@ export type EditPendienteTarget = {
   readonly dueDate: Date
   readonly expectedAmount: number | null
   readonly recurring: boolean
+  readonly autoDebit: boolean
   // Pre-checks "Ya lo pagué" -- set by entry points whose whole purpose is
   // paying (Home's "Cuentas por pagar" cards, PendientesList's "Pagar"
   // button), so the toggle already reflects that intent rather than making
@@ -76,6 +77,7 @@ type PendienteFormFields = {
   readonly dueDate: string
   readonly expectedAmount: string
   readonly recurring: boolean
+  readonly autoDebit: boolean
 }
 
 function localDateInputValue(date: Date): string {
@@ -92,6 +94,7 @@ function emptyFormFields(): PendienteFormFields {
     dueDate: localDateInputValue(new Date()),
     expectedAmount: '',
     recurring: false,
+    autoDebit: false,
   }
 }
 
@@ -107,6 +110,7 @@ function formFieldsFromEdit(
         ? ''
         : String(editPendiente.expectedAmount),
     recurring: editPendiente.recurring,
+    autoDebit: editPendiente.autoDebit,
   }
 }
 
@@ -161,6 +165,7 @@ type ParsedPendienteFields = {
   readonly dueDate: Date
   readonly expectedAmount: number | null
   readonly recurring: boolean
+  readonly autoDebit: boolean
 }
 
 function parsePendienteFields(
@@ -178,6 +183,7 @@ function parsePendienteFields(
       trimmedAmount === '' ? null : Number(trimmedAmount),
     ),
     recurring: input.recurring,
+    autoDebit: input.autoDebit,
   }
 }
 
@@ -262,6 +268,7 @@ function PendienteFormBody({
     initialFields.expectedAmount,
   )
   const [recurring, setRecurring] = useState(initialFields.recurring)
+  const [autoDebit, setAutoDebit] = useState(initialFields.autoDebit)
   const [markPaid, setMarkPaid] = useState(
     isPaidPendiente ? true : (editPendiente?.defaultMarkPaid ?? false),
   )
@@ -351,6 +358,7 @@ function PendienteFormBody({
         setDueDate(reset.dueDate)
         setExpectedAmount(reset.expectedAmount)
         setRecurring(reset.recurring)
+        setAutoDebit(reset.autoDebit)
         // Reset alongside every other field: AddPendienteSheet closes on a
         // successful add today, which would remount this fresh anyway, but
         // nothing about this component depends on that -- a host that keeps
@@ -506,6 +514,7 @@ function PendienteFormBody({
         dueDate,
         expectedAmount,
         recurring,
+        autoDebit,
       })
       if (markPaid && fields.expectedAmount === null) {
         throw new Error('Ingresá un monto para marcarlo como pagado')
@@ -573,12 +582,7 @@ function PendienteFormBody({
               -- so it leads at the same hero size without being required,
               rather than forcing a number in before the bill is even known. */}
           <div className="flex w-full flex-col gap-2">
-            <Label
-              htmlFor="pendiente-expected-amount"
-              className="text-muted-foreground font-medium"
-            >
-              Monto esperado
-            </Label>
+            <Label htmlFor="pendiente-expected-amount">Monto esperado</Label>
             <div className="relative">
               <span
                 aria-hidden="true"
@@ -598,12 +602,7 @@ function PendienteFormBody({
           </div>
 
           <div className="flex w-full flex-col gap-2">
-            <Label
-              htmlFor="pendiente-name"
-              className="text-muted-foreground font-medium"
-            >
-              Nombre
-            </Label>
+            <Label htmlFor="pendiente-name">Nombre</Label>
             <Input
               id="pendiente-name"
               name="pendiente-name"
@@ -616,12 +615,7 @@ function PendienteFormBody({
           </div>
 
           <div className="flex w-full flex-col gap-2">
-            <Label
-              htmlFor="pendiente-category"
-              className="text-muted-foreground font-medium"
-            >
-              Categoría
-            </Label>
+            <Label htmlFor="pendiente-category">Categoría</Label>
             <CategoryChips
               categories={categories}
               value={category}
@@ -637,12 +631,7 @@ function PendienteFormBody({
           </div>
 
           <div className="flex w-full flex-col gap-2">
-            <Label
-              htmlFor="pendiente-due-date"
-              className="text-muted-foreground font-medium"
-            >
-              Fecha de vencimiento
-            </Label>
+            <Label htmlFor="pendiente-due-date">Fecha de vencimiento</Label>
             {/* Deliberately no `max`/`min` here, unlike the expense form's
                 date input -- a Pendiente's due date is explicitly allowed to
                 be in the past (e.g. logging an overdue bill) or the future. */}
@@ -657,15 +646,32 @@ function PendienteFormBody({
             />
           </div>
 
-          <div className="flex w-full items-center justify-between gap-2">
-            <Label htmlFor="pendiente-recurring" className="font-medium">
-              Recurrente
-            </Label>
-            <Switch
-              id="pendiente-recurring"
-              checked={recurring}
-              onCheckedChange={setRecurring}
+          {/* The bill's two properties share a line, switch then label,
+              split by a hairline -- the same shape the gasto form uses.
+              Débito automático means the household does not pay this one:
+              the bank takes it on the due date, so it settles itself rather
+              than waiting for someone to press Pagar. */}
+          <div className="flex w-full items-center gap-4">
+            <div className="flex flex-1 items-center gap-3">
+              <Switch
+                id="pendiente-recurring"
+                checked={recurring}
+                onCheckedChange={setRecurring}
+              />
+              <Label htmlFor="pendiente-recurring">Recurrente</Label>
+            </div>
+            <span
+              aria-hidden="true"
+              className="bg-border-subtle h-6 w-px shrink-0"
             />
+            <div className="flex flex-1 items-center gap-3">
+              <Switch
+                id="pendiente-auto-debit"
+                checked={autoDebit}
+                onCheckedChange={setAutoDebit}
+              />
+              <Label htmlFor="pendiente-auto-debit">Débito automático</Label>
+            </div>
           </div>
         </fieldset>
 
@@ -678,15 +684,13 @@ function PendienteFormBody({
             payment (per direct feedback -- there was no way back from a
             mistaken "Ya lo pagué"). */}
         <div className="flex w-full flex-col gap-2">
-          <div className="flex w-full items-center justify-between gap-2">
-            <Label htmlFor="pendiente-mark-paid" className="font-medium">
-              Ya lo pagué
-            </Label>
+          <div className="flex w-full items-center gap-3">
             <Switch
               id="pendiente-mark-paid"
               checked={markPaid}
               onCheckedChange={setMarkPaid}
             />
+            <Label htmlFor="pendiente-mark-paid">Ya lo pagué</Label>
           </div>
           {isPaidPendiente ? (
             <p className="text-muted-foreground text-xs">
@@ -696,12 +700,7 @@ function PendienteFormBody({
             </p>
           ) : markPaid ? (
             <div className="flex w-full flex-col gap-2">
-              <Label
-                htmlFor="pendiente-payment-date"
-                className="text-muted-foreground font-medium"
-              >
-                Fecha de pago
-              </Label>
+              <Label htmlFor="pendiente-payment-date">Fecha de pago</Label>
               <Input
                 id="pendiente-payment-date"
                 name="pendiente-payment-date"
@@ -726,7 +725,7 @@ function PendienteFormBody({
           <div
             role="alertdialog"
             aria-labelledby="delete-pendiente-title"
-            className="bg-card shadow-raised flex w-full flex-col gap-4 rounded-2xl border border-border p-4"
+            className="bg-card flex w-full flex-col gap-4 rounded-2xl border border-border p-4"
           >
             <p id="delete-pendiente-title" className="text-sm font-medium">
               ¿Eliminar el pendiente?
@@ -800,7 +799,7 @@ function PendienteFormBody({
                 {isPaidPendiente ? null : (
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     className="text-error hover:text-error"
                     disabled={mutation.isPending}
                     onClick={() => {

@@ -32,7 +32,7 @@ describe('MonthNavigator', () => {
     expect(
       await screen.findByText(formatMonthLabel(new Date())),
     ).toBeInTheDocument()
-    expect(await screen.findByText('Gastado este mes')).toBeInTheDocument()
+    expect(await screen.findByText('Gastos de este mes')).toBeInTheDocument()
     expect(await screen.findByText('Presupuesto restante')).toBeInTheDocument()
   })
 
@@ -43,7 +43,7 @@ describe('MonthNavigator', () => {
 
     renderWithProviders(<MonthNavigator db={db} householdId={household.id} />)
 
-    await screen.findByText('Gastado este mes')
+    await screen.findByText('Gastos de este mes')
     expect(screen.getByRole('button', { name: 'Mes siguiente' })).toBeDisabled()
     expect(
       screen.getByRole('button', { name: 'Mes anterior' }),
@@ -78,7 +78,7 @@ describe('MonthNavigator', () => {
     })
 
     renderWithProviders(<MonthNavigator db={db} householdId={household.id} />)
-    await screen.findByRole('status', { name: 'Gastado este mes $999,00' })
+    await screen.findByRole('status', { name: 'Gastos de este mes $999' })
 
     fireEvent.click(screen.getByRole('button', { name: 'Mes anterior' }))
 
@@ -86,7 +86,7 @@ describe('MonthNavigator', () => {
       await screen.findByText(formatMonthLabel(lastMonth)),
     ).toBeInTheDocument()
     expect(
-      await screen.findByRole('status', { name: 'Gastado este mes $40,00' }),
+      await screen.findByRole('status', { name: 'Gastos de este mes $40' }),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'Mes siguiente' }),

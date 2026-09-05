@@ -342,7 +342,7 @@ describe('firestore.rules pendientes', () => {
   it('requires the exact field set and a category belonging to the same household', () => {
     expect(rules).toContain('function isValidPendiente(data)')
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'status', 'paid_expense_id', 'paid_at', 'created_at'])",
+      "data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'auto_debit', 'status', 'paid_expense_id', 'paid_at', 'created_at'])",
     )
     expect(rules).toContain('data.due_date is timestamp')
     expect(rules).toContain(
@@ -390,7 +390,7 @@ describe('firestore.rules pendientes', () => {
     expect(rules).toContain('function isValidPendienteUpdate()')
     expect(rules).toContain("resource.data.status == 'pending'")
     expect(rules).toMatch(
-      /function isValidPendienteUpdate\(\) \{[\s\S]*?request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasOnly\(\['name', 'category_id', 'due_date', 'expected_amount', 'recurring'\]\)/,
+      /function isValidPendienteUpdate\(\) \{[\s\S]*?request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasOnly\(\['name', 'category_id', 'due_date', 'expected_amount', 'recurring', 'auto_debit'\]\)/,
     )
     expect(rules).toMatch(
       /function isValidPendienteUpdate\(\) \{[\s\S]*?!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'status', 'paid_expense_id', 'paid_at', 'created_at'\]\)/,

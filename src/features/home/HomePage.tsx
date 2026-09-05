@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import type { ReactElement } from 'react'
-import { PageHeader } from '@/components/PageHeader'
 import {
   AddExpenseSheet,
   AddGastoSheet,
@@ -21,12 +20,8 @@ import { OnboardingForm } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
 import { markReturningUser } from '@/features/onboarding/returningUserStorage'
 import { useFirebase } from '@/lib/firebaseContext'
-import {
-  createFirestoreHouseholdsDb,
-  getHousehold,
-  getMembership,
-} from '@/lib/households'
-import type { Household, HouseholdMember, HouseholdsDb } from '@/lib/households'
+import { createFirestoreHouseholdsDb, getMembership } from '@/lib/households'
+import type { HouseholdMember, HouseholdsDb } from '@/lib/households'
 import { CategoryMiniSummary } from './CategoryMiniSummary'
 
 export type HomePageProps = {
@@ -58,7 +53,6 @@ export function HomePage({
   const [membership, setMembership] = useState<
     HouseholdMember | null | undefined
   >(undefined)
-  const [household, setHousehold] = useState<Household | null>(null)
   const [homeEpoch, setHomeEpoch] = useState(0)
   const [editExpense, setEditExpense] = useState<EditExpenseTarget | null>(null)
   const [isAddGastoSheetOpen, setIsAddGastoSheetOpen] = useState(false)
@@ -110,30 +104,18 @@ export function HomePage({
       return
     }
     let cancelled = false
+    // Only the membership: the household document itself is no longer read
+    // here, now that its name is the app header's job rather than this
+    // page's title.
     void (async () => {
       try {
         const member = await getMembership({ db, userId: currentUserId })
-        if (cancelled) {
-          return
+        if (!cancelled) {
+          setMembership(member)
         }
-        if (member === null) {
-          setMembership(null)
-          setHousehold(null)
-          return
-        }
-        const loaded = await getHousehold({
-          db,
-          householdId: member.householdId,
-        })
-        if (cancelled) {
-          return
-        }
-        setMembership(member)
-        setHousehold(loaded)
       } catch {
         if (!cancelled) {
           setMembership(null)
-          setHousehold(null)
         }
       }
     })()
@@ -148,7 +130,7 @@ export function HomePage({
 
   if (currentUserId === null || membership === null) {
     return (
-      <div className="flex w-full flex-col items-center gap-6">
+      <div className="flex w-full flex-col items-center gap-8">
         {showLogout ? <LogoutButton /> : null}
         <OnboardingForm
           householdsDb={householdsDb}
@@ -173,26 +155,29 @@ export function HomePage({
   const authorDisplayName = authorDisplayNameProp ?? membership.displayName
 
   return (
-    <div className="flex w-full flex-col items-center gap-6">
-      {/* No settings shortcut here: Ajustes is already one tap away in the
-          bottom nav, so a second icon-link to the same destination is
-          redundant. */}
-      <PageHeader title={household?.name ?? 'Hogar'} gradient />
+    <div className="flex w-full flex-col items-center gap-8">
+      {/* No page title here: the household's name is in the app header now,
+          on every screen, rather than being Home's heading. */}
       <PendienteDueSoonBanner db={db} householdId={membership.householdId} />
-      <MonthNavigator
-        db={db}
-        householdId={membership.householdId}
-        viewedMonth={viewedMonth}
-        onViewedMonthChange={setViewedMonth}
-      />
-      <AddGastoSheet
-        open={isAddGastoSheetOpen}
-        onOpenChange={setIsAddGastoSheetOpen}
-        db={db}
-        householdId={membership.householdId}
-        memberId={currentUserId}
-        authorDisplayName={authorDisplayName}
-      />
+      {/* The month, its two cards and the one action they lead to are one
+          block -- at the page's own 32px rhythm the button floated between
+          sections and read as belonging to neither. */}
+      <div className="flex w-full flex-col gap-3">
+        <MonthNavigator
+          db={db}
+          householdId={membership.householdId}
+          viewedMonth={viewedMonth}
+          onViewedMonthChange={setViewedMonth}
+        />
+        <AddGastoSheet
+          open={isAddGastoSheetOpen}
+          onOpenChange={setIsAddGastoSheetOpen}
+          db={db}
+          householdId={membership.householdId}
+          memberId={currentUserId}
+          authorDisplayName={authorDisplayName}
+        />
+      </div>
       {/* Both mounted purely to edit/mark-paid a row they were handed
           (editExpense/editPendiente) -- adding goes through AddGastoSheet
           above instead, so neither shows its own trigger here. */}
@@ -222,56 +207,64 @@ export function HomePage({
           setEditPendiente(null)
         }}
       />
-      <PorPagarSection
-        db={db}
-        householdId={membership.householdId}
-        monthStart={monthStart}
-        monthEnd={monthEnd}
-        onMarkPaid={(pendiente, categoryName) => {
-          // Opens the same edit sheet as tapping a row on /pendientes, with
-          // "Ya lo pagué" pre-checked -- one form for both editing and
-          // paying (this used to open a separate amount-only sheet).
-          setEditPendiente({
-            pendienteId: pendiente.id,
-            name: pendiente.name,
-            categoryName,
-            dueDate: pendiente.dueDate,
-            expectedAmount: pendiente.expectedAmount,
-            recurring: pendiente.recurring,
-            defaultMarkPaid: true,
-          })
-        }}
-      />
-      <div className="flex w-full flex-col gap-3">
-        <h2 className="text-title font-semibold self-start">
-          Últimos gastos del mes
-        </h2>
-        <RecentExpensesList
+      {/* One column on a phone, two from lg: the month's outstanding
+          services and the recent movements are the things being read, the
+          category split is a reference panel beside them. */}
+      <div className="flex w-full flex-col gap-8 lg:grid lg:grid-cols-3 lg:items-start">
+        <div className="flex w-full flex-col gap-8 lg:col-span-2">
+          <PorPagarSection
+            db={db}
+            householdId={membership.householdId}
+            monthStart={monthStart}
+            monthEnd={monthEnd}
+            onMarkPaid={(pendiente, categoryName) => {
+              // Opens the same edit sheet as tapping a row on /pendientes, with
+              // "Ya lo pagué" pre-checked -- one form for both editing and
+              // paying (this used to open a separate amount-only sheet).
+              setEditPendiente({
+                pendienteId: pendiente.id,
+                name: pendiente.name,
+                categoryName,
+                dueDate: pendiente.dueDate,
+                expectedAmount: pendiente.expectedAmount,
+                recurring: pendiente.recurring,
+                autoDebit: pendiente.autoDebit,
+                defaultMarkPaid: true,
+              })
+            }}
+          />
+          <div className="flex w-full flex-col gap-3">
+            <h2 className="text-title font-semibold self-start">
+              Últimos gastos del mes
+            </h2>
+            <RecentExpensesList
+              db={db}
+              householdId={membership.householdId}
+              monthStart={monthStart}
+              monthEnd={monthEnd}
+              onEditExpense={(expense, categoryName) => {
+                setEditExpense({
+                  expenseId: expense.id,
+                  name: expense.name,
+                  price: expense.price,
+                  categoryName,
+                  comments: expense.comments,
+                  expenseDate: expense.expenseDate,
+                  memberId: expense.memberId,
+                  pendienteId: expense.pendienteId,
+                  isService: expense.isService,
+                })
+              }}
+            />
+          </div>
+        </div>
+        <CategoryMiniSummary
           db={db}
           householdId={membership.householdId}
           monthStart={monthStart}
           monthEnd={monthEnd}
-          onEditExpense={(expense, categoryName) => {
-            setEditExpense({
-              expenseId: expense.id,
-              name: expense.name,
-              price: expense.price,
-              categoryName,
-              comments: expense.comments,
-              expenseDate: expense.expenseDate,
-              memberId: expense.memberId,
-              pendienteId: expense.pendienteId,
-              isService: expense.isService,
-            })
-          }}
         />
       </div>
-      <CategoryMiniSummary
-        db={db}
-        householdId={membership.householdId}
-        monthStart={monthStart}
-        monthEnd={monthEnd}
-      />
     </div>
   )
 }

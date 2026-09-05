@@ -25,15 +25,20 @@ describe('isServicio', () => {
     expect(isServicio(makeExpense())).toBe(false)
   })
 
-  it('reads true when pendienteId links to a real Pendiente', () => {
-    expect(isServicio(makeExpense({ pendienteId: 'pendiente-1' }))).toBe(true)
+  // Per direct feedback: a one-off payment that happened to be tracked as a
+  // Pendiente first (an Osde bill logged so it would not be forgotten) is an
+  // ordinary Gasto once paid. The link alone says nothing about recurrence.
+  it('reads false for a one-off bill, even though it came from a Pendiente', () => {
+    expect(isServicio(makeExpense({ pendienteId: 'pendiente-1' }))).toBe(false)
   })
 
-  it('reads true when isService is manually set, even with no pendienteId', () => {
+  it('reads true when the flag is set, with no Pendiente behind it', () => {
+    // The manual "marcar como servicio" toggle, for an Expense logged
+    // directly that should still count as one.
     expect(isServicio(makeExpense({ isService: true }))).toBe(true)
   })
 
-  it('reads true when both pendienteId and isService are set', () => {
+  it('reads true for a recurring bill, which is flagged when it is paid', () => {
     expect(
       isServicio(makeExpense({ pendienteId: 'pendiente-1', isService: true })),
     ).toBe(true)

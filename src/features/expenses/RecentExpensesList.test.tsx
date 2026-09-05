@@ -34,11 +34,11 @@ function lastMonthDate(): Date {
 }
 
 function formatExpenseDate(date: Date): string {
-  return date.toLocaleDateString('es-AR', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
+  // "06/09/2026". Written long-hand here on purpose: asserting with the
+  // very function under render would still pass if the formatting silently
+  // changed.
+  const pad = (value: number): string => String(value).padStart(2, '0')
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${String(date.getFullYear())}`
 }
 
 describe('RecentExpensesList', () => {
@@ -224,6 +224,9 @@ describe('RecentExpensesList', () => {
       name: 'Internet',
       dueDate: currentMonthDate(10),
       expectedAmount: 5000,
+      // Recurring on purpose: that is what makes the Expense it generates a
+      // Servicio. A one-off bill produces an ordinary Gasto.
+      recurring: true,
     })
     await markPendientePaid({
       db,
@@ -259,7 +262,11 @@ describe('RecentExpensesList', () => {
     expect(screen.queryByText('Gimnasio')).not.toBeInTheDocument()
   })
 
-  it('caps the list at the 5 most recent expenses and offers a "Ver más" link to Histórico', async () => {
+  // Ten rows are rendered and the last five carry a class that hides them
+  // below `lg` -- so a phone shows five, a desktop window shows ten, and no
+  // JS media query is involved. jsdom applies no CSS, so the count here is
+  // the rendered ten; the phone's five is the class, asserted below.
+  it('renders up to ten rows and offers a "Ver más" link to Histórico', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -279,7 +286,7 @@ describe('RecentExpensesList', () => {
     // the month that 6 distinct valid days don't exist yet. Creation order
     // (expense_date/created_at desc) still gives a stable "most recent 5"
     // without depending on the day of the month this test runs.
-    for (let i = 1; i <= 6; i += 1) {
+    for (let i = 1; i <= 12; i += 1) {
       await createExpense({
         db,
         householdId: household.id,
@@ -296,7 +303,14 @@ describe('RecentExpensesList', () => {
     renderPage(<RecentExpensesList db={db} householdId={household.id} />)
 
     const rows = await screen.findAllByRole('listitem')
-    expect(rows).toHaveLength(5)
+    expect(rows).toHaveLength(10)
+    // The first five show at every width; the rest only from `lg`.
+    for (const row of rows.slice(0, 5)) {
+      expect(row).not.toHaveClass('hidden')
+    }
+    for (const row of rows.slice(5)) {
+      expect(row).toHaveClass('hidden', 'lg:block')
+    }
     const link = screen.getByRole('link', { name: 'Ver más' })
     expect(link).toHaveAttribute('href', '/historico')
   })
@@ -541,9 +555,9 @@ describe('RecentExpensesList', () => {
     renderPage(<RecentExpensesList db={db} householdId={household.id} />)
 
     const row = await screen.findByRole('listitem')
-    const icon = row.querySelector('[data-testid="category-icon"]')
+    const icon = row.querySelector<HTMLElement>('[data-testid="category-icon"]')
     expect(icon).not.toBeNull()
-    expect(icon).toHaveStyle({ backgroundColor: comida.color })
+    expect(icon?.style.getPropertyValue('--swatch-color')).toBe(comida.color)
   })
 
   it('shows an error when the current user is not a household member', async () => {

@@ -137,7 +137,7 @@ describe('PorPagarSection', () => {
     expect(items).toHaveLength(2)
     // Soonest due (day 5) first, not insertion order.
     expect(items[0]).toHaveTextContent('Internet')
-    expect(items[0]).toHaveTextContent('$120,00')
+    expect(items[0]).toHaveTextContent('$120')
     expect(items[1]).toHaveTextContent('Luz')
     expect(items[1]).toHaveTextContent('$78,25')
   })

@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded in part by 0005
 ---
 
 # Wallet-style color palette replaces the monochrome design system

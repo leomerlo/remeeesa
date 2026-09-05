@@ -87,7 +87,7 @@ export function EditHouseholdPage({
 
   if (currentUserId === undefined) {
     return (
-      <div className="bg-card shadow-resting w-full rounded-3xl p-8">
+      <div className="bg-card w-full rounded-3xl p-8">
         <LoadingIndicator />
       </div>
     )
@@ -99,7 +99,7 @@ export function EditHouseholdPage({
 
   if (membership === undefined) {
     return (
-      <div className="bg-card shadow-resting w-full rounded-3xl p-8">
+      <div className="bg-card w-full rounded-3xl p-8">
         <LoadingIndicator />
       </div>
     )
@@ -110,18 +110,18 @@ export function EditHouseholdPage({
   }
 
   return (
-    <div className="flex w-full flex-col gap-6">
+    <div className="flex w-full flex-col gap-8">
       {/* No "Volver" back-link: Ajustes is a primary bottom-nav destination
           like Home/Histórico/Categorías, not a drill-down sub-page -- the
           nav already gets you back in one tap. */}
       <PageHeader title="Ajustes" />
-      <div className="bg-card shadow-resting flex w-full flex-col gap-6 rounded-3xl p-6">
+      <div className="bg-card flex w-full flex-col gap-6 rounded-3xl p-6">
         <EditHouseholdForm db={db} householdId={membership.householdId} />
       </div>
       {/* Members and the invite link share one card: inviting somebody is
           how the member list grows, and the invite panel on its own was a
           card whose entire contents were a single button. */}
-      <div className="bg-card shadow-resting flex w-full flex-col gap-6 rounded-3xl p-6">
+      <div className="bg-card flex w-full flex-col gap-6 rounded-3xl p-6">
         <EditDisplayNameForm
           db={db}
           householdId={membership.householdId}

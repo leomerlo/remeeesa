@@ -209,7 +209,7 @@ export function EditCategoryForm({
             </Button>
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               className="w-full"
               disabled={pending}
               onClick={() => {

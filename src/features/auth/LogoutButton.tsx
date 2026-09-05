@@ -16,7 +16,7 @@ export function LogoutButton({
   return (
     <Button
       type="button"
-      variant="ghost"
+      variant="outline"
       onClick={() => {
         void (async () => {
           if (signOutSession !== undefined) {

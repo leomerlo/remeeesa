@@ -84,7 +84,7 @@ export function SpentThisMonthDisplay({
       <div
         role="status"
         aria-label="Cargando…"
-        className="bg-card shadow-resting flex w-full flex-col gap-2 rounded-3xl p-6"
+        className="bg-card flex w-full flex-col gap-2 rounded-3xl p-6"
       >
         <span className="sr-only">Cargando…</span>
         <Skeleton className="h-4 w-36" />
@@ -100,17 +100,17 @@ export function SpentThisMonthDisplay({
   const formattedSpent = formatCurrency(spent + pendingCommitted)
 
   return (
-    <div className="bg-card shadow-resting flex w-full flex-col gap-2 rounded-3xl p-6">
+    <div className="bg-card flex w-full flex-col gap-2 rounded-3xl p-6">
       {/* No month label here -- MonthNavigator (Home's shared control above
           both cards) is the one place that says which month is being
           viewed now; repeating it on every card it renders was three
           copies of the same sentence. */}
       <span className="text-foreground text-body font-medium">
-        Gastado este mes
+        Gastos de este mes
       </span>
       <p
         role="status"
-        aria-label={`Gastado este mes ${formattedSpent}`}
+        aria-label={`Gastos de este mes ${formattedSpent}`}
         className="text-foreground font-display text-display tracking-tight"
       >
         {formattedSpent}
@@ -129,29 +129,36 @@ export function SpentThisMonthDisplay({
           Within each half the amount carries the weight and the label
           recedes: the two numbers are what's being compared, and at one
           uniform grey there was nothing to compare -- just a sentence. */}
+      {/* Two rows, dot then label then figure, the same shape the category
+          list on Home has -- read as one line the two figures ran together
+          and neither stood out. Per direct feedback. */}
       {pendingCommitted > 0 ? (
-        <p className="text-muted-foreground flex flex-wrap items-baseline gap-x-2 gap-y-1 pr-28 text-sm">
-          <span className="whitespace-nowrap">
-            <span
-              aria-hidden="true"
-              className="bg-success mr-1.5 inline-block size-2 rounded-full align-middle"
-            />
-            <span className="text-foreground font-semibold">
+        <dl className="divide-border-subtle -mb-1 flex flex-col divide-y text-sm">
+          <div className="flex items-center justify-between gap-3 py-1.5">
+            <dt className="text-muted-foreground flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="bg-dot-paid size-2.5 shrink-0 rounded-full"
+              />
+              Pagado
+            </dt>
+            <dd className="text-foreground shrink-0 font-semibold">
               {formatCurrency(spent)}
-            </span>{' '}
-            pagado
-          </span>
-          <span className="whitespace-nowrap">
-            <span
-              aria-hidden="true"
-              className="bg-warning mr-1.5 inline-block size-2 rounded-full align-middle"
-            />
-            <span className="text-foreground font-semibold">
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-3 py-1.5">
+            <dt className="text-muted-foreground flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="bg-dot-pending size-2.5 shrink-0 rounded-full"
+              />
+              Pendiente
+            </dt>
+            <dd className="text-foreground shrink-0 font-semibold">
               {formatCurrency(pendingCommitted)}
-            </span>{' '}
-            pendiente
-          </span>
-        </p>
+            </dd>
+          </div>
+        </dl>
       ) : null}
     </div>
   )

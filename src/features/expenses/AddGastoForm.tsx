@@ -297,41 +297,8 @@ export function AddGastoForm({
             dialog's accessible name). */}
         <h2 className="text-title font-semibold">Agregar gasto</h2>
 
-        {/* Required once "Ya lo pagué" is checked (the common case, on by
-            default); optional otherwise -- some bills genuinely aren't a
-            known amount yet. Leads at hero size either way. */}
         <div className="flex w-full flex-col gap-2">
-          <Label
-            htmlFor="gasto-amount"
-            className="text-muted-foreground font-medium"
-          >
-            {isPlainGasto ? 'Precio' : 'Monto esperado'}
-          </Label>
-          <div className="relative">
-            <span
-              aria-hidden="true"
-              className="text-muted-foreground font-display text-display pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
-            >
-              $
-            </span>
-            <FormattedAmountInput
-              id="gasto-amount"
-              name="gasto-amount"
-              className="font-display text-display h-20 pl-12 tracking-tight"
-              value={amount}
-              onChange={setAmount}
-              autoComplete="off"
-            />
-          </div>
-        </div>
-
-        <div className="flex w-full flex-col gap-2">
-          <Label
-            htmlFor="gasto-name"
-            className="text-muted-foreground font-medium"
-          >
-            Nombre
-          </Label>
+          <Label htmlFor="gasto-name">Nombre</Label>
           <Input
             id="gasto-name"
             name="gasto-name"
@@ -343,13 +310,36 @@ export function AddGastoForm({
           />
         </div>
 
+        {/* Required once "Ya lo pagué" is checked (the common case, on by
+            default); optional otherwise -- some bills genuinely aren't a
+            known amount yet. At ordinary field size: it used to lead at hero
+            size, which pushed the two toggles below the fold, and per direct
+            feedback the toggles being reachable matters more than the
+            figure being large in a form you are typing into. */}
         <div className="flex w-full flex-col gap-2">
-          <Label
-            htmlFor="gasto-category"
-            className="text-muted-foreground font-medium"
-          >
-            Categoría
+          <Label htmlFor="gasto-amount">
+            {isPlainGasto ? 'Precio' : 'Monto esperado'}
           </Label>
+          <div className="relative">
+            <span
+              aria-hidden="true"
+              className="text-muted-foreground pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
+            >
+              $
+            </span>
+            <FormattedAmountInput
+              id="gasto-amount"
+              name="gasto-amount"
+              className="pl-8"
+              value={amount}
+              onChange={setAmount}
+              autoComplete="off"
+            />
+          </div>
+        </div>
+
+        <div className="flex w-full flex-col gap-2">
+          <Label htmlFor="gasto-category">Categoría</Label>
           <CategoryChips
             categories={categoriesQuery.data ?? []}
             value={category}
@@ -365,10 +355,7 @@ export function AddGastoForm({
         </div>
 
         <div className="flex w-full flex-col gap-2">
-          <Label
-            htmlFor="gasto-date"
-            className="text-muted-foreground font-medium"
-          >
+          <Label htmlFor="gasto-date">
             {markPaid ? 'Fecha' : 'Fecha de vencimiento'}
           </Label>
           {/* Restricted to today or earlier only while markPaid is checked
@@ -386,26 +373,31 @@ export function AddGastoForm({
           />
         </div>
 
-        <div className="flex w-full items-center justify-between gap-2">
-          <Label htmlFor="gasto-recurring" className="font-medium">
-            Recurrente
-          </Label>
-          <Switch
-            id="gasto-recurring"
-            checked={recurring}
-            onCheckedChange={setRecurring}
+        {/* Side by side rather than stacked, switch then label, split by a
+            hairline. Stacked at the foot of the form, "Ya lo pagué" sat
+            below the fold often enough that it got left checked on
+            something that had not been paid. Per direct feedback. */}
+        <div className="flex w-full items-center gap-4">
+          <div className="flex flex-1 items-center gap-3">
+            <Switch
+              id="gasto-recurring"
+              checked={recurring}
+              onCheckedChange={setRecurring}
+            />
+            <Label htmlFor="gasto-recurring">Recurrente</Label>
+          </div>
+          <span
+            aria-hidden="true"
+            className="bg-border-subtle h-6 w-px shrink-0"
           />
-        </div>
-
-        <div className="flex w-full items-center justify-between gap-2">
-          <Label htmlFor="gasto-mark-paid" className="font-medium">
-            Ya lo pagué
-          </Label>
-          <Switch
-            id="gasto-mark-paid"
-            checked={markPaid}
-            onCheckedChange={setMarkPaid}
-          />
+          <div className="flex flex-1 items-center gap-3">
+            <Switch
+              id="gasto-mark-paid"
+              checked={markPaid}
+              onCheckedChange={setMarkPaid}
+            />
+            <Label htmlFor="gasto-mark-paid">Ya lo pagué</Label>
+          </div>
         </div>
 
         {alertMessage !== null ? (

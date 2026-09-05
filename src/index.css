@@ -71,6 +71,21 @@
   --color-red-900: #4e1511;
   --color-red-950: #350e0b;
 
+  /* Wine: not a hue of its own so much as where the budget card's gradient
+     actually lands once the month is nearly spent. That gradient starts on
+     the brand violet and walks toward red, so by 94% it is a burgundy with
+     the violet still in it -- visibly not the pure red of the scale above.
+     "Vencimientos que se acercan" is filled with that same pair, so the two
+     warnings in the app read as the same colour rather than as two
+     different reds. */
+  /* Two of the category palette's own swatches, named here because the
+     paid/pending dots use them outside a category context. */
+  --color-green-strong: #16a34a;
+  --color-amber-strong: #f6a925;
+
+  --color-wine-800: #681627;
+  --color-wine-600: #a52935;
+
   /* Color: yellow (warning), seed #F6A823, anchor step 500 */
   --color-yellow-50: #fbf6ec;
   --color-yellow-100: #f7e9d2;
@@ -177,12 +192,12 @@
   --text-caption: 0.875rem; /* 14px -- muted metadata (category - date) */
   --text-caption--line-height: 1.4;
 
-  /* Elevation: soft, low-contrast card shadows -- the comp's cards read as
-     "resting on" the lavender page background, not bordered boxes. Two
-     steps: resting cards (list/por-pagar rows) and raised surfaces (sheets,
-     popovers). No shadow on the gradient hero card itself -- it's a filled
-     surface, not a floating one. */
-  --shadow-resting: 0 1px 2px 0 rgb(23 7 89 / 0.04), 0 1px 3px 0 rgb(23 7 89 / 0.06);
+  /* Elevation: one step, for surfaces that genuinely float above the page
+     -- the sheet/modal and the nav. Cards carry no shadow at all: per
+     direct feedback they sit *on* the lavender ground rather than hovering
+     over it, and the tint alone is enough to separate white from it. The
+     resting step that used to exist for them is gone rather than left
+     defined and unused. */
   --shadow-raised: 0 4px 8px -2px rgb(23 7 89 / 0.08), 0 12px 24px -4px rgb(23 7 89 / 0.1);
 }
 
@@ -203,22 +218,40 @@
   /* Page sits on a light lavender tint, not white -- sampled from the
      approved Home comp's page background (#F2F2FE), which purple-50 lands
      almost exactly on. Cards are --surface-card (white), floating on top
-     with --shadow-resting -- this pairing (tinted page + white elevated
-     cards) is what gives the comp its "wallet" warmth instead of a flat
-     white app shell. */
-  --surface-page: var(--color-purple-50);
+     on top of it -- this pairing (tinted page + white cards, no shadow
+     under them) is what gives the app its "wallet" warmth instead of a flat
+     white shell. */
+  --surface-page: var(--color-grey-50);
   --surface-card: var(--color-grey-white);
   --surface-primary: var(--color-grey-50);
   --surface-secondary: var(--color-grey-100);
-  --surface-action: var(--color-purple-450);
+  --surface-action: var(--color-grey-900);
   /* Solid, not an alpha of the action colour: bg-primary/10 composited
      against whatever sat underneath, so the same badge measured 4.93:1 on a
      card and 4.32:1 on the page. A solid tint is 4.96:1 wherever it lands. */
-  --surface-action-subtle: var(--color-purple-50);
-  --surface-action-hover: var(--color-purple-700);
+  --surface-action-subtle: var(--color-grey-200);
+  --surface-action-hover: var(--color-grey-800);
   --surface-disabled: var(--color-grey-300);
   --surface-success: var(--color-green-50);
   --surface-error: var(--color-red-50);
+  /* A dark card in an otherwise light interface, on purpose: whatever is
+     about to come due should not look like every other row. It runs the
+     budget card's own gradient the other way -- deep wine into the lighter
+     one -- so the two warnings in the app are the same colour, not two
+     different reds. White carries 12.12:1 at the dark end and 7.07:1 at the
+     light one, and 8.14 / 5.26 on the chip that sits on it. */
+  /* The two dots that split "Gastos de este mes" into what is paid and
+     what is still owed. They are pulled from the category palette rather
+     than from the semantic text roles: those are darkened for contrast on
+     text, and as 8px dots they came out muddy -- a brown and a bottle
+     green. These are the vivid versions, and they are decorative (the
+     words beside them carry the meaning), so nothing rides on their
+     contrast. */
+  --dot-paid: var(--color-green-strong);
+  --dot-pending: var(--color-amber-strong);
+
+  --surface-due-soon-from: var(--color-wine-800);
+  --surface-due-soon-to: var(--color-wine-600);
   --surface-warning: var(--color-yellow-50);
   /* The gradient used to run *lighter*, ending on purple-200 (#AF9CFC).
      White text sits on top of it (the budget hero's numeral, the "% usado"
@@ -227,7 +260,7 @@
      white text does not exist: the lightest AA-safe end is barely distinct
      from the start. So it now runs the other way, violet into deep indigo,
      which keeps a real ramp and clears AA at both ends (5.71 and 10.78). */
-  --surface-action-gradient-end: var(--color-purple-600);
+  --surface-action-gradient-end: var(--color-grey-950);
 
   /* Text (Icon reuses this table 1:1, see --icon-* below) */
   --text-primary: var(--color-grey-900);
@@ -237,7 +270,7 @@
      5.60 / 4.95. */
   --text-tertiary: var(--color-grey-600);
   --text-on-action: var(--color-grey-white);
-  --text-action: var(--color-purple-450);
+  --text-action: var(--color-grey-900);
   --text-disabled: var(--color-grey-300);
   --text-success: var(--color-green-700);
   --text-error: var(--color-red-700);
@@ -248,7 +281,7 @@
   --icon-secondary: var(--color-grey-700);
   --icon-tertiary: var(--color-grey-600);
   --icon-on-action: var(--color-grey-white);
-  --icon-action: var(--color-purple-450);
+  --icon-action: var(--color-grey-900);
   --icon-disabled: var(--color-grey-300);
   --icon-success: var(--color-green-700);
   --icon-error: var(--color-red-700);
@@ -260,8 +293,8 @@
   --border-primary: var(--color-grey-400);
   --border-secondary: var(--color-grey-200);
   --border-subtle: var(--color-grey-100);
-  --border-action: var(--color-purple-450);
-  --border-focus: var(--color-purple-450);
+  --border-action: var(--color-grey-900);
+  --border-focus: var(--color-grey-900);
   --border-success: var(--color-green-500);
   --border-error: var(--color-red-500);
   --border-warning: var(--color-yellow-500);
@@ -273,21 +306,23 @@
   --surface-card: var(--color-grey-900);
   --surface-primary: var(--color-grey-900);
   --surface-secondary: var(--color-grey-800);
-  --surface-action: var(--color-purple-450);
-  --surface-action-hover: var(--color-purple-700);
+  --surface-action: var(--color-grey-50);
+  --surface-action-hover: var(--color-grey-200);
   --surface-disabled: var(--color-grey-300);
   --surface-success: var(--color-green-800);
   --surface-error: var(--color-red-800);
+  --surface-due-soon-from: var(--color-wine-800);
+  --surface-due-soon-to: var(--color-wine-600);
   --surface-warning: var(--color-yellow-800);
-  --surface-action-gradient-end: var(--color-purple-600);
-  --surface-action-subtle: var(--color-purple-950);
+  --surface-action-gradient-end: var(--color-grey-100);
+  --surface-action-subtle: var(--color-grey-800);
 
   /* Text */
   --text-primary: var(--color-grey-white);
   --text-secondary: var(--color-grey-50);
   --text-tertiary: var(--color-grey-300);
-  --text-on-action: var(--color-grey-white);
-  --text-action: var(--color-purple-200);
+  --text-on-action: var(--color-grey-950);
+  --text-action: var(--color-grey-50);
   --text-disabled: var(--color-grey-300);
   --text-success: var(--color-green-200);
   --text-error: var(--color-red-200);
@@ -297,8 +332,8 @@
   --icon-primary: var(--color-grey-white);
   --icon-secondary: var(--color-grey-50);
   --icon-tertiary: var(--color-grey-300);
-  --icon-on-action: var(--color-grey-white);
-  --icon-action: var(--color-purple-200);
+  --icon-on-action: var(--color-grey-950);
+  --icon-action: var(--color-grey-50);
   --icon-disabled: var(--color-grey-300);
   --icon-success: var(--color-green-200);
   --icon-error: var(--color-red-200);
@@ -308,8 +343,8 @@
   --border-primary: var(--color-grey-500);
   --border-secondary: var(--color-grey-800);
   --border-subtle: var(--color-grey-900);
-  --border-action: var(--color-purple-200);
-  --border-focus: var(--color-purple-200);
+  --border-action: var(--color-grey-50);
+  --border-focus: var(--color-grey-50);
   --border-success: var(--color-green-500);
   --border-error: var(--color-red-500);
   --border-warning: var(--color-yellow-500);
@@ -341,8 +376,13 @@
   --color-muted-foreground: var(--text-tertiary);
   --color-primary-subtle: var(--surface-action-subtle);
   --color-border: var(--border-primary);
+  /* The hairline between rows inside one card -- decorative, and a
+     component-boundary weight there reads as a table grid. */
+  --color-border-subtle: var(--border-subtle);
   --color-input: var(--border-primary);
   --color-ring: var(--border-focus);
+  --color-dot-paid: var(--dot-paid);
+  --color-dot-pending: var(--dot-pending);
   --color-success: var(--text-success);
   --color-error: var(--text-error);
   --color-warning: var(--text-warning);

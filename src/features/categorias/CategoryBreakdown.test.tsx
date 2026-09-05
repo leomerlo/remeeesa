@@ -88,14 +88,14 @@ describe('CategoryBreakdown', () => {
     const items = within(list).getAllByRole('listitem')
     expect(items[0]).toHaveTextContent('Comida')
     expect(items[0]).toHaveTextContent('75%')
-    expect(items[0]).toHaveTextContent('$75,00')
+    expect(items[0]).toHaveTextContent('$75')
     expect(items[1]).toHaveTextContent('Transporte')
     expect(items[1]).toHaveTextContent('25%')
-    expect(items[1]).toHaveTextContent('$25,00')
+    expect(items[1]).toHaveTextContent('$25')
   })
 
   // The total lives beside the heading, not inside the donut's hole: a real
-  // month runs to "$250.000,00", which is wider than the hole and spilled
+  // month runs to "$250.000", which is wider than the hole and spilled
   // over the ring when it was drawn there.
   it("shows the month's total outside the donut", async () => {
     const { db, householdId, byName } = await seedHousehold()
@@ -120,7 +120,7 @@ describe('CategoryBreakdown', () => {
     const heading = await screen.findByRole('heading', {
       name: 'Por categoría',
     })
-    expect(heading.parentElement).toHaveTextContent('$100,00')
+    expect(heading.parentElement).toHaveTextContent('$100')
     expect(container.querySelector('svg')?.textContent).toBe('')
   })
 
@@ -226,7 +226,6 @@ describe('CategoryBreakdown', () => {
     expect(expectedOffset).toBeCloseTo(1, 5)
   })
 
-
   // monthStart/monthEnd let Categorías' MonthPager drive which month this
   // shows -- without them it would always be stuck on the current month.
   it("shows a past month's breakdown when monthStart/monthEnd are passed, ignoring this month's expenses", async () => {
@@ -274,12 +273,12 @@ describe('CategoryBreakdown', () => {
 
     // Scoped to the category list, not a bare findByText -- with a single
     // category in view, the header total and the row's own amount are both
-    // "$500,00", so an unscoped query matches more than one element.
+    // "$500", so an unscoped query matches more than one element.
     const list = await screen.findByRole('list', {
       name: 'Gastos por categoría',
     })
-    expect(within(list).getByText('$500,00')).toBeInTheDocument()
-    expect(screen.queryByText('$999,00')).not.toBeInTheDocument()
+    expect(within(list).getByText('$500')).toBeInTheDocument()
+    expect(screen.queryByText('$999')).not.toBeInTheDocument()
   })
 
   it('shows a month-agnostic empty message for an empty past month, not "este mes"', async () => {

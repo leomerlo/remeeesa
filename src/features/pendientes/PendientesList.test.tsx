@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { useState } from 'react'
-import type { ReactElement } from 'react'
+import type { ComponentProps, ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { createPendiente } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
@@ -15,11 +15,11 @@ import type { AddPendienteSheetProps } from './AddPendienteSheet'
 import { PendientesList } from './PendientesList'
 
 function formatPendienteDueDate(date: Date): string {
-  return date.toLocaleDateString('es-AR', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
+  // "06/09/2026". Written long-hand here on purpose: asserting with the
+  // very function under render would still pass if the formatting silently
+  // changed.
+  const pad = (value: number): string => String(value).padStart(2, '0')
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${String(date.getFullYear())}`
 }
 
 function AddPendienteSheetHarness(
@@ -45,6 +45,19 @@ async function findCategoryId(input: {
   return found.id
 }
 
+// The screen reads one month at a time, and every pendiente seeded below is
+// due in September 2026 -- so every render pins that month rather than
+// leaning on whatever month the suite happens to run in. A test that cares
+// about a different month passes its own props, which win over these.
+const MONTH_START = new Date(2026, 8, 1)
+const MONTH_END = new Date(2026, 8, 30, 23, 59, 59, 999)
+
+function List(props: ComponentProps<typeof PendientesList>): ReactElement {
+  return (
+    <PendientesList monthStart={MONTH_START} monthEnd={MONTH_END} {...props} />
+  )
+}
+
 describe('PendientesList', () => {
   it('shows an empty state when the household has no pending pendientes', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
@@ -55,12 +68,11 @@ describe('PendientesList', () => {
       monthlyBudget: 100,
     })
 
-    renderWithProviders(<PendientesList db={db} householdId={household.id} />)
+    renderWithProviders(<List db={db} householdId={household.id} />)
 
-    expect(await screen.findByText('No hay pendientes')).toHaveAttribute(
-      'role',
-      'status',
-    )
+    expect(
+      await screen.findByText('No hay servicios en este mes'),
+    ).toHaveAttribute('role', 'status')
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
   })
 
@@ -112,7 +124,7 @@ describe('PendientesList', () => {
       expectedAmount: 30,
     })
 
-    renderWithProviders(<PendientesList db={db} householdId={household.id} />)
+    renderWithProviders(<List db={db} householdId={household.id} />)
 
     const rows = await screen.findAllByRole('listitem')
     expect(rows).toHaveLength(3)
@@ -158,13 +170,16 @@ describe('PendientesList', () => {
       recurring: true,
     })
 
-    renderWithProviders(<PendientesList db={db} householdId={household.id} />)
+    renderWithProviders(<List db={db} householdId={household.id} />)
 
     const row = await screen.findByText('Gimnasio')
     expect(row.closest('li')).toHaveTextContent('$ --,--')
   })
 
-  it('does not show a manually-seeded paid pendiente in the same household', async () => {
+  // Per direct feedback: this screen shows what has already been settled
+  // this month alongside what is still owed -- that pairing is the point of
+  // it. (Home shows only what is left to pay; see PorPagarSection.)
+  it('shows a paid pendiente as paid, with no way to pay it again', async () => {
     const store = createMemoryHouseholdsDb()
     const db = store.asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -194,6 +209,7 @@ describe('PendientesList', () => {
       dueDate: new Date(2026, 8, 1),
       expectedAmount: 20,
       recurring: false,
+      autoDebit: false,
       status: 'paid',
       paidExpenseId: 'expense-1',
       paidAt: new Date(),
@@ -201,11 +217,17 @@ describe('PendientesList', () => {
     }
     store.seedPendiente(paidPendiente)
 
-    renderWithProviders(<PendientesList db={db} householdId={household.id} />)
+    renderWithProviders(<List db={db} householdId={household.id} />)
 
     expect(await screen.findByText(pending.name)).toBeInTheDocument()
-    expect(screen.queryByText('Ya pagada')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('listitem')).toHaveLength(1)
+    const paidRow = screen.getByText('Ya pagada').closest('li')
+    expect(paidRow).not.toBeNull()
+    expect(paidRow).toHaveTextContent('Pagado')
+    expect(
+      within(paidRow as HTMLElement).queryByRole('button', { name: /Pagar/ }),
+    ).not.toBeInTheDocument()
+    // Both rows: the one still owed and the one already settled.
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
   })
 
   it('does not show a pendiente from a different household', async () => {
@@ -238,9 +260,11 @@ describe('PendientesList', () => {
       expectedAmount: 15,
     })
 
-    renderWithProviders(<PendientesList db={db1} householdId={household1.id} />)
+    renderWithProviders(<List db={db1} householdId={household1.id} />)
 
-    expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
+    expect(
+      await screen.findByText('No hay servicios en este mes'),
+    ).toBeInTheDocument()
     expect(
       screen.queryByText('Pendiente de la otra casa'),
     ).not.toBeInTheDocument()
@@ -260,7 +284,7 @@ describe('PendientesList', () => {
 
     renderWithProviders(
       <>
-        <PendientesList db={db} householdId={household.id} />
+        <List db={db} householdId={household.id} />
         <AddPendienteSheetHarness
           db={db}
           householdId={household.id}
@@ -271,7 +295,9 @@ describe('PendientesList', () => {
       { queryClient },
     )
 
-    expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
+    expect(
+      await screen.findByText('No hay servicios en este mes'),
+    ).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Agregar Servicio' }))
     await screen.findByLabelText('Nombre')
@@ -293,7 +319,9 @@ describe('PendientesList', () => {
     await waitFor(() => {
       expect(screen.getByText('Alquiler')).toBeInTheDocument()
     })
-    expect(screen.queryByText('No hay pendientes')).not.toBeInTheDocument()
+    expect(
+      screen.queryByText('No hay servicios en este mes'),
+    ).not.toBeInTheDocument()
   })
 
   it('shows an error when loading pending pendientes fails', async () => {
@@ -311,7 +339,7 @@ describe('PendientesList', () => {
       },
     }
 
-    renderWithProviders(<PendientesList db={db} householdId={household.id} />)
+    renderWithProviders(<List db={db} householdId={household.id} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'No se pudieron cargar los pendientes',
@@ -340,7 +368,7 @@ describe('PendientesList', () => {
       expectedAmount: 500,
     })
 
-    renderWithProviders(<PendientesList db={db} householdId={household.id} />)
+    renderWithProviders(<List db={db} householdId={household.id} />)
 
     expect(await screen.findByText('Alquiler')).toBeInTheDocument()
     expect(
@@ -372,7 +400,7 @@ describe('PendientesList', () => {
     const onEditPendiente = vi.fn()
 
     renderWithProviders(
-      <PendientesList
+      <List
         db={db}
         householdId={household.id}
         onEditPendiente={onEditPendiente}
@@ -407,12 +435,12 @@ describe('PendientesList', () => {
       householdId: household.id,
       categoryId: comidaId,
       name: 'Alquiler',
-      dueDate: new Date(2026, 0, 10),
+      dueDate: new Date(2026, 8, 10),
       expectedAmount: 500,
     })
 
     renderWithProviders(
-      <PendientesList
+      <List
         db={db}
         householdId={household.id}
         onMarkPaid={vi.fn()}
@@ -456,7 +484,7 @@ describe('PendientesList', () => {
     const onMarkPaid = vi.fn()
 
     renderWithProviders(
-      <PendientesList
+      <List
         db={db}
         householdId={household.id}
         onEditPendiente={onEditPendiente}
@@ -499,7 +527,7 @@ describe('PendientesList', () => {
     const onMarkPaid = vi.fn()
 
     renderWithProviders(
-      <PendientesList
+      <List
         db={db}
         householdId={household.id}
         onEditPendiente={onEditPendiente}
@@ -541,11 +569,7 @@ describe('PendientesList', () => {
     const onMarkPaid = vi.fn()
 
     renderWithProviders(
-      <PendientesList
-        db={db}
-        householdId={household.id}
-        onMarkPaid={onMarkPaid}
-      />,
+      <List db={db} householdId={household.id} onMarkPaid={onMarkPaid} />,
     )
 
     expect(await screen.findByText('Alquiler')).toBeInTheDocument()
@@ -583,21 +607,17 @@ describe('PendientesList', () => {
       householdId: household.id,
       categoryId,
       name: 'Expensas',
-      dueDate: new Date('2026-12-09T12:00:00'),
+      dueDate: new Date('2026-09-12T12:00:00'),
       expectedAmount: 145000,
     })
 
     renderWithProviders(
-      <PendientesList
-        db={db}
-        householdId={household.id}
-        onMarkPaid={() => {}}
-      />,
+      <List db={db} householdId={household.id} onMarkPaid={() => {}} />,
     )
 
     const row = (await screen.findByText('Expensas')).closest('li')
     expect(row).toHaveTextContent('Expensas')
-    expect(row).toHaveTextContent('$145.000,00')
+    expect(row).toHaveTextContent('$145.000')
     expect(
       within(row as HTMLElement).getByRole('button', {
         name: 'Marcar pagado Expensas',
@@ -625,11 +645,11 @@ describe('PendientesList', () => {
       householdId: household.id,
       categoryId,
       name: 'Luz',
-      dueDate: new Date('2026-12-04T12:00:00'),
+      dueDate: new Date('2026-09-04T12:00:00'),
       expectedAmount: 28000,
     })
 
-    renderWithProviders(<PendientesList db={db} householdId={household.id} />)
+    renderWithProviders(<List db={db} householdId={household.id} />)
 
     await screen.findByText('Luz')
     const icon = screen.getByTestId('category-icon')

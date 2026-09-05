@@ -7,6 +7,8 @@ import type { HouseholdsDb } from '@/lib/households'
 import { PageHeader } from '@/components/PageHeader'
 import { AddPendienteSheet } from './AddPendienteSheet'
 import type { EditPendienteTarget } from './AddPendienteForm'
+import { MonthPager } from '@/features/expenses'
+import { currentMonthRange } from '@/lib/expenses'
 import { PendientesList } from './PendientesList'
 
 export type PendientesPageProps = {
@@ -23,6 +25,12 @@ export function PendientesPage({
     householdsDb,
   })
   const [isAddPendienteSheetOpen, setIsAddPendienteSheetOpen] = useState(false)
+  // Owned here rather than inside MonthPager so the list below moves with
+  // it, the same way Home's MonthNavigator drives every section on that
+  // page.
+  const [viewedMonth, setViewedMonth] = useState(
+    () => currentMonthRange().monthStart,
+  )
   const [editPendiente, setEditPendiente] =
     useState<EditPendienteTarget | null>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
@@ -46,24 +54,42 @@ export function PendientesPage({
   // The household member's own editable name (set in Ajustes), not the raw
   // Firebase Auth profile -- see HomePage's identical fix for why.
   const authorDisplayName = membership.displayName
+  const { monthStart, monthEnd } = currentMonthRange(viewedMonth)
 
   return (
-    <div className="flex w-full flex-col gap-6">
-      <PageHeader title="Pendientes" headingRef={headingRef} />
-      <AddPendienteSheet
-        open={isAddPendienteSheetOpen}
-        onOpenChange={setIsAddPendienteSheetOpen}
-        db={db}
-        householdId={membership.householdId}
-        memberId={currentUserId}
-        authorDisplayName={authorDisplayName}
-        editPendiente={editPendiente}
-        onEditFinished={() => {
-          setEditPendiente(null)
-        }}
+    <div className="flex w-full flex-col gap-8">
+      {/* Stacked on a phone -- the button is full-width there and wants its
+          own line. On a wide window a full-width title with a button on the
+          line below it wastes the whole right half of the screen, so the
+          two share one row. */}
+      <div className="flex w-full flex-col gap-8 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+        <PageHeader title="Servicios" headingRef={headingRef} />
+        <AddPendienteSheet
+          triggerClassName="w-full lg:w-auto lg:px-6"
+          open={isAddPendienteSheetOpen}
+          onOpenChange={setIsAddPendienteSheetOpen}
+          db={db}
+          householdId={membership.householdId}
+          memberId={currentUserId}
+          authorDisplayName={authorDisplayName}
+          editPendiente={editPendiente}
+          onEditFinished={() => {
+            setEditPendiente(null)
+          }}
+        />
+      </div>
+      {/* The one pager in the app that goes forward: a service's due date
+          is in the future by definition, so next month's list is the whole
+          point of the screen. */}
+      <MonthPager
+        viewedMonth={viewedMonth}
+        onViewedMonthChange={setViewedMonth}
+        allowFuture
       />
       <PendientesList
         db={db}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
         householdId={membership.householdId}
         onEditPendiente={(pendiente, categoryName) => {
           setEditPendiente({
@@ -73,6 +99,7 @@ export function PendientesPage({
             dueDate: pendiente.dueDate,
             expectedAmount: pendiente.expectedAmount,
             recurring: pendiente.recurring,
+            autoDebit: pendiente.autoDebit,
           })
         }}
         onMarkPaid={(pendiente, categoryName) => {
@@ -87,6 +114,7 @@ export function PendientesPage({
             dueDate: pendiente.dueDate,
             expectedAmount: pendiente.expectedAmount,
             recurring: pendiente.recurring,
+            autoDebit: pendiente.autoDebit,
             defaultMarkPaid: true,
           })
         }}

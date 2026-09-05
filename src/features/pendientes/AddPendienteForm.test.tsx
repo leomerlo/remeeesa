@@ -546,6 +546,7 @@ function EditPendienteHarness(props: {
             dueDate: pendiente.dueDate,
             expectedAmount: pendiente.expectedAmount,
             recurring: pendiente.recurring,
+            autoDebit: pendiente.autoDebit,
           })
         }}
       />
@@ -557,6 +558,7 @@ async function seedPendingPendiente(input?: {
   readonly name?: string
   readonly expectedAmount?: number | null
   readonly recurring?: boolean
+  readonly autoDebit?: boolean
 }): Promise<{
   readonly store: ReturnType<typeof createMemoryHouseholdsDb>
   readonly db: HouseholdsDb
@@ -585,6 +587,7 @@ async function seedPendingPendiente(input?: {
     expectedAmount:
       input?.expectedAmount !== undefined ? input.expectedAmount : 500,
     recurring: input?.recurring ?? false,
+    autoDebit: false,
   })
   return { store, db, householdId: household.id, pendiente }
 }
@@ -595,6 +598,7 @@ describe('EditPendienteFlow', () => {
       name: 'Alquiler',
       expectedAmount: 500,
       recurring: true,
+      autoDebit: false,
     })
 
     renderWithProviders(
@@ -625,6 +629,7 @@ describe('EditPendienteFlow', () => {
       name: 'Luz',
       expectedAmount: null,
       recurring: false,
+      autoDebit: false,
     })
 
     renderWithProviders(
@@ -645,6 +650,7 @@ describe('EditPendienteFlow', () => {
       name: 'Alquiler',
       expectedAmount: 500,
       recurring: false,
+      autoDebit: false,
     })
 
     renderWithProviders(
@@ -677,6 +683,7 @@ describe('EditPendienteFlow', () => {
         name: 'Alquiler nuevo',
         expectedAmount: 600,
         recurring: true,
+        autoDebit: false,
       }),
     ])
   })
@@ -702,7 +709,9 @@ describe('EditPendienteFlow', () => {
     await waitFor(() => {
       expect(screen.queryByText('Alquiler')).not.toBeInTheDocument()
     })
-    expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
+    expect(
+      await screen.findByText('No hay servicios en este mes'),
+    ).toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Guardar cambios' }),
     ).not.toBeInTheDocument()
@@ -790,7 +799,9 @@ describe('EditPendienteFlow', () => {
       ).not.toBeInTheDocument()
     })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
+    expect(
+      await screen.findByText('No hay servicios en este mes'),
+    ).toBeInTheDocument()
   })
 
   it('closes the edit form with no alert when the pendiente was marked paid elsewhere before saving', async () => {
@@ -823,7 +834,9 @@ describe('EditPendienteFlow', () => {
       ).not.toBeInTheDocument()
     })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
+    expect(
+      await screen.findByText('No hay servicios en este mes'),
+    ).toBeInTheDocument()
   })
 
   it('closes the confirmation with no persistent error when deleting a pendiente already deleted elsewhere', async () => {
@@ -855,7 +868,9 @@ describe('EditPendienteFlow', () => {
       expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
+    expect(
+      await screen.findByText('No hay servicios en este mes'),
+    ).toBeInTheDocument()
   })
 
   it('shows an alert and keeps the edit form open when deleting fails for another reason', async () => {
@@ -949,13 +964,16 @@ describe('EditPendienteFlow', () => {
       screen.getByRole('button', { name: 'Guardar y marcar pagado' }),
     )
 
-    // The edit (renamed, re-priced) is applied, and the pendiente itself
-    // disappears from the pending list -- it's paid now.
+    // The edit (renamed, re-priced) is applied, and the row is now settled
+    // rather than gone: this screen keeps what was paid this month.
     await waitFor(() => {
-      expect(screen.queryByText('Alquiler nuevo')).not.toBeInTheDocument()
-      expect(screen.queryByText('Alquiler')).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: /Marcar pagado/ }),
+      ).not.toBeInTheDocument()
     })
-    expect(await screen.findByText('No hay pendientes')).toBeInTheDocument()
+    expect(screen.getByText('Alquiler nuevo').closest('li')).toHaveTextContent(
+      'Pagado',
+    )
     expect(await listPendientes({ db, householdId })).toEqual([])
 
     // A real Expense was created from the edited (not stale) fields, for
@@ -982,6 +1000,7 @@ describe('EditPendienteFlow', () => {
       dueDate: pendiente.dueDate,
       expectedAmount: 500,
       recurring: false,
+      autoDebit: false,
       defaultMarkPaid: true,
     }
 
@@ -1032,6 +1051,7 @@ async function seedPaidPendiente(input?: {
   readonly name?: string
   readonly expectedAmount?: number
   readonly recurring?: boolean
+  readonly autoDebit?: boolean
 }): Promise<{
   readonly db: HouseholdsDb
   readonly householdId: string
@@ -1058,6 +1078,7 @@ async function seedPaidPendiente(input?: {
     dueDate: now,
     expectedAmount: input?.expectedAmount ?? 8000,
     recurring: input?.recurring ?? false,
+    autoDebit: false,
   })
   const { pendiente } = await markPendientePaid({
     db,
@@ -1093,6 +1114,7 @@ describe('EditPaidPendienteFlow', () => {
           dueDate: pendiente.dueDate,
           expectedAmount: 8000,
           recurring: false,
+          autoDebit: false,
           isPaid: true,
         }}
       />,
@@ -1121,6 +1143,7 @@ describe('EditPaidPendienteFlow', () => {
           dueDate: pendiente.dueDate,
           expectedAmount: 8000,
           recurring: false,
+          autoDebit: false,
           isPaid: true,
         }}
       />,
@@ -1146,6 +1169,7 @@ describe('EditPaidPendienteFlow', () => {
           dueDate: pendiente.dueDate,
           expectedAmount: 8000,
           recurring: false,
+          autoDebit: false,
           isPaid: true,
         }}
       />,
@@ -1178,6 +1202,7 @@ describe('EditPaidPendienteFlow', () => {
           dueDate: pendiente.dueDate,
           expectedAmount: 8000,
           recurring: false,
+          autoDebit: false,
           isPaid: true,
         }}
       />,

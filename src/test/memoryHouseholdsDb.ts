@@ -570,6 +570,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         dueDate: input.dueDate,
         expectedAmount: input.expectedAmount,
         recurring: input.recurring ?? false,
+        autoDebit: input.autoDebit ?? false,
         status: 'pending',
         paidExpenseId: null,
         paidAt: null,
@@ -711,7 +712,10 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         comments: '',
         expenseDate: input.paymentDate,
         pendienteId: input.pendienteId,
-        isService: false,
+        // See firestoreHouseholdsDb: a Servicio is a recurring bill, not
+        // merely one that passed through Pendientes on its way to being
+        // paid.
+        isService: existing.recurring,
         createdAt,
       }
       const updated: Pendiente = {
@@ -732,6 +736,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
             dueDate: nextCycleDueDate(existing.dueDate),
             expectedAmount: input.finalAmount,
             recurring: true,
+            autoDebit: existing.autoDebit,
             status: 'pending',
             paidExpenseId: null,
             paidAt: null,

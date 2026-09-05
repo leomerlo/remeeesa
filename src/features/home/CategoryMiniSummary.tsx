@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { cssVars } from '@/lib/cssVars'
 import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
@@ -15,6 +16,7 @@ import {
 } from '@/lib/expenses'
 import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
 import { pendientesQueryKey } from '@/features/pendientes'
+import { CategoryDonut } from '@/features/categorias'
 import type { HouseholdsDb } from '@/lib/households'
 
 export type CategoryMiniSummaryProps = {
@@ -27,8 +29,6 @@ export type CategoryMiniSummaryProps = {
   readonly monthStart?: Date
   readonly monthEnd?: Date
 }
-
-const TOP_CATEGORY_COUNT = 5
 
 // Home-only mini-summary. Runs its own independent useQuery on the same
 // expensesInMonthQueryKey/categoriesQueryKey cache entries the rest of
@@ -62,7 +62,7 @@ export function CategoryMiniSummary({
     queryFn: () => listCategories({ db, householdId }),
   })
   // Still-unpaid bills count toward their category too, so this breakdown
-  // reconciles with "Gastado este mes" (which also counts them). Same
+  // reconciles with "Gastos de este mes" (which also counts them). Same
   // key/shape as the budget cards' own pending query, so they share one
   // fetch.
   const pendingQuery = useQuery({
@@ -86,7 +86,7 @@ export function CategoryMiniSummary({
     expenses,
     categories,
     pendientes: pendientesDueInMonth(pending, monthStart, monthEnd),
-  }).slice(0, TOP_CATEGORY_COUNT)
+  })
 
   // Renders nothing at all rather than a heading over an empty list --
   // "Todavía no hay gastos este mes" is already the movements list's own
@@ -97,39 +97,49 @@ export function CategoryMiniSummary({
     return null
   }
 
-  // Title outside; rows share one card, separated by a thin divider --
-  // a tidy list rather than a card per row (that treatment stays on
-  // "Últimos gastos" above, whose rows carry more weight: an icon,
-  // amount, and two lines of meta, vs. this section's plain name + total).
+  // Title outside; the donut and every row share one card. The list is not
+  // topped up to a fixed number of rows any more -- per direct feedback it
+  // shows every category with spend this month, so the ring above it and
+  // the rows below it are the same set of numbers and the section adds up
+  // to the month.
   return (
     <div className="flex w-full flex-col gap-3">
       <h2 className="text-title font-semibold self-start">
         Gastos por categoría
       </h2>
-      <ul
-        aria-label="Gastos por categoría"
-        className="bg-card shadow-resting divide-border flex w-full flex-col divide-y rounded-2xl text-sm"
-      >
-        {summary.map((entry) => (
-          <li
-            key={entry.categoryId}
-            className="flex items-center justify-between gap-2 p-4"
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              <span
-                aria-hidden="true"
-                data-testid="category-swatch"
-                className="size-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: entry.color }}
-              />
-              <span className="truncate text-foreground">{entry.name}</span>
-            </span>
-            <span className="shrink-0 font-medium text-foreground">
-              {formatCurrency(entry.total)}
-            </span>
-          </li>
-        ))}
-      </ul>
+      <div className="bg-card divide-border-subtle flex w-full flex-col divide-y rounded-2xl text-sm">
+        {/* A ring drawn from a single slice says only "100%", which the one
+            row below it already says in words. */}
+        {summary.length > 1 ? (
+          <div className="flex justify-center p-5">
+            <CategoryDonut summary={summary} />
+          </div>
+        ) : null}
+        <ul
+          aria-label="Gastos por categoría"
+          className="divide-border-subtle flex w-full flex-col divide-y"
+        >
+          {summary.map((entry) => (
+            <li
+              key={entry.categoryId}
+              className="flex items-center justify-between gap-2 p-4"
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  data-testid="category-swatch"
+                  className="size-2.5 shrink-0 rounded-full bg-[var(--swatch-color)]"
+                  style={cssVars({ '--swatch-color': entry.color })}
+                />
+                <span className="truncate text-foreground">{entry.name}</span>
+              </span>
+              <span className="shrink-0 font-medium text-foreground">
+                {formatCurrency(entry.total)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   )
 }

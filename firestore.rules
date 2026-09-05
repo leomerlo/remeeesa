@@ -187,7 +187,7 @@ service cloud.firestore {
     // from creating a Pendiente that is already marked paid. Editing, deleting,
     // and marking a pendiente paid are handled by later tickets in this feature.
     function isValidPendiente(data) {
-      return data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'status', 'paid_expense_id', 'paid_at', 'created_at'])
+      return data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'auto_debit', 'status', 'paid_expense_id', 'paid_at', 'created_at'])
         && data.household_id is string
         && data.household_id.size() > 0
         && data.category_id is string
@@ -198,6 +198,10 @@ service cloud.firestore {
         && data.due_date is timestamp
         && (data.expected_amount == null || (data.expected_amount is number && data.expected_amount > 0))
         && data.recurring is bool
+        // Absent on every Pendiente written before auto-debit existed;
+        // direct dot-access on a missing key fails closed, hence the
+        // membership check first.
+        && (!('auto_debit' in data) || data.auto_debit is bool)
         && data.status == 'pending'
         && data.paid_expense_id == null
         && data.paid_at == null
@@ -227,7 +231,7 @@ service cloud.firestore {
     function isValidPendienteUpdate() {
       return resource.data.status == 'pending'
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'category_id', 'due_date', 'expected_amount', 'recurring'])
+          .hasOnly(['name', 'category_id', 'due_date', 'expected_amount', 'recurring', 'auto_debit'])
         && !request.resource.data.diff(resource.data).affectedKeys()
           .hasAny(['household_id', 'status', 'paid_expense_id', 'paid_at', 'created_at'])
         && request.resource.data.household_id == resource.data.household_id
@@ -238,6 +242,8 @@ service cloud.firestore {
         && (request.resource.data.expected_amount == null
           || (request.resource.data.expected_amount is number && request.resource.data.expected_amount > 0))
         && request.resource.data.recurring is bool
+        && (!('auto_debit' in request.resource.data)
+            || request.resource.data.auto_debit is bool)
         && exists(/databases/$(database)/documents/categories/$(request.resource.data.category_id))
         && get(/databases/$(database)/documents/categories/$(request.resource.data.category_id)).data.household_id == resource.data.household_id;
     }

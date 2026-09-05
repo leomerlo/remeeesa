@@ -56,9 +56,7 @@ export function EditDisplayNameForm({
 
   return (
     <form className="flex w-full flex-col gap-2" onSubmit={onSubmit}>
-      <Label htmlFor="member-display-name" className="font-medium">
-        Tu nombre
-      </Label>
+      <Label htmlFor="member-display-name">Tu nombre</Label>
       <div className="flex w-full items-center gap-2">
         <Input
           id="member-display-name"
@@ -72,6 +70,7 @@ export function EditDisplayNameForm({
         />
         <Button
           type="submit"
+          variant="outline"
           disabled={mutation.isPending}
           className="shrink-0"
         >

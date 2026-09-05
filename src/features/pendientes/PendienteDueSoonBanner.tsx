@@ -1,11 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
 import type { ReactElement, UIEvent } from 'react'
+import {
+  CarouselArrows,
+  useCarouselControls,
+} from '@/components/ui/carousel-arrows'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatBudgetAmount, listCategories } from '@/lib/expenses'
-import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
-import { formatShortDate } from '@/lib/format'
+import { formatDate } from '@/lib/format'
 import { listPendientes, pendientesDueSoon } from '@/lib/pendientes'
 import type { HouseholdsDb } from '@/lib/households'
 import { cn } from '@/lib/utils'
@@ -47,7 +50,10 @@ export function PendienteDueSoonBanner({
       return { pendientes, categories }
     },
   })
+  // One ref, two readers: the dots below track which page is showing, the
+  // arrows track whether there is another one in each direction.
   const scrollerRef = useRef<HTMLUListElement>(null)
+  const carousel = useCarouselControls(scrollerRef)
   const [activeIndex, setActiveIndex] = useState(0)
 
   if (pendientesQuery.isPending) {
@@ -83,6 +89,9 @@ export function PendienteDueSoonBanner({
     }
     const index = Math.round(container.scrollLeft / container.clientWidth)
     setActiveIndex(index)
+    // The dots and the arrows read the same scroll position; both have to
+    // be told about it.
+    carousel.onScroll()
   }
 
   function scrollToIndex(index: number): void {
@@ -98,32 +107,52 @@ export function PendienteDueSoonBanner({
 
   return (
     <section aria-labelledby="due-soon-heading" className="w-full">
-      <h2 id="due-soon-heading" className="text-title font-semibold">
-        Vencimientos que se acercan
-      </h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 id="due-soon-heading" className="text-title font-semibold">
+          Vencimientos que se acercan
+        </h2>
+        {dueSoon.length > 1 ? (
+          <CarouselArrows
+            controls={carousel}
+            label="Vencimientos"
+            // Shares its line with the section title, which already wraps at
+            // 375px; on a phone the swipe is the gesture anyway.
+            className="hidden sm:flex"
+          />
+        ) : null}
+      </div>
       <ul
         ref={scrollerRef}
         onScroll={handleScroll}
         aria-label="Vencimientos próximos"
-        className="mt-3 flex w-full snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="mt-3 flex w-full snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] lg:gap-4 [&::-webkit-scrollbar]:hidden"
       >
         {dueSoon.map((pendiente) => {
           const category = categoryById.get(pendiente.categoryId)
           const categoryName = category?.name ?? 'Categoría desconocida'
-          const categoryColor =
-            category?.color ?? colorForCategoryName(categoryName)
           const CategoryIcon = iconForCategoryName(categoryName)
 
           return (
-            <li key={pendiente.id} className="w-full shrink-0 snap-start">
-              {/* Same row shape as every other list on Home -- the only
-                  deliberate difference is the color, tinted orange so it
-                  reads as a heads-up rather than just another row. */}
-              <div className="bg-orange-100 flex w-full items-center gap-3 rounded-2xl p-4">
+            // One card per view on a phone, two side by side from `lg` --
+            // the row is far wider than one of these needs there. With two
+            // or fewer due, that is the whole section and the arrows sit
+            // disabled; past that it pages.
+            <li
+              key={pendiente.id}
+              className="w-full shrink-0 snap-start lg:w-[calc((100%-1rem)/2)]"
+            >
+              {/* The one dark card in a light interface. Same structure as
+                  every other row on Home, but none of its colours come from
+                  the category: whatever is about to come due should read as
+                  one thing, not as five differently-tinted things. Per
+                  direct feedback, it carries the budget card's own gradient
+                  run the other way -- deep wine into the lighter one. Wine,
+                  not red: the budget card's ramp still has the brand violet
+                  in it at that point, and the two have to match. */}
+              <div className="flex w-full items-center gap-3 rounded-2xl bg-[linear-gradient(to_bottom_right,var(--surface-due-soon-from),var(--surface-due-soon-to))] p-4 text-white">
                 <span
                   aria-hidden="true"
-                  className="flex size-11 shrink-0 items-center justify-center rounded-full"
-                  style={{ backgroundColor: categoryColor }}
+                  className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white/15"
                 >
                   <CategoryIcon
                     className="size-5 text-white"
@@ -132,24 +161,25 @@ export function PendienteDueSoonBanner({
                 </span>
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="truncate text-foreground font-medium">
+                    <span className="truncate font-medium">
                       {pendiente.name}
                     </span>
                     {pendiente.expectedAmount !== null ? (
-                      <span className="font-display text-lg text-foreground">
+                      <span className="font-display text-lg">
                         {formatBudgetAmount(pendiente.expectedAmount)}
                       </span>
                     ) : pendiente.recurring ? (
-                      <span className="font-display text-muted-foreground text-lg">
+                      <span className="font-display text-lg text-white/70">
                         $ --,--
                       </span>
                     ) : null}
                   </div>
-                  <div className="flex flex-wrap gap-x-1.5 text-xs text-muted-foreground">
-                    <span>{categoryName}</span>
-                    <span aria-hidden="true">·</span>
-                    <span className="text-warning font-medium">
-                      Vence {formatShortDate(pendiente.dueDate)}
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                    <span className="rounded bg-white/15 px-1.5 py-0.5 font-medium">
+                      {categoryName}
+                    </span>
+                    <span className="font-medium">
+                      Vence {formatDate(pendiente.dueDate)}
                     </span>
                   </div>
                 </div>
@@ -159,10 +189,13 @@ export function PendienteDueSoonBanner({
         })}
       </ul>
       {dueSoon.length > 1 ? (
+        // Dots are one-per-card, which only reads as a page indicator while
+        // a page *is* one card. From `lg` two share a view, so the arrows
+        // are the pager there and these step aside.
         <div
           role="tablist"
           aria-label="Vencimiento visible"
-          className="mt-2 flex w-full items-center justify-center gap-1.5"
+          className="mt-2 flex w-full items-center justify-center gap-1.5 lg:hidden"
         >
           {dueSoon.map((pendiente, index) => (
             <button

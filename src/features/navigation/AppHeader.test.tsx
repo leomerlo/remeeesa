@@ -26,6 +26,22 @@ describe('AppHeader', () => {
     })
   })
 
+  // Per direct feedback: the household's name belongs on every screen, not
+  // just Home, so this bar carries it rather than Home's page title.
+  it('names the household the member belongs to', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderWithProviders(<AppHeader currentUserId="user-1" householdsDb={db} />)
+
+    expect(await screen.findByText('Casa Verde')).toBeInTheDocument()
+  })
+
   it('shows the wordmark once a signed-in user has a household', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     await createHouseholdWithMembership({
