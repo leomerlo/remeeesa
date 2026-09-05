@@ -337,6 +337,7 @@ describe('PendientesPage', () => {
       dueDate: paidDueDate,
       expectedAmount: 500,
       recurring: true,
+      autoDebit: false,
     })
 
     renderPendientesPage(

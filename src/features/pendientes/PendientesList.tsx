@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
+import { TintedBadge } from '@/components/CategoryBadge'
 import { MovementCard } from '@/components/MovementCard'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -181,6 +182,20 @@ export function PendientesList({
           categoryName={categoryName}
           categoryColor={categoryColor}
           CategoryIcon={iconForCategoryName(categoryName)}
+          // The bank settles this one on its own, and at whatever figure it
+          // actually is -- the amount here is last cycle's, carried over. So
+          // the badge says both things: you do not have to pay it, and the
+          // number is worth a look.
+          {...(pendiente.autoDebit
+            ? {
+                badge: (
+                  <TintedBadge
+                    label="Débito automático · revisar monto"
+                    color="#4e4c56"
+                  />
+                ),
+              }
+            : {})}
           title={pendiente.name}
           when={
             isPaid

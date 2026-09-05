@@ -546,6 +546,7 @@ function EditPendienteHarness(props: {
             dueDate: pendiente.dueDate,
             expectedAmount: pendiente.expectedAmount,
             recurring: pendiente.recurring,
+            autoDebit: pendiente.autoDebit,
           })
         }}
       />
@@ -557,6 +558,7 @@ async function seedPendingPendiente(input?: {
   readonly name?: string
   readonly expectedAmount?: number | null
   readonly recurring?: boolean
+  readonly autoDebit?: boolean
 }): Promise<{
   readonly store: ReturnType<typeof createMemoryHouseholdsDb>
   readonly db: HouseholdsDb
@@ -585,6 +587,7 @@ async function seedPendingPendiente(input?: {
     expectedAmount:
       input?.expectedAmount !== undefined ? input.expectedAmount : 500,
     recurring: input?.recurring ?? false,
+    autoDebit: false,
   })
   return { store, db, householdId: household.id, pendiente }
 }
@@ -595,6 +598,7 @@ describe('EditPendienteFlow', () => {
       name: 'Alquiler',
       expectedAmount: 500,
       recurring: true,
+      autoDebit: false,
     })
 
     renderWithProviders(
@@ -625,6 +629,7 @@ describe('EditPendienteFlow', () => {
       name: 'Luz',
       expectedAmount: null,
       recurring: false,
+      autoDebit: false,
     })
 
     renderWithProviders(
@@ -645,6 +650,7 @@ describe('EditPendienteFlow', () => {
       name: 'Alquiler',
       expectedAmount: 500,
       recurring: false,
+      autoDebit: false,
     })
 
     renderWithProviders(
@@ -677,6 +683,7 @@ describe('EditPendienteFlow', () => {
         name: 'Alquiler nuevo',
         expectedAmount: 600,
         recurring: true,
+        autoDebit: false,
       }),
     ])
   })
@@ -993,6 +1000,7 @@ describe('EditPendienteFlow', () => {
       dueDate: pendiente.dueDate,
       expectedAmount: 500,
       recurring: false,
+      autoDebit: false,
       defaultMarkPaid: true,
     }
 
@@ -1043,6 +1051,7 @@ async function seedPaidPendiente(input?: {
   readonly name?: string
   readonly expectedAmount?: number
   readonly recurring?: boolean
+  readonly autoDebit?: boolean
 }): Promise<{
   readonly db: HouseholdsDb
   readonly householdId: string
@@ -1069,6 +1078,7 @@ async function seedPaidPendiente(input?: {
     dueDate: now,
     expectedAmount: input?.expectedAmount ?? 8000,
     recurring: input?.recurring ?? false,
+    autoDebit: false,
   })
   const { pendiente } = await markPendientePaid({
     db,
@@ -1104,6 +1114,7 @@ describe('EditPaidPendienteFlow', () => {
           dueDate: pendiente.dueDate,
           expectedAmount: 8000,
           recurring: false,
+          autoDebit: false,
           isPaid: true,
         }}
       />,
@@ -1132,6 +1143,7 @@ describe('EditPaidPendienteFlow', () => {
           dueDate: pendiente.dueDate,
           expectedAmount: 8000,
           recurring: false,
+          autoDebit: false,
           isPaid: true,
         }}
       />,
@@ -1157,6 +1169,7 @@ describe('EditPaidPendienteFlow', () => {
           dueDate: pendiente.dueDate,
           expectedAmount: 8000,
           recurring: false,
+          autoDebit: false,
           isPaid: true,
         }}
       />,
@@ -1189,6 +1202,7 @@ describe('EditPaidPendienteFlow', () => {
           dueDate: pendiente.dueDate,
           expectedAmount: 8000,
           recurring: false,
+          autoDebit: false,
           isPaid: true,
         }}
       />,

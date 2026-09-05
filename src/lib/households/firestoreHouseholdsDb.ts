@@ -821,6 +821,7 @@ export function createFirestoreHouseholdsDb(
               dueDate: input.dueDate,
               expectedAmount: input.expectedAmount,
               recurring,
+              autoDebit: input.autoDebit ?? false,
               status: 'pending',
               paidExpenseId: null,
               paidAt: null,
@@ -837,6 +838,7 @@ export function createFirestoreHouseholdsDb(
             dueDate: input.dueDate,
             expectedAmount: input.expectedAmount,
             recurring,
+            autoDebit: input.autoDebit ?? false,
             status: 'pending',
             paidExpenseId: null,
             paidAt: null,
@@ -1043,6 +1045,9 @@ export function createFirestoreHouseholdsDb(
                   dueDate: nextDueDate,
                   expectedAmount: input.finalAmount,
                   recurring: true,
+                  // Auto-debit carries over: the bank will debit next month
+                  // too, so the next cycle settles itself the same way.
+                  autoDebit: current.autoDebit,
                   status: 'pending',
                   paidExpenseId: null,
                   paidAt: null,
@@ -1071,6 +1076,7 @@ export function createFirestoreHouseholdsDb(
                       dueDate: nextDueDate,
                       expectedAmount: input.finalAmount,
                       recurring: true,
+                      autoDebit: current.autoDebit,
                       status: 'pending' as const,
                       paidExpenseId: null,
                       paidAt: null,

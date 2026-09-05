@@ -228,6 +228,7 @@ export function HomePage({
                 dueDate: pendiente.dueDate,
                 expectedAmount: pendiente.expectedAmount,
                 recurring: pendiente.recurring,
+                autoDebit: pendiente.autoDebit,
                 defaultMarkPaid: true,
               })
             }}

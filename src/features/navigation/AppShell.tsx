@@ -1,11 +1,15 @@
+import { useMemo } from 'react'
 import type { ReactElement } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { History, Home, LayoutGrid, Receipt, Settings } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Logo } from '@/components/Logo'
+import { useSettleAutoDebits } from '@/features/pendientes'
+import { useFirebase } from '@/lib/firebaseContext'
 import { cn } from '@/lib/utils'
+import { createFirestoreHouseholdsDb } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
-import { useShowNav } from './useShowNav'
+import { useCurrentMembership } from './useShowNav'
 
 export type AppShellProps = {
   readonly currentUserId?: string | null
@@ -42,7 +46,23 @@ export function AppShell({
   currentUserId,
   householdsDb,
 }: AppShellProps): ReactElement {
-  const showNav = useShowNav({ currentUserId, householdsDb })
+  const membership = useCurrentMembership({ currentUserId, householdsDb })
+  const showNav = membership !== undefined && membership !== null
+  const firebase = useFirebase()
+  const db = useMemo(
+    () => householdsDb ?? createFirestoreHouseholdsDb(firebase.db),
+    [householdsDb, firebase.db],
+  )
+  // The app has no server, so this is where "it pays itself every month"
+  // actually happens: on open, any auto-debit bill the bank has already
+  // taken money for records itself. Here rather than on one page because it
+  // should run whichever screen the app opens on.
+  useSettleAutoDebits({
+    db,
+    householdId: membership?.householdId,
+    memberId: membership?.userId,
+    authorDisplayName: membership?.displayName,
+  })
 
   // Outlet always sits in the same position in the tree (Fragment > div >
   // div > Outlet) across both the nav-hidden and nav-shown branches -- only

@@ -209,6 +209,7 @@ describe('PendientesList', () => {
       dueDate: new Date(2026, 8, 1),
       expectedAmount: 20,
       recurring: false,
+      autoDebit: false,
       status: 'paid',
       paidExpenseId: 'expense-1',
       paidAt: new Date(),

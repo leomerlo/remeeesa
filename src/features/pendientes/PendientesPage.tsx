@@ -99,6 +99,7 @@ export function PendientesPage({
             dueDate: pendiente.dueDate,
             expectedAmount: pendiente.expectedAmount,
             recurring: pendiente.recurring,
+            autoDebit: pendiente.autoDebit,
           })
         }}
         onMarkPaid={(pendiente, categoryName) => {
@@ -113,6 +114,7 @@ export function PendientesPage({
             dueDate: pendiente.dueDate,
             expectedAmount: pendiente.expectedAmount,
             recurring: pendiente.recurring,
+            autoDebit: pendiente.autoDebit,
             defaultMarkPaid: true,
           })
         }}

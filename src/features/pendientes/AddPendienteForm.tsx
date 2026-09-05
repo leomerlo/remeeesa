@@ -43,6 +43,7 @@ export type EditPendienteTarget = {
   readonly dueDate: Date
   readonly expectedAmount: number | null
   readonly recurring: boolean
+  readonly autoDebit: boolean
   // Pre-checks "Ya lo pagué" -- set by entry points whose whole purpose is
   // paying (Home's "Cuentas por pagar" cards, PendientesList's "Pagar"
   // button), so the toggle already reflects that intent rather than making
@@ -76,6 +77,7 @@ type PendienteFormFields = {
   readonly dueDate: string
   readonly expectedAmount: string
   readonly recurring: boolean
+  readonly autoDebit: boolean
 }
 
 function localDateInputValue(date: Date): string {
@@ -92,6 +94,7 @@ function emptyFormFields(): PendienteFormFields {
     dueDate: localDateInputValue(new Date()),
     expectedAmount: '',
     recurring: false,
+    autoDebit: false,
   }
 }
 
@@ -107,6 +110,7 @@ function formFieldsFromEdit(
         ? ''
         : String(editPendiente.expectedAmount),
     recurring: editPendiente.recurring,
+    autoDebit: editPendiente.autoDebit,
   }
 }
 
@@ -161,6 +165,7 @@ type ParsedPendienteFields = {
   readonly dueDate: Date
   readonly expectedAmount: number | null
   readonly recurring: boolean
+  readonly autoDebit: boolean
 }
 
 function parsePendienteFields(
@@ -178,6 +183,7 @@ function parsePendienteFields(
       trimmedAmount === '' ? null : Number(trimmedAmount),
     ),
     recurring: input.recurring,
+    autoDebit: input.autoDebit,
   }
 }
 
@@ -262,6 +268,7 @@ function PendienteFormBody({
     initialFields.expectedAmount,
   )
   const [recurring, setRecurring] = useState(initialFields.recurring)
+  const [autoDebit, setAutoDebit] = useState(initialFields.autoDebit)
   const [markPaid, setMarkPaid] = useState(
     isPaidPendiente ? true : (editPendiente?.defaultMarkPaid ?? false),
   )
@@ -351,6 +358,7 @@ function PendienteFormBody({
         setDueDate(reset.dueDate)
         setExpectedAmount(reset.expectedAmount)
         setRecurring(reset.recurring)
+        setAutoDebit(reset.autoDebit)
         // Reset alongside every other field: AddPendienteSheet closes on a
         // successful add today, which would remount this fresh anyway, but
         // nothing about this component depends on that -- a host that keeps
@@ -506,6 +514,7 @@ function PendienteFormBody({
         dueDate,
         expectedAmount,
         recurring,
+        autoDebit,
       })
       if (markPaid && fields.expectedAmount === null) {
         throw new Error('Ingresá un monto para marcarlo como pagado')
@@ -665,6 +674,21 @@ function PendienteFormBody({
               id="pendiente-recurring"
               checked={recurring}
               onCheckedChange={setRecurring}
+            />
+          </div>
+
+          {/* The household does not pay this one: the bank takes it on the
+              due date. It still belongs here so the money is budgeted before
+              it leaves, but it settles itself rather than waiting for
+              someone to press Pagar. Per direct feedback. */}
+          <div className="flex w-full items-center justify-between gap-2">
+            <Label htmlFor="pendiente-auto-debit" className="font-medium">
+              Débito automático
+            </Label>
+            <Switch
+              id="pendiente-auto-debit"
+              checked={autoDebit}
+              onCheckedChange={setAutoDebit}
             />
           </div>
         </fieldset>
