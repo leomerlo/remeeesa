@@ -62,3 +62,5 @@ export {
 } from './validate'
 export { EXPENSE_HISTORY_PAGE_SIZE } from './history'
 export type { ExpenseHistoryCursor, ExpenseHistoryPage } from './history'
+export { csvFileNameForMonth, expensesToCsv } from './exportCsv'
+export type { ExportableExpense } from './exportCsv'

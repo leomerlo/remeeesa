@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { TintedBadge } from '@/components/CategoryBadge'
 import { MovementCard } from '@/components/MovementCard'
-import { Pencil } from 'lucide-react'
+import { Download, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AlertMessage } from '@/components/ui/alert-message'
 import { useMemo, useState } from 'react'
@@ -10,12 +10,15 @@ import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import { membersQueryKey } from '@/features/household'
 import {
+  csvFileNameForMonth,
   currentMonthRange,
+  expensesToCsv,
   formatCurrency,
   isServicio,
   listCategories,
   listExpensesInMonth,
 } from '@/lib/expenses'
+import { downloadTextFile } from '@/lib/download'
 import type { Category, Expense } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
@@ -273,6 +276,39 @@ export function ExpenseHistory({
   return (
     <div className="flex w-full flex-col gap-6">
       {controls}
+      {/* The whole month, not the selected tab: one file per month is what
+          makes two months comparable in a spreadsheet, and a file named for
+          September that held only its servicios would be a trap. Per direct
+          feedback. */}
+      <div className="flex w-full justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={expenses.length === 0}
+          onClick={() => {
+            downloadTextFile({
+              fileName: csvFileNameForMonth(monthStart),
+              text: expensesToCsv(
+                expenses.map((expense) => ({
+                  expense,
+                  categoryName:
+                    categoryById.get(expense.categoryId)?.name ??
+                    'Categoría desconocida',
+                  authorDisplayName:
+                    memberById.get(expense.memberId)?.displayName ??
+                    expense.authorDisplayName,
+                  isServicio: isServicio(expense),
+                })),
+              ),
+              mimeType: 'text/csv;charset=utf-8',
+            })
+          }}
+        >
+          <Download aria-hidden="true" />
+          Exportar mes
+        </Button>
+      </div>
       {/* The month's own total, for whichever of the three is selected --
           a history that only lists rows makes "what did we spend on
           servicios in July" a manual sum. */}

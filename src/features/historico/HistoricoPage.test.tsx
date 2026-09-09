@@ -1,7 +1,7 @@
 import { fireEvent, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   createExpense,
   formatCurrency,
@@ -472,5 +472,48 @@ describe('HistoricoPage', () => {
       await screen.findByText('No hay servicios en este mes'),
     ).toBeInTheDocument()
     expect(screen.queryByText('Super')).not.toBeInTheDocument()
+  })
+
+  // Per direct feedback: a file of the month's movements, to open in a
+  // spreadsheet and compare months by hand.
+  it("exports the month's movements as a CSV", async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    await seed({
+      db,
+      householdId,
+      categoryId,
+      name: 'Super',
+      date: new Date(),
+      price: 1234.5,
+    })
+
+    // The download is a Blob handed to an <a>; capture it rather than
+    // letting jsdom try to navigate.
+    const createObjectURL = vi.fn<(blob: Blob) => string>(() => 'blob:test')
+    const revokeObjectURL = vi.fn()
+    vi.stubGlobal('URL', { ...URL, createObjectURL, revokeObjectURL })
+    const clicked: HTMLAnchorElement[] = []
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(function (this: HTMLAnchorElement) {
+        clicked.push(this)
+      })
+
+    renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+    await screen.findByText('Super')
+    fireEvent.click(screen.getByRole('button', { name: /Exportar mes/ }))
+
+    expect(clicked).toHaveLength(1)
+    expect(clicked[0]?.download).toMatch(/^remeeesa-\d{4}-\d{2}\.csv$/)
+    expect(createObjectURL).toHaveBeenCalledTimes(1)
+    // The blob is released once the download has started; leaving it pins
+    // the file in memory for the life of the page.
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:test')
+
+    const blob = createObjectURL.mock.calls[0]?.[0]
+    expect(await blob?.text()).toContain('Super;Comida;Gasto;1234,50')
+
+    clickSpy.mockRestore()
+    vi.unstubAllGlobals()
   })
 })
