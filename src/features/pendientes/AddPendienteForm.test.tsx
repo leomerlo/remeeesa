@@ -84,7 +84,7 @@ function fillPendiente(fields: {
 }
 
 function submitPendiente(): void {
-  fireEvent.click(screen.getByRole('button', { name: 'Agregar recurrente' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Agregar servicio' }))
 }
 
 describe('AddPendienteForm', () => {
@@ -698,12 +698,12 @@ describe('EditPendienteFlow', () => {
     fireEvent.click(
       await screen.findByRole('button', { name: 'Editar Alquiler' }),
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Eliminar pendiente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar servicio' }))
 
     const dialog = screen.getByRole('alertdialog')
-    expect(dialog).toHaveTextContent('¿Eliminar el pendiente?')
+    expect(dialog).toHaveTextContent('¿Eliminar el servicio?')
     fireEvent.click(
-      within(dialog).getByRole('button', { name: 'Eliminar pendiente' }),
+      within(dialog).getByRole('button', { name: 'Eliminar servicio' }),
     )
 
     await waitFor(() => {
@@ -728,7 +728,7 @@ describe('EditPendienteFlow', () => {
     fireEvent.click(
       await screen.findByRole('button', { name: 'Editar Alquiler' }),
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Eliminar pendiente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar servicio' }))
     fireEvent.click(
       within(screen.getByRole('alertdialog')).getByRole('button', {
         name: 'Cancelar',
@@ -852,7 +852,7 @@ describe('EditPendienteFlow', () => {
     fireEvent.click(
       await screen.findByRole('button', { name: 'Editar Alquiler' }),
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Eliminar pendiente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar servicio' }))
     await deletePendiente({
       db: store.asUser('user-2'),
       householdId,
@@ -860,7 +860,7 @@ describe('EditPendienteFlow', () => {
     })
     fireEvent.click(
       within(screen.getByRole('alertdialog')).getByRole('button', {
-        name: 'Eliminar pendiente',
+        name: 'Eliminar servicio',
       }),
     )
 
@@ -893,10 +893,10 @@ describe('EditPendienteFlow', () => {
     fireEvent.click(
       await screen.findByRole('button', { name: 'Editar Alquiler' }),
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Eliminar pendiente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar servicio' }))
     fireEvent.click(
       within(screen.getByRole('alertdialog')).getByRole('button', {
-        name: 'Eliminar pendiente',
+        name: 'Eliminar servicio',
       }),
     )
 
@@ -1129,7 +1129,7 @@ describe('EditPaidPendienteFlow', () => {
     expect(markPaidToggle).toHaveAttribute('data-state', 'checked')
   })
 
-  it('does not offer "Eliminar pendiente" for an already-paid pendiente', async () => {
+  it('does not offer "Eliminar servicio" for an already-paid pendiente', async () => {
     const { db, householdId, pendiente } = await seedPaidPendiente()
 
     renderWithProviders(
@@ -1151,7 +1151,7 @@ describe('EditPaidPendienteFlow', () => {
 
     await screen.findByLabelText('Nombre')
     expect(
-      screen.queryByRole('button', { name: 'Eliminar pendiente' }),
+      screen.queryByRole('button', { name: 'Eliminar servicio' }),
     ).not.toBeInTheDocument()
   })
 

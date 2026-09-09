@@ -534,13 +534,13 @@ function ExpenseFormBody({
           >
             <p id="delete-expense-title" className="text-sm font-medium">
               {isFromPendiente
-                ? '¿Deshacer el pago? La cuenta vuelve a quedar pendiente.'
+                ? '¿Deshacer el pago? El servicio vuelve a quedar impago.'
                 : '¿Eliminar el gasto?'}
             </p>
             <div className="flex w-full gap-2">
               <Button
                 type="button"
-                variant="outline"
+                variant="destructive-outline"
                 className="flex-1"
                 disabled={deleteMutation.isPending}
                 onClick={() => {
@@ -551,6 +551,7 @@ function ExpenseFormBody({
               </Button>
               <Button
                 type="button"
+                variant="destructive"
                 className="flex-1"
                 disabled={deleteMutation.isPending}
                 onClick={() => {
@@ -586,8 +587,8 @@ function ExpenseFormBody({
                 </Button>
                 <Button
                   type="button"
-                  variant="outline"
-                  className="text-error hover:text-error"
+                  variant="destructive-outline"
+                  className="w-full"
                   disabled={mutation.isPending}
                   onClick={() => {
                     setError(null)

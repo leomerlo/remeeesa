@@ -71,34 +71,53 @@ function parseTyped(displayed: string): string {
     return sign + displayed.replace(/\D/g, '')
   }
   const intPart = displayed.slice(0, separatorIndex).replace(/\D/g, '')
-  const decimalPart = displayed.slice(separatorIndex + 1).replace(/\D/g, '')
+  // Two decimals, no more. Money has two, and without the cap a stray comma
+  // silently changes the magnitude of what is being typed: "3", ",", "900"
+  // stored 3.900 -- three pesos ninety -- while reading, at a glance, like
+  // the three thousand nine hundred that was meant. Per direct feedback.
+  const decimalPart = displayed
+    .slice(separatorIndex + 1)
+    .replace(/\D/g, '')
+    .slice(0, 2)
   return `${sign}${intPart}.${decimalPart}`
 }
 
-function digitCountBefore(text: string, position: number): number {
+// Digits and the decimal comma both count; the grouping periods do not,
+// since they are inserted and removed by the formatter rather than typed.
+//
+// Counting digits alone was the bug: type a comma and it is not a digit, so
+// the caret came back to rest after the last *digit* -- in front of the
+// comma just typed. Every following keystroke then landed in the integer
+// part and the comma stayed stranded at the end, which is exactly what
+// "3.900," turning into "3.9004," looks like from the outside.
+function isSignificant(character: string): boolean {
+  return /\d/.test(character) || character === ','
+}
+
+function significantCountBefore(text: string, position: number): number {
   let count = 0
   for (let i = 0; i < position && i < text.length; i += 1) {
-    if (/\d/.test(text[i] ?? '')) {
+    if (isSignificant(text[i] ?? '')) {
       count += 1
     }
   }
   return count
 }
 
-// The caret position landing right after the Nth digit in text -- grouping
-// separators inserted before that point don't count as a digit typed, so
-// the caret still ends up right where the user's next keystroke belongs
-// instead of jumping to the end of the field, which is what a naive
+// The caret position landing right after the Nth significant character --
+// grouping separators inserted before that point don't count as something
+// typed, so the caret still ends up right where the user's next keystroke
+// belongs instead of jumping to the end of the field, which is what a naive
 // re-format-on-every-keystroke does.
-function positionAfterDigitCount(text: string, digitCount: number): number {
-  if (digitCount <= 0) {
+function positionAfterSignificantCount(text: string, count: number): number {
+  if (count <= 0) {
     return 0
   }
   let seen = 0
   for (let i = 0; i < text.length; i += 1) {
-    if (/\d/.test(text[i] ?? '')) {
+    if (isSignificant(text[i] ?? '')) {
       seen += 1
-      if (seen === digitCount) {
+      if (seen === count) {
         return i + 1
       }
     }
@@ -132,12 +151,15 @@ export function FormattedAmountInput({
   function handleChange(event: ChangeEvent<HTMLInputElement>): void {
     const input = event.target
     const caretBefore = input.selectionStart ?? input.value.length
-    const digitsBeforeCaret = digitCountBefore(input.value, caretBefore)
+    const significantBeforeCaret = significantCountBefore(
+      input.value,
+      caretBefore,
+    )
     const nextRaw = parseTyped(input.value)
     const nextDisplay = formatForDisplay(nextRaw)
-    pendingCaretRef.current = positionAfterDigitCount(
+    pendingCaretRef.current = positionAfterSignificantCount(
       nextDisplay,
-      digitsBeforeCaret,
+      significantBeforeCaret,
     )
     onChange(nextRaw)
   }

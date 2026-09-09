@@ -25,6 +25,11 @@ export type MovementCardProps = {
   readonly badge?: ReactNode
   // Trails the date: who logged it, in Histórico.
   readonly meta?: string
+  // Sits against the card's right edge, level with the category disc: the
+  // pencil that opens this row for editing, and on a bill the Pagar button
+  // beside it. Per direct feedback -- a full-width "Editar" bar under every
+  // row made a list of them read as a column of buttons with some text
+  // between them.
   readonly actions?: ReactNode
 }
 
@@ -53,10 +58,12 @@ export function MovementCard({
   actions,
 }: MovementCardProps): ReactElement {
   return (
-    // Stacked on a phone, one row from `lg`. In a row everything centres
-    // against the card's own height, so the icon and the buttons line up
-    // with the middle of the block of text rather than with its first line.
-    <div className="bg-card flex flex-col gap-3 rounded-2xl p-4 lg:flex-row lg:items-center lg:gap-4">
+    // One row at every width now: the actions are an icon and, on a bill, a
+    // short button, so they fit beside the text on a phone rather than
+    // needing a line of their own. Everything centres against the row's
+    // height, which puts the actions level with the category disc -- the
+    // anchor the eye already uses down a list of these.
+    <div className="bg-card flex items-center gap-3 rounded-2xl p-4">
       <div className="flex min-w-0 flex-1 items-center gap-3">
         <span
           aria-hidden="true"
@@ -91,7 +98,9 @@ export function MovementCard({
           {amount}
         </div>
       </div>
-      {actions}
+      {actions === undefined ? null : (
+        <div className="flex shrink-0 items-center gap-2">{actions}</div>
+      )}
     </div>
   )
 }

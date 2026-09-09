@@ -280,8 +280,8 @@ export function AddGastoForm({
       ? 'Agregar y marcar pagado'
       : 'Agregar gasto'
     : recurring
-      ? 'Agregar recurrente'
-      : 'Agregar pendiente'
+      ? 'Agregar servicio'
+      : 'Agregar servicio'
 
   return (
     <form

@@ -131,7 +131,7 @@ describe('PorPagarSection', () => {
       }),
     ).toBeInTheDocument()
     const list = await screen.findByRole('list', {
-      name: 'Pendientes por pagar',
+      name: 'Servicios por pagar',
     })
     const items = within(list).getAllByRole('listitem')
     expect(items).toHaveLength(2)
@@ -206,7 +206,7 @@ describe('PorPagarSection', () => {
     )
 
     const list = await screen.findByRole('list', {
-      name: 'Pendientes por pagar',
+      name: 'Servicios por pagar',
     })
     const items = within(list).getAllByRole('listitem')
     expect(items).toHaveLength(7)
@@ -334,7 +334,7 @@ describe('PorPagarSection', () => {
     )
 
     const list = await screen.findByRole('list', {
-      name: 'Pendientes por pagar',
+      name: 'Servicios por pagar',
     })
     expect(within(list).getByText('Internet')).toBeInTheDocument()
     expect(within(list).queryByText('Osde Flor')).not.toBeInTheDocument()
@@ -442,7 +442,7 @@ describe('PorPagarSection', () => {
     )
 
     const list = await screen.findByRole('list', {
-      name: 'Pendientes por pagar',
+      name: 'Servicios por pagar',
     })
     // Exactly one row, and an actionable one -- not a display-only paid row.
     const rows = within(list).getAllByText('Gimnasio')
@@ -485,7 +485,7 @@ describe('PorPagarSection', () => {
     )
 
     const list = await screen.findByRole('list', {
-      name: 'Pendientes por pagar',
+      name: 'Servicios por pagar',
     })
     const items = within(list).getAllByRole('listitem')
     expect(items).toHaveLength(1)

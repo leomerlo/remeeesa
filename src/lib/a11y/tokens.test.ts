@@ -86,6 +86,21 @@ describe('colour tokens meet WCAG AA', () => {
       '--surface-action-gradient-end',
     ],
     ['error text on a card', '--text-error', '--surface-card'],
+    [
+      'destructive label on its button',
+      '--text-on-error',
+      '--surface-error-strong',
+    ],
+    [
+      'destructive label on a hovered button',
+      '--text-on-error',
+      '--surface-error-strong-hover',
+    ],
+    [
+      'soft destructive label on its chip',
+      '--text-error',
+      '--surface-error-hover',
+    ],
     ['error text on its own surface', '--text-error', '--surface-error'],
     ['warning text on a card', '--text-warning', '--surface-card'],
     ['success text on its own surface', '--text-success', '--surface-success'],
