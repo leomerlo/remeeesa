@@ -7,9 +7,9 @@ import { cn } from '@/lib/utils'
 // Trimmed from the shadcn output. Variants map onto the reference:
 // `outline` is the idle pill, `default` is the inverted active pill, `ghost` is
 // the borderless label beside a selected chip. `secondary` and `link` have no
-// counterpart, and `destructive` is red, which would break the monochrome rule
-// through a component the design system shipped. Emphasis comes from weight and
-// inversion instead: a delete action is a solid black pill behind a confirmation.
+// counterpart. The destructive pair was dropped originally, when the system was
+// monochrome and a delete action was a solid black pill; it is back now that
+// red is one of the app's meaningful colours -- see the variants below.
 //
 // The per-size `rounded-[min(var(--radius-md), 10px)]` caps are also gone. They
 // hard-cap the radius in pixels, which would leave the small sizes as rounded
@@ -34,6 +34,18 @@ const buttonVariants = cva(
           'border-2 border-border bg-background text-foreground hover:bg-muted aria-expanded:bg-muted aria-expanded:text-foreground',
         ghost:
           'hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground',
+        // Destroying something gets its own pair. `destructive` is the one
+        // that actually does it -- solid red, white label, as prominent as
+        // the primary it replaces in that moment. `destructive-outline` is
+        // its secondary: a pale red chip with a red outline and a red
+        // label, for the button that *offers* the deletion and for backing
+        // out of one. Neither is grey text on a grey border, which is what
+        // "Eliminar gasto" used to be and read as an afterthought. Per
+        // direct feedback.
+        destructive:
+          'bg-error-strong text-on-error hover:bg-error-strong-hover',
+        'destructive-outline':
+          'border-2 border-error bg-error-surface text-error hover:bg-error-surface-hover',
       },
       // Every size drops one step at `lg`. 44px is the size a thumb needs;
       // a pointer does not, and at that height a row of buttons on a

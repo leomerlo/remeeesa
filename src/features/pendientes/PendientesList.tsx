@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import type { ReactElement } from 'react'
 import { TintedBadge } from '@/components/CategoryBadge'
 import { MovementCard } from '@/components/MovementCard'
+import { Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { listPendientesForMonth, pendientesDueInMonth } from '@/lib/pendientes'
@@ -88,7 +89,7 @@ export function PendientesList({
     const message =
       pendientesQuery.error instanceof Error
         ? pendientesQuery.error.message
-        : 'No se pudieron cargar los pendientes'
+        : 'No se pudieron cargar los servicios'
     return <AlertMessage>{message}</AlertMessage>
   }
 
@@ -143,15 +144,19 @@ export function PendientesList({
       ) : null
 
     // A paid row keeps Editar -- that is the way back from a mistaken
-    // payment -- but not Pagar, which has nothing left to do.
+    // payment -- but not Pagar, which has nothing left to do. Pagar stays a
+    // real button because it is what this screen exists for; Editar is a
+    // pencil against the right edge, the same one Histórico and Categorías
+    // use, so the three lists agree. Per direct feedback.
     const canMarkPaid = onMarkPaid !== undefined && !isPaid
     const actions =
       !canMarkPaid && onEditPendiente === undefined ? null : (
-        <div className="flex gap-2 lg:shrink-0 lg:justify-end">
+        <>
           {canMarkPaid ? (
             <Button
               type="button"
-              className="flex-1 lg:w-32 lg:flex-none"
+              size="sm"
+              className="px-5"
               aria-label={`Marcar pagado ${pendiente.name}`}
               onClick={() => {
                 onMarkPaid?.(pendiente, category?.name ?? '')
@@ -163,17 +168,17 @@ export function PendientesList({
           {onEditPendiente !== undefined ? (
             <Button
               type="button"
-              variant="outline"
-              className="flex-1 lg:w-32 lg:flex-none"
+              variant="ghost"
+              size="icon-mini"
               aria-label={`Editar ${pendiente.name}`}
               onClick={() => {
                 onEditPendiente(pendiente, category?.name ?? '')
               }}
             >
-              Editar
+              <Pencil aria-hidden="true" />
             </Button>
           ) : null}
-        </div>
+        </>
       )
 
     return (

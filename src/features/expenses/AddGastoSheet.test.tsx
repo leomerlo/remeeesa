@@ -96,10 +96,10 @@ describe('AddGastoSheet (unified add flow)', () => {
     expect(screen.getByLabelText('Monto esperado')).toBeInTheDocument()
     expect(screen.getByLabelText('Fecha de vencimiento')).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Agregar pendiente' }),
+      screen.getByRole('button', { name: 'Agregar servicio' }),
     ).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Agregar pendiente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar servicio' }))
 
     await waitFor(() => {
       expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
@@ -125,7 +125,7 @@ describe('AddGastoSheet (unified add flow)', () => {
     fillCommon({ name: 'Netflix', category: 'Otros' })
     fireEvent.click(screen.getByLabelText('Ya lo pagué'))
     fireEvent.click(screen.getByLabelText('Recurrente'))
-    fireEvent.click(screen.getByRole('button', { name: 'Agregar recurrente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar servicio' }))
 
     await waitFor(() => {
       expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()

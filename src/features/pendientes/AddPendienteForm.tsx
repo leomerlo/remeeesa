@@ -728,12 +728,12 @@ function PendienteFormBody({
             className="bg-card flex w-full flex-col gap-4 rounded-2xl border border-border p-4"
           >
             <p id="delete-pendiente-title" className="text-sm font-medium">
-              ¿Eliminar el pendiente?
+              ¿Eliminar el servicio?
             </p>
             <div className="flex w-full gap-2">
               <Button
                 type="button"
-                variant="outline"
+                variant="destructive-outline"
                 className="flex-1"
                 disabled={deleteMutation.isPending}
                 onClick={() => {
@@ -744,13 +744,14 @@ function PendienteFormBody({
               </Button>
               <Button
                 type="button"
+                variant="destructive"
                 className="flex-1"
                 disabled={deleteMutation.isPending}
                 onClick={() => {
                   deleteMutation.mutate()
                 }}
               >
-                Eliminar pendiente
+                Eliminar servicio
               </Button>
             </div>
           </div>
@@ -776,7 +777,7 @@ function PendienteFormBody({
                     : 'Guardar cambios'
                   : markPaid
                     ? 'Agregar y marcar pagado'
-                    : 'Agregar recurrente'}
+                    : 'Agregar servicio'}
             </Button>
             {isEditing ? (
               <>
@@ -799,15 +800,15 @@ function PendienteFormBody({
                 {isPaidPendiente ? null : (
                   <Button
                     type="button"
-                    variant="outline"
-                    className="text-error hover:text-error"
+                    variant="destructive-outline"
+                    className="w-full"
                     disabled={mutation.isPending}
                     onClick={() => {
                       setError(null)
                       setConfirmingDelete(true)
                     }}
                   >
-                    Eliminar pendiente
+                    Eliminar servicio
                   </Button>
                 )}
               </>

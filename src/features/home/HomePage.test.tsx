@@ -180,7 +180,7 @@ describe('HomePage', () => {
     expect(screen.getByLabelText('Monto esperado')).toBeInTheDocument()
     expect(screen.getByLabelText('Fecha de vencimiento')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Agregar pendiente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar servicio' }))
 
     // Sheet closes and the trigger reappears -- no route change, no reload.
     await waitFor(() => {
