@@ -314,7 +314,7 @@ describe('PendientesList', () => {
     fireEvent.change(screen.getByLabelText('Monto esperado'), {
       target: { value: '500' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Agregar recurrente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar servicio' }))
 
     await waitFor(() => {
       expect(screen.getByText('Alquiler')).toBeInTheDocument()
@@ -335,14 +335,14 @@ describe('PendientesList', () => {
     const db: HouseholdsDb = {
       ...base,
       listPendientes: async () => {
-        throw new Error('No se pudieron cargar los pendientes')
+        throw new Error('No se pudieron cargar los servicios')
       },
     }
 
     renderWithProviders(<List db={db} householdId={household.id} />)
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'No se pudieron cargar los pendientes',
+      'No se pudieron cargar los servicios',
     )
   })
 
@@ -414,10 +414,10 @@ describe('PendientesList', () => {
     expect(onEditPendiente).toHaveBeenCalledWith(pendiente, 'Comida')
   })
 
-  // Per direct feedback: the row's two actions are Pagar and Editar, both
-  // spelled out, with Pagar the primary of the two. Editar used to be the
-  // whole row being silently tappable, which nothing on screen announced.
-  it('offers Pagar and Editar as visible buttons, with Pagar the primary one', async () => {
+  // Per direct feedback: Pagar stays a spelled-out button because it is what
+  // this screen exists for; Editar is a pencil against the right edge, the
+  // same target Histórico and Categorías use.
+  it('offers Pagar as a labelled button and Editar as a pencil', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -453,7 +453,10 @@ describe('PendientesList', () => {
     })
     const editar = screen.getByRole('button', { name: 'Editar Alquiler' })
     expect(pagar).toHaveTextContent('Pagar')
-    expect(editar).toHaveTextContent('Editar')
+    // The pencil carries no label of its own -- its accessible name is the
+    // aria-label found above, and an icon is all it shows.
+    expect(editar).toHaveTextContent('')
+    expect(editar.querySelector('svg')).not.toBeNull()
     // The hierarchy itself: only Pagar is filled with the action colour.
     expect(pagar).toHaveClass('bg-primary')
     expect(editar).not.toHaveClass('bg-primary')

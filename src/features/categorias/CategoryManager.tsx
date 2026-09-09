@@ -86,7 +86,7 @@ export function CategoryManager({
               <button
                 type="button"
                 aria-label={`Editar ${category.name}`}
-                className="hover:bg-muted focus-visible:ring-ring/50 flex w-full items-center gap-3 rounded-2xl p-2 text-left outline-none focus-visible:ring-3"
+                className="hover:bg-muted focus-visible:ring-ring/50 flex w-full items-center gap-3 rounded-2xl p-2 pr-1 text-left outline-none focus-visible:ring-3"
                 onClick={() => {
                   setEditing(category)
                 }}
@@ -100,10 +100,16 @@ export function CategoryManager({
                 <span className="min-w-0 flex-1 truncate text-sm">
                   {category.name}
                 </span>
-                <Pencil
-                  className="text-muted-foreground size-4 shrink-0"
+                {/* The same pencil target Histórico and Servicios put at the
+                    right of a row, so the three lists agree. Rendered as a
+                    span rather than a button: the whole row is already the
+                    button here, and nesting one inside it is invalid. */}
+                <span
                   aria-hidden="true"
-                />
+                  className="text-foreground flex size-9 shrink-0 items-center justify-center rounded-full"
+                >
+                  <Pencil className="size-4" />
+                </span>
               </button>
             </li>
           ))}

@@ -97,4 +97,55 @@ describe('FormattedAmountInput', () => {
     expect(input.value).toBe('590.000')
     expect(input.selectionStart).toBe(2)
   })
+
+  // Per direct feedback: typing the comma put the caret back in front of it,
+  // so the comma stayed stranded at the end of the field and every following
+  // digit landed in the integer part -- "3.900," became "3.9004,".
+  it('leaves the caret after the comma just typed, not in front of it', () => {
+    render(<Controlled initial="3900" />)
+    const input = screen.getByLabelText('Monto') as HTMLInputElement
+    expect(input.value).toBe('3.900')
+
+    // The comma typed at the end of "3.900".
+    fireEvent.change(input, {
+      target: { value: '3.900,', selectionStart: 6 },
+    })
+
+    expect(input.value).toBe('3.900,')
+    expect(input.selectionStart).toBe(6)
+  })
+
+  it('keeps typing decimals after the comma rather than back in the pesos', () => {
+    render(<Controlled initial="3900" />)
+    const input = screen.getByLabelText('Monto') as HTMLInputElement
+
+    fireEvent.change(input, { target: { value: '3.900,', selectionStart: 6 } })
+    fireEvent.change(input, { target: { value: '3.900,5', selectionStart: 7 } })
+
+    expect(input.value).toBe('3.900,5')
+    expect(input.selectionStart).toBe(7)
+  })
+
+  // Also per direct feedback: a stray comma used to change the magnitude
+  // silently. "3", ",", "900" stored 3.900 -- three pesos ninety -- while
+  // still reading like the three thousand nine hundred that was meant.
+  it('keeps at most two decimals, so a stray comma cannot rescale the amount', () => {
+    const onChange = vi.fn()
+    render(
+      <FormattedAmountInput aria-label="Monto" value="" onChange={onChange} />,
+    )
+
+    fireEvent.change(screen.getByLabelText('Monto'), {
+      target: { value: '3,900' },
+    })
+
+    expect(onChange).toHaveBeenCalledWith('3.90')
+  })
+
+  it('still round-trips a two-decimal amount untouched', () => {
+    render(<Controlled initial="1234.56" />)
+    expect((screen.getByLabelText('Monto') as HTMLInputElement).value).toBe(
+      '1.234,56',
+    )
+  })
 })

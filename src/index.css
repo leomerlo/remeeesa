@@ -234,6 +234,15 @@
   --surface-disabled: var(--color-grey-300);
   --surface-success: var(--color-green-50);
   --surface-error: var(--color-red-50);
+  /* Destructive actions. The soft pair (surface-error + text-error) is the
+     secondary treatment -- a pale red chip with a red outline and red
+     label; the strong pair is the one you press to actually destroy
+     something, solid red under white. Both clear AA: 7.79 for the soft
+     label on its chip, 6.84 for white on the solid fill. */
+  --surface-error-hover: var(--color-red-100);
+  --surface-error-strong: var(--color-red-600);
+  --surface-error-strong-hover: var(--color-red-700);
+  --text-on-error: var(--color-grey-white);
   /* A dark card in an otherwise light interface, on purpose: whatever is
      about to come due should not look like every other row. It runs the
      budget card's own gradient the other way -- deep wine into the lighter
@@ -311,6 +320,10 @@
   --surface-disabled: var(--color-grey-300);
   --surface-success: var(--color-green-800);
   --surface-error: var(--color-red-800);
+  --surface-error-hover: var(--color-red-900);
+  --surface-error-strong: var(--color-red-600);
+  --surface-error-strong-hover: var(--color-red-700);
+  --text-on-error: var(--color-grey-white);
   --surface-due-soon-from: var(--color-wine-800);
   --surface-due-soon-to: var(--color-wine-600);
   --surface-warning: var(--color-yellow-800);
@@ -385,6 +398,11 @@
   --color-dot-pending: var(--dot-pending);
   --color-success: var(--text-success);
   --color-error: var(--text-error);
+  --color-error-surface: var(--surface-error);
+  --color-error-surface-hover: var(--surface-error-hover);
+  --color-error-strong: var(--surface-error-strong);
+  --color-error-strong-hover: var(--surface-error-strong-hover);
+  --color-on-error: var(--text-on-error);
   --color-warning: var(--text-warning);
   /* Tailwind's own text-xs is 12px. Nothing in this app may render below
      14px (see --text-caption), and text-xs is the utility a component

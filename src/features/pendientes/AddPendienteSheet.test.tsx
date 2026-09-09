@@ -138,7 +138,7 @@ describe('AddPendienteSheet', () => {
     fireEvent.change(screen.getByLabelText('Fecha de vencimiento'), {
       target: { value: '2026-09-10' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Agregar recurrente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar servicio' }))
 
     await waitFor(() => {
       expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
@@ -214,7 +214,7 @@ describe('AddPendienteSheet', () => {
     fireEvent.change(screen.getByRole('combobox', { name: 'Categoría' }), {
       target: { value: 'Servicios' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Agregar recurrente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar servicio' }))
 
     // The mutation is still pending: an Escape dismiss attempt must be a
     // no-op rather than unmounting the form out from under it.

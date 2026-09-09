@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { TintedBadge } from '@/components/CategoryBadge'
 import { MovementCard } from '@/components/MovementCard'
+import { Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AlertMessage } from '@/components/ui/alert-message'
 import { useMemo, useState } from 'react'
@@ -97,19 +98,17 @@ function ExpenseRow({
           ? {}
           : {
               actions: (
-                <div className="flex lg:shrink-0 lg:justify-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full lg:w-32"
-                    aria-label={`Editar ${expense.name}`}
-                    onClick={() => {
-                      onEditExpense(expense, category?.name ?? '')
-                    }}
-                  >
-                    Editar
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-mini"
+                  aria-label={`Editar ${expense.name}`}
+                  onClick={() => {
+                    onEditExpense(expense, category?.name ?? '')
+                  }}
+                >
+                  <Pencil aria-hidden="true" />
+                </Button>
               ),
             })}
       />

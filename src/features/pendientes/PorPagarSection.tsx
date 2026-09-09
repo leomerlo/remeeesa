@@ -149,7 +149,7 @@ export function PorPagarSection({
       <ul
         ref={scrollerRef}
         onScroll={carousel.onScroll}
-        aria-label="Pendientes por pagar"
+        aria-label="Servicios por pagar"
         className="mt-3 flex w-full snap-x snap-mandatory flex-nowrap gap-3 overflow-x-auto text-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {visiblePendientes.map((pendiente) => {
