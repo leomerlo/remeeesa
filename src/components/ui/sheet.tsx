@@ -1,6 +1,19 @@
+import { createContext, useContext, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Dialog, VisuallyHidden } from 'radix-ui'
 import { X } from 'lucide-react'
+
+// A modal Dialog locks scrolling everywhere except its own content element
+// (react-remove-scroll's one "shard"). A popup portalled to document.body --
+// a combobox listbox, say -- is outside that shard, so touch-dragging it is
+// cancelled and the list cannot be scrolled at all on a phone. Anything
+// rendering a portalled popup from inside a Sheet reads this and portals
+// into the Sheet's own content element instead, which is the shard.
+const SheetContainerContext = createContext<HTMLElement | null>(null)
+
+export function useSheetContainer(): HTMLElement | null {
+  return useContext(SheetContainerContext)
+}
 
 export type SheetProps = {
   readonly open: boolean
@@ -10,6 +23,10 @@ export type SheetProps = {
 }
 
 function Sheet({ open, onOpenChange, title, children }: SheetProps) {
+  // State, not a ref: consumers portal into this element, so they have to
+  // re-render once it exists.
+  const [contentElement, setContentElement] = useState<HTMLElement | null>(null)
+
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -18,6 +35,7 @@ function Sheet({ open, onOpenChange, title, children }: SheetProps) {
           className="fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0"
         />
         <Dialog.Content
+          ref={setContentElement}
           data-slot="sheet-content"
           // A centred modal at every width, not a bottom sheet on phones.
           // It used to rise from the bottom edge below `lg` (thumb reach),
@@ -48,7 +66,9 @@ function Sheet({ open, onOpenChange, title, children }: SheetProps) {
               whole thing as one block, which used to let a tall form's
               submit button scroll out of view. */}
           <div data-slot="sheet-body" className="flex min-h-0 flex-col">
-            {children}
+            <SheetContainerContext.Provider value={contentElement}>
+              {children}
+            </SheetContainerContext.Provider>
           </div>
         </Dialog.Content>
       </Dialog.Portal>
