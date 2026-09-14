@@ -5,20 +5,45 @@ import { Input } from '@/components/ui/input'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import type { Category } from '@/lib/expenses'
+import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
+import type { LucideIcon } from 'lucide-react'
 
 export type CategoryComboboxProps = {
   readonly id: string
   readonly categories: readonly Category[]
   readonly value: string
   readonly onChange: (value: string) => void
-  // Below the chips this field is only for a name that does not exist yet,
-  // and without a hint it read as an unlabelled box floating between
-  // "Categoría" and "Comentario".
+  // Without a hint this reads as an unlabelled box floating between
+  // "Categoría" and the field below it.
   readonly placeholder?: string
 }
 
 function normalize(value: string): string {
   return value.trim().toLowerCase()
+}
+
+// The category's colour and icon, the same pair it carries on every
+// movement row -- so picking one here looks like the thing you will see
+// afterwards, not a generic list entry.
+// The icon arrives as a prop rather than being resolved from the name in
+// here: react-hooks/static-components reads a component resolved inside a
+// component body as a component created during render.
+function CategorySwatch({
+  CategoryIcon,
+  color,
+}: {
+  readonly CategoryIcon: LucideIcon
+  readonly color: string
+}): ReactElement {
+  return (
+    <span
+      aria-hidden="true"
+      className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[var(--swatch-color)]"
+      style={cssVars({ '--swatch-color': color })}
+    >
+      <CategoryIcon className="size-3.5 text-white" aria-hidden="true" />
+    </span>
+  )
 }
 
 function findMatchingCategory(
@@ -53,6 +78,12 @@ function filterCategories(
 // from input focus/change/keydown, and Popover.Anchor only supplies
 // positioning. Selecting an option never blurs the input (mousedown on each
 // option is prevented) so focus, and screen reader context, never jumps away.
+//
+// This is the only category control on every form -- the scrollable row of
+// category pills that used to sit above it is gone (per direct feedback: one
+// control, not two that set the same field). Anything typed that matches no
+// existing category is created on submit, so the same box both picks and
+// creates.
 export function CategoryCombobox({
   id,
   categories,
@@ -69,7 +100,7 @@ export function CategoryCombobox({
     () => filterCategories(categories, value),
     [categories, value],
   )
-  const selectedColor = findMatchingCategory(categories, value)?.color ?? null
+  const selectedCategory = findMatchingCategory(categories, value) ?? null
 
   // Keep the keyboard-highlighted option visible: the popup scrolls
   // (`max-h-60 overflow-y-auto`), and arrow-key navigation alone doesn't
@@ -161,12 +192,13 @@ export function CategoryCombobox({
     >
       <PopoverAnchor asChild>
         <div className="relative w-full">
-          {selectedColor !== null ? (
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute top-1/2 left-2.5 size-2.5 -translate-y-1/2 rounded-full bg-[var(--swatch-color)]"
-              style={cssVars({ '--swatch-color': selectedColor })}
-            />
+          {selectedCategory !== null ? (
+            <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2">
+              <CategorySwatch
+                CategoryIcon={iconForCategoryName(selectedCategory.name)}
+                color={selectedCategory.color}
+              />
+            </span>
           ) : null}
           <Input
             id={id}
@@ -181,7 +213,7 @@ export function CategoryCombobox({
             autoComplete="off"
             {...(placeholder === undefined ? {} : { placeholder })}
             value={value}
-            className={selectedColor !== null ? 'pl-7' : undefined}
+            className={selectedCategory !== null ? 'pl-10' : undefined}
             onChange={(event) => {
               onChange(event.target.value)
               setActiveIndex(-1)
@@ -219,7 +251,7 @@ export function CategoryCombobox({
                 role="option"
                 aria-selected={index === activeIndex}
                 className={cn(
-                  'flex cursor-pointer items-center gap-2 rounded-full px-2.5 py-1.5 text-sm',
+                  'flex cursor-pointer items-center gap-2.5 rounded-full px-2.5 py-2 text-sm',
                   index === activeIndex && 'bg-muted text-foreground',
                 )}
                 onMouseEnter={() => {
@@ -232,10 +264,9 @@ export function CategoryCombobox({
                   selectCategory(category)
                 }}
               >
-                <span
-                  aria-hidden="true"
-                  className="size-2.5 shrink-0 rounded-full bg-[var(--swatch-color)]"
-                  style={cssVars({ '--swatch-color': category.color })}
+                <CategorySwatch
+                  CategoryIcon={iconForCategoryName(category.name)}
+                  color={category.color}
                 />
                 <span className="truncate">{category.name}</span>
               </li>

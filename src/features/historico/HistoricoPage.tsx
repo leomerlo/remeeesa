@@ -83,6 +83,7 @@ export function HistoricoPage({
         {header}
         <AddGastoSheet
           triggerClassName="shrink-0 px-5"
+          showRecurringOptions={false}
           open={isAddGastoSheetOpen}
           onOpenChange={setIsAddGastoSheetOpen}
           db={db}

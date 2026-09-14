@@ -17,7 +17,9 @@ function AddGastoSheetHarness(
   return <AddGastoSheet open={open} onOpenChange={setOpen} {...props} />
 }
 
-async function renderForm() {
+async function renderForm(
+  options: { readonly showRecurringOptions?: boolean } = {},
+) {
   const db = createMemoryHouseholdsDb().asUser('user-1')
   const household = await createHouseholdWithMembership({
     db,
@@ -31,6 +33,9 @@ async function renderForm() {
       householdId={household.id}
       memberId="user-1"
       authorDisplayName="Ada"
+      {...(options.showRecurringOptions === undefined
+        ? {}
+        : { showRecurringOptions: options.showRecurringOptions })}
     />,
   )
   fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
@@ -206,5 +211,74 @@ describe('AddGastoSheet (unified add flow)', () => {
     expect(screen.getByLabelText('Nombre')).toHaveValue('')
     expect(screen.getByLabelText('Ya lo pagué')).toBeChecked()
     expect(screen.getByLabelText('Recurrente')).not.toBeChecked()
+  })
+
+  it('enables Débito automático only while Recurrente is on, and clears it when Recurrente is switched off', async () => {
+    await renderForm()
+
+    expect(screen.getByLabelText('Débito automático')).toBeDisabled()
+
+    fireEvent.click(screen.getByLabelText('Recurrente'))
+    expect(screen.getByLabelText('Débito automático')).toBeEnabled()
+
+    fireEvent.click(screen.getByLabelText('Débito automático'))
+    expect(screen.getByLabelText('Débito automático')).toBeChecked()
+
+    fireEvent.click(screen.getByLabelText('Recurrente'))
+    expect(screen.getByLabelText('Débito automático')).toBeDisabled()
+    expect(screen.getByLabelText('Débito automático')).not.toBeChecked()
+  })
+
+  it('stores autoDebit on the Pendiente it creates', async () => {
+    const { db, householdId } = await renderForm()
+
+    fillCommon({ name: 'Netflix', category: 'Servicios' })
+    fireEvent.click(screen.getByLabelText('Recurrente'))
+    fireEvent.click(screen.getByLabelText('Débito automático'))
+    fireEvent.click(screen.getByLabelText('Ya lo pagué'))
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar servicio' }))
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
+    })
+
+    expect(await listPendientes({ db, householdId })).toEqual([
+      expect.objectContaining({
+        name: 'Netflix',
+        recurring: true,
+        autoDebit: true,
+      }),
+    ])
+  })
+
+  it('hides Recurrente and Débito automático when showRecurringOptions is false, keeping "Ya lo pagué" checked', async () => {
+    await renderForm({ showRecurringOptions: false })
+
+    expect(screen.queryByLabelText('Recurrente')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Débito automático')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Ya lo pagué')).toBeChecked()
+  })
+
+  it('still creates a plain Expense when showRecurringOptions is false', async () => {
+    const { db, householdId } = await renderForm({
+      showRecurringOptions: false,
+    })
+
+    fillCommon({ name: 'Café', category: 'Comida' })
+    fireEvent.change(screen.getByLabelText('Precio'), {
+      target: { value: '2500' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
+    })
+
+    expect(
+      await listExpensesInMonth({ db, householdId, ...currentMonthRange() }),
+    ).toEqual([
+      expect.objectContaining({ name: 'Café', price: 2500, pendienteId: null }),
+    ])
+    expect(await listPendientes({ db, householdId })).toEqual([])
   })
 })

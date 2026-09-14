@@ -106,7 +106,7 @@ describe('AddPendienteForm', () => {
           householdId,
           name: 'Alquiler',
           expectedAmount: 500,
-          recurring: false,
+          recurring: true,
           status: 'pending',
         }),
       ])
@@ -343,12 +343,12 @@ describe('AddPendienteForm', () => {
     ).toHaveLength(1)
   })
 
-  it('defaults the recurring toggle to unchecked and stores recurring: false when left untouched', async () => {
+  it('defaults the recurring toggle to checked and stores recurring: true when left untouched', async () => {
     const { db, householdId } = await renderForm()
 
     expect(screen.getByLabelText('Recurrente')).toHaveAttribute(
       'data-state',
-      'unchecked',
+      'checked',
     )
 
     fillPendiente({
@@ -364,14 +364,14 @@ describe('AddPendienteForm', () => {
       expect(listed).toEqual([
         expect.objectContaining({
           name: 'Internet',
-          recurring: false,
+          recurring: true,
           expectedAmount: 30,
         }),
       ])
     })
   })
 
-  it('passes recurring: true when the toggle is switched on, without affecting expectedAmount', async () => {
+  it('passes recurring: false when the toggle is switched off, without affecting expectedAmount', async () => {
     const { db, householdId } = await renderForm()
 
     fillPendiente({
@@ -383,7 +383,7 @@ describe('AddPendienteForm', () => {
     fireEvent.click(screen.getByLabelText('Recurrente'))
     expect(screen.getByLabelText('Recurrente')).toHaveAttribute(
       'data-state',
-      'checked',
+      'unchecked',
     )
     submitPendiente()
 
@@ -392,8 +392,53 @@ describe('AddPendienteForm', () => {
       expect(listed).toEqual([
         expect.objectContaining({
           name: 'Gimnasio',
-          recurring: true,
+          recurring: false,
           expectedAmount: 25,
+        }),
+      ])
+    })
+  })
+
+  it('enables Débito automático only while Recurrente is on, and clears it when Recurrente is switched off', async () => {
+    await renderForm()
+
+    // Recurrente is on by default, so the débito toggle starts usable.
+    expect(screen.getByLabelText('Débito automático')).toBeEnabled()
+    fireEvent.click(screen.getByLabelText('Débito automático'))
+    expect(screen.getByLabelText('Débito automático')).toHaveAttribute(
+      'data-state',
+      'checked',
+    )
+
+    fireEvent.click(screen.getByLabelText('Recurrente'))
+
+    expect(screen.getByLabelText('Débito automático')).toBeDisabled()
+    expect(screen.getByLabelText('Débito automático')).toHaveAttribute(
+      'data-state',
+      'unchecked',
+    )
+  })
+
+  it('never stores autoDebit: true on a one-off bill', async () => {
+    const { db, householdId } = await renderForm()
+
+    fireEvent.click(screen.getByLabelText('Débito automático'))
+    fireEvent.click(screen.getByLabelText('Recurrente'))
+    fillPendiente({
+      name: 'Matrícula',
+      category: 'Servicios',
+      dueDate: '2026-09-15',
+      expectedAmount: '25',
+    })
+    submitPendiente()
+
+    await waitFor(async () => {
+      const listed = await listPendientes({ db, householdId })
+      expect(listed).toEqual([
+        expect.objectContaining({
+          name: 'Matrícula',
+          recurring: false,
+          autoDebit: false,
         }),
       ])
     })
