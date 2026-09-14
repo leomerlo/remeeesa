@@ -28,12 +28,12 @@ export function recentExpensesQueryKey(input: {
   return [...expensesQueryKey(input), 'recent', input.limit]
 }
 
-// The all-time, month-paginated feed behind Histórico. Nested under the
-// shared expenses prefix so a mutation from any screen -- including a date
-// edit that moves an expense across the current-month boundary -- refetches
-// it along with everything else, rather than needing its own invalidation.
-export function expenseHistoryQueryKey(input: {
+// Every expense the household has, unpaginated -- the shape behind both
+// Histórico's search (which has to look past the month being viewed) and
+// Home's onboarding checklist (which asks whether a first gasto exists at
+// all). One key so the two share a single fetch.
+export function allExpensesQueryKey(input: {
   readonly householdId: string
-}): readonly ['expenses', string, 'history'] {
-  return [...expensesQueryKey(input), 'history']
+}): readonly ['expenses', string, 'all'] {
+  return [...expensesQueryKey(input), 'all']
 }
