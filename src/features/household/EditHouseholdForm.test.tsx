@@ -132,22 +132,24 @@ describe('EditHouseholdForm', () => {
     })
   })
 
-  it('rejects a zero budget and leaves name and budget unchanged', async () => {
+  // Clearing the budget is how a household goes back to having none -- the
+  // app supports that state, so zero saves rather than being rejected.
+  it('clears the budget when zero is submitted, and says so', async () => {
     const { householdId, db } = await renderEditHouseholdForm({
       monthlyBudget: 100,
     })
 
-    fireEvent.change(await screen.findByLabelText('Nombre del hogar'), {
-      target: { value: 'Casa Azul' },
-    })
     expect(await screen.findByRole('status')).toHaveTextContent('100')
     await submitBudget('0')
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/presupuesto/i)
-    expect(screen.getByRole('status')).toHaveTextContent('100')
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Actual: sin presupuesto',
+      )
+    })
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     await expect(getHousehold({ db, householdId })).resolves.toMatchObject({
-      name: 'Casa Verde',
-      monthlyBudget: 100,
+      monthlyBudget: 0,
     })
   })
 
@@ -166,7 +168,9 @@ describe('EditHouseholdForm', () => {
     })
   })
 
-  it('rejects a non-numeric budget and leaves the stored amount unchanged', async () => {
+  // FormattedAmountInput strips the letters, so this reaches the form as an
+  // empty field -- which now means "sin presupuesto", same as clearing it.
+  it('treats a budget typed as letters as clearing it', async () => {
     const { householdId, db } = await renderEditHouseholdForm({
       monthlyBudget: 100,
     })
@@ -174,14 +178,17 @@ describe('EditHouseholdForm', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('100')
     await submitBudget('abc')
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/presupuesto/i)
-    expect(screen.getByRole('status')).toHaveTextContent('100')
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Actual: sin presupuesto',
+      )
+    })
     await expect(getHousehold({ db, householdId })).resolves.toMatchObject({
-      monthlyBudget: 100,
+      monthlyBudget: 0,
     })
   })
 
-  it('rejects an empty budget and leaves the stored amount unchanged', async () => {
+  it('clears the budget when the field is emptied', async () => {
     const { householdId, db } = await renderEditHouseholdForm({
       monthlyBudget: 100,
     })
@@ -189,26 +196,23 @@ describe('EditHouseholdForm', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('100')
     await submitBudget('')
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/presupuesto/i)
-    expect(screen.getByRole('status')).toHaveTextContent('100')
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'Actual: sin presupuesto',
+      )
+    })
     await expect(getHousehold({ db, householdId })).resolves.toMatchObject({
-      monthlyBudget: 100,
+      monthlyBudget: 0,
     })
   })
 
-  it('rejects a whitespace-only budget and leaves the stored amount unchanged', async () => {
-    const { householdId, db } = await renderEditHouseholdForm({
-      monthlyBudget: 100,
-    })
+  it('leaves the field blank rather than showing 0 for a household with no budget', async () => {
+    await renderEditHouseholdForm({ monthlyBudget: 0 })
 
-    expect(await screen.findByRole('status')).toHaveTextContent('100')
-    await submitBudget('   ')
-
-    expect(screen.getByRole('alert')).toHaveTextContent(/presupuesto/i)
-    expect(screen.getByRole('status')).toHaveTextContent('100')
-    await expect(getHousehold({ db, householdId })).resolves.toMatchObject({
-      monthlyBudget: 100,
-    })
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Actual: sin presupuesto',
+    )
+    expect(screen.getByLabelText('Presupuesto mensual')).toHaveValue('')
   })
 
   it('accepts a decimal budget and shows the updated amount', async () => {
@@ -263,7 +267,7 @@ describe('EditHouseholdForm', () => {
     await renderEditHouseholdForm({ monthlyBudget: 100 })
 
     expect(await screen.findByRole('status')).toHaveTextContent('100')
-    await submitBudget('0')
+    await submitBudget('-12')
 
     expect(screen.getByRole('alert')).toBeInTheDocument()
 

@@ -1,5 +1,6 @@
 import { QueryClient } from '@tanstack/react-query'
 import { screen, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { createExpense, listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
@@ -26,6 +27,53 @@ async function seedHousehold(monthlyBudget: number) {
 }
 
 describe('RemainingBudgetDisplay', () => {
+  describe('with no budget set', () => {
+    it('offers to set one instead of counting down from nothing', async () => {
+      const { db, household } = await seedHousehold(0)
+
+      renderWithProviders(
+        <MemoryRouter>
+          <RemainingBudgetDisplay db={db} householdId={household.id} />
+        </MemoryRouter>,
+      )
+
+      expect(await screen.findByText('Presupuesto del mes')).toBeInTheDocument()
+      // The whole card is the link -- no button of its own, since the
+      // onboarding checklist above already has one and cannot be finished
+      // while the budget is unset.
+      const card = screen.getByRole('link')
+      expect(card).toHaveAttribute('href', '/household')
+      expect(card).toHaveTextContent(/Todavía no pusiste uno/)
+    })
+
+    it('shows neither a remaining figure nor a progress bar', async () => {
+      const { db, household, comida } = await seedHousehold(0)
+      await createExpense({
+        db,
+        householdId: household.id,
+        categoryId: comida.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        name: 'Café',
+        price: 2500,
+        comments: '',
+        expenseDate: new Date(),
+      })
+
+      renderWithProviders(
+        <MemoryRouter>
+          <RemainingBudgetDisplay db={db} householdId={household.id} />
+        </MemoryRouter>,
+      )
+
+      await screen.findByText('Presupuesto del mes')
+      // "-$2.500 restante" of a budget that does not exist, and a bar full
+      // from the first gasto, are both lies.
+      expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
+      expect(screen.queryByText(/restante/i)).not.toBeInTheDocument()
+    })
+  })
+
   it('shows a loading status before household and expenses resolve', async () => {
     const { db, household } = await seedHousehold(100)
 

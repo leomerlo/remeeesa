@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
+import { Link } from 'react-router-dom'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cssVars } from '@/lib/cssVars'
 import { householdQueryKey } from '@/features/household'
@@ -92,6 +93,34 @@ export function RemainingBudgetDisplay({
         </div>
         <Skeleton className="h-2 w-full rounded-full" />
       </div>
+    )
+  }
+
+  // No budget set (see parseMonthlyBudget: zero is a real state, not an
+  // error). There is nothing to count down from, so the card says so and
+  // offers to fix it rather than rendering "restante: -$48.350" against a
+  // budget of nothing, or a progress bar that is full from the first gasto.
+  // Light, not the dark gradient one: that card's whole job is showing heat,
+  // and with no budget there is no heat to show.
+  if (household.monthlyBudget === 0) {
+    return (
+      // The whole card is the link, and it carries no button of its own: the
+      // onboarding checklist directly above this one cannot be finished
+      // without a budget, so it is always on screen here with its own "Poner
+      // presupuesto" -- two of the same button, a screen apart, reads as a
+      // mistake. Dashed and unfilled rather than the solid card the budget
+      // gets: it is a slot waiting to be filled, and it sits right under the
+      // solid white "Gastos de este mes", which it would otherwise merge
+      // into. No piggy either -- there is no budget for it to be guarding.
+      <Link
+        to="/household"
+        className="border-border hover:bg-card flex w-full flex-col gap-2 rounded-3xl border-2 border-dashed p-6 transition-colors"
+      >
+        <span className="text-body font-medium">Presupuesto del mes</span>
+        <span className="text-muted-foreground text-sm">
+          Todavía no pusiste uno. Ponelo y cada gasto se descuenta de ahí.
+        </span>
+      </Link>
     )
   }
 

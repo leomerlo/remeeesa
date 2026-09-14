@@ -16,9 +16,12 @@ export function parseHouseholdDraft(input: {
     return { ok: false, error: 'Ingresá un nombre para el hogar' }
   }
 
+  // Left blank on purpose is fine -- see parseMonthlyBudget. Number('') is
+  // 0, which is exactly the "sin presupuesto" value, so a blank field needs
+  // no special case here; only a negative or unparseable one is rejected.
   const monthlyBudget = Number(input.monthlyBudget.trim())
-  if (!Number.isFinite(monthlyBudget) || monthlyBudget <= 0) {
-    return { ok: false, error: 'Ingresá un presupuesto mensual mayor a 0' }
+  if (!Number.isFinite(monthlyBudget) || monthlyBudget < 0) {
+    return { ok: false, error: 'El presupuesto no puede ser negativo' }
   }
 
   return {

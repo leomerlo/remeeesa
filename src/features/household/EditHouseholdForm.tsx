@@ -38,7 +38,9 @@ export function EditHouseholdForm({
   const name = nameDraft ?? (household !== undefined ? household.name : '')
   const amount =
     budgetDraft ??
-    (household !== undefined ? String(household.monthlyBudget) : '')
+    (household !== undefined && household.monthlyBudget > 0
+      ? String(household.monthlyBudget)
+      : '')
 
   const mutation = useMutation({
     mutationFn: (input: {
@@ -101,7 +103,9 @@ export function EditHouseholdForm({
               the only confirmation that a save landed. */}
           {household !== undefined ? (
             <p role="status" className="text-muted-foreground text-xs">
-              Actual: {formatCurrency(household.monthlyBudget)}
+              {household.monthlyBudget === 0
+                ? 'Actual: sin presupuesto'
+                : `Actual: ${formatCurrency(household.monthlyBudget)}`}
             </p>
           ) : null}
         </div>

@@ -177,12 +177,16 @@ describe('OnboardingForm', () => {
     expect(screen.getByText('No household draft')).toBeInTheDocument()
   })
 
-  it('rejects a monthly budget that is not greater than zero', () => {
+  // Per direct feedback: a household can start with no budget and put one
+  // in later, so zero is a real draft rather than a rejected one.
+  it('stores a draft with no budget when the field is left at zero', () => {
     renderOnboarding()
     submitOnboarding({ name: 'The Smiths', monthlyBudget: '0' })
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/presupuesto/i)
-    expect(screen.getByText('No household draft')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(
+      screen.getByText('Household draft: The Smiths, 0'),
+    ).toBeInTheDocument()
   })
 
   it('rejects a negative monthly budget', () => {
@@ -193,12 +197,17 @@ describe('OnboardingForm', () => {
     expect(screen.getByText('No household draft')).toBeInTheDocument()
   })
 
-  it('rejects a non-numeric monthly budget', () => {
+  // FormattedAmountInput never lets letters into the value, so "abc" cannot
+  // reach the parser as text -- it lands as an empty field, which is now the
+  // "sin presupuesto" draft rather than an error.
+  it('treats a budget typed as letters as no budget at all', () => {
     renderOnboarding()
     submitOnboarding({ name: 'The Smiths', monthlyBudget: 'abc' })
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/presupuesto/i)
-    expect(screen.getByText('No household draft')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(
+      screen.getByText('Household draft: The Smiths, 0'),
+    ).toBeInTheDocument()
   })
 
   it('stores a draft when the monthly budget has decimals', () => {
@@ -219,17 +228,27 @@ describe('OnboardingForm', () => {
     ).toBeInTheDocument()
   })
 
-  it('rejects an empty monthly budget and does not store a draft', () => {
+  it('stores a draft with no budget when the field is left blank', () => {
     renderOnboarding()
     submitOnboarding({ name: 'The Smiths' })
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/presupuesto/i)
-    expect(screen.getByText('No household draft')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(
+      screen.getByText('Household draft: The Smiths, 0'),
+    ).toBeInTheDocument()
+  })
+
+  it('says the budget can be left for later', () => {
+    renderOnboarding()
+
+    expect(
+      screen.getByText('Podés dejarlo vacío y ponerlo después.'),
+    ).toBeInTheDocument()
   })
 
   it('clears the error after a subsequent valid submit', () => {
     renderOnboarding()
-    submitOnboarding({ name: 'The Smiths', monthlyBudget: '0' })
+    submitOnboarding({ name: 'The Smiths', monthlyBudget: '-12' })
 
     expect(screen.getByRole('alert')).toBeInTheDocument()
 
