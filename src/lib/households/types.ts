@@ -118,6 +118,15 @@ export type HouseholdsDb = {
     readonly monthStart: Date
     readonly monthEnd: Date
   }): Promise<readonly Expense[]>
+  // Every expense the household has, newest first, in one query.
+  //
+  // Only the search uses it. Walking the paged history instead meant a
+  // round trip per fifteen rows, each waiting on the one before it -- on a
+  // phone that is seconds before the first result appears. A household's
+  // whole history is a few hundred rows; that is one query, not a walk.
+  listAllExpenses(input: {
+    readonly householdId: string
+  }): Promise<readonly Expense[]>
   listRecentExpenses(input: {
     readonly householdId: string
     readonly limit: number
