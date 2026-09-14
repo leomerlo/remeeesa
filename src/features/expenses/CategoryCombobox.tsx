@@ -95,6 +95,7 @@ export function CategoryCombobox({
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
   const optionRefs = useRef<(HTMLLIElement | null)[]>([])
+  const anchorRef = useRef<HTMLDivElement>(null)
 
   const filtered = useMemo(
     () => filterCategories(categories, value),
@@ -111,6 +112,18 @@ export function CategoryCombobox({
     }
     optionRefs.current[activeIndex]?.scrollIntoView?.({ block: 'nearest' })
   }, [activeIndex, open])
+
+  // The input sits outside the popup (it is the anchor, not the content),
+  // so every interaction with it counts as "outside" to Radix's dismiss
+  // layer. On a touch screen that layer defers the outside-pointerdown to
+  // the following `click` -- which is the same tap that just opened the
+  // list, so the list opened and closed again within the one tap and there
+  // was never a moment to pick an existing category.
+  function isInsideAnchor(target: EventTarget | null): boolean {
+    return (
+      target instanceof Node && anchorRef.current?.contains(target) === true
+    )
+  }
 
   function optionId(index: number): string {
     return `${listboxId}-option-${String(index)}`
@@ -191,7 +204,7 @@ export function CategoryCombobox({
       }}
     >
       <PopoverAnchor asChild>
-        <div className="relative w-full">
+        <div ref={anchorRef} className="relative w-full">
           {selectedCategory !== null ? (
             <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2">
               <CategorySwatch
@@ -220,6 +233,9 @@ export function CategoryCombobox({
               openList()
             }}
             onFocus={openList}
+            // Focus alone is not enough: tapping a field that is already
+            // focused fires no focus event, so the list would stay shut.
+            onClick={openList}
             onKeyDown={onKeyDown}
           />
         </div>
@@ -232,6 +248,16 @@ export function CategoryCombobox({
         role={undefined}
         onOpenAutoFocus={(event) => {
           event.preventDefault()
+        }}
+        onPointerDownOutside={(event) => {
+          if (isInsideAnchor(event.detail.originalEvent.target)) {
+            event.preventDefault()
+          }
+        }}
+        onFocusOutside={(event) => {
+          if (isInsideAnchor(event.detail.originalEvent.target)) {
+            event.preventDefault()
+          }
         }}
         className="max-h-60 overflow-y-auto p-1"
       >
