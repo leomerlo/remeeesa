@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import type { ReactElement } from 'react'
 import { TintedBadge } from '@/components/CategoryBadge'
 import { MovementCard } from '@/components/MovementCard'
+import { matchesSearch } from '@/lib/search/fuzzyMatch'
 import { Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -28,6 +29,10 @@ export type PendientesListProps = {
   // MonthPager is on, so this screen reads one month at a time.
   readonly monthStart?: Date
   readonly monthEnd?: Date
+  // Owned by the page rather than here, so its box can sit above the month
+  // pager -- the pager steps aside while searching, and a box below it
+  // would jump up the screen when it did.
+  readonly query?: string
   readonly onEditPendiente?: (
     pendiente: Pendiente,
     categoryName: string,
@@ -40,6 +45,7 @@ export function PendientesList({
   householdId,
   monthStart: monthStartProp,
   monthEnd: monthEndProp,
+  query = '',
   onEditPendiente,
   onMarkPaid,
 }: PendientesListProps): ReactElement {
@@ -47,6 +53,7 @@ export function PendientesList({
   // was already paid in it. Reading a single list that mixed months and
   // states was the confusion -- a due date on its own does not say whether
   // it is behind you. Per direct feedback.
+  const isSearching = query.trim() !== ''
   const defaultRange = useMemo(() => currentMonthRange(), [])
   const monthStart = monthStartProp ?? defaultRange.monthStart
   const monthEnd = monthEndProp ?? defaultRange.monthEnd
@@ -94,13 +101,30 @@ export function PendientesList({
   }
 
   const { pendientes, categories } = pendientesQuery.data
+  const categoryById = new Map(
+    categories.map((category) => [category.id, category]),
+  )
   // The query hands back every still-pending bill regardless of due date
   // plus whatever was paid inside this month; the first half is narrowed to
   // the month here, the second is already scoped by the query.
-  const stillOwed = pendientesDueInMonth(pendientes, monthStart, monthEnd)
-  const alreadyPaid = pendientes.filter(
-    (pendiente) => pendiente.status === 'paid',
-  )
+  // Searching drops the month here too, but it reaches less far than
+  // Histórico's does and it should: the query already holds every bill that
+  // is still owed, whatever month it falls in, plus this month's settled
+  // ones. A bill paid back in July is not here -- it is in Histórico, as
+  // the expense it became, where the search does cover everything.
+  const matches = (pendiente: Pendiente): boolean =>
+    matchesSearch(query, [
+      pendiente.name,
+      categoryById.get(pendiente.categoryId)?.name,
+    ])
+  const stillOwed = (
+    isSearching
+      ? pendientes.filter((pendiente) => pendiente.status === 'pending')
+      : pendientesDueInMonth(pendientes, monthStart, monthEnd)
+  ).filter(matches)
+  const alreadyPaid = pendientes
+    .filter((pendiente) => pendiente.status === 'paid')
+    .filter(matches)
   if (stillOwed.length === 0 && alreadyPaid.length === 0) {
     // The mascot-with-notepad illustration every other empty state on the
     // app uses (Home's movements list, Histórico) -- plain text here was the
@@ -110,15 +134,13 @@ export function PendientesList({
       <div className="flex w-full flex-col items-center gap-4">
         <EmptyExpensesIllustration className="mx-auto h-32 w-40" />
         <p role="status" className="text-sm font-medium">
-          No hay servicios en este mes
+          {isSearching
+            ? `Nada encontrado para "${query.trim()}"`
+            : 'No hay servicios en este mes'}
         </p>
       </div>
     )
   }
-
-  const categoryById = new Map(
-    categories.map((category) => [category.id, category]),
-  )
 
   function renderRow(pendiente: Pendiente): ReactElement {
     const category = categoryById.get(pendiente.categoryId)

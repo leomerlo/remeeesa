@@ -14,6 +14,9 @@ export type PageHeaderProps = {
   // screen label like every other page's title) reads as such. Every other
   // PageHeader stays plain.
   readonly gradient?: boolean
+  // Lets a screen that sits its action beside the title stop the header
+  // from taking the whole row -- see Histórico and Servicios.
+  readonly className?: string
 }
 
 // The one page-level header every top-level screen (Home, Histórico,
@@ -27,9 +30,15 @@ export function PageHeader({
   trailing,
   headingRef,
   gradient = false,
+  className,
 }: PageHeaderProps): ReactElement {
   return (
-    <div className="flex w-full items-baseline justify-between gap-3">
+    <div
+      className={cn(
+        'flex w-full items-baseline justify-between gap-3',
+        className,
+      )}
+    >
       {/* tabIndex -1 so a screen that closes a sheet can put focus back on
           the page itself when the element that opened it is gone. */}
       <h1

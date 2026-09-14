@@ -50,3 +50,33 @@ export function buildExpenseHistoryPage(
         : null,
   }
 }
+
+// Every expense the household has, newest first, walked page by page.
+//
+// Only the search uses this. Browsing reads one month at a time, but a
+// search that only looked at the month on screen would be a trap: type
+// "plomero", see nothing, and conclude you never paid one -- when it was in
+// July. So searching drops the month and looks at everything.
+//
+// Capped rather than unbounded. At 15 rows a page this is 600 expenses,
+// years of a two-person household; a list longer than that wants a real
+// query against the server, not a walk from the client.
+export const MAX_SEARCH_PAGES = 40
+
+export async function listExpenseHistoryForSearch(input: {
+  readonly listPage: (
+    cursor: ExpenseHistoryCursor | null,
+  ) => Promise<ExpenseHistoryPage>
+}): Promise<readonly Expense[]> {
+  const all: Expense[] = []
+  let cursor: ExpenseHistoryCursor | null = null
+  for (let page = 0; page < MAX_SEARCH_PAGES; page += 1) {
+    const next: ExpenseHistoryPage = await input.listPage(cursor)
+    all.push(...next.expenses)
+    if (next.nextCursor === null) {
+      break
+    }
+    cursor = next.nextCursor
+  }
+  return all
+}

@@ -16,8 +16,12 @@ import {
   formatCurrency,
   isServicio,
   listCategories,
+  listExpenseHistoryForSearch,
   listExpensesInMonth,
+  listExpenseHistoryPage,
 } from '@/lib/expenses'
+import { matchesSearch } from '@/lib/search/fuzzyMatch'
+import { SearchInput } from '@/components/ui/search-input'
 import { downloadTextFile } from '@/lib/download'
 import type { Category, Expense } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
@@ -27,7 +31,11 @@ import { listHouseholdMembers } from '@/lib/households'
 import type { HouseholdMember, HouseholdsDb } from '@/lib/households'
 import { EmptyExpensesIllustration } from './EmptyExpensesIllustration'
 import { MonthPager } from './MonthPager'
-import { categoriesQueryKey, expensesInMonthQueryKey } from './queryKeys'
+import {
+  categoriesQueryKey,
+  expenseHistoryQueryKey,
+  expensesInMonthQueryKey,
+} from './queryKeys'
 
 export type ExpenseHistoryProps = {
   readonly db: HouseholdsDb
@@ -158,16 +166,46 @@ export function ExpenseHistory({
     queryFn: () => listHouseholdMembers({ db, householdId }),
   })
   const [filter, setFilter] = useState<HistoryFilter>('all')
+  const [query, setQuery] = useState('')
+  // Searching drops the month: see listExpenseHistoryForSearch for why a
+  // search scoped to the month on screen is worse than none. Only fetched
+  // once something is actually typed.
+  const isSearching = query.trim() !== ''
+  const searchQuery = useQuery({
+    queryKey: [...expenseHistoryQueryKey({ householdId }), 'search'],
+    queryFn: () =>
+      listExpenseHistoryForSearch({
+        listPage: (cursor) =>
+          listExpenseHistoryPage({
+            db,
+            householdId,
+            ...(cursor === null ? {} : { after: cursor }),
+          }),
+      }),
+    enabled: isSearching,
+  })
 
   // The pager and the tabs stay on screen while a month loads -- they are
   // this page's controls, and replacing them with a skeleton on every step
   // back through the year meant the way out vanished each time.
   const controls = (
     <>
-      <MonthPager
-        viewedMonth={viewedMonth}
-        onViewedMonthChange={setViewedMonth}
+      <SearchInput
+        label="Buscar movimientos"
+        placeholder="Buscar por nombre, categoría o comentario"
+        value={query}
+        onChange={setQuery}
       />
+      {/* The pager steps aside while searching: you are either reading a
+          month or looking through everything, and a pager that did not
+          change what is on screen would be a lie. Clearing the box brings
+          back the month you were on. */}
+      {isSearching ? null : (
+        <MonthPager
+          viewedMonth={viewedMonth}
+          onViewedMonthChange={setViewedMonth}
+        />
+      )}
       {/* Per direct feedback: no way to separate what a household pays as a
           recurring bill (Servicio) from a one-off, in-the-moment purchase
           (Gasto) -- the total below updates for whichever is selected,
@@ -263,10 +301,20 @@ export function ExpenseHistory({
   const memberById = new Map<string, HouseholdMember>(
     membersQuery.data.map((member) => [member.userId, member]),
   )
-  // Filtered client-side against the month already in hand, not a second
-  // server-side query path -- a household's month is a few dozen rows.
-  const filteredExpenses = expenses.filter((expense) =>
-    matchesFilter(expense, filter),
+  // Filtered client-side against whatever is in hand -- the month while
+  // browsing, the whole history while searching. A household's month is a
+  // few dozen rows and its history a few hundred; neither warrants a second
+  // server-side query path.
+  const searchable = isSearching ? (searchQuery.data ?? []) : expenses
+  const filteredExpenses = searchable.filter(
+    (expense) =>
+      matchesFilter(expense, filter) &&
+      (!isSearching ||
+        matchesSearch(query, [
+          expense.name,
+          categoryById.get(expense.categoryId)?.name,
+          expense.comments,
+        ])),
   )
   const total = filteredExpenses.reduce(
     (sum, expense) => sum + expense.price,
@@ -285,7 +333,9 @@ export function ExpenseHistory({
           type="button"
           variant="outline"
           size="sm"
-          disabled={expenses.length === 0}
+          // Nothing to export while searching: the list on screen spans
+          // months, and a file named for one of them would not be it.
+          disabled={expenses.length === 0 || isSearching}
           onClick={() => {
             downloadTextFile({
               fileName: csvFileNameForMonth(monthStart),
@@ -314,7 +364,7 @@ export function ExpenseHistory({
           servicios in July" a manual sum. */}
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
-          {FILTER_TOTAL_LABEL[filter]}
+          {isSearching ? 'Total encontrado' : FILTER_TOTAL_LABEL[filter]}
         </h2>
         <span className="font-display text-title text-foreground shrink-0">
           {formatCurrency(total)}
@@ -324,16 +374,20 @@ export function ExpenseHistory({
         <div className="flex w-full flex-col items-center gap-4">
           <EmptyExpensesIllustration className="mx-auto h-32 w-40" />
           <p role="status" className="text-sm font-medium">
-            {filter === 'servicio'
-              ? 'No hay servicios en este mes'
-              : filter === 'gasto'
-                ? 'No hay gastos sueltos en este mes'
-                : 'No hay movimientos en este mes'}
+            {isSearching
+              ? `Nada encontrado para "${query.trim()}"`
+              : filter === 'servicio'
+                ? 'No hay servicios en este mes'
+                : filter === 'gasto'
+                  ? 'No hay gastos sueltos en este mes'
+                  : 'No hay movimientos en este mes'}
           </p>
         </div>
       ) : (
         <ul
-          aria-label="Movimientos del mes"
+          aria-label={
+            isSearching ? 'Resultados de la búsqueda' : 'Movimientos del mes'
+          }
           className="flex flex-col gap-3 text-sm"
         >
           {filteredExpenses.map((expense) => {
