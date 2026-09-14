@@ -516,4 +516,88 @@ describe('HistoricoPage', () => {
     clickSpy.mockRestore()
     vi.unstubAllGlobals()
   })
+
+  // Per direct feedback: forgiving, and across the whole history rather than
+  // the month on screen -- a search that only looked at September would
+  // answer "we never paid a plomero" when the answer was July.
+  describe('search', () => {
+    it('finds a movement from another month, with the pager stepping aside', async () => {
+      const { db, householdId, categoryId } = await seedHousehold()
+      await seed({
+        db,
+        householdId,
+        categoryId,
+        name: 'Plomero',
+        date: new Date(2026, 6, 12),
+      })
+      await seed({
+        db,
+        householdId,
+        categoryId,
+        name: 'Super',
+        date: new Date(),
+      })
+
+      renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+      await screen.findByText('Super')
+      expect(screen.queryByText('Plomero')).not.toBeInTheDocument()
+
+      fireEvent.change(screen.getByLabelText('Buscar movimientos'), {
+        target: { value: 'plomero' },
+      })
+
+      expect(await screen.findByText('Plomero')).toBeInTheDocument()
+      expect(screen.queryByText('Super')).not.toBeInTheDocument()
+      // Browsing a month and searching everything are different modes, so
+      // the pager is not left sitting there doing nothing.
+      expect(
+        screen.queryByRole('button', { name: 'Mes anterior' }),
+      ).not.toBeInTheDocument()
+    })
+
+    it('forgives a typo and ignores accents', async () => {
+      const { db, householdId, categoryId } = await seedHousehold()
+      await seed({
+        db,
+        householdId,
+        categoryId,
+        name: 'Farmácia',
+        date: new Date(),
+      })
+
+      renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+      await screen.findByText('Farmácia')
+
+      fireEvent.change(screen.getByLabelText('Buscar movimientos'), {
+        target: { value: 'farmasia' },
+      })
+
+      expect(await screen.findByText('Farmácia')).toBeInTheDocument()
+    })
+
+    it('keeps the box, and the way out, when nothing matches', async () => {
+      const { db, householdId, categoryId } = await seedHousehold()
+      await seed({
+        db,
+        householdId,
+        categoryId,
+        name: 'Super',
+        date: new Date(),
+      })
+
+      renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+      await screen.findByText('Super')
+
+      const box = screen.getByLabelText('Buscar movimientos')
+      fireEvent.change(box, { target: { value: 'zzz' } })
+      expect(await screen.findByText(/Nada encontrado/)).toBeInTheDocument()
+
+      // Clearing it puts the month back.
+      fireEvent.click(screen.getByRole('button', { name: 'Borrar búsqueda' }))
+      expect(await screen.findByText('Super')).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: 'Mes anterior' }),
+      ).toBeInTheDocument()
+    })
+  })
 })
