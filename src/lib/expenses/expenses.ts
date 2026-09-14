@@ -59,6 +59,16 @@ export async function createExpense(input: {
   })
 }
 
+// Every expense the household has, newest first. Only the search needs it;
+// every other view reads a month. See the db interface for why this is one
+// query rather than a walk through paged history.
+export async function listAllExpenses(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+}): Promise<readonly Expense[]> {
+  return input.db.listAllExpenses({ householdId: input.householdId })
+}
+
 export async function listExpensesInMonth(input: {
   readonly db: HouseholdsDb
   readonly householdId: string

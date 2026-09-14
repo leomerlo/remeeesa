@@ -673,6 +673,26 @@ export function createFirestoreHouseholdsDb(
         )
       })
     },
+    async listAllExpenses(input) {
+      return withHouseholdAccess('listAllExpenses', async () => {
+        // No limit and no cursor: the same index every other expense query
+        // uses, read in one round trip. See the interface for why the paged
+        // walk this replaced was the wrong shape for a search.
+        const expensesQuery = query(
+          collection(firestore, 'expenses'),
+          where('household_id', '==', input.householdId),
+          orderBy('expense_date', 'desc'),
+          orderBy('created_at', 'desc'),
+        )
+        const snap = await getDocs(expensesQuery)
+        return snap.docs.map((expenseDoc) =>
+          parseExpenseDocument({
+            id: expenseDoc.id,
+            data: expenseDoc.data(),
+          }),
+        )
+      })
+    },
     async listRecentExpenses(input) {
       return withHouseholdAccess('listRecentExpenses', async () => {
         const expensesQuery = query(
