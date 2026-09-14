@@ -16,9 +16,8 @@ import {
   formatCurrency,
   isServicio,
   listCategories,
-  listExpenseHistoryForSearch,
+  listAllExpenses,
   listExpensesInMonth,
-  listExpenseHistoryPage,
 } from '@/lib/expenses'
 import { matchesSearch } from '@/lib/search/fuzzyMatch'
 import { SearchInput } from '@/components/ui/search-input'
@@ -173,17 +172,13 @@ export function ExpenseHistory({
   const isSearching = query.trim() !== ''
   const searchQuery = useQuery({
     queryKey: [...expenseHistoryQueryKey({ householdId }), 'search'],
-    queryFn: () =>
-      listExpenseHistoryForSearch({
-        listPage: (cursor) =>
-          listExpenseHistoryPage({
-            db,
-            householdId,
-            ...(cursor === null ? {} : { after: cursor }),
-          }),
-      }),
+    queryFn: () => listAllExpenses({ db, householdId }),
     enabled: isSearching,
   })
+  // Nothing is "not found" until the history has actually arrived. Showing
+  // the empty state while the fetch is still in flight told the household
+  // its plomero did not exist, a second before producing it.
+  const isSearchLoading = isSearching && searchQuery.data === undefined
 
   // The pager and the tabs stay on screen while a month loads -- they are
   // this page's controls, and replacing them with a skeleton on every step
@@ -367,10 +362,30 @@ export function ExpenseHistory({
           {isSearching ? 'Total encontrado' : FILTER_TOTAL_LABEL[filter]}
         </h2>
         <span className="font-display text-title text-foreground shrink-0">
-          {formatCurrency(total)}
+          {isSearchLoading ? '—' : formatCurrency(total)}
         </span>
       </div>
-      {filteredExpenses.length === 0 ? (
+      {isSearchLoading ? (
+        <div
+          role="status"
+          aria-label="Buscando…"
+          className="flex w-full flex-col gap-3"
+        >
+          <span className="sr-only">Buscando…</span>
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="bg-card flex w-full items-center gap-3 rounded-2xl p-4"
+            >
+              <Skeleton className="size-11 shrink-0 rounded-full" />
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <Skeleton className="h-4 w-2/3" />
+                <Skeleton className="h-3 w-1/3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : filteredExpenses.length === 0 ? (
         <div className="flex w-full flex-col items-center gap-4">
           <EmptyExpensesIllustration className="mx-auto h-32 w-40" />
           <p role="status" className="text-sm font-medium">

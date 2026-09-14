@@ -575,6 +575,42 @@ describe('HistoricoPage', () => {
       expect(await screen.findByText('Farmácia')).toBeInTheDocument()
     })
 
+    // Per direct feedback: it went straight to the empty state and produced
+    // the result a moment later, so the app said "nothing found" before it
+    // had looked.
+    it('says it is searching rather than that nothing was found', async () => {
+      const { db, householdId, categoryId } = await seedHousehold()
+      await seed({
+        db,
+        householdId,
+        categoryId,
+        name: 'Plomero',
+        date: new Date(2026, 6, 12),
+      })
+      // Hold the history back so the in-flight state is observable.
+      let release = (): void => {}
+      const held = new Promise<void>((resolve) => {
+        release = resolve
+      })
+      const realList = db.listAllExpenses.bind(db)
+      vi.spyOn(db, 'listAllExpenses').mockImplementation(async (input) => {
+        await held
+        return realList(input)
+      })
+
+      renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+      await screen.findByRole('button', { name: 'Mes anterior' })
+      fireEvent.change(screen.getByLabelText('Buscar movimientos'), {
+        target: { value: 'plomero' },
+      })
+
+      expect(await screen.findByLabelText('Buscando…')).toBeInTheDocument()
+      expect(screen.queryByText(/Nada encontrado/)).not.toBeInTheDocument()
+
+      release()
+      expect(await screen.findByText('Plomero')).toBeInTheDocument()
+    })
+
     it('keeps the box, and the way out, when nothing matches', async () => {
       const { db, householdId, categoryId } = await seedHousehold()
       await seed({

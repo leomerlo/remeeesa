@@ -65,6 +65,7 @@ export const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
   mergeCategories: 'unir las categorías',
   createExpense: 'agregar el gasto',
   listExpensesInMonth: 'cargar los gastos',
+  listAllExpenses: 'buscar en el histórico',
   listRecentExpenses: 'cargar los gastos',
   listExpenseHistoryPage: 'cargar el histórico',
   getExpense: 'cargar el gasto',

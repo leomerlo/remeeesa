@@ -75,10 +75,11 @@ export function HistoricoPage({
           shape Servicios has. Adding a gasto from here rather than only
           from Home: this is the screen you are on when you notice one is
           missing. Per direct feedback. */}
-      {/* Title and its one action on the same line at every width, both on
-          the left -- the action belongs to the title, and pushed out to the
-          far right edge it read as unrelated chrome. Per direct feedback. */}
-      <div className="flex w-full items-center gap-3">
+      {/* Title and its one action share a line at every width, the action
+          pinned to the right margin. Sitting it flush against the title
+          crowded the two together; the screen's edges are what the eye
+          reads the row against. Per direct feedback. */}
+      <div className="flex w-full items-center justify-between gap-3">
         {header}
         <AddGastoSheet
           triggerClassName="shrink-0 px-5"

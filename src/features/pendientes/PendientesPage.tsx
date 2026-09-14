@@ -64,10 +64,11 @@ export function PendientesPage({
           own line. On a wide window a full-width title with a button on the
           line below it wastes the whole right half of the screen, so the
           two share one row. */}
-      {/* Title and its one action on the same line at every width, both on
-          the left -- the action belongs to the title, and pushed out to the
-          far right edge it read as unrelated chrome. Per direct feedback. */}
-      <div className="flex w-full items-center gap-3">
+      {/* Title and its one action share a line at every width, the action
+          pinned to the right margin. Sitting it flush against the title
+          crowded the two together; the screen's edges are what the eye
+          reads the row against. Per direct feedback. */}
+      <div className="flex w-full items-center justify-between gap-3">
         <PageHeader
           title="Servicios"
           headingRef={headingRef}
