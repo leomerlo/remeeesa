@@ -74,17 +74,19 @@ describe('createHouseholdWithMembership', () => {
     ).rejects.toThrow('El nombre del hogar no puede estar vacío')
   })
 
-  it('rejects a non-positive monthly budget', async () => {
+  // Signing up without a budget is allowed: the household starts as a plain
+  // running total and puts a budget in from Ajustes whenever it wants.
+  it('creates a household with no budget yet', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
 
-    await expect(
-      createHouseholdWithMembership({
-        db,
-        userId: 'user-1',
-        name: 'Casa Verde',
-        monthlyBudget: 0,
-      }),
-    ).rejects.toThrow('El presupuesto mensual debe ser un número positivo')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 0,
+    })
+
+    expect(household.monthlyBudget).toBe(0)
   })
 
   it('rejects a negative monthly budget', async () => {
@@ -97,7 +99,7 @@ describe('createHouseholdWithMembership', () => {
         name: 'Casa Verde',
         monthlyBudget: -10,
       }),
-    ).rejects.toThrow('El presupuesto mensual debe ser un número positivo')
+    ).rejects.toThrow('El presupuesto mensual no puede ser negativo')
   })
 
   it('rejects a second membership for the same user', async () => {
@@ -178,7 +180,7 @@ describe('updateHouseholdBudget', () => {
     ).resolves.toEqual(updated)
   })
 
-  it('rejects a non-positive monthly budget', async () => {
+  it('rejects a negative monthly budget', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -191,9 +193,9 @@ describe('updateHouseholdBudget', () => {
       updateHouseholdBudget({
         db,
         householdId: household.id,
-        monthlyBudget: 0,
+        monthlyBudget: -1,
       }),
-    ).rejects.toThrow('El presupuesto mensual debe ser un número positivo')
+    ).rejects.toThrow('El presupuesto mensual no puede ser negativo')
   })
 })
 
@@ -281,7 +283,7 @@ describe('updateHousehold', () => {
     ).rejects.toThrow('El nombre del hogar no puede estar vacío')
   })
 
-  it('rejects a non-positive monthly budget', async () => {
+  it('rejects a negative monthly budget', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -295,9 +297,9 @@ describe('updateHousehold', () => {
         db,
         householdId: household.id,
         name: 'Casa Azul',
-        monthlyBudget: 0,
+        monthlyBudget: -1,
       }),
-    ).rejects.toThrow('El presupuesto mensual debe ser un número positivo')
+    ).rejects.toThrow('El presupuesto mensual no puede ser negativo')
   })
 })
 

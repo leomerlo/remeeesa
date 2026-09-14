@@ -23,6 +23,21 @@ A household budgeting app. Each expense shows how much budget is left after it, 
 - `npm run typecheck` — static type checking
 - `npm run lint` — linting across the repo
 
+### Demo page (dev only)
+
+`npm run dev`, then:
+
+- `http://localhost:5183/demo.html` — the app as a **brand-new household**
+  sees it: no budget, nothing logged, onboarding checklist showing.
+- `http://localhost:5183/demo.html?seed=completa` — a household mid-month,
+  for anything the empty one cannot show (budget heat, carousels, the
+  category donut, paid vs pending).
+
+It runs on the in-memory database from `src/test/`, so nothing is saved and
+a reload resets it. It is **not** part of the production build: Vite builds
+`index.html` alone, so `demo.html` and `src/demo/` never reach `dist/`.
+`src/demo/productionIsolation.test.ts` guards that.
+
 Run the typecheck and test commands before considering a change done. Wire them into a pre-commit hook (e.g. Husky + lint-staged) and CI.
 
 ## Testing conventions
