@@ -215,17 +215,39 @@ describe('Sheet', () => {
     )
 
     const content = document.querySelector('[data-slot="sheet-content"]')
-    expect(content).toHaveClass('max-h-[96vh]')
+    expect(content).toHaveClass('max-h-[85vh]')
 
     const body = document.querySelector('[data-slot="sheet-body"]')
     // `min-h-0` is required here: without it, a flex item's default
     // `min-height: auto` keeps it from shrinking below its content size, so
     // it silently stops being height-constrained by Dialog.Content's
-    // max-h-[96vh] for tall content. The scrolling itself (and a pinned
+    // max-h-[85vh] for tall content. The scrolling itself (and a pinned
     // action footer) is each Sheet-hosted form's own responsibility -- see
     // e.g. AddExpenseForm -- rather than this body, so a tall form's submit
     // button never scrolls out of reach.
     expect(body).toHaveClass('flex', 'min-h-0', 'flex-col')
+  })
+
+  it('is a centred modal at every width, not a bottom-anchored sheet on phones', () => {
+    render(
+      <Sheet open onOpenChange={() => {}} title="Sheet title">
+        <p>Sheet body</p>
+      </Sheet>,
+    )
+
+    const content = document.querySelector('[data-slot="sheet-content"]')
+    expect(content).toHaveClass(
+      'top-1/2',
+      'left-1/2',
+      '-translate-x-1/2',
+      '-translate-y-1/2',
+      'rounded-3xl',
+    )
+    // The old bottom-sheet anchoring must be gone at every width, including
+    // below `lg` where it used to be the default.
+    expect(content).not.toHaveClass('bottom-0')
+    expect(content).not.toHaveClass('inset-x-0')
+    expect(content).not.toHaveClass('rounded-t-3xl')
   })
 
   it('keeps the close control outside the scrollable body so it never scrolls out of reach', () => {

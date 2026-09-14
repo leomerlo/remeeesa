@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import {
   categoriesQueryKey,
-  CategoryChips,
   CategoryCombobox,
   expensesQueryKey,
 } from '@/features/expenses'
@@ -93,7 +92,10 @@ function emptyFormFields(): PendienteFormFields {
     category: '',
     dueDate: localDateInputValue(new Date()),
     expectedAmount: '',
-    recurring: false,
+    // Checked by default: a servicio is a bill that comes back every month
+    // -- that is what the screen is for. The one-off case goes through
+    // Home's "Agregar gasto" instead. Per direct feedback.
+    recurring: true,
     autoDebit: false,
   }
 }
@@ -183,7 +185,10 @@ function parsePendienteFields(
       trimmedAmount === '' ? null : Number(trimmedAmount),
     ),
     recurring: input.recurring,
-    autoDebit: input.autoDebit,
+    // Only a recurring bill can be on débito automático -- the toggle is
+    // disabled otherwise, and cleared when Recurrente is switched off, so
+    // this can never reach the DB as `true` on a one-off.
+    autoDebit: input.recurring && input.autoDebit,
   }
 }
 
@@ -495,6 +500,16 @@ function PendienteFormBody({
     onPendingChange,
   ])
 
+  // Switching Recurrente off takes Débito automático with it: a one-off is
+  // never on automatic debit, and leaving it checked-but-ignored would come
+  // back the moment Recurrente was switched on again.
+  function onRecurringChange(next: boolean): void {
+    setRecurring(next)
+    if (!next) {
+      setAutoDebit(false)
+    }
+  }
+
   function onSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault()
     // A paid Pendiente's only actionable change is unchecking "Ya lo pagué"
@@ -573,34 +588,10 @@ function PendienteFormBody({
         {/* Frozen once paid -- a paid Pendiente's fields are frozen at the
             rules level too (isValidPendienteUpdate requires status ==
             'pending'), so a native disabled fieldset keeps every control
-            here inert (Inputs, the Recurrente Switch, CategoryChips'
-            buttons) without disabling each individually. "Ya lo pagué"
+            here inert (Inputs, the Recurrente Switch, the category
+            combobox) without disabling each individually. "Ya lo pagué"
             below stays outside it -- the only thing left to do here. */}
         <fieldset disabled={isPaidPendiente} className="contents">
-          {/* Unlike an Expense's price, a Pendiente's amount is optional --
-              some bills (a variable grocery run) genuinely aren't known yet
-              -- so it leads at the same hero size without being required,
-              rather than forcing a number in before the bill is even known. */}
-          <div className="flex w-full flex-col gap-2">
-            <Label htmlFor="pendiente-expected-amount">Monto esperado</Label>
-            <div className="relative">
-              <span
-                aria-hidden="true"
-                className="text-muted-foreground font-display text-display pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
-              >
-                $
-              </span>
-              <FormattedAmountInput
-                id="pendiente-expected-amount"
-                name="pendiente-expected-amount"
-                className="font-display text-display h-20 pl-12 tracking-tight"
-                value={expectedAmount}
-                onChange={setExpectedAmount}
-                autoComplete="off"
-              />
-            </div>
-          </div>
-
           <div className="flex w-full flex-col gap-2">
             <Label htmlFor="pendiente-name">Nombre</Label>
             <Input
@@ -614,19 +605,41 @@ function PendienteFormBody({
             />
           </div>
 
+          {/* Unlike an Expense's price, a Pendiente's amount is optional --
+              some bills (a variable grocery run) genuinely aren't known yet
+              -- so it is never required here. Same field order and size as
+              the gasto form (name, amount, category, date): these are two
+              doors onto the same record, and they used to open onto
+              different-looking forms. It used to lead at hero size, which
+              left a large empty box at the top of an empty form. */}
+          <div className="flex w-full flex-col gap-2">
+            <Label htmlFor="pendiente-expected-amount">Monto esperado</Label>
+            <div className="relative">
+              <span
+                aria-hidden="true"
+                className="text-muted-foreground pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
+              >
+                $
+              </span>
+              <FormattedAmountInput
+                id="pendiente-expected-amount"
+                name="pendiente-expected-amount"
+                className="pl-8"
+                value={expectedAmount}
+                onChange={setExpectedAmount}
+                autoComplete="off"
+              />
+            </div>
+          </div>
+
           <div className="flex w-full flex-col gap-2">
             <Label htmlFor="pendiente-category">Categoría</Label>
-            <CategoryChips
-              categories={categories}
-              value={category}
-              onChange={setCategory}
-            />
             <CategoryCombobox
               id="pendiente-category"
               categories={categories}
               value={category}
               onChange={setCategory}
-              placeholder="O escribí una categoría nueva"
+              placeholder="Elegí o escribí una nueva"
             />
           </div>
 
@@ -646,28 +659,26 @@ function PendienteFormBody({
             />
           </div>
 
-          {/* The bill's two properties share a line, switch then label,
-              split by a hairline -- the same shape the gasto form uses.
+          {/* One toggle per line, switch then label -- the same shape the
+              gasto form uses. Side by side, "Débito automático" had nowhere
+              to go but a second line at phone width, where it clipped.
               Débito automático means the household does not pay this one:
               the bank takes it on the due date, so it settles itself rather
               than waiting for someone to press Pagar. */}
-          <div className="flex w-full items-center gap-4">
-            <div className="flex flex-1 items-center gap-3">
+          <div className="flex w-full flex-col gap-4">
+            <div className="flex w-full items-center gap-3">
               <Switch
                 id="pendiente-recurring"
                 checked={recurring}
-                onCheckedChange={setRecurring}
+                onCheckedChange={onRecurringChange}
               />
               <Label htmlFor="pendiente-recurring">Recurrente</Label>
             </div>
-            <span
-              aria-hidden="true"
-              className="bg-border-subtle h-6 w-px shrink-0"
-            />
-            <div className="flex flex-1 items-center gap-3">
+            <div className="flex w-full items-center gap-3">
               <Switch
                 id="pendiente-auto-debit"
                 checked={autoDebit}
+                disabled={!recurring}
                 onCheckedChange={setAutoDebit}
               />
               <Label htmlFor="pendiente-auto-debit">Débito automático</Label>
