@@ -22,8 +22,8 @@ export type { MonthNavigatorProps } from './MonthNavigator'
 export { MonthPager } from './MonthPager'
 export type { MonthPagerProps } from './MonthPager'
 export {
+  allExpensesQueryKey,
   categoriesQueryKey,
-  expenseHistoryQueryKey,
   expensesInMonthQueryKey,
   expensesQueryKey,
   recentExpensesQueryKey,
