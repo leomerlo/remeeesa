@@ -55,8 +55,22 @@ describe('parseHouseholdDocument', () => {
     ).toThrow('El nombre del hogar no puede estar vacío')
   })
 
-  it('rejects a non-positive monthly_budget', () => {
+  it('rejects a negative monthly_budget', () => {
     expect(() =>
+      parseHouseholdDocument({
+        id: 'h1',
+        data: {
+          name: 'Casa Verde',
+          monthly_budget: -1,
+          created_at: new Date('2026-01-15T12:00:00.000Z'),
+        },
+      }),
+    ).toThrow('El presupuesto mensual no puede ser negativo')
+  })
+
+  // A household that has not set a budget yet stores 0, and must read back.
+  it('reads a zero monthly_budget as "sin presupuesto"', () => {
+    expect(
       parseHouseholdDocument({
         id: 'h1',
         data: {
@@ -64,8 +78,8 @@ describe('parseHouseholdDocument', () => {
           monthly_budget: 0,
           created_at: new Date('2026-01-15T12:00:00.000Z'),
         },
-      }),
-    ).toThrow('El presupuesto mensual debe ser un número positivo')
+      }).monthlyBudget,
+    ).toBe(0)
   })
 })
 

@@ -6,9 +6,13 @@ export function parseHouseholdName(name: string): string {
   return trimmed
 }
 
+// Zero means "sin presupuesto", and is allowed: a household can use the app
+// as a plain running total of what it spent, and put a budget in later. The
+// app is built around having one -- every screen counts down from it -- but
+// not having one yet is a state, not an error. Per direct feedback.
 export function parseMonthlyBudget(monthlyBudget: number): number {
-  if (!Number.isFinite(monthlyBudget) || monthlyBudget <= 0) {
-    throw new Error('El presupuesto mensual debe ser un número positivo')
+  if (!Number.isFinite(monthlyBudget) || monthlyBudget < 0) {
+    throw new Error('El presupuesto mensual no puede ser negativo')
   }
   return monthlyBudget
 }

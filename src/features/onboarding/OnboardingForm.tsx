@@ -125,7 +125,10 @@ export function OnboardingForm({
             className="h-auto border-0 px-0 text-center font-display text-5xl tracking-tight md:text-5xl"
           />
           <p className="text-muted-foreground text-sm">
-            Cuánto podés gastar por mes
+            Cuánto manejan por mes. Cada gasto se descuenta de acá.
+          </p>
+          <p className="text-muted-foreground text-xs">
+            Podés dejarlo vacío y ponerlo después.
           </p>
         </div>
 
