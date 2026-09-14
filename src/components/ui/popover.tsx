@@ -25,14 +25,23 @@ function PopoverTrigger({
   return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />
 }
 
+// `container` is forwarded to the Portal rather than the Content: inside a
+// modal dialog the popup must render within the dialog's own content element
+// to stay scrollable (see useSheetContainer in sheet.tsx). Undefined keeps
+// Radix's default, document.body.
 function PopoverContent({
   className,
   align = 'start',
   sideOffset = 4,
+  container,
   ...props
-}: ComponentProps<typeof PopoverPrimitive.Content>) {
+}: ComponentProps<typeof PopoverPrimitive.Content> & {
+  readonly container?: HTMLElement | null
+}) {
   return (
-    <PopoverPrimitive.Portal>
+    <PopoverPrimitive.Portal
+      {...(container === null || container === undefined ? {} : { container })}
+    >
       <PopoverPrimitive.Content
         data-slot="popover-content"
         align={align}

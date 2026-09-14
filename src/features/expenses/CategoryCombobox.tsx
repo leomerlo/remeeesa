@@ -3,6 +3,7 @@ import type { KeyboardEvent, ReactElement } from 'react'
 import { cssVars } from '@/lib/cssVars'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
+import { useSheetContainer } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
 import type { Category } from '@/lib/expenses'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
@@ -96,6 +97,8 @@ export function CategoryCombobox({
   const [activeIndex, setActiveIndex] = useState(-1)
   const optionRefs = useRef<(HTMLLIElement | null)[]>([])
   const anchorRef = useRef<HTMLDivElement>(null)
+  // Null outside a Sheet, where document.body is the right place for it.
+  const sheetContainer = useSheetContainer()
 
   const filtered = useMemo(
     () => filterCategories(categories, value),
@@ -241,6 +244,7 @@ export function CategoryCombobox({
         </div>
       </PopoverAnchor>
       <PopoverContent
+        container={sheetContainer}
         // Radix's PopoverContent defaults to role="dialog", which would wrap
         // the role="listbox" below in conflicting dialog semantics. This
         // popup is a suggestion list, not a dialog, so clear it — the
