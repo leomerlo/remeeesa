@@ -33,7 +33,7 @@ export function HistoricoPage({
 
   // The header renders in every state so this nav destination is never a
   // blank page while the session/membership resolve.
-  const header = <PageHeader title="Histórico" />
+  const header = <PageHeader title="Histórico" className="w-auto" />
 
   // Signed-out is checked before membership, not alongside it:
   // useHouseholdMembership only resolves membership for a signed-in user, so
@@ -75,10 +75,13 @@ export function HistoricoPage({
           shape Servicios has. Adding a gasto from here rather than only
           from Home: this is the screen you are on when you notice one is
           missing. Per direct feedback. */}
-      <div className="flex w-full flex-col gap-8 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+      {/* Title and its one action on the same line at every width, both on
+          the left -- the action belongs to the title, and pushed out to the
+          far right edge it read as unrelated chrome. Per direct feedback. */}
+      <div className="flex w-full items-center gap-3">
         {header}
         <AddGastoSheet
-          triggerClassName="w-full lg:w-auto lg:px-6"
+          triggerClassName="shrink-0 px-5"
           open={isAddGastoSheetOpen}
           onOpenChange={setIsAddGastoSheetOpen}
           db={db}

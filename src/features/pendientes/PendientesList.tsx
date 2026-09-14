@@ -1,9 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import type { ReactElement } from 'react'
 import { TintedBadge } from '@/components/CategoryBadge'
 import { MovementCard } from '@/components/MovementCard'
-import { SearchInput } from '@/components/ui/search-input'
 import { matchesSearch } from '@/lib/search/fuzzyMatch'
 import { Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -30,6 +29,10 @@ export type PendientesListProps = {
   // MonthPager is on, so this screen reads one month at a time.
   readonly monthStart?: Date
   readonly monthEnd?: Date
+  // Owned by the page rather than here, so its box can sit above the month
+  // pager -- the pager steps aside while searching, and a box below it
+  // would jump up the screen when it did.
+  readonly query?: string
   readonly onEditPendiente?: (
     pendiente: Pendiente,
     categoryName: string,
@@ -42,6 +45,7 @@ export function PendientesList({
   householdId,
   monthStart: monthStartProp,
   monthEnd: monthEndProp,
+  query = '',
   onEditPendiente,
   onMarkPaid,
 }: PendientesListProps): ReactElement {
@@ -49,7 +53,6 @@ export function PendientesList({
   // was already paid in it. Reading a single list that mixed months and
   // states was the confusion -- a due date on its own does not say whether
   // it is behind you. Per direct feedback.
-  const [query, setQuery] = useState('')
   const isSearching = query.trim() !== ''
   const defaultRange = useMemo(() => currentMonthRange(), [])
   const monthStart = monthStartProp ?? defaultRange.monthStart
@@ -122,31 +125,19 @@ export function PendientesList({
   const alreadyPaid = pendientes
     .filter((pendiente) => pendiente.status === 'paid')
     .filter(matches)
-  const search = (
-    <SearchInput
-      label="Buscar servicios"
-      placeholder="Buscar por nombre o categoría"
-      value={query}
-      onChange={setQuery}
-    />
-  )
-
   if (stillOwed.length === 0 && alreadyPaid.length === 0) {
     // The mascot-with-notepad illustration every other empty state on the
     // app uses (Home's movements list, Histórico) -- plain text here was the
     // one empty state with no illustration at all. The month pager above
     // already says which month is empty, so this does not repeat it.
     return (
-      <div className="flex w-full flex-col gap-8 text-sm">
-        {search}
-        <div className="flex w-full flex-col items-center gap-4">
-          <EmptyExpensesIllustration className="mx-auto h-32 w-40" />
-          <p role="status" className="text-sm font-medium">
-            {isSearching
-              ? `Nada encontrado para "${query.trim()}"`
-              : 'No hay servicios en este mes'}
-          </p>
-        </div>
+      <div className="flex w-full flex-col items-center gap-4">
+        <EmptyExpensesIllustration className="mx-auto h-32 w-40" />
+        <p role="status" className="text-sm font-medium">
+          {isSearching
+            ? `Nada encontrado para "${query.trim()}"`
+            : 'No hay servicios en este mes'}
+        </p>
       </div>
     )
   }
@@ -248,7 +239,6 @@ export function PendientesList({
 
   return (
     <div className="flex w-full flex-col gap-8 text-sm">
-      {search}
       {/* Group labels, not titles. At the section size they were a third
           heading in a row of three -- page name, month, group -- all at
           much the same weight, so nothing said which was which. Smaller and
