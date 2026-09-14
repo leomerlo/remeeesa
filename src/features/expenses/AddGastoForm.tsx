@@ -7,7 +7,6 @@ import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { CategoryChips } from './CategoryChips'
 import { CategoryCombobox } from './CategoryCombobox'
 import {
   createExpense,
@@ -28,8 +27,8 @@ import type { HouseholdsDb } from '@/lib/households'
 import { categoriesQueryKey, expensesQueryKey } from './queryKeys'
 // Imported from the leaf file, not the @/features/pendientes barrel --
 // that barrel re-exports AddPendienteForm, which imports from this very
-// feature (CategoryChips/CategoryCombobox), and going through it here would
-// create a features/expenses <-> features/pendientes import cycle.
+// feature (CategoryCombobox), and going through it here would create a
+// features/expenses <-> features/pendientes import cycle.
 import { pendientesQueryKey } from '@/features/pendientes/queryKeys'
 
 export type AddGastoFormProps = {
@@ -39,6 +38,11 @@ export type AddGastoFormProps = {
   readonly authorDisplayName: string
   readonly onAdded?: () => void
   readonly onPendingChange?: (pending: boolean) => void
+  // Home logs anything: a bill for later, a recurring service, a spend that
+  // already happened -- so it gets all three toggles. Histórico is the list
+  // of gastos, and a gasto added from there is by definition something
+  // already spent, so it gets "Ya lo pagué" alone. Per direct feedback.
+  readonly showRecurringOptions?: boolean
 }
 
 type GastoFormFields = {
@@ -47,6 +51,7 @@ type GastoFormFields = {
   readonly date: string
   readonly amount: string
   readonly recurring: boolean
+  readonly autoDebit: boolean
 }
 
 function localDateInputValue(date: Date): string {
@@ -63,6 +68,7 @@ function emptyFormFields(): GastoFormFields {
     date: localDateInputValue(new Date()),
     amount: '',
     recurring: false,
+    autoDebit: false,
   }
 }
 
@@ -91,6 +97,7 @@ type ParsedGastoFields = {
   readonly date: Date
   readonly amount: number | null
   readonly recurring: boolean
+  readonly autoDebit: boolean
 }
 
 // The one date field doubles as "cuándo lo gastaste" (markPaid) or "cuándo
@@ -118,6 +125,10 @@ function parseGastoFields(
       trimmedAmount === '' ? null : Number(trimmedAmount),
     ),
     recurring: input.recurring,
+    // Only a recurring bill can be on débito automático -- the toggle is
+    // disabled otherwise, and cleared when Recurrente is switched off, so
+    // this can never reach the DB as `true` on a one-off.
+    autoDebit: input.recurring && input.autoDebit,
   }
 }
 
@@ -159,6 +170,7 @@ export function AddGastoForm({
   authorDisplayName,
   onAdded,
   onPendingChange,
+  showRecurringOptions = true,
 }: AddGastoFormProps): ReactElement {
   const queryClient = useQueryClient()
   const categoriesKey = categoriesQueryKey({ householdId })
@@ -175,6 +187,7 @@ export function AddGastoForm({
   const [date, setDate] = useState(initialFields.date)
   const [amount, setAmount] = useState(initialFields.amount)
   const [recurring, setRecurring] = useState(initialFields.recurring)
+  const [autoDebit, setAutoDebit] = useState(initialFields.autoDebit)
   // Checked by default: adding a gasto usually means logging something that
   // already happened, not setting up a future bill -- per direct feedback.
   const [markPaid, setMarkPaid] = useState(true)
@@ -219,6 +232,7 @@ export function AddGastoForm({
         dueDate: fields.date,
         expectedAmount: fields.amount,
         recurring: fields.recurring,
+        autoDebit: fields.autoDebit,
       })
       if (markPaid) {
         await markPendientePaid({
@@ -239,6 +253,7 @@ export function AddGastoForm({
       setDate(reset.date)
       setAmount(reset.amount)
       setRecurring(reset.recurring)
+      setAutoDebit(reset.autoDebit)
       setMarkPaid(true)
       setError(null)
       onAdded?.()
@@ -254,7 +269,7 @@ export function AddGastoForm({
     event.preventDefault()
     try {
       const fields = parseGastoFields(
-        { name, category, date, amount, recurring },
+        { name, category, date, amount, recurring, autoDebit },
         markPaid,
       )
       if (markPaid && fields.amount === null) {
@@ -273,6 +288,16 @@ export function AddGastoForm({
     error ??
     (mutation.isError ? mutationErrorMessage(mutation.error) : null) ??
     loadErrorMessage(categoriesQuery.error)
+
+  // Switching Recurrente off takes Débito automático with it: a one-off is
+  // never on automatic debit, and leaving it checked-but-ignored would come
+  // back the moment Recurrente was switched on again.
+  function onRecurringChange(next: boolean): void {
+    setRecurring(next)
+    if (!next) {
+      setAutoDebit(false)
+    }
+  }
 
   const isPlainGasto = !recurring && markPaid
   const submitLabel = markPaid
@@ -340,17 +365,12 @@ export function AddGastoForm({
 
         <div className="flex w-full flex-col gap-2">
           <Label htmlFor="gasto-category">Categoría</Label>
-          <CategoryChips
-            categories={categoriesQuery.data ?? []}
-            value={category}
-            onChange={setCategory}
-          />
           <CategoryCombobox
             id="gasto-category"
             categories={categoriesQuery.data ?? []}
             value={category}
             onChange={setCategory}
-            placeholder="O escribí una categoría nueva"
+            placeholder="Elegí o escribí una nueva"
           />
         </div>
 
@@ -373,24 +393,36 @@ export function AddGastoForm({
           />
         </div>
 
-        {/* Side by side rather than stacked, switch then label, split by a
-            hairline. Stacked at the foot of the form, "Ya lo pagué" sat
-            below the fold often enough that it got left checked on
-            something that had not been paid. Per direct feedback. */}
-        <div className="flex w-full items-center gap-4">
-          <div className="flex flex-1 items-center gap-3">
-            <Switch
-              id="gasto-recurring"
-              checked={recurring}
-              onCheckedChange={setRecurring}
-            />
-            <Label htmlFor="gasto-recurring">Recurrente</Label>
-          </div>
-          <span
-            aria-hidden="true"
-            className="bg-border-subtle h-6 w-px shrink-0"
-          />
-          <div className="flex flex-1 items-center gap-3">
+        {/* One toggle per line, switch then label -- the same shape the
+            servicio form uses, so the two entry points to the same
+            underlying record look alike. Side by side, "Débito automático"
+            had nowhere to go but a second line at phone width, where it
+            clipped. Débito automático means the household does not pay this
+            one: the bank takes it on the due date. */}
+        <div className="flex w-full flex-col gap-4">
+          {showRecurringOptions ? (
+            <>
+              <div className="flex w-full items-center gap-3">
+                <Switch
+                  id="gasto-recurring"
+                  checked={recurring}
+                  onCheckedChange={onRecurringChange}
+                />
+                <Label htmlFor="gasto-recurring">Recurrente</Label>
+              </div>
+              <div className="flex w-full items-center gap-3">
+                <Switch
+                  id="gasto-auto-debit"
+                  checked={autoDebit}
+                  disabled={!recurring}
+                  onCheckedChange={setAutoDebit}
+                />
+                <Label htmlFor="gasto-auto-debit">Débito automático</Label>
+              </div>
+            </>
+          ) : null}
+
+          <div className="flex w-full items-center gap-3">
             <Switch
               id="gasto-mark-paid"
               checked={markPaid}

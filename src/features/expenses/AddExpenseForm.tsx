@@ -7,7 +7,6 @@ import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { CategoryChips } from './CategoryChips'
 import { CategoryCombobox } from './CategoryCombobox'
 import {
   createExpense,
@@ -436,19 +435,12 @@ function ExpenseFormBody({
 
         <div className="flex w-full flex-col gap-2">
           <Label htmlFor="expense-category">Categoría</Label>
-          <CategoryChips
-            categories={categories}
-            value={category}
-            onChange={setCategory}
-          />
-          {/* Still here, and still the only way to create a category that does
-              not exist yet -- the chips above cover the common case. */}
           <CategoryCombobox
             id="expense-category"
             categories={categories}
             value={category}
             onChange={setCategory}
-            placeholder="O escribí una categoría nueva"
+            placeholder="Elegí o escribí una nueva"
           />
         </div>
 
