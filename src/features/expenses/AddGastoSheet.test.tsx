@@ -213,6 +213,20 @@ describe('AddGastoSheet (unified add flow)', () => {
     expect(screen.getByLabelText('Recurrente')).not.toBeChecked()
   })
 
+  it('renders the category list inside the modal so it can be scrolled on a touch screen', async () => {
+    await renderForm()
+
+    fireEvent.focus(screen.getByRole('combobox', { name: 'Categoría' }))
+
+    const listbox = screen.getByRole('listbox', { name: 'Categorías' })
+    const sheetContent = document.querySelector('[data-slot="sheet-content"]')
+    expect(sheetContent).not.toBeNull()
+    // A modal dialog cancels touch scrolling everywhere except its own
+    // content element, so a listbox portalled to document.body could not be
+    // dragged at all on a phone.
+    expect(sheetContent?.contains(listbox)).toBe(true)
+  })
+
   it('enables Débito automático only while Recurrente is on, and clears it when Recurrente is switched off', async () => {
     await renderForm()
 
