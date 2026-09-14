@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { Category } from '@/lib/expenses'
 import { CategoryCombobox } from './CategoryCombobox'
@@ -55,6 +55,49 @@ describe('CategoryCombobox', () => {
     // Decorative: the option's accessible name is the category name alone.
     expect(swatch?.querySelector('svg')).not.toBeNull()
     expect(comida).toHaveTextContent('Comida')
+  })
+
+  it('keeps the list open when the field itself is tapped', async () => {
+    renderCombobox()
+    const input = screen.getByRole('combobox')
+
+    fireEvent.focus(input)
+    expect(screen.getAllByRole('option')).toHaveLength(3)
+
+    // Radix's dismiss layer defers an outside pointerdown to the following
+    // click on touch, so the very tap that opens the list used to close it
+    // again before anything could be picked.
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    fireEvent.pointerDown(input, { pointerType: 'touch' })
+    fireEvent.click(input)
+
+    expect(screen.getAllByRole('option')).toHaveLength(3)
+  })
+
+  it('closes when something outside the field is tapped', async () => {
+    render(
+      <div>
+        <CategoryCombobox
+          id="category"
+          categories={categories}
+          value=""
+          onChange={() => {}}
+        />
+        <button type="button">Fuera</button>
+      </div>,
+    )
+
+    fireEvent.focus(screen.getByRole('combobox'))
+    expect(screen.getAllByRole('option')).toHaveLength(3)
+
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const outside = screen.getByRole('button', { name: 'Fuera' })
+    fireEvent.pointerDown(outside, { pointerType: 'touch' })
+    fireEvent.click(outside)
+
+    await waitFor(() => {
+      expect(screen.queryAllByRole('option')).toEqual([])
+    })
   })
 
   it('filters the list as the user types', () => {
