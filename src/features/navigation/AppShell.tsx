@@ -78,7 +78,13 @@ export function AppShell({
           the inner box then centres the content within what is left over
           rather than within the whole viewport, so the reading column sits
           centred in the space beside the sidebar at any window width. */}
-      <div className={cn('w-full', showNav && 'pb-24 lg:pb-0 lg:pl-64')}>
+      <div
+        className={cn(
+          'w-full',
+          showNav &&
+            'pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-64',
+        )}
+      >
         <div
           className={cn(
             'mx-auto flex w-full flex-col items-center gap-8',
@@ -97,7 +103,7 @@ export function AppShell({
           aria-label="Navegación principal"
           className={cn(
             'bg-card shadow-raised fixed z-30',
-            'inset-x-0 bottom-0 mx-auto max-w-md rounded-t-3xl px-2 pt-2 pb-3 sm:max-w-lg',
+            'inset-x-0 bottom-0 mx-auto max-w-md rounded-t-3xl px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:max-w-lg',
             'lg:inset-y-0 lg:right-auto lg:left-0 lg:mx-0 lg:w-64 lg:max-w-none lg:rounded-none lg:px-4 lg:py-6',
           )}
         >

@@ -57,7 +57,7 @@ export function AppHeader({
     // bottom nav needs its pb-24 (AppShell) -- one less magic number to keep
     // in sync if the header's own height ever changes. z-30 matches the
     // nav's stacking layer; both sit well under Sheet/popover's z-50.
-    <header className="bg-card sticky top-0 z-30 flex w-full items-center justify-between gap-3 px-6 py-4 sm:px-8 lg:pl-72">
+    <header className="bg-card sticky top-0 z-30 flex w-full items-center justify-between gap-3 px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-4 sm:px-8 lg:pl-72">
       <Logo className="h-5 shrink-0 lg:hidden" />
       {/* Smaller than a page title on purpose: it shares a line with the
           wordmark on a phone, and it is a label for where you are rather
