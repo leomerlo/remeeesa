@@ -16,7 +16,7 @@ import {
 import type { EditPendienteTarget } from '@/features/pendientes/AddPendienteForm'
 import { LogoutButton } from '@/features/auth'
 import { currentMonthRange } from '@/lib/expenses'
-import { OnboardingForm } from '@/features/onboarding'
+import { OnboardingChecklist, OnboardingForm } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
 import { markReturningUser } from '@/features/onboarding/returningUserStorage'
 import { useFirebase } from '@/lib/firebaseContext'
@@ -158,6 +158,15 @@ export function HomePage({
     <div className="flex w-full flex-col items-center gap-8">
       {/* No page title here: the household's name is in the app header now,
           on every screen, rather than being Home's heading. */}
+      {/* Above everything, and only while there is something left to do:
+          it is the one place the app says what it is for. */}
+      <OnboardingChecklist
+        db={db}
+        householdId={membership.householdId}
+        onAddGasto={() => {
+          setIsAddGastoSheetOpen(true)
+        }}
+      />
       <PendienteDueSoonBanner db={db} householdId={membership.householdId} />
       {/* The month, its two cards and the one action they lead to are one
           block -- at the page's own 32px rhythm the button floated between

@@ -31,8 +31,8 @@ import type { HouseholdMember, HouseholdsDb } from '@/lib/households'
 import { EmptyExpensesIllustration } from './EmptyExpensesIllustration'
 import { MonthPager } from './MonthPager'
 import {
+  allExpensesQueryKey,
   categoriesQueryKey,
-  expenseHistoryQueryKey,
   expensesInMonthQueryKey,
 } from './queryKeys'
 
@@ -171,7 +171,7 @@ export function ExpenseHistory({
   // once something is actually typed.
   const isSearching = query.trim() !== ''
   const searchQuery = useQuery({
-    queryKey: [...expenseHistoryQueryKey({ householdId }), 'search'],
+    queryKey: allExpensesQueryKey({ householdId }),
     queryFn: () => listAllExpenses({ db, householdId }),
     enabled: isSearching,
   })
