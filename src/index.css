@@ -418,6 +418,27 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Safari (iOS especially) ignores height, padding and width on a date
+     input while its native appearance is on, and sizes it from the date
+     text at the platform font instead -- so "Fecha" rendered taller and
+     wider than every other field beside it, and pushed the form wider than
+     the modal holding it. Clearing the appearance hands sizing back to the
+     Input component's own classes. The picker indicator is kept (it is the
+     only affordance the control has) but stripped of its default margins. */
+  input[type='date'] {
+    -webkit-appearance: none;
+    appearance: none;
+    min-width: 0;
+    max-width: 100%;
+  }
+  input[type='date']::-webkit-date-and-time-value {
+    margin: 0;
+    text-align: left;
+  }
+  input[type='date']::-webkit-calendar-picker-indicator {
+    margin: 0;
+    padding: 0;
+  }
   body {
     @apply bg-background text-foreground;
   }
