@@ -141,15 +141,15 @@ export function PendienteDueSoonBanner({
               key={pendiente.id}
               className="w-full shrink-0 snap-start lg:w-[calc((100%-1rem)/2)]"
             >
-              {/* The one dark card in a light interface. Same structure as
+              {/* The one filled card in a light interface. Same structure as
                   every other row on Home, but none of its colours come from
                   the category: whatever is about to come due should read as
-                  one thing, not as five differently-tinted things. Per
-                  direct feedback, it carries the budget card's own gradient
-                  run the other way -- deep wine into the lighter one. Wine,
-                  not red: the budget card's ramp still has the brand violet
-                  in it at that point, and the two have to match. */}
-              <div className="flex w-full items-center gap-3 rounded-2xl bg-[linear-gradient(to_bottom_right,var(--surface-due-soon-from),var(--surface-due-soon-to))] p-4 text-white">
+                  one thing, not as five differently-tinted things. It is
+                  filled flat with --surface-due-soon, the same colour the
+                  budget card lands on once the month is spent and the same
+                  one the destructive button uses -- one danger colour in the
+                  app, not a family of reds. */}
+              <div className="bg-due-soon flex w-full items-center gap-3 rounded-2xl p-4 text-white">
                 <span
                   aria-hidden="true"
                   className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white/15"

@@ -53,7 +53,7 @@ describe('CategoryBreakdown', () => {
     )
 
     expect(
-      await screen.findByText('Todavía no hay gastos este mes'),
+      await screen.findByText('Todavía no hay nada para repartir'),
     ).toBeInTheDocument()
     expect(container.querySelector('svg')).toBeNull()
   })
@@ -304,11 +304,9 @@ describe('CategoryBreakdown', () => {
       />,
     )
 
+    expect(await screen.findByText('Mes sin gastos')).toBeInTheDocument()
     expect(
-      await screen.findByText('No hay gastos en este mes'),
-    ).toBeInTheDocument()
-    expect(
-      screen.queryByText('Todavía no hay gastos este mes'),
+      screen.queryByText('Todavía no hay nada para repartir'),
     ).not.toBeInTheDocument()
   })
 })

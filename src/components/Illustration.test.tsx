@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { Illustration } from './Illustration'
-import { EmptyExpensesIllustration } from '@/features/expenses/EmptyExpensesIllustration'
+import { ILLUSTRATIONS } from './illustrations'
 import { PiggyBankIllustration } from '@/features/expenses/PiggyBankIllustration'
 import { OnboardingIllustration } from '@/features/onboarding/OnboardingIllustration'
 
@@ -33,7 +33,6 @@ describe('Illustration', () => {
 describe('the named illustrations', () => {
   it.each([
     ['PiggyBankIllustration', PiggyBankIllustration],
-    ['EmptyExpensesIllustration', EmptyExpensesIllustration],
     ['OnboardingIllustration', OnboardingIllustration],
   ])(
     '%s renders decorative artwork and passes a className through',
@@ -51,14 +50,20 @@ describe('the named illustrations', () => {
     const { container } = render(
       <>
         <PiggyBankIllustration />
-        <EmptyExpensesIllustration />
         <OnboardingIllustration />
+        <Illustration src={ILLUSTRATIONS.writing} />
+        <Illustration src={ILLUSTRATIONS.saving} />
+        <Illustration src={ILLUSTRATIONS.counting} />
+        <Illustration src={ILLUSTRATIONS.celebrating} />
       </>,
     )
 
     const sources = Array.from(container.querySelectorAll('img')).map((img) =>
       img.getAttribute('src'),
     )
-    expect(new Set(sources).size).toBe(3)
+    // The four named drawings are four distinct files: an empty state that
+    // picks `saving` must not quietly get the same picture as one that picks
+    // `writing`.
+    expect(new Set(sources).size).toBe(4)
   })
 })

@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import type { ReactElement } from 'react'
 import { PageHeader } from '@/components/PageHeader'
+import { EmptyState } from '@/components/EmptyState'
+import { ILLUSTRATIONS } from '@/components/illustrations'
 import {
   AddExpenseSheet,
   AddGastoSheet,
@@ -53,9 +55,11 @@ export function HistoricoPage({
     return (
       <div className="flex w-full flex-col gap-8">
         {header}
-        <p role="status" className="text-sm font-medium">
-          Todavía no hay gastos
-        </p>
+        <EmptyState
+          illustration={ILLUSTRATIONS.celebrating}
+          title="Todavía no hay movimientos"
+          description="Acá va quedando todo: los gastos sueltos y los servicios que paguen."
+        />
       </div>
     )
   }

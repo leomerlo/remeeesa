@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cssVars } from '@/lib/cssVars'
 import { householdQueryKey } from '@/features/household'
 import {
-  budgetGradient,
+  budgetColor,
   computePendingCommitted,
   computePercentUsed,
   computeRemainingBudget,
@@ -77,8 +77,8 @@ export function RemainingBudgetDisplay({
     expenses === undefined ||
     pending === undefined
   ) {
-    // Flat rather than the eventual gradient: a pulsing grey bar over the
-    // bright purple would read as broken, not loading. The gradient (and
+    // Neutral rather than the eventual heat colour: a pulsing grey bar over
+    // the filled card would read as broken, not loading. The colour (and
     // the mascot) only appear once there's a real figure to show inside it.
     return (
       <div
@@ -100,7 +100,7 @@ export function RemainingBudgetDisplay({
   // error). There is nothing to count down from, so the card says so and
   // offers to fix it rather than rendering "restante: -$48.350" against a
   // budget of nothing, or a progress bar that is full from the first gasto.
-  // Light, not the dark gradient one: that card's whole job is showing heat,
+  // Light, not the dark filled one: that card's whole job is showing heat,
   // and with no budget there is no heat to show.
   if (household.monthlyBudget === 0) {
     return (
@@ -138,19 +138,16 @@ export function RemainingBudgetDisplay({
     expenses,
     pendingCommitted,
   )
-  const gradient = budgetGradient(percentUsed)
+  const heatColor = budgetColor(percentUsed)
 
   return (
     <div
       // The card's own colour tracks how much of the budget is gone --
-      // violet while there is room, red as it runs out. Inline rather than a
-      // class because the two stops are computed per render; see
-      // lib/expenses/budgetHeat.
-      style={cssVars({
-        '--budget-from': gradient.from,
-        '--budget-to': gradient.to,
-      })}
-      className="relative flex w-full flex-col gap-6 rounded-3xl bg-[linear-gradient(to_bottom_right,var(--budget-from),var(--budget-to))] p-6 transition-[background-image] duration-500"
+      // charcoal while there is room, the danger rose as it runs out. A
+      // custom property rather than a class because the colour is computed
+      // per render; see lib/expenses/budgetHeat.
+      style={cssVars({ '--budget-heat': heatColor })}
+      className="relative flex w-full flex-col gap-6 rounded-3xl bg-[var(--budget-heat)] p-6 transition-colors duration-500"
     >
       {/* Deliberately no overflow-hidden: the illustration is meant to poke
           past the card edge, and clipping it cut off half of it.

@@ -2,8 +2,8 @@ import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import { PageHeader } from '@/components/PageHeader'
-import { Illustration } from '@/components/Illustration'
-import categoriesCalc from '@/assets/illustrations/categories-calc.webp'
+import { EmptyState } from '@/components/EmptyState'
+import { ILLUSTRATIONS } from '@/components/illustrations'
 import { MonthPager } from '@/features/expenses'
 import { currentMonthRange } from '@/lib/expenses'
 import { useHouseholdMembership } from '@/lib/households'
@@ -55,10 +55,11 @@ export function CategoriasPage({
     return (
       <div className="flex w-full flex-col items-center gap-8">
         {header}
-        <Illustration src={categoriesCalc} className="mx-auto h-32 w-40" />
-        <p role="status" className="text-sm font-medium">
-          Todavía no hay gastos este mes
-        </p>
+        <EmptyState
+          illustration={ILLUSTRATIONS.counting}
+          title="Todavía no hay nada para repartir"
+          description="El desglose por categoría aparece apenas carguen el primer gasto."
+        />
       </div>
     )
   }

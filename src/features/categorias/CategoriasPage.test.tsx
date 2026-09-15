@@ -25,7 +25,7 @@ describe('CategoriasPage', () => {
       screen.getByRole('heading', { name: 'Categorías' }),
     ).toBeInTheDocument()
     expect(
-      await screen.findByText('Todavía no hay gastos este mes'),
+      await screen.findByText('Todavía no hay nada para repartir'),
     ).toBeInTheDocument()
     expect(screen.queryByText('Cargando…')).not.toBeInTheDocument()
   })

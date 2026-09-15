@@ -2,9 +2,9 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
 import { cssVars } from '@/lib/cssVars'
-import { Illustration } from '@/components/Illustration'
+import { EmptyState } from '@/components/EmptyState'
+import { ILLUSTRATIONS } from '@/components/illustrations'
 import { Skeleton } from '@/components/ui/skeleton'
-import categoriesCalc from '@/assets/illustrations/categories-calc.webp'
 import {
   categoriesQueryKey,
   expensesInMonthQueryKey,
@@ -133,14 +133,15 @@ export function CategoryBreakdown({
   // repeating its label here would be redundant.
   if (byCategory.length === 0) {
     return (
-      <div className="flex w-full flex-col items-center gap-4">
-        <Illustration src={categoriesCalc} className="mx-auto h-32 w-40" />
-        <p role="status" className="text-sm font-medium">
-          {isCurrentMonth
-            ? 'Todavía no hay gastos este mes'
-            : 'No hay gastos en este mes'}
-        </p>
-      </div>
+      <EmptyState
+        illustration={ILLUSTRATIONS.counting}
+        title={
+          isCurrentMonth
+            ? 'Todavía no hay nada para repartir'
+            : 'Mes sin gastos'
+        }
+        description="El desglose por categoría aparece apenas carguen el primer gasto."
+      />
     )
   }
 

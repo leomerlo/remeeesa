@@ -9,11 +9,11 @@ export type PageHeaderProps = {
   readonly trailing?: ReactNode
   readonly headingRef?: Ref<HTMLHeadingElement>
   // Home passes this for the household's own chosen name: a leading house
-  // icon plus the same violet gradient the budget hero and auth cards use,
-  // so the one title on this screen that is actually *yours* (not a generic
-  // screen label like every other page's title) reads as such. Every other
-  // PageHeader stays plain.
-  readonly gradient?: boolean
+  // icon, so the one title on this screen that is actually *yours* (not a
+  // generic screen label like every other page's title) reads as such. It
+  // used to also clip a gradient into the text; the app is flat now. Every
+  // other PageHeader stays plain.
+  readonly withHouseIcon?: boolean
   // Lets a screen that sits its action beside the title stop the header
   // from taking the whole row -- see Histórico and Servicios.
   readonly className?: string
@@ -29,7 +29,7 @@ export function PageHeader({
   title,
   trailing,
   headingRef,
-  gradient = false,
+  withHouseIcon = false,
   className,
 }: PageHeaderProps): ReactElement {
   return (
@@ -48,20 +48,10 @@ export function PageHeader({
         // takes on a phone. Per direct feedback.
         className="flex items-center gap-2 text-title font-semibold outline-none lg:text-2xl"
       >
-        {gradient ? (
+        {withHouseIcon ? (
           <Home className="text-primary size-5 shrink-0" aria-hidden="true" />
         ) : null}
-        {/* The gradient clips to this span specifically, not the whole h1 --
-            Home's icon uses currentColor, so text-transparent on a shared
-            ancestor would make the icon disappear along with the text. */}
-        <span
-          className={cn(
-            gradient &&
-              'from-primary to-[var(--surface-action-gradient-end)] bg-gradient-to-br bg-clip-text text-transparent',
-          )}
-        >
-          {title}
-        </span>
+        <span>{title}</span>
       </h1>
       {trailing === undefined ? null : (
         <span className="text-muted-foreground shrink-0 text-sm font-medium">

@@ -56,7 +56,7 @@ describe('RecentExpensesList', () => {
     )
 
     expect(
-      await screen.findByText('Todavía no hay gastos este mes'),
+      await screen.findByText('Todavía no anotaron nada'),
     ).toBeInTheDocument()
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
     expect(container.querySelector('img[aria-hidden="true"]')).not.toBeNull()
@@ -144,7 +144,7 @@ describe('RecentExpensesList', () => {
       expect(rows[1]).toHaveTextContent(formatExpenseDate(earlierDate))
       expect(rows[1]).toHaveTextContent('Ada')
       expect(
-        screen.queryByText('Todavía no hay gastos este mes'),
+        screen.queryByText('Todavía no anotaron nada'),
       ).not.toBeInTheDocument()
     } finally {
       vi.useRealTimers()
@@ -184,7 +184,7 @@ describe('RecentExpensesList', () => {
     renderPage(<RecentExpensesList db={db} householdId={household.id} />)
 
     expect(
-      await screen.findByText('Todavía no hay gastos este mes'),
+      await screen.findByText('Todavía no anotaron nada'),
     ).toBeInTheDocument()
     expect(screen.queryByText('Old rent')).not.toBeInTheDocument()
   })
