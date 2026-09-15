@@ -9,7 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { listPendientesForMonth, pendientesDueInMonth } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
-import { EmptyExpensesIllustration } from '@/features/expenses'
+import { EmptyState } from '@/components/EmptyState'
+import { ILLUSTRATIONS } from '@/components/illustrations'
 import {
   currentMonthRange,
   formatBudgetAmount,
@@ -126,19 +127,21 @@ export function PendientesList({
     .filter((pendiente) => pendiente.status === 'paid')
     .filter(matches)
   if (stillOwed.length === 0 && alreadyPaid.length === 0) {
-    // The mascot-with-notepad illustration every other empty state on the
-    // app uses (Home's movements list, Histórico) -- plain text here was the
-    // one empty state with no illustration at all. The month pager above
-    // already says which month is empty, so this does not repeat it.
-    return (
-      <div className="flex w-full flex-col items-center gap-4">
-        <EmptyExpensesIllustration className="mx-auto h-32 w-40" />
-        <p role="status" className="text-sm font-medium">
-          {isSearching
-            ? `Nada encontrado para "${query.trim()}"`
-            : 'No hay servicios en este mes'}
-        </p>
-      </div>
+    // The month pager above already says which month is empty, so this does
+    // not repeat it. The piggy-bank drawing rather than the notepad every
+    // other screen used: a servicio is money put aside for something that
+    // comes back, not a note you jot down.
+    return isSearching ? (
+      <EmptyState
+        title="Sin resultados"
+        description={`No encontramos nada para "${query.trim()}". Probá con otra palabra.`}
+      />
+    ) : (
+      <EmptyState
+        illustration={ILLUSTRATIONS.saving}
+        title="Ningún servicio este mes"
+        description="Alquiler, internet, expensas: lo que vuelve todos los meses va acá."
+      />
     )
   }
 

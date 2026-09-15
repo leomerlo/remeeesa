@@ -28,7 +28,8 @@ import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { paidDateLabel } from '@/lib/format'
 import { listHouseholdMembers } from '@/lib/households'
 import type { HouseholdMember, HouseholdsDb } from '@/lib/households'
-import { EmptyExpensesIllustration } from './EmptyExpensesIllustration'
+import { EmptyState } from '@/components/EmptyState'
+import { ILLUSTRATIONS } from '@/components/illustrations'
 import { MonthPager } from './MonthPager'
 import {
   allExpensesQueryKey,
@@ -386,18 +387,30 @@ export function ExpenseHistory({
           ))}
         </div>
       ) : filteredExpenses.length === 0 ? (
-        <div className="flex w-full flex-col items-center gap-4">
-          <EmptyExpensesIllustration className="mx-auto h-32 w-40" />
-          <p role="status" className="text-sm font-medium">
-            {isSearching
-              ? `Nada encontrado para "${query.trim()}"`
-              : filter === 'servicio'
-                ? 'No hay servicios en este mes'
-                : filter === 'gasto'
-                  ? 'No hay gastos sueltos en este mes'
-                  : 'No hay movimientos en este mes'}
-          </p>
-        </div>
+        isSearching ? (
+          <EmptyState
+            title="Sin resultados"
+            description={`No encontramos nada para "${query.trim()}". Probá con otra palabra.`}
+          />
+        ) : filter === 'servicio' ? (
+          <EmptyState
+            illustration={ILLUSTRATIONS.celebrating}
+            title="Ningún servicio este mes"
+            description="Los servicios que paguen van quedando registrados acá."
+          />
+        ) : filter === 'gasto' ? (
+          <EmptyState
+            illustration={ILLUSTRATIONS.celebrating}
+            title="Ningún gasto suelto este mes"
+            description="Los gastos del día a día aparecen acá apenas los carguen."
+          />
+        ) : (
+          <EmptyState
+            illustration={ILLUSTRATIONS.celebrating}
+            title="Mes sin movimientos"
+            description="Acá va quedando todo: los gastos sueltos y los servicios que paguen."
+          />
+        )
       ) : (
         <ul
           aria-label={

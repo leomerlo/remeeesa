@@ -1,14 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { contrastRatio } from '@/lib/a11y/contrast'
-import {
-  BUDGET_GRADIENT_CALM,
-  BUDGET_GRADIENT_SPENT,
-  budgetGradient,
-} from './budgetHeat'
+import { BUDGET_CALM, BUDGET_SPENT, budgetColor } from './budgetHeat'
 
-// How red a colour is, as a single comparable number: red channel gained
+// How warm a colour is, as a single comparable number: red channel gained
 // minus blue channel lost. Enough to assert the ramp only ever moves toward
-// red, without pinning it to exact hex values a designer may retune.
+// the danger colour, without pinning it to exact hex values a designer may
+// retune.
 function warmth(hex: string): number {
   const red = parseInt(hex.slice(1, 3), 16)
   const blue = parseInt(hex.slice(5, 7), 16)
@@ -26,60 +23,54 @@ function distance(from: string, to: string): number {
   return Math.sqrt(channels.reduce((sum, value) => sum + value, 0))
 }
 
-describe('budgetGradient', () => {
-  it('is the untouched brand violet with nothing spent', () => {
-    expect(budgetGradient(0)).toEqual(BUDGET_GRADIENT_CALM)
+describe('budgetColor', () => {
+  it("is the app's darkest surface with nothing spent", () => {
+    expect(budgetColor(0)).toBe(BUDGET_CALM)
   })
 
-  it('is fully red once the budget is used up', () => {
-    expect(budgetGradient(100)).toEqual(BUDGET_GRADIENT_SPENT)
+  it('is the full danger colour once the budget is used up', () => {
+    expect(budgetColor(100)).toBe(BUDGET_SPENT)
   })
 
   it('gets warmer, never cooler, as more of the budget goes', () => {
     let previous = -Infinity
     for (let percent = 0; percent <= 100; percent += 1) {
-      const current = warmth(budgetGradient(percent).from)
+      const current = warmth(budgetColor(percent))
       // One unit of slack: the channels are rounded to whole bytes
       // independently, so a step can round the wrong way by one without the
       // ramp actually turning back on itself.
       expect(current).toBeGreaterThanOrEqual(previous - 1)
       previous = current
     }
-    expect(warmth(budgetGradient(100).from)).toBeGreaterThan(
-      warmth(budgetGradient(0).from),
-    )
+    expect(warmth(budgetColor(100))).toBeGreaterThan(warmth(budgetColor(0)))
   })
 
   it('is still much nearer its calm end at the halfway mark', () => {
     // Half the budget spent is not a warning, so the card should not look
     // like one yet.
-    const midpoint = budgetGradient(50).from
-    expect(distance(midpoint, BUDGET_GRADIENT_CALM.from)).toBeLessThan(
-      distance(midpoint, BUDGET_GRADIENT_SPENT.from),
+    const midpoint = budgetColor(50)
+    expect(distance(midpoint, BUDGET_CALM)).toBeLessThan(
+      distance(midpoint, BUDGET_SPENT),
     )
   })
 
-  it('has clearly turned red by the time the budget is nearly gone', () => {
-    expect(warmth(budgetGradient(94).from)).toBeGreaterThan(0)
+  it('has clearly turned by the time the budget is nearly gone', () => {
+    expect(warmth(budgetColor(94))).toBeGreaterThan(0)
   })
 
   it('clamps instead of extrapolating past either end', () => {
     // computePercentUsed clamps at 100, but a negative or overshooting
     // value here must not produce a colour outside the ramp.
-    expect(budgetGradient(-20)).toEqual(BUDGET_GRADIENT_CALM)
-    expect(budgetGradient(180)).toEqual(BUDGET_GRADIENT_SPENT)
+    expect(budgetColor(-20)).toBe(BUDGET_CALM)
+    expect(budgetColor(180)).toBe(BUDGET_SPENT)
   })
 
   it('carries white text at AA across the whole ramp, not just its ends', () => {
     for (let percent = 0; percent <= 100; percent += 1) {
-      const { from, to } = budgetGradient(percent)
+      const color = budgetColor(percent)
       expect(
-        contrastRatio('#ffffff', from),
-        `gradient start at ${String(percent)}% is ${from}`,
-      ).toBeGreaterThanOrEqual(4.5)
-      expect(
-        contrastRatio('#ffffff', to),
-        `gradient end at ${String(percent)}% is ${to}`,
+        contrastRatio('#ffffff', color),
+        `the card at ${String(percent)}% is ${color}`,
       ).toBeGreaterThanOrEqual(4.5)
     }
   })

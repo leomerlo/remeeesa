@@ -755,7 +755,7 @@ describe('EditPendienteFlow', () => {
       expect(screen.queryByText('Alquiler')).not.toBeInTheDocument()
     })
     expect(
-      await screen.findByText('No hay servicios en este mes'),
+      await screen.findByText('Ningún servicio este mes'),
     ).toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Guardar cambios' }),
@@ -845,7 +845,7 @@ describe('EditPendienteFlow', () => {
     })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(
-      await screen.findByText('No hay servicios en este mes'),
+      await screen.findByText('Ningún servicio este mes'),
     ).toBeInTheDocument()
   })
 
@@ -880,7 +880,7 @@ describe('EditPendienteFlow', () => {
     })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(
-      await screen.findByText('No hay servicios en este mes'),
+      await screen.findByText('Ningún servicio este mes'),
     ).toBeInTheDocument()
   })
 
@@ -914,7 +914,7 @@ describe('EditPendienteFlow', () => {
     })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(
-      await screen.findByText('No hay servicios en este mes'),
+      await screen.findByText('Ningún servicio este mes'),
     ).toBeInTheDocument()
   })
 

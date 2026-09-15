@@ -77,7 +77,9 @@ describe('HistoricoPage', () => {
 
     renderPage(<HistoricoPage currentUserId={null} householdsDb={db} />)
 
-    expect(await screen.findByText('Todavía no hay gastos')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Todavía no hay movimientos'),
+    ).toBeInTheDocument()
     expect(screen.queryByText('Cargando…')).not.toBeInTheDocument()
   })
 
@@ -89,9 +91,7 @@ describe('HistoricoPage', () => {
     expect(
       screen.getByRole('heading', { name: 'Histórico' }),
     ).toBeInTheDocument()
-    expect(
-      await screen.findByText('No hay movimientos en este mes'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Mes sin movimientos')).toBeInTheDocument()
   })
 
   it('lists the viewed month newest first', async () => {
@@ -469,7 +469,7 @@ describe('HistoricoPage', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Servicios' }))
 
     expect(
-      await screen.findByText('No hay servicios en este mes'),
+      await screen.findByText('Ningún servicio este mes'),
     ).toBeInTheDocument()
     expect(screen.queryByText('Super')).not.toBeInTheDocument()
   })
@@ -605,7 +605,7 @@ describe('HistoricoPage', () => {
       })
 
       expect(await screen.findByLabelText('Buscando…')).toBeInTheDocument()
-      expect(screen.queryByText(/Nada encontrado/)).not.toBeInTheDocument()
+      expect(screen.queryByText(/Sin resultados/)).not.toBeInTheDocument()
 
       release()
       expect(await screen.findByText('Plomero')).toBeInTheDocument()
@@ -626,7 +626,7 @@ describe('HistoricoPage', () => {
 
       const box = screen.getByLabelText('Buscar movimientos')
       fireEvent.change(box, { target: { value: 'zzz' } })
-      expect(await screen.findByText(/Nada encontrado/)).toBeInTheDocument()
+      expect(await screen.findByText(/Sin resultados/)).toBeInTheDocument()
 
       // Clearing it puts the month back.
       fireEvent.click(screen.getByRole('button', { name: 'Borrar búsqueda' }))

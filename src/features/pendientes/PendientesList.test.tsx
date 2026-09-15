@@ -70,9 +70,10 @@ describe('PendientesList', () => {
 
     renderWithProviders(<List db={db} householdId={household.id} />)
 
-    expect(
-      await screen.findByText('No hay servicios en este mes'),
-    ).toHaveAttribute('role', 'status')
+    expect(await screen.findByText('Ningún servicio este mes')).toHaveAttribute(
+      'role',
+      'status',
+    )
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
   })
 
@@ -263,7 +264,7 @@ describe('PendientesList', () => {
     renderWithProviders(<List db={db1} householdId={household1.id} />)
 
     expect(
-      await screen.findByText('No hay servicios en este mes'),
+      await screen.findByText('Ningún servicio este mes'),
     ).toBeInTheDocument()
     expect(
       screen.queryByText('Pendiente de la otra casa'),
@@ -296,7 +297,7 @@ describe('PendientesList', () => {
     )
 
     expect(
-      await screen.findByText('No hay servicios en este mes'),
+      await screen.findByText('Ningún servicio este mes'),
     ).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: 'Agregar Servicio' }))
@@ -320,7 +321,7 @@ describe('PendientesList', () => {
       expect(screen.getByText('Alquiler')).toBeInTheDocument()
     })
     expect(
-      screen.queryByText('No hay servicios en este mes'),
+      screen.queryByText('Ningún servicio este mes'),
     ).not.toBeInTheDocument()
   })
 

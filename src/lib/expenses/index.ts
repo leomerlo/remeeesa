@@ -30,12 +30,7 @@ export {
   formatCurrency,
   isDateInCurrentMonth,
 } from './remainingBudget'
-export {
-  BUDGET_GRADIENT_CALM,
-  BUDGET_GRADIENT_SPENT,
-  budgetGradient,
-} from './budgetHeat'
-export type { BudgetGradient } from './budgetHeat'
+export { BUDGET_CALM, BUDGET_SPENT, budgetColor } from './budgetHeat'
 export { lastNMonthRanges, MONTHLY_TOTALS_MONTH_COUNT } from './monthlyTotals'
 export type { MonthRange } from './monthlyTotals'
 export { summarizeByCategory } from './summaries'

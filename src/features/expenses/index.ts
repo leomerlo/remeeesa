@@ -1,4 +1,3 @@
-export { EmptyExpensesIllustration } from './EmptyExpensesIllustration'
 export { AddExpenseForm } from './AddExpenseForm'
 export type { AddExpenseFormProps, EditExpenseTarget } from './AddExpenseForm'
 export { AddExpenseSheet } from './AddExpenseSheet'

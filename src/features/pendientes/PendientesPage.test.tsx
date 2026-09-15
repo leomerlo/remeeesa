@@ -145,7 +145,7 @@ describe('PendientesPage', () => {
       screen.getByRole('button', { name: 'Agregar Servicio' }),
     ).toBeInTheDocument()
     expect(
-      await screen.findByText('No hay servicios en este mes'),
+      await screen.findByText('Ningún servicio este mes'),
     ).toBeInTheDocument()
   })
 

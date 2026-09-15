@@ -45,59 +45,51 @@
   --color-grey-white: #ffffff;
   --color-grey-black: #000000;
 
-  /* Color: green (success), seed #3FA665, anchor step 600 */
-  --color-green-50: #eef7f1;
-  --color-green-100: #daece1;
-  --color-green-200: #b1e2c3;
-  --color-green-300: #85d1a1;
-  --color-green-400: #59c07f;
-  --color-green-500: #41aa68;
-  --color-green-600: #3fa665;
-  --color-green-700: #2d7648;
-  --color-green-800: #235d38;
-  --color-green-900: #1b4129;
-  --color-green-950: #122b1b;
+  /* Color: jade (success), seed #1C8478, anchor step 600 */
+  --color-jade-50: #e4f6f4;
+  --color-jade-100: #ceeeea;
+  --color-jade-200: #9eeae2;
+  --color-jade-300: #6ce0d2;
+  --color-jade-400: #39d5c3;
+  --color-jade-500: #27b9a8;
+  --color-jade-600: #1c8478;
+  --color-jade-700: #1b7e73;
+  --color-jade-800: #156158;
+  --color-jade-900: #11413b;
+  --color-jade-950: #0b2825;
 
-  /* Color: red (error), seed #DF453A, anchor step 500 */
-  --color-red-50: #faeeed;
-  --color-red-100: #f3d8d6;
-  --color-red-200: #f0aaa5;
-  --color-red-300: #e87870;
-  --color-red-400: #df473c;
-  --color-red-500: #df453a;
-  --color-red-600: #ad261c;
-  --color-red-700: #8f1f17;
-  --color-red-800: #701812;
-  --color-red-900: #4e1511;
-  --color-red-950: #350e0b;
+  /* Color: rose (error), seed #B33667, anchor step 500. Also the one
+     "danger" colour everywhere it is not a message: the destructive
+     button's fill, the "Vencimientos que se acercan" card, and the colour
+     the budget card lands on once the month is nearly spent. */
+  --color-rose-50: #f6eaef;
+  --color-rose-100: #edd4de;
+  --color-rose-200: #e5a9c1;
+  --color-rose-300: #d77a9f;
+  --color-rose-400: #c94b7c;
+  --color-rose-500: #b33667;
+  --color-rose-600: #952d56;
+  --color-rose-700: #7a2546;
+  --color-rose-800: #5e1c36;
+  --color-rose-900: #411727;
+  --color-rose-950: #2a0f19;
 
-  /* Wine: not a hue of its own so much as where the budget card's gradient
-     actually lands once the month is nearly spent. That gradient starts on
-     the brand violet and walks toward red, so by 94% it is a burgundy with
-     the violet still in it -- visibly not the pure red of the scale above.
-     "Vencimientos que se acercan" is filled with that same pair, so the two
-     warnings in the app read as the same colour rather than as two
-     different reds. */
-  /* Two of the category palette's own swatches, named here because the
-     paid/pending dots use them outside a category context. */
-  --color-green-strong: #16a34a;
-  --color-amber-strong: #f6a925;
-
-  --color-wine-800: #681627;
-  --color-wine-600: #a52935;
-
-  /* Color: yellow (warning), seed #F6A823, anchor step 500 */
-  --color-yellow-50: #fbf6ec;
-  --color-yellow-100: #f7e9d2;
-  --color-yellow-200: #fbd79b;
-  --color-yellow-300: #f8c060;
-  --color-yellow-400: #f6a925;
-  --color-yellow-500: #f6a823;
-  --color-yellow-600: #c27d08;
-  --color-yellow-700: #9f6707;
-  --color-yellow-800: #7d5105;
-  --color-yellow-900: #563908;
-  --color-yellow-950: #3a2705;
+  /* Color: amber (warning), seed #D2771A, anchor step 500. The seed is the
+     colour warnings are *filled* with (the pending dot, the borders); it is
+     3.28:1 on white, which clears the 3:1 a graphic needs but not the 4.5:1
+     a word needs, so --text-warning/--icon-warning take step 700 of the
+     same hue instead of the seed itself. */
+  --color-amber-50: #f9f0e8;
+  --color-amber-100: #f2e1cf;
+  --color-amber-200: #f3c89c;
+  --color-amber-300: #ecaa66;
+  --color-amber-400: #e58b2f;
+  --color-amber-500: #d2771a;
+  --color-amber-600: #ad6215;
+  --color-amber-700: #8e5012;
+  --color-amber-800: #6e3e0e;
+  --color-amber-900: #4b2c0d;
+  --color-amber-950: #311d09;
 
   /* Color: teal (category accent), seed #45A29F sampled from the approved
      Home comp's "Agua"/water-bill icon, anchor step 500 */
@@ -156,11 +148,12 @@
   --color-pink-900: #580b33;
   --color-pink-950: #3d0823;
 
-  /* Radius: 4px-grid steps for the moderate Container radius track, aliased
-     as --radius-2xl/--radius-3xl in @theme inline below. Independent steps,
-     not a calc() derivation from one root value. */
-  --radius-20: 20px;
-  --radius-24: 24px;
+  /* Radius: one container radius for every card in the app, aliased as both
+     --radius-2xl and --radius-3xl in @theme inline below so the two classes
+     already in the markup keep working and land on the same corner. There
+     used to be a 20/24 pair; per direct feedback every card is 16. Controls
+     are unaffected -- buttons are pills, inputs are rounded-lg. */
+  --radius-16: 16px;
 
   /* Type: Geist Variable ships the full 100-900 axis (verified via
      node_modules/@fontsource-variable/geist/index.css: font-weight: 100 900),
@@ -198,7 +191,8 @@
      over it, and the tint alone is enough to separate white from it. The
      resting step that used to exist for them is gone rather than left
      defined and unused. */
-  --shadow-raised: 0 4px 8px -2px rgb(23 7 89 / 0.08), 0 12px 24px -4px rgb(23 7 89 / 0.1);
+  --shadow-raised:
+    0 4px 8px -2px rgb(23 7 89 / 0.08), 0 12px 24px -4px rgb(23 7 89 / 0.1);
 }
 
 /* ============================================================
@@ -232,44 +226,32 @@
   --surface-action-subtle: var(--color-grey-200);
   --surface-action-hover: var(--color-grey-800);
   --surface-disabled: var(--color-grey-300);
-  --surface-success: var(--color-green-50);
-  --surface-error: var(--color-red-50);
+  --surface-success: var(--color-jade-50);
+  --surface-error: var(--color-rose-50);
   /* Destructive actions. The soft pair (surface-error + text-error) is the
      secondary treatment -- a pale red chip with a red outline and red
      label; the strong pair is the one you press to actually destroy
-     something, solid red under white. Both clear AA: 7.79 for the soft
-     label on its chip, 6.84 for white on the solid fill. */
-  --surface-error-hover: var(--color-red-100);
-  --surface-error-strong: var(--color-red-600);
-  --surface-error-strong-hover: var(--color-red-700);
+     something, solid rose under white. Both clear AA: 5.37 for the soft
+     label on its chip, 5.77 for white on the solid fill. */
+  --surface-error-hover: var(--color-rose-100);
+  --surface-error-strong: var(--color-rose-500);
+  --surface-error-strong-hover: var(--color-rose-600);
   --text-on-error: var(--color-grey-white);
   /* A dark card in an otherwise light interface, on purpose: whatever is
-     about to come due should not look like every other row. It runs the
-     budget card's own gradient the other way -- deep wine into the lighter
-     one -- so the two warnings in the app are the same colour, not two
-     different reds. White carries 12.12:1 at the dark end and 7.07:1 at the
-     light one, and 8.14 / 5.26 on the chip that sits on it. */
+     about to come due should not look like every other row. Flat, and the
+     same --color-rose-500 the destructive button is filled with, so the
+     app has one "danger" colour rather than a family of reds. White on it
+     is 5.77:1. */
   /* The two dots that split "Gastos de este mes" into what is paid and
-     what is still owed. They are pulled from the category palette rather
-     than from the semantic text roles: those are darkened for contrast on
-     text, and as 8px dots they came out muddy -- a brown and a bottle
-     green. These are the vivid versions, and they are decorative (the
-     words beside them carry the meaning), so nothing rides on their
-     contrast. */
-  --dot-paid: var(--color-green-strong);
-  --dot-pending: var(--color-amber-strong);
+     what is still owed. They are the seed colours of their hues, not the
+     darkened text steps: as 8px discs the text steps came out muddy. Both
+     clear the 3:1 a graphic needs (4.54 and 3.28), and the words beside
+     them carry the meaning anyway. */
+  --dot-paid: var(--color-jade-600);
+  --dot-pending: var(--color-amber-500);
 
-  --surface-due-soon-from: var(--color-wine-800);
-  --surface-due-soon-to: var(--color-wine-600);
-  --surface-warning: var(--color-yellow-50);
-  /* The gradient used to run *lighter*, ending on purple-200 (#AF9CFC).
-     White text sits on top of it (the budget hero's numeral, the "% usado"
-     label), and white on purple-200 is 2.34:1 -- the worst contrast failure
-     in the app. A gradient light enough to be visible while still carrying
-     white text does not exist: the lightest AA-safe end is barely distinct
-     from the start. So it now runs the other way, violet into deep indigo,
-     which keeps a real ramp and clears AA at both ends (5.71 and 10.78). */
-  --surface-action-gradient-end: var(--color-grey-950);
+  --surface-due-soon: var(--color-rose-500);
+  --surface-warning: var(--color-amber-50);
 
   /* Text (Icon reuses this table 1:1, see --icon-* below) */
   --text-primary: var(--color-grey-900);
@@ -281,9 +263,9 @@
   --text-on-action: var(--color-grey-white);
   --text-action: var(--color-grey-900);
   --text-disabled: var(--color-grey-300);
-  --text-success: var(--color-green-700);
-  --text-error: var(--color-red-700);
-  --text-warning: var(--color-yellow-800);
+  --text-success: var(--color-jade-800);
+  --text-error: var(--color-rose-600);
+  --text-warning: var(--color-amber-700);
 
   /* Icon — identical mapping to Text */
   --icon-primary: var(--color-grey-900);
@@ -292,9 +274,9 @@
   --icon-on-action: var(--color-grey-white);
   --icon-action: var(--color-grey-900);
   --icon-disabled: var(--color-grey-300);
-  --icon-success: var(--color-green-700);
-  --icon-error: var(--color-red-700);
-  --icon-warning: var(--color-yellow-800);
+  --icon-success: var(--color-jade-800);
+  --icon-error: var(--color-rose-600);
+  --icon-warning: var(--color-amber-700);
 
   /* Border */
   /* grey-300 sat at 2.43:1 on card -- an input outline is a UI component
@@ -304,9 +286,9 @@
   --border-subtle: var(--color-grey-100);
   --border-action: var(--color-grey-900);
   --border-focus: var(--color-grey-900);
-  --border-success: var(--color-green-500);
-  --border-error: var(--color-red-500);
-  --border-warning: var(--color-yellow-500);
+  --border-success: var(--color-jade-600);
+  --border-error: var(--color-rose-500);
+  --border-warning: var(--color-amber-500);
 }
 
 [data-theme='dark'] {
@@ -318,16 +300,14 @@
   --surface-action: var(--color-grey-50);
   --surface-action-hover: var(--color-grey-200);
   --surface-disabled: var(--color-grey-300);
-  --surface-success: var(--color-green-800);
-  --surface-error: var(--color-red-800);
-  --surface-error-hover: var(--color-red-900);
-  --surface-error-strong: var(--color-red-600);
-  --surface-error-strong-hover: var(--color-red-700);
+  --surface-success: var(--color-jade-800);
+  --surface-error: var(--color-rose-800);
+  --surface-error-hover: var(--color-rose-900);
+  --surface-error-strong: var(--color-rose-500);
+  --surface-error-strong-hover: var(--color-rose-600);
   --text-on-error: var(--color-grey-white);
-  --surface-due-soon-from: var(--color-wine-800);
-  --surface-due-soon-to: var(--color-wine-600);
-  --surface-warning: var(--color-yellow-800);
-  --surface-action-gradient-end: var(--color-grey-100);
+  --surface-due-soon: var(--color-rose-500);
+  --surface-warning: var(--color-amber-800);
   --surface-action-subtle: var(--color-grey-800);
 
   /* Text */
@@ -337,9 +317,9 @@
   --text-on-action: var(--color-grey-950);
   --text-action: var(--color-grey-50);
   --text-disabled: var(--color-grey-300);
-  --text-success: var(--color-green-200);
-  --text-error: var(--color-red-200);
-  --text-warning: var(--color-yellow-200);
+  --text-success: var(--color-jade-200);
+  --text-error: var(--color-rose-200);
+  --text-warning: var(--color-amber-200);
 
   /* Icon */
   --icon-primary: var(--color-grey-white);
@@ -348,9 +328,9 @@
   --icon-on-action: var(--color-grey-950);
   --icon-action: var(--color-grey-50);
   --icon-disabled: var(--color-grey-300);
-  --icon-success: var(--color-green-200);
-  --icon-error: var(--color-red-200);
-  --icon-warning: var(--color-yellow-200);
+  --icon-success: var(--color-jade-200);
+  --icon-error: var(--color-rose-200);
+  --icon-warning: var(--color-amber-200);
 
   /* Border */
   --border-primary: var(--color-grey-500);
@@ -358,9 +338,9 @@
   --border-subtle: var(--color-grey-900);
   --border-action: var(--color-grey-50);
   --border-focus: var(--color-grey-50);
-  --border-success: var(--color-green-500);
-  --border-error: var(--color-red-500);
-  --border-warning: var(--color-yellow-500);
+  --border-success: var(--color-jade-500);
+  --border-error: var(--color-rose-500);
+  --border-warning: var(--color-amber-500);
 }
 
 /* ============================================================
@@ -396,6 +376,7 @@
   --color-ring: var(--border-focus);
   --color-dot-paid: var(--dot-paid);
   --color-dot-pending: var(--dot-pending);
+  --color-due-soon: var(--surface-due-soon);
   --color-success: var(--text-success);
   --color-error: var(--text-error);
   --color-error-surface: var(--surface-error);
@@ -410,8 +391,8 @@
      as a way around it. */
   --text-xs: 0.875rem;
   --text-xs--line-height: 1.25rem;
-  --radius-2xl: var(--radius-20);
-  --radius-3xl: var(--radius-24);
+  --radius-2xl: var(--radius-16);
+  --radius-3xl: var(--radius-16);
 }
 
 @layer base {
