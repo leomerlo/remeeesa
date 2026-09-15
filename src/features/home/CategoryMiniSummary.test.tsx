@@ -52,7 +52,7 @@ describe('CategoryMiniSummary', () => {
     await screen.findByRole('list', { name: 'Gastos por categoría' })
   })
 
-  // Renders nothing at all -- not a card repeating "Todavía no hay gastos
+  // Renders nothing at all -- not a card repeating "Todavía no anotaron nada
   // este mes" -- because that message is already the movements list's own
   // empty state, right above this one on Home.
   it('renders nothing when there are no expenses this month', async () => {

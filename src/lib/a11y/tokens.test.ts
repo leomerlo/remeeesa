@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { BUDGET_GRADIENT_CALM } from '@/lib/expenses'
+import { BUDGET_CALM, BUDGET_SPENT } from '@/lib/expenses'
 import { contrastRatio } from './contrast'
 
 // Guards the two accessibility rules this app committed to, per direct
@@ -77,14 +77,10 @@ describe('colour tokens meet WCAG AA', () => {
       '--text-on-action',
       '--surface-action-hover',
     ],
-    // The budget hero is a gradient with white text across the whole span,
-    // so both ends have to hold it, not just the one the label starts on.
-    ['hero text on the gradient start', '--text-on-action', '--surface-action'],
-    [
-      'hero text on the gradient end',
-      '--text-on-action',
-      '--surface-action-gradient-end',
-    ],
+    ['hero text on the budget card', '--text-on-action', '--surface-action'],
+    // "Vencimientos que se acercan" is white on a flat fill of the danger
+    // colour, and so is the budget card once the month is spent.
+    ['due-soon text on its card', '--text-on-error', '--surface-due-soon'],
     ['error text on a card', '--text-error', '--surface-card'],
     [
       'destructive label on its button',
@@ -143,12 +139,16 @@ describe('colour tokens meet WCAG AA', () => {
 })
 
 describe('the budget card keeps its colours in step with the tokens', () => {
-  // The hero card computes its gradient in TS (it interpolates toward red
-  // as the budget runs out), so its calm end is a second copy of two token
-  // values. This is what stops that copy drifting from the real ones.
-  it('starts from exactly the action tokens the rest of the app uses', () => {
-    expect(BUDGET_GRADIENT_CALM.from).toBe(light('--surface-action'))
-    expect(BUDGET_GRADIENT_CALM.to).toBe(light('--surface-action-gradient-end'))
+  // The hero card computes its fill in TS (it interpolates toward the
+  // danger colour as the budget runs out), so both ends of that ramp are a
+  // second copy of a token value. This is what stops the copies drifting
+  // from the real ones.
+  it('starts from exactly the action token the rest of the app uses', () => {
+    expect(BUDGET_CALM).toBe(light('--surface-action'))
+  })
+
+  it('lands on exactly the danger colour the due-soon card is filled with', () => {
+    expect(BUDGET_SPENT).toBe(light('--surface-due-soon'))
   })
 })
 

@@ -23,7 +23,8 @@ import { formatDate } from '@/lib/format'
 import type { Expense } from '@/lib/expenses'
 import { listHouseholdMembers } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
-import { EmptyExpensesIllustration } from './EmptyExpensesIllustration'
+import { EmptyState } from '@/components/EmptyState'
+import { ILLUSTRATIONS } from '@/components/illustrations'
 import { expensesInMonthQueryKey } from './queryKeys'
 
 export type RecentExpensesListProps = {
@@ -154,12 +155,11 @@ export function RecentExpensesList({
   const categories = categoriesQuery.data
   if (expenses.length === 0) {
     return (
-      <>
-        <EmptyExpensesIllustration className="mx-auto h-32 w-40" />
-        <p role="status" className="text-sm font-medium">
-          Todavía no hay gastos este mes
-        </p>
-      </>
+      <EmptyState
+        illustration={ILLUSTRATIONS.writing}
+        title="Todavía no anotaron nada"
+        description="Los gastos del día a día van acá. Anotalos en el momento en que pagás."
+      />
     )
   }
 

@@ -135,7 +135,7 @@ describe('expenses prefix invalidation', () => {
       }),
     ).toHaveTextContent('$100')
     expect(
-      await screen.findByText('Todavía no hay gastos este mes'),
+      await screen.findByText('Todavía no anotaron nada'),
     ).toBeInTheDocument()
 
     fireEvent.change(await screen.findByLabelText('Nombre'), {
@@ -158,7 +158,7 @@ describe('expenses prefix invalidation', () => {
     })
     expect(await screen.findByText('Pizza')).toBeInTheDocument()
     expect(
-      screen.queryByText('Todavía no hay gastos este mes'),
+      screen.queryByText('Todavía no anotaron nada'),
     ).not.toBeInTheDocument()
   })
 
