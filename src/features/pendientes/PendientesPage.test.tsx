@@ -450,13 +450,16 @@ describe('PendientesPage', () => {
     expect(screen.getByLabelText('Monto esperado')).toBeInTheDocument()
     // The documented invalidateQueries-on-error refresh (see
     // AddPendienteForm.tsx's onError) must actually reach the list behind
-    // the sheet, not just be called -- the stale row disappears even before
-    // the sheet is dismissed. It goes entirely, rather than turning into a
-    // settled row, because the race above paid it in a past month and this
-    // screen only keeps what was paid in the current one.
+    // the sheet, not just be called -- the stale row stops offering Pagar
+    // even before the sheet is dismissed. The row itself stays: a servicio
+    // is filed under the month it was *due*, so paying it (in whatever
+    // month) turns it into a settled row here rather than removing it.
     await waitFor(() => {
-      expect(screen.queryByText('Alquiler')).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: 'Marcar pagado Alquiler' }),
+      ).not.toBeInTheDocument()
     })
+    expect(screen.getByText('Alquiler')).toBeInTheDocument()
   })
 
   it('restores focus to the Agregar Servicio trigger when Cancelar edición is clicked', async () => {

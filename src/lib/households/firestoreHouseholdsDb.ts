@@ -901,15 +901,19 @@ export function createFirestoreHouseholdsDb(
         )
       })
     },
-    async listPendientesPaidInMonth(input) {
-      return withHouseholdAccess('listPendientesPaidInMonth', async () => {
+    async listPaidPendientesDueInMonth(input) {
+      return withHouseholdAccess('listPaidPendientesDueInMonth', async () => {
+        // By due_date, not paid_at: a servicio belongs to the month it was
+        // due for, whichever month it happened to be settled in. Reuses the
+        // household_id + status + due_date index the pending query already
+        // needs, so no new index.
         const pendientesQuery = query(
           collection(firestore, 'pendientes'),
           where('household_id', '==', input.householdId),
           where('status', '==', 'paid'),
-          where('paid_at', '>=', Timestamp.fromDate(input.monthStart)),
-          where('paid_at', '<=', Timestamp.fromDate(input.monthEnd)),
-          orderBy('paid_at', 'desc'),
+          where('due_date', '>=', toFirestorePendienteDate(input.monthStart)),
+          where('due_date', '<=', toFirestorePendienteDate(input.monthEnd)),
+          orderBy('due_date', 'asc'),
         )
         const snap = await getDocs(pendientesQuery)
         return snap.docs.map((pendienteDoc) =>
