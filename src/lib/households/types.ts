@@ -1,3 +1,4 @@
+import type { Card } from '@/lib/cards/types'
 import type { Pendiente } from '@/lib/pendientes/types'
 import type { Category, Expense } from '@/lib/expenses/types'
 import type { ExpenseHistoryCursor } from '@/lib/expenses/history'
@@ -234,4 +235,9 @@ export type HouseholdsDb = {
     readonly householdId: string
     readonly pendienteId: string
   }): Promise<Pendiente>
+  listCards(input: { readonly householdId: string }): Promise<readonly Card[]>
+  createCard(input: {
+    readonly householdId: string
+    readonly name: string
+  }): Promise<Card>
 }

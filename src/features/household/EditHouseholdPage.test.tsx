@@ -113,6 +113,9 @@ describe('EditHouseholdPage', () => {
       screen.getByRole('button', { name: 'Generar link de invitación' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Ajustes' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: 'Tarjetas' }),
+    ).toBeInTheDocument()
   })
 
   it('saves a renamed household', async () => {

@@ -80,6 +80,8 @@ export const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
   deletePendiente: 'eliminar el pendiente',
   markPendientePaid: 'marcar el pendiente como pagado',
   unmarkPendientePaid: 'deshacer el pago del pendiente',
+  listCards: 'cargar las tarjetas',
+  createCard: 'guardar la tarjeta',
 }
 
 export class FirestoreDeniedError extends Error {

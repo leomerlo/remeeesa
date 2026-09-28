@@ -1,0 +1,92 @@
+import { fireEvent, screen } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
+import { createCard, listCards } from '@/lib/cards'
+import { createHouseholdWithMembership } from '@/lib/households'
+import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
+import { renderWithProviders } from '@/test/renderWithProviders'
+import { CardsSection } from './CardsSection'
+
+async function seedHousehold() {
+  const memory = createMemoryHouseholdsDb()
+  const db = memory.asUser('user-1')
+  const household = await createHouseholdWithMembership({
+    db,
+    userId: 'user-1',
+    name: 'Casa Verde',
+    monthlyBudget: 1000,
+  })
+  return { memory, db, householdId: household.id }
+}
+
+function addCard(name: string): void {
+  fireEvent.change(screen.getByLabelText('Nombre de la tarjeta'), {
+    target: { value: name },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Agregar tarjeta' }))
+}
+
+describe('CardsSection', () => {
+  it('shows an empty state when the household has no cards', async () => {
+    const { db, householdId } = await seedHousehold()
+
+    renderWithProviders(<CardsSection db={db} householdId={householdId} />)
+
+    expect(
+      await screen.findByText('Todavía no hay tarjetas'),
+    ).toBeInTheDocument()
+  })
+
+  it('creates a card, lists it, and clears the input', async () => {
+    const { db, householdId } = await seedHousehold()
+    renderWithProviders(<CardsSection db={db} householdId={householdId} />)
+    await screen.findByText('Todavía no hay tarjetas')
+
+    addCard('  Visa  ')
+
+    expect(await screen.findByRole('listitem')).toHaveTextContent('Visa')
+    expect(screen.getByLabelText('Nombre de la tarjeta')).toHaveValue('')
+    expect((await listCards({ db, householdId })).map((c) => c.name)).toEqual([
+      'Visa',
+    ])
+  })
+
+  it('rejects a blank name and creates nothing', async () => {
+    const { db, householdId } = await seedHousehold()
+    renderWithProviders(<CardsSection db={db} householdId={householdId} />)
+    await screen.findByText('Todavía no hay tarjetas')
+
+    addCard('   ')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Ingresá un nombre para la tarjeta',
+    )
+    expect(await listCards({ db, householdId })).toEqual([])
+  })
+
+  it('rejects a name that only differs in case from an existing card', async () => {
+    const { db, householdId } = await seedHousehold()
+    await createCard({ db, householdId, name: 'Visa' })
+    renderWithProviders(<CardsSection db={db} householdId={householdId} />)
+    await screen.findByText('Visa')
+
+    addCard('visa')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Ya existe una tarjeta con ese nombre.',
+    )
+    expect(screen.getByLabelText('Nombre de la tarjeta')).toHaveValue('visa')
+    expect(await listCards({ db, householdId })).toHaveLength(1)
+  })
+
+  it('shows a second member the cards the first one created', async () => {
+    const { memory, db, householdId } = await seedHousehold()
+    memory.addMember({ userId: 'user-2', householdId })
+    await createCard({ db, householdId, name: 'Visa' })
+
+    renderWithProviders(
+      <CardsSection db={memory.asUser('user-2')} householdId={householdId} />,
+    )
+
+    expect(await screen.findByText('Visa')).toBeInTheDocument()
+  })
+})

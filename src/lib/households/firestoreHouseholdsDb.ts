@@ -17,6 +17,7 @@ import {
 } from 'firebase/firestore'
 import type { DocumentReference, Firestore } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
+import { parseCardDocument } from '@/lib/cards/converters'
 import {
   pendienteToDocument,
   parsePendienteDocument,
@@ -1223,6 +1224,44 @@ export function createFirestoreHouseholdsDb(
           pendienteId: input.pendienteId,
           householdId: input.householdId,
         },
+      )
+    },
+    async listCards(input) {
+      return withHouseholdAccess(
+        'listCards',
+        async () => {
+          const snap = await getDocs(
+            query(
+              collection(firestore, 'cards'),
+              where('household_id', '==', input.householdId),
+            ),
+          )
+          return snap.docs.map((cardDoc) =>
+            parseCardDocument({ id: cardDoc.id, data: cardDoc.data() }),
+          )
+        },
+        { householdId: input.householdId },
+      )
+    },
+    async createCard(input) {
+      return withHouseholdAccess(
+        'createCard',
+        async () => {
+          const cardRef = doc(collection(firestore, 'cards'))
+          const now = Timestamp.now()
+          await setDoc(cardRef, {
+            household_id: input.householdId,
+            name: input.name,
+            created_at: now,
+          })
+          return {
+            id: cardRef.id,
+            householdId: input.householdId,
+            name: input.name,
+            createdAt: now.toDate(),
+          }
+        },
+        { householdId: input.householdId },
       )
     },
   }
