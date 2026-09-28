@@ -78,6 +78,31 @@ describe('CardsSection', () => {
     expect(await listCards({ db, householdId })).toHaveLength(1)
   })
 
+  it('clears the error once a valid card is added', async () => {
+    const { db, householdId } = await seedHousehold()
+    renderWithProviders(<CardsSection db={db} householdId={householdId} />)
+    await screen.findByText('Todavía no hay tarjetas')
+    addCard('   ')
+    await screen.findByRole('alert')
+
+    addCard('Visa')
+
+    expect(await screen.findByRole('listitem')).toHaveTextContent('Visa')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('shows an error when the cards cannot be loaded', async () => {
+    const { memory, householdId } = await seedHousehold()
+
+    renderWithProviders(
+      <CardsSection db={memory.asUser('outsider')} householdId={householdId} />,
+    )
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Solo los integrantes del hogar pueden acceder a este hogar',
+    )
+  })
+
   it('shows a second member the cards the first one created', async () => {
     const { memory, db, householdId } = await seedHousehold()
     memory.addMember({ userId: 'user-2', householdId })
