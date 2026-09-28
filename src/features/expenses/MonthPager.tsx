@@ -1,15 +1,15 @@
 import type { ReactElement } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { isDateInCurrentMonth } from '@/lib/expenses'
+import { currentMonthRange } from '@/lib/expenses'
 import { formatMonthLabel } from '@/lib/format'
 
 export type MonthPagerProps = {
   readonly viewedMonth: Date
   readonly onViewedMonthChange: (month: Date) => void
-  // Lets the pager move past the current month. Off by default -- see
-  // isAtForwardEdge below.
-  readonly allowFuture?: boolean
+  // How many months past the current one the pager may reach. 0 by default
+  // -- see isAtForwardEdge below.
+  readonly maxMonthsAhead?: number
 }
 
 function addMonths(date: Date, delta: number): Date {
@@ -23,18 +23,20 @@ function addMonths(date: Date, delta: number): Date {
 // glance, so both are sized well past the default icon button/text here.
 // "Next" stops at the current month unless a caller opts out: a future
 // month has no Expenses yet, so paging into one would be a confusing way to
-// reach a blank screen. Servicios opts out -- see allowFuture.
+// reach a blank screen. Home and Servicios opt out -- see maxMonthsAhead.
 export function MonthPager({
   viewedMonth,
   onViewedMonthChange,
-  allowFuture = false,
+  maxMonthsAhead = 0,
 }: MonthPagerProps): ReactElement {
-  // Paging past the current month is blocked by default: on Home and
-  // Categorías a future month is guaranteed empty, so the arrow would only
-  // ever lead somewhere with nothing in it. Servicios is the exception --
-  // a bill's whole point is that it falls due later, so next month's list
-  // is exactly what a household wants to look at.
-  const isAtForwardEdge = !allowFuture && isDateInCurrentMonth(viewedMonth)
+  // Paging past the current month is blocked by default: on Categorías a
+  // future month is guaranteed empty, so the arrow would only ever lead
+  // somewhere with nothing in it. Home reaches one month ahead, to plan it
+  // before it starts (next month's services already exist by the end of
+  // this one; the month after does not). Servicios is unbounded -- a bill's
+  // whole point is that it falls due later.
+  const lastMonth = addMonths(currentMonthRange().monthStart, maxMonthsAhead)
+  const isAtForwardEdge = viewedMonth >= lastMonth
 
   return (
     // Month on the left, its two arrows together on the right -- the same

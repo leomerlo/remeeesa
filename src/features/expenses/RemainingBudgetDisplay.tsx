@@ -110,7 +110,7 @@ export function RemainingBudgetDisplay({
       // presupuesto" -- two of the same button, a screen apart, reads as a
       // mistake. Dashed and unfilled rather than the solid card the budget
       // gets: it is a slot waiting to be filled, and it sits right under the
-      // solid white "Gastos de este mes", which it would otherwise merge
+      // solid white "Gastos del mes", which it would otherwise merge
       // into. No piggy either -- there is no budget for it to be guarding.
       <Link
         to="/household"
@@ -153,7 +153,7 @@ export function RemainingBudgetDisplay({
           past the card edge, and clipping it cut off half of it.
 
           On a phone it overhangs the top, where this card sits under the
-          "Gastos de este mes" card and there is room. From `lg` the two cards
+          "Gastos del mes" card and there is room. From `lg` the two cards
           sit side by side directly under the month pager and that same
           overhang landed on top of the pager's next-month arrow, so there
           it sits centred inside the card's right edge instead -- which the

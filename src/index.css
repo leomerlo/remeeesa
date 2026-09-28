@@ -242,7 +242,7 @@
      same --color-rose-500 the destructive button is filled with, so the
      app has one "danger" colour rather than a family of reds. White on it
      is 5.77:1. */
-  /* The two dots that split "Gastos de este mes" into what is paid and
+  /* The two dots that split "Gastos del mes" into what is paid and
      what is still owed. They are the seed colours of their hues, not the
      darkened text steps: as 8px discs the text steps came out muddy. Both
      clear the 3:1 a graphic needs (4.54 and 3.28), and the words beside

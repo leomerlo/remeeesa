@@ -33,7 +33,7 @@ function shortMonthLabel(date: Date): string {
 // months of total spend as bars, so a one-off big month reads as a spike
 // against its neighbours instead of just a number on its own.
 //
-// Each bar counts the same money "Gastos de este mes" and "Por categoría" do
+// Each bar counts the same money "Gastos del mes" and "Por categoría" do
 // -- that month's Expenses plus the still-unpaid bills due in it. Per
 // direct feedback: counting only what had been paid here left this chart's
 // current-month bar disagreeing with the card right above it, two numbers
