@@ -12,6 +12,7 @@ import {
   computeRemainingBudget,
   currentMonthRange,
   formatBudgetAmount,
+  formatCurrency,
   listExpensesInMonth,
 } from '@/lib/expenses'
 import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
@@ -133,6 +134,11 @@ export function RemainingBudgetDisplay({
     pendingCommitted,
   )
   const formattedRemaining = formatBudgetAmount(remaining)
+  // What the month has taken out of the budget so far, derived from the
+  // remainder rather than re-summed, so the two figures on this card can
+  // never disagree. Overspending is allowed to read as more than the
+  // budget ("$950.000 de $900.000") -- that is the situation.
+  const used = household.monthlyBudget - remaining
   const percentUsed = computePercentUsed(
     household.monthlyBudget,
     expenses,
@@ -191,9 +197,16 @@ export function RemainingBudgetDisplay({
             style={cssVars({ '--progress': `${String(percentUsed)}%` })}
           />
         </div>
-        <span className="text-primary-foreground text-xs font-medium">
-          {percentUsed}% usado
-        </span>
+        {/* The budget itself, which the card otherwise never states: it
+            only ever showed what was left and a percentage, so the figure
+            those are measured against was nowhere on screen. Per direct
+            feedback. */}
+        <div className="text-primary-foreground flex w-full items-baseline justify-between gap-2 text-xs font-medium">
+          <span>
+            {formatCurrency(used)} de {formatCurrency(household.monthlyBudget)}
+          </span>
+          <span className="shrink-0">{percentUsed}% usado</span>
+        </div>
       </div>
     </div>
   )
