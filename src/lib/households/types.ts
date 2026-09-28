@@ -183,7 +183,7 @@ export type HouseholdsDb = {
   // only ever returns status == 'pending'. This is the one place a paid
   // Pendiente can still be found, scoped by when it was paid (paidAt) rather
   // than its due date, since paying it doesn't change when it was due.
-  listPendientesPaidInMonth(input: {
+  listPaidPendientesDueInMonth(input: {
     readonly householdId: string
     readonly monthStart: Date
     readonly monthEnd: Date

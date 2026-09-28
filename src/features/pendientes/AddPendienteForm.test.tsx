@@ -879,9 +879,15 @@ describe('EditPendienteFlow', () => {
       ).not.toBeInTheDocument()
     })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    // The row stays -- a servicio is filed under the month it was due, so
+    // being paid turns it into a settled row rather than removing it from
+    // the month -- but it no longer offers to be paid, and the edit that
+    // lost the race was not saved over it.
+    expect(await screen.findByText('Alquiler')).toBeInTheDocument()
+    expect(screen.queryByText('Stale edit')).not.toBeInTheDocument()
     expect(
-      await screen.findByText('Ningún servicio este mes'),
-    ).toBeInTheDocument()
+      screen.queryByRole('button', { name: 'Marcar pagado Alquiler' }),
+    ).not.toBeInTheDocument()
   })
 
   it('closes the confirmation with no persistent error when deleting a pendiente already deleted elsewhere', async () => {

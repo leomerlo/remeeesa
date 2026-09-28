@@ -65,10 +65,18 @@ export async function listPendientes(input: {
 
 // Every pending Pendiente (regardless of due date -- an overdue bill from
 // three months ago stays actionable until it's paid, not just during the
-// month it fell due) plus whichever ones were paid within the given month.
-// Pending first (soonest due date first, from listPendientes), then paid
-// ones (most recently paid first) -- so the still-actionable half of the
-// list never gets pushed down by completed history.
+// month it fell due) plus the settled ones *due* in the given month.
+//
+// Due date, not payment date. A servicio belongs to the month it was due
+// for: scoping the settled half by when it was paid put next month's bill
+// into this month's list the moment it was paid early -- listed under a
+// September payment date while its own form said October -- and took it out
+// of next month, where it belonged, so a recurring service could vanish
+// from the month it was for entirely. Per direct feedback.
+//
+// Pending first (soonest due date first, from listPendientes), then the
+// settled ones -- so the still-actionable half of the list never gets
+// pushed down by completed history.
 export async function listPendientesForMonth(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
@@ -77,7 +85,7 @@ export async function listPendientesForMonth(input: {
 }): Promise<readonly Pendiente[]> {
   const [pending, paidThisMonth] = await Promise.all([
     input.db.listPendientes({ householdId: input.householdId }),
-    input.db.listPendientesPaidInMonth({
+    input.db.listPaidPendientesDueInMonth({
       householdId: input.householdId,
       monthStart: input.monthStart,
       monthEnd: input.monthEnd,
