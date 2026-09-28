@@ -71,7 +71,7 @@ export function CategoryBreakdown({
   })
 
   // Still-unpaid bills count toward their category too, so this breakdown
-  // reconciles with "Gastos de este mes" (which also counts them). Same
+  // reconciles with "Gastos del mes" (which also counts them). Same
   // key/shape as the budget cards' own pending query, so they share one
   // fetch.
   const pendingQuery = useQuery({

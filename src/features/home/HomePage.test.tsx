@@ -102,7 +102,7 @@ describe('HomePage', () => {
     // ends: Gastado counts up from zero, Presupuesto restante counts down
     // from the budget.
     expect(
-      screen.getByRole('status', { name: 'Gastos de este mes $0' }),
+      screen.getByRole('status', { name: 'Gastos del mes $0' }),
     ).toHaveTextContent('$0')
     expect(
       await screen.findByText('Todavía no anotaron nada'),
@@ -482,5 +482,32 @@ describe('HomePage', () => {
         [],
       )
     })
+  })
+
+  it('pages one month ahead to plan it, hiding the always-empty recent gastos and opening Agregar gasto as a bill due then', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
+    expect(
+      await screen.findByText('Todavía no anotaron nada'),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mes siguiente' }))
+
+    expect(screen.getByRole('button', { name: 'Mes siguiente' })).toBeDisabled()
+    expect(
+      screen.queryByRole('heading', { name: 'Últimos gastos del mes' }),
+    ).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
+
+    expect(await screen.findByLabelText('Ya lo pagué')).not.toBeChecked()
+    expect(screen.getByLabelText('Fecha de vencimiento')).toBeInTheDocument()
   })
 })
