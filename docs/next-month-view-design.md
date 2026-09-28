@@ -19,11 +19,15 @@ story file.
    still created when the current one is paid (`markPendientePaid`). The
    feature is used at the end of the month, when most of this month's bills
    are paid and next month's already exist.
-   *Known limit:* a bill not yet paid this month (or an auto-debit due on the
-   last days) does not appear next month until it is paid, so next month's
-   "Presupuesto restante" is optimistic by that amount until then. Projecting
-   unpaid cycles in memory, or creating them ahead, were considered and
-   dropped: both need a link between cycles to avoid duplicates on payment.
+   *This limit is now closed* (see `src/lib/pendientes/projectedCycles.ts`).
+   An unpaid recurring bill's next cycles are projected in memory for the
+   month being viewed, so it appears in every month it is due for and
+   "Presupuesto restante" is no longer optimistic. The duplicate this note
+   worried about cannot happen: a projection is only ever made from a bill
+   that is still *pending*, and paying one is exactly what turns it into a
+   record, so the source of the projection stops being a source at the same
+   moment the real cycle appears. Projections carry no record, so they
+   cannot be paid or edited -- they are marked "Previsto" and are inert.
 2. **Home pages forward one month only.** `MonthPager`'s `allowFuture`
    boolean becomes `maxMonthsAhead` (0 by default, 1 on Home, unbounded on
    Servicios). Two months ahead would be empty, since services are only

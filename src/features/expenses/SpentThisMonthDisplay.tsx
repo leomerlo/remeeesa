@@ -9,7 +9,10 @@ import {
   formatCurrency,
   listExpensesInMonth,
 } from '@/lib/expenses'
-import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
+import {
+  listPendientes,
+  pendingForMonthWithProjections,
+} from '@/lib/pendientes'
 import { pendientesQueryKey } from '@/features/pendientes'
 import type { HouseholdsDb } from '@/lib/households'
 import { expensesInMonthQueryKey } from './queryKeys'
@@ -67,7 +70,7 @@ export function SpentThisMonthDisplay({
   })
   // Not itself month-scoped in the query (every currently-pending Pendiente
   // regardless of due date, matching what Cuentas por pagar itself shows) --
-  // narrowed to the viewed month below, via pendientesDueInMonth. Shares its
+  // narrowed to the viewed month below, projections included. Shares its
   // key/shape with RemainingBudgetDisplay's identical query, same dedupe
   // reasoning as expensesQuery above.
   const pendingQuery = useQuery({
@@ -95,7 +98,7 @@ export function SpentThisMonthDisplay({
 
   const spent = computeSpentThisMonth(expenses)
   const pendingCommitted = computePendingCommitted(
-    pendientesDueInMonth(pending, monthStart, monthEnd),
+    pendingForMonthWithProjections(pending, monthStart, monthEnd),
   )
   const formattedSpent = formatCurrency(spent + pendingCommitted)
 

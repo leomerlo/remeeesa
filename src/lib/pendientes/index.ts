@@ -1,6 +1,11 @@
 export type { Pendiente, PendienteStatus } from './types'
 export { DUE_SOON_WINDOW_DAYS, pendientesDueSoon } from './dueSoon'
 export { pendientesDueInMonth } from './pendingForMonth'
+export {
+  pendingForMonthWithProjections,
+  projectRecurringCycles,
+} from './projectedCycles'
+export type { PendienteForMonth } from './projectedCycles'
 export { autoDebitsToSettle } from './autoDebit'
 export {
   createPendiente,
