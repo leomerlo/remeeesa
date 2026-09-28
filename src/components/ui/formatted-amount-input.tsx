@@ -42,24 +42,45 @@ function formatForDisplay(raw: string): string {
 // everything after it (including any further ",") keeps only digits, same
 // as before this component understood "." at all.
 //
-// A "." is ambiguous when there's no ",": es-AR grouping periods always
-// trail with exactly 3 digits, and mid-keystroke editing next to a stale
-// grouping period can momentarily produce even more -- so the *first* "."
-// followed by 3+ digits is treated as grouping noise (stripped, matching
-// the pre-existing typed-number behavior), while 0-2 trailing digits means
-// the user actually pressed "." as their decimal key, which many
-// number-pad keyboards produce regardless of the app's own comma-decimal
-// display (without this, "12.5" typed that way would silently mangle into
-// "125").
-function parseTyped(displayed: string): string {
+// A "." is ambiguous when there's no ",": it is either grouping this
+// component inserted or the decimal key a number pad produced, since many
+// of them emit "." regardless of the app's comma-decimal display. Two
+// things decide, and both are needed:
+//
+//  - The user has to have *added* a period. Every "." already in the text
+//    this render was showing was put there by formatForDisplay, so it is
+//    grouping and stays grouping no matter what else changes around it.
+//    Without this, backspacing the last digit of "1.234" produced "1.23",
+//    which reads as a typed decimal and stored one peso twenty-three.
+//  - It has to be the *last* period, with 0-2 digits after it. Anything
+//    with three trailing digits is the final grouping separator (a pasted
+//    "1.234.567" adds two periods and is still a whole number).
+//
+// The first of those used to be missing and the second looked at the first
+// "." rather than the last, which broke the moment the amount reached four
+// digits: the typed decimal point was dropped and the next digit landed in
+// the pesos, so "1234" then "." then "5" stored 12345 rather than 1234.5 --
+// the amount silently multiplied by ten. Per direct feedback.
+function periodCount(text: string): number {
+  let count = 0
+  for (const character of text) {
+    if (character === '.') {
+      count += 1
+    }
+  }
+  return count
+}
+
+function parseTyped(displayed: string, previousDisplay: string): string {
   const isNegative = displayed.trimStart().startsWith('-')
   const sign = isNegative ? '-' : ''
 
   const commaIndex = displayed.indexOf(',')
   let separatorIndex = commaIndex
   if (separatorIndex === -1) {
-    const periodIndex = displayed.indexOf('.')
-    if (periodIndex !== -1) {
+    const periodIndex = displayed.lastIndexOf('.')
+    const addedAPeriod = periodCount(displayed) > periodCount(previousDisplay)
+    if (periodIndex !== -1 && addedAPeriod) {
       const trailingDigits = displayed.slice(periodIndex + 1).replace(/\D/g, '')
       if (trailingDigits.length <= 2) {
         separatorIndex = periodIndex
@@ -125,6 +146,38 @@ function positionAfterSignificantCount(text: string, count: number): number {
   return text.length
 }
 
+// Backspace landing on a grouping separator did nothing: the "." is not
+// part of the value, so removing it reformatted straight back to what was
+// there and the caret sat in the same place. Pressing a key and watching
+// nothing happen reads as a broken field, so a deletion that removed only
+// a grouping separator is retargeted at the digit in front of it, which is
+// what the keystroke meant.
+//
+// Recognised by comparing against the display this render was showing,
+// rather than by reading nativeEvent.inputType: the guard is exact (the
+// removed character must be a grouping period and the rest must match
+// character for character), and it does not depend on an InputEvent field
+// that not every environment sets.
+function retargetGroupingDelete(input: {
+  readonly previousDisplay: string
+  readonly nextValue: string
+  readonly caret: number
+}): { readonly value: string; readonly caret: number } | null {
+  const { previousDisplay, nextValue, caret } = input
+  if (previousDisplay[caret] !== '.' || caret < 1) {
+    return null
+  }
+  const withoutSeparator =
+    previousDisplay.slice(0, caret) + previousDisplay.slice(caret + 1)
+  if (withoutSeparator !== nextValue) {
+    return null
+  }
+  return {
+    value: nextValue.slice(0, caret - 1) + nextValue.slice(caret),
+    caret: caret - 1,
+  }
+}
+
 // A plain <Input inputMode="decimal"> shows exactly what was typed --
 // "500000" stays "500000" for as long as someone's typing it, unlike every
 // other amount on screen ("$500.000,00"). This formats with the same es-AR
@@ -150,12 +203,16 @@ export function FormattedAmountInput({
 
   function handleChange(event: ChangeEvent<HTMLInputElement>): void {
     const input = event.target
-    const caretBefore = input.selectionStart ?? input.value.length
-    const significantBeforeCaret = significantCountBefore(
-      input.value,
-      caretBefore,
-    )
-    const nextRaw = parseTyped(input.value)
+    const rawCaret = input.selectionStart ?? input.value.length
+    const retargeted = retargetGroupingDelete({
+      previousDisplay: display,
+      nextValue: input.value,
+      caret: rawCaret,
+    })
+    const typed = retargeted?.value ?? input.value
+    const caretBefore = retargeted?.caret ?? rawCaret
+    const significantBeforeCaret = significantCountBefore(typed, caretBefore)
+    const nextRaw = parseTyped(typed, display)
     const nextDisplay = formatForDisplay(nextRaw)
     pendingCaretRef.current = positionAfterSignificantCount(
       nextDisplay,

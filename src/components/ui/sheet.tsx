@@ -30,9 +30,16 @@ function Sheet({ open, onOpenChange, title, children }: SheetProps) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
+        {/* Blurred, not only dimmed: a flat scrim over a busy page still
+            lets every card and figure behind it read, and the modal ends up
+            competing with the screen it is supposed to sit above. Blurring
+            pushes the page back so the card in front is the only thing in
+            focus. An explicit 6px rather than a named step, so the amount
+            does not move if Tailwind's blur scale is renumbered. Per direct
+            feedback. */}
         <Dialog.Overlay
           data-slot="sheet-overlay"
-          className="fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0"
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-[6px] data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0"
         />
         <Dialog.Content
           ref={setContentElement}
