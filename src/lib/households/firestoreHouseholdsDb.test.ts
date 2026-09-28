@@ -175,9 +175,14 @@ describe('firestore.rules categories', () => {
   it('lets members create categories and founders seed them with the household', () => {
     expect(rules).toContain('function isValidCategory(data)')
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'name', 'color', 'created_at'])",
+      "data.keys().hasOnly(['household_id', 'name', 'color', 'monthly_budget', 'created_at'])",
     )
     expect(rules).toContain("data.color.matches('^#[0-9a-fA-F]{6}$')")
+    // The category ceiling is optional -- every category written before it
+    // existed has no such key -- and can never be negative.
+    expect(rules).toContain(
+      "(!('monthly_budget' in data) || (data.monthly_budget is number && data.monthly_budget >= 0))",
+    )
     expect(rules).toContain('function canWriteCategoryFor(householdId)')
     expect(rules).toContain(
       'allow create: if isValidCategory(request.resource.data)',
@@ -187,9 +192,9 @@ describe('firestore.rules categories', () => {
     )
   })
 
-  it('lets a member change only a category’s color or name, never its household or createdAt', () => {
+  it('lets a member change only a category’s color, name or ceiling, never its household or createdAt', () => {
     expect(rules).toContain('function isValidCategoryUpdate()')
-    expect(rules).toContain("hasOnly(['color', 'name'])")
+    expect(rules).toContain("hasOnly(['color', 'name', 'monthly_budget'])")
     expect(rules).toContain(
       'request.resource.data.household_id == resource.data.household_id\n        && request.resource.data.created_at == resource.data.created_at',
     )
