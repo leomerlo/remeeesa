@@ -17,7 +17,10 @@ import {
   listExpensesInMonth,
   summarizeByCategory,
 } from '@/lib/expenses'
-import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
+import {
+  listPendientes,
+  pendingForMonthWithProjections,
+} from '@/lib/pendientes'
 import { pendientesQueryKey } from '@/features/pendientes'
 import type { HouseholdsDb } from '@/lib/households'
 import { CategoryDonut } from './CategoryDonut'
@@ -122,7 +125,7 @@ export function CategoryBreakdown({
   const byCategory = summarizeByCategory({
     expenses,
     categories,
-    pendientes: pendientesDueInMonth(pending, monthStart, monthEnd),
+    pendientes: pendingForMonthWithProjections(pending, monthStart, monthEnd),
   })
   const total = byCategory.reduce((sum, entry) => sum + entry.total, 0)
 

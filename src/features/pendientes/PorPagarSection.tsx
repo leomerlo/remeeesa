@@ -10,7 +10,10 @@ import { cssVars } from '@/lib/cssVars'
 import { CategoryBadge } from '@/components/CategoryBadge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
+import {
+  listPendientes,
+  pendingForMonthWithProjections,
+} from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import {
   currentMonthRange,
@@ -120,8 +123,9 @@ export function PorPagarSection({
   const { pendientes, categories } = pendientesQuery.data
 
   // Still unpaid *and* due this month -- the same narrowing the budget
-  // cards apply to the pending total they show.
-  const visiblePendientes = pendientesDueInMonth(
+  // cards apply to the pending total they show, projections included, so
+  // the two never disagree about what the month owes.
+  const visiblePendientes = pendingForMonthWithProjections(
     pendientes,
     monthStart,
     monthEnd,
@@ -211,16 +215,25 @@ export function PorPagarSection({
               key={pendiente.id}
               className="w-[calc((100%-0.75rem)/2)] shrink-0 snap-start sm:w-[calc((100%-1.5rem)/3)]"
             >
-              <button
-                type="button"
-                aria-label={`Marcar pagado ${pendiente.name}`}
-                className="bg-card flex aspect-square w-full flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
-                onClick={() => {
-                  onMarkPaid(pendiente, categoryName)
-                }}
-              >
-                {cardContent}
-              </button>
+              {/* A projected cycle has no record behind it yet, so there is
+                  nothing to mark paid -- it is here to say the month owes
+                  it. Paying the real, earlier cycle is what creates it. */}
+              {pendiente.projected ? (
+                <div className="bg-card flex aspect-square w-full flex-col gap-2 rounded-2xl border border-dashed border-border p-4 text-left">
+                  {cardContent}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  aria-label={`Marcar pagado ${pendiente.name}`}
+                  className="bg-card flex aspect-square w-full flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
+                  onClick={() => {
+                    onMarkPaid(pendiente, categoryName)
+                  }}
+                >
+                  {cardContent}
+                </button>
+              )}
             </li>
           )
         })}

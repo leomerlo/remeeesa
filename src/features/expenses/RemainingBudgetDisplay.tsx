@@ -15,7 +15,10 @@ import {
   formatCurrency,
   listExpensesInMonth,
 } from '@/lib/expenses'
-import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
+import {
+  listPendientes,
+  pendingForMonthWithProjections,
+} from '@/lib/pendientes'
 import { pendientesQueryKey } from '@/features/pendientes'
 import { getHousehold } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
@@ -126,7 +129,7 @@ export function RemainingBudgetDisplay({
   }
 
   const pendingCommitted = computePendingCommitted(
-    pendientesDueInMonth(pending, monthStart, monthEnd),
+    pendingForMonthWithProjections(pending, monthStart, monthEnd),
   )
   const remaining = computeRemainingBudget(
     household.monthlyBudget,

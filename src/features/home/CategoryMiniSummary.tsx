@@ -14,7 +14,10 @@ import {
   listExpensesInMonth,
   summarizeByCategory,
 } from '@/lib/expenses'
-import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
+import {
+  listPendientes,
+  pendingForMonthWithProjections,
+} from '@/lib/pendientes'
 import { pendientesQueryKey } from '@/features/pendientes'
 import { CategoryDonut } from '@/features/categorias'
 import type { HouseholdsDb } from '@/lib/households'
@@ -85,7 +88,7 @@ export function CategoryMiniSummary({
   const summary = summarizeByCategory({
     expenses,
     categories,
-    pendientes: pendientesDueInMonth(pending, monthStart, monthEnd),
+    pendientes: pendingForMonthWithProjections(pending, monthStart, monthEnd),
   })
 
   // Renders nothing at all rather than a heading over an empty list --

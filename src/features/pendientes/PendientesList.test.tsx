@@ -105,6 +105,100 @@ describe('PendientesList', () => {
     expect(screen.queryByText('Seguro vivienda')).not.toBeInTheDocument()
   })
 
+  // Per direct feedback: "si es recurrente aunque no está pago tiene que
+  // aparecer siempre en su mes correspondiente". A recurring bill's next
+  // cycle is only written when the current one is paid, so until then the
+  // month ahead was simply empty.
+  it("shows next month's cycle of an unpaid recurring bill, as a preview", async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100000,
+    })
+    const categoryId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Servicios',
+    })
+    await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId,
+      name: 'Seguro vivienda',
+      dueDate: new Date(2026, 8, 10),
+      expectedAmount: 50000,
+      recurring: true,
+    })
+
+    renderWithProviders(
+      <PendientesList
+        monthStart={new Date(2026, 9, 1)}
+        monthEnd={new Date(2026, 9, 31, 23, 59, 59, 999)}
+        db={db}
+        householdId={household.id}
+        onMarkPaid={() => {}}
+        onEditPendiente={() => {}}
+      />,
+    )
+
+    expect(await screen.findByText('Seguro vivienda')).toBeInTheDocument()
+    expect(screen.getByText(/Vence el 10\/10\/2026/)).toBeInTheDocument()
+    // There is no record behind it yet, so there is nothing to pay or edit.
+    expect(
+      screen.queryByRole('button', { name: 'Marcar pagado Seguro vivienda' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Editar Seguro vivienda' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByText('Previsto · se crea al pagar el anterior'),
+    ).toBeInTheDocument()
+  })
+
+  it('leaves the real record of that bill fully actionable in its own month', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100000,
+    })
+    const categoryId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Servicios',
+    })
+    await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId,
+      name: 'Seguro vivienda',
+      dueDate: new Date(2026, 8, 10),
+      expectedAmount: 50000,
+      recurring: true,
+    })
+
+    renderWithProviders(
+      <List
+        db={db}
+        householdId={household.id}
+        onMarkPaid={() => {}}
+        onEditPendiente={() => {}}
+      />,
+    )
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'Marcar pagado Seguro vivienda',
+      }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByText('Previsto · se crea al pagar el anterior'),
+    ).not.toBeInTheDocument()
+  })
+
   it('shows that servicio in its own month', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
