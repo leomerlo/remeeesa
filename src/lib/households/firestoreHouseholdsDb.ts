@@ -48,7 +48,11 @@ import {
   EXPENSE_HISTORY_PAGE_SIZE,
 } from '@/lib/expenses/history'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
-import { parseCategoryColor, parseCategoryName } from '@/lib/expenses/validate'
+import {
+  parseCategoryBudget,
+  parseCategoryColor,
+  parseCategoryName,
+} from '@/lib/expenses/validate'
 import { logFirebaseError } from '@/lib/firebaseDevLog'
 import {
   householdToDocument,
@@ -236,6 +240,7 @@ export function createFirestoreHouseholdsDb(
                 householdId: category.householdId,
                 name: category.name,
                 color: category.color,
+                monthlyBudget: category.monthlyBudget,
                 createdAt: category.createdAt,
               }),
               created_at: now,
@@ -474,6 +479,9 @@ export function createFirestoreHouseholdsDb(
                 householdId: input.householdId,
                 name,
                 color,
+                // A category is born with no ceiling; one is set later, from
+                // Categorías, only on the ones the household cares about.
+                monthlyBudget: 0,
                 createdAt,
               }),
               created_at: now,
@@ -497,6 +505,7 @@ export function createFirestoreHouseholdsDb(
             householdId: input.householdId,
             name,
             color,
+            monthlyBudget: 0,
             createdAt,
           }
         },
@@ -511,6 +520,20 @@ export function createFirestoreHouseholdsDb(
           const color = parseCategoryColor(input.color)
           await updateDoc(doc(firestore, 'categories', existing.id), { color })
           return { ...existing, color }
+        },
+        { householdId: input.householdId, categoryId: input.categoryId },
+      )
+    },
+    async updateCategoryBudget(input) {
+      return withHouseholdAccess(
+        'updateCategoryBudget',
+        async () => {
+          const existing = await readOwnCategory(firestore, input)
+          const monthlyBudget = parseCategoryBudget(input.monthlyBudget)
+          await updateDoc(doc(firestore, 'categories', existing.id), {
+            monthly_budget: monthlyBudget,
+          })
+          return { ...existing, monthlyBudget }
         },
         { householdId: input.householdId, categoryId: input.categoryId },
       )
@@ -546,6 +569,10 @@ export function createFirestoreHouseholdsDb(
               householdId: existing.householdId,
               name,
               color: existing.color,
+              // A rename is a create-repoint-delete, so everything the old
+              // doc carried has to be copied across or it is lost -- the
+              // ceiling included.
+              monthlyBudget: existing.monthlyBudget,
               createdAt: existing.createdAt,
             }),
             created_at: Timestamp.fromDate(existing.createdAt),

@@ -3,6 +3,14 @@ export type Category = {
   readonly householdId: string
   readonly name: string
   readonly color: string
+  // A ceiling for this category inside the household's monthly budget --
+  // "café", "delivery", "super", so the household knows how much room it
+  // has within each. Zero means no ceiling, the same way a household's own
+  // monthlyBudget of zero means "sin presupuesto"; most categories never
+  // get one. Caps are deliberately not required to add up to the monthly
+  // budget: per direct feedback you cap the few that matter and leave the
+  // rest alone, and going over the total is a warning, not a refusal.
+  readonly monthlyBudget: number
   readonly createdAt: Date
 }
 

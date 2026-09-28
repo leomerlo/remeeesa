@@ -385,6 +385,7 @@
   --color-error-strong-hover: var(--surface-error-strong-hover);
   --color-on-error: var(--text-on-error);
   --color-warning: var(--text-warning);
+  --color-warning-surface: var(--surface-warning);
   /* Tailwind's own text-xs is 12px. Nothing in this app may render below
      14px (see --text-caption), and text-xs is the utility a component
      reaches for by reflex, so it is repointed at the floor rather than left

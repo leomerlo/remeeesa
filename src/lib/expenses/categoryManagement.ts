@@ -1,6 +1,10 @@
 import type { HouseholdsDb } from '@/lib/households/types'
 import type { Category } from './types'
-import { parseCategoryColor, parseCategoryName } from './validate'
+import {
+  parseCategoryBudget,
+  parseCategoryColor,
+  parseCategoryName,
+} from './validate'
 
 // Rename refuses a name another category already holds, because the two would
 // land on the same document id. The user's way out is merge, so the error says
@@ -47,6 +51,21 @@ export async function updateCategoryColor(input: {
     householdId: input.householdId,
     categoryId: input.categoryId,
     color: parseCategoryColor(input.color),
+  })
+}
+
+// Zero clears the ceiling. See Category.monthlyBudget for why a category
+// without one is the normal case rather than an unconfigured one.
+export async function updateCategoryBudget(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly categoryId: string
+  readonly monthlyBudget: number
+}): Promise<Category> {
+  return input.db.updateCategoryBudget({
+    householdId: input.householdId,
+    categoryId: input.categoryId,
+    monthlyBudget: parseCategoryBudget(input.monthlyBudget),
   })
 }
 
