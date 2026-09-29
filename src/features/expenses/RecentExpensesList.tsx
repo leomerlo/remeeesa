@@ -145,12 +145,11 @@ export function RecentExpensesList({
   if (
     expensesQuery.isError ||
     categoriesQuery.isError ||
-    membersQuery.isError ||
-    purchasesQuery.isError
+    membersQuery.isError
   ) {
     const failed = expensesQuery.isError
       ? expensesQuery.error
-      : (categoriesQuery.error ?? membersQuery.error ?? purchasesQuery.error)
+      : (categoriesQuery.error ?? membersQuery.error)
     const message =
       failed instanceof Error ? failed.message : 'No se pudo cargar los gastos'
     return <AlertMessage>{message}</AlertMessage>
@@ -170,7 +169,7 @@ export function RecentExpensesList({
       expense,
       date: expense.expenseDate,
     })),
-    ...purchasesQuery.data.purchases.map((purchase): Row => ({
+    ...purchasesQuery.purchases.map((purchase): Row => ({
       kind: 'purchase',
       purchase,
       date: purchase.purchaseDate,
@@ -259,9 +258,8 @@ export function RecentExpensesList({
                 {row.kind === 'purchase' ? (
                   <span className="text-xs text-muted-foreground">
                     {cardPurchaseMark(
-                      purchasesQuery.data.cardNameById.get(
-                        row.purchase.cardId,
-                      ) ?? 'Tarjeta',
+                      purchasesQuery.cardNameById.get(row.purchase.cardId) ??
+                        'Tarjeta',
                       row.purchase.cuotas,
                     )}
                   </span>

@@ -324,15 +324,10 @@ export function ExpenseHistory({
     )
   }
 
-  if (
-    historyQuery.isError ||
-    membersQuery.isError ||
-    categoriesQuery.isError ||
-    purchasesQuery.isError
-  ) {
+  if (historyQuery.isError || membersQuery.isError || categoriesQuery.isError) {
     const failed = historyQuery.isError
       ? historyQuery.error
-      : (membersQuery.error ?? categoriesQuery.error ?? purchasesQuery.error)
+      : (membersQuery.error ?? categoriesQuery.error)
     const message =
       failed instanceof Error
         ? failed.message
@@ -378,7 +373,7 @@ export function ExpenseHistory({
   // ponytail: search skips card purchases; add a household-wide purchases
   // read if people search for them.
   const shownPurchases =
-    isSearching || filter === 'servicio' ? [] : purchasesQuery.data.purchases
+    isSearching || filter === 'servicio' ? [] : purchasesQuery.purchases
   const rows: readonly MovementRow[] = [
     ...filteredExpenses.map((expense): MovementRow => ({
       kind: 'expense',
@@ -500,7 +495,7 @@ export function ExpenseHistory({
                   key={`purchase-${row.purchase.id}`}
                   purchase={row.purchase}
                   cardName={
-                    purchasesQuery.data.cardNameById.get(row.purchase.cardId) ??
+                    purchasesQuery.cardNameById.get(row.purchase.cardId) ??
                     'Tarjeta'
                   }
                   category={categoryById.get(row.purchase.categoryId)}

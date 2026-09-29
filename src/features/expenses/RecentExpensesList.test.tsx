@@ -734,4 +734,43 @@ describe('RecentExpensesList card purchases and the row cap', () => {
       vi.useRealTimers()
     }
   })
+
+  it("still lists the month's expenses when card purchases fail to load", async () => {
+    const memory = createMemoryHouseholdsDb()
+    const base = memory.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: base,
+      userId: 'user-1',
+      name: 'Casa',
+      monthlyBudget: 100,
+    })
+    const [category] = await listCategories({
+      db: base,
+      householdId: household.id,
+    })
+    if (category === undefined) {
+      throw new Error('expected a seeded category')
+    }
+    await createExpense({
+      db: base,
+      householdId: household.id,
+      categoryId: category.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Pan',
+      price: 10,
+      comments: '',
+      expenseDate: currentMonthDate(1),
+    })
+    const db = {
+      ...base,
+      listCardPurchasesInMonth: () =>
+        Promise.reject(new Error('No se pudo cargar las compras con tarjeta')),
+    }
+
+    renderPage(<RecentExpensesList db={db} householdId={household.id} />)
+
+    expect(await screen.findByText('Pan')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
 })

@@ -3,34 +3,46 @@ import { listCardPurchasesInMonth, listCards } from '@/lib/cards'
 import type { CardPurchase } from '@/lib/cards'
 import type { Expense } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
+import { cardsQueryKey } from '@/features/household/cardsQueryKey'
 import { cardPurchasesInMonthQueryKey } from './queryKeys'
 
 // The month's card purchases for the movements lists (Home's recent list and
 // Histórico), with each card's name to mark them by. They are listed there
 // but never summed: they count through their Resúmenes instead.
+//
+// A failed read degrades to no purchases rather than an error: the month's
+// Expenses, which the lists exist for, still show.
 export function useCardPurchasesInMonth(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly monthStart: Date
   readonly monthEnd: Date
-}) {
+}): {
+  readonly isPending: boolean
+  readonly purchases: readonly CardPurchase[]
+  readonly cardNameById: ReadonlyMap<string, string>
+} {
   const { db, householdId, monthStart, monthEnd } = input
-  return useQuery({
+  const purchasesQuery = useQuery({
     queryKey: [
       ...cardPurchasesInMonthQueryKey({ householdId }),
       monthStart.getTime(),
     ],
-    queryFn: async () => {
-      const [purchases, cards] = await Promise.all([
-        listCardPurchasesInMonth({ db, householdId, monthStart, monthEnd }),
-        listCards({ db, householdId }),
-      ])
-      return {
-        purchases,
-        cardNameById: new Map(cards.map((card) => [card.id, card.name])),
-      }
-    },
+    queryFn: () =>
+      listCardPurchasesInMonth({ db, householdId, monthStart, monthEnd }),
   })
+  // The same cache entry Ajustes and the add-gasto form read.
+  const cardsQuery = useQuery({
+    queryKey: cardsQueryKey({ householdId }),
+    queryFn: () => listCards({ db, householdId }),
+  })
+  return {
+    isPending: purchasesQuery.isPending || cardsQuery.isPending,
+    purchases: purchasesQuery.data ?? [],
+    cardNameById: new Map(
+      (cardsQuery.data ?? []).map((card) => [card.id, card.name]),
+    ),
+  }
 }
 
 export type MovementRow =

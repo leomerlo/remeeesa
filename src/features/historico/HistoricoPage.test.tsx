@@ -727,4 +727,48 @@ describe('HistoricoPage card purchases', () => {
       vi.useRealTimers()
     }
   })
+
+  it('leaves card purchases out of a search, which covers expenses only', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 20, 12))
+    try {
+      const { db, householdId, categoryId } = await seedHousehold()
+      await seed({
+        db,
+        householdId,
+        categoryId,
+        name: 'Zapatos',
+        date: new Date(2026, 8, 3),
+      })
+      const visa = await createCard({ db, householdId, name: 'Visa' })
+      await createCardPurchase({
+        db,
+        householdId,
+        cardId: visa.id,
+        categoryId,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        name: 'Zapatillas',
+        total: 300,
+        cuotas: 3,
+        purchaseDate: new Date(2026, 8, 5),
+        comments: '',
+      })
+
+      renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+      await screen.findByText('Zapatillas')
+
+      fireEvent.change(screen.getByLabelText('Buscar movimientos'), {
+        target: { value: 'Zapat' },
+      })
+
+      const results = await screen.findByRole('list', {
+        name: 'Resultados de la búsqueda',
+      })
+      expect(within(results).getByText('Zapatos')).toBeInTheDocument()
+      expect(within(results).queryByText('Zapatillas')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })
