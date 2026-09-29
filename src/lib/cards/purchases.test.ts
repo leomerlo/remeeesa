@@ -419,6 +419,95 @@ describe('listResumenCuotas', () => {
       [cena.id, 1, 40],
     ])
   })
+
+  it("picks the cuota of the Resumen's year, not just its month, across 24 cuotas", async () => {
+    const s = await setup()
+    // Cuota 1 lands October 2026 and cuota 13 October 2027.
+    const tele = await purchase(s, {
+      name: 'Tele',
+      total: 240,
+      cuotas: 24,
+      purchaseDate: new Date(2026, 8, 5),
+    })
+    const [october2027] = await resumenesIn(s, 2027, 9)
+    if (october2027 === undefined) {
+      throw new Error('expected an October 2027 Resumen')
+    }
+
+    const rows = await listResumenCuotas({
+      db: s.db,
+      householdId: s.householdId,
+      resumen: october2027,
+    })
+
+    expect(rows.map((row) => [row.purchase.id, row.cuota.number])).toEqual([
+      [tele.id, 13],
+    ])
+  })
+
+  it('skips ids with no purchase behind them, from another household, or with no cuota that month', async () => {
+    const s = await setup()
+    const zapatillas = await purchase(s, {
+      name: 'Zapatillas',
+      total: 100,
+      cuotas: 1,
+      purchaseDate: new Date(2026, 8, 5),
+    })
+    // Its only cuota lands in August, not October.
+    const earlier = await purchase(s, {
+      name: 'Earlier',
+      total: 10,
+      cuotas: 1,
+      purchaseDate: new Date(2026, 6, 5),
+    })
+    const otherDb = s.memory.asUser('user-2')
+    const other = await createHouseholdWithMembership({
+      db: otherDb,
+      userId: 'user-2',
+      name: 'Otra',
+      monthlyBudget: 1000,
+    })
+    const [otherCategory] = await listCategories({
+      db: otherDb,
+      householdId: other.id,
+    })
+    if (otherCategory === undefined) {
+      throw new Error('expected a seeded category')
+    }
+    const otherCard = await createCard({
+      db: otherDb,
+      householdId: other.id,
+      name: 'Visa',
+    })
+    const foreign = await createCardPurchase({
+      db: otherDb,
+      householdId: other.id,
+      cardId: otherCard.id,
+      categoryId: otherCategory.id,
+      memberId: 'user-2',
+      authorDisplayName: 'Bea',
+      name: 'Ajena',
+      total: 50,
+      cuotas: 1,
+      purchaseDate: new Date(2026, 8, 5),
+      comments: '',
+    })
+    const [october] = await resumenesIn(s, 2026, 9)
+    if (october === undefined) {
+      throw new Error('expected an October Resumen')
+    }
+
+    const rows = await listResumenCuotas({
+      db: s.db,
+      householdId: s.householdId,
+      resumen: {
+        ...october,
+        purchaseIds: ['gone', foreign.id, earlier.id, zapatillas.id],
+      },
+    })
+
+    expect(rows.map((row) => row.purchase.id)).toEqual([zapatillas.id])
+  })
 })
 
 describe('cardsDueNextMonthTotal', () => {

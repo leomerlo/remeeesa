@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
@@ -554,6 +554,50 @@ describe('HomePage', () => {
 
     expect(
       screen.getByRole('region', { name: 'Tarjetas el mes que viene' }),
+    ).toHaveTextContent('$80')
+  })
+  it('refreshes the recent list and "Tarjetas el mes que viene" after logging a card purchase', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    await createCard({ db, householdId: household.id, name: 'Visa' })
+
+    renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Agregar gasto' }),
+    )
+    expect(
+      screen.queryByRole('region', { name: 'Tarjetas el mes que viene' }),
+    ).not.toBeInTheDocument()
+    fireEvent.change(await screen.findByLabelText('Nombre'), {
+      target: { value: 'Zapatillas' },
+    })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Categoría' }), {
+      target: { value: 'Ropa' },
+    })
+    fireEvent.change(screen.getByLabelText('Precio'), {
+      target: { value: '80' },
+    })
+    const paidWith = screen.getByLabelText('Pagó con')
+    const visa = await within(paidWith).findByRole('option', { name: 'Visa' })
+    fireEvent.change(paidWith, {
+      target: { value: visa.getAttribute('value') },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar compra' }))
+
+    const list = await screen.findByRole('list', {
+      name: 'Últimos gastos del mes',
+    })
+    expect(
+      await within(list).findByText('Visa · 1 cuota · no suma este mes'),
+    ).toBeInTheDocument()
+    expect(
+      await screen.findByRole('region', { name: 'Tarjetas el mes que viene' }),
     ).toHaveTextContent('$80')
   })
 })
