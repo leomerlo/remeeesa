@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -25,6 +25,7 @@ import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { formatDate } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
 import { pendientesQueryKey } from './queryKeys'
+import { ResumenSheet } from './ResumenSheet'
 
 export type PorPagarSectionProps = {
   readonly db: HouseholdsDb
@@ -66,6 +67,7 @@ export function PorPagarSection({
 }: PorPagarSectionProps): ReactElement | null {
   const scrollerRef = useRef<HTMLUListElement>(null)
   const carousel = useCarouselControls(scrollerRef)
+  const [openResumen, setOpenResumen] = useState<Pendiente | null>(null)
   const defaultRange = useMemo(() => currentMonthRange(), [])
   const monthStart = monthStartProp ?? defaultRange.monthStart
   const monthEnd = monthEndProp ?? defaultRange.monthEnd
@@ -223,12 +225,18 @@ export function PorPagarSection({
                   {cardContent}
                 </div>
               ) : pendiente.cardId !== undefined ? (
-                // A card's Resumen is paid and viewed through its own flow,
-                // never the generic Pendiente edit form -- until that flow
-                // exists it is not interactive.
-                <div className="bg-card flex aspect-square w-full flex-col gap-2 rounded-2xl p-4 text-left">
+                // A card's Resumen opens to its cuotas, never the generic
+                // Pendiente edit form.
+                <button
+                  type="button"
+                  aria-label={`Ver resumen ${pendiente.name}`}
+                  className="bg-card flex aspect-square w-full flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
+                  onClick={() => {
+                    setOpenResumen(pendiente)
+                  }}
+                >
                   {cardContent}
-                </div>
+                </button>
               ) : (
                 <button
                   type="button"
@@ -258,6 +266,14 @@ export function PorPagarSection({
           <Link to="/pendientes">Ver todas</Link>
         </Button>
       </div>
+      <ResumenSheet
+        db={db}
+        householdId={householdId}
+        resumen={openResumen}
+        onClose={() => {
+          setOpenResumen(null)
+        }}
+      />
     </section>
   )
 }

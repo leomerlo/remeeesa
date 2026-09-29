@@ -6,6 +6,7 @@ import { HouseholdDraftProvider } from '@/features/onboarding'
 import { createPendiente, listPendientes } from '@/lib/pendientes'
 import { listCategories, listExpensesInMonth } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
+import { createCard, createCardPurchase } from '@/lib/cards'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import type { SignupAuth } from '@/features/onboarding/signupAuth'
@@ -509,5 +510,50 @@ describe('HomePage', () => {
 
     expect(await screen.findByLabelText('Ya lo pagué')).not.toBeChecked()
     expect(screen.getByLabelText('Fecha de vencimiento')).toBeInTheDocument()
+  })
+
+  it('shows "Tarjetas el mes que viene" for next month, whichever month is viewed', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const [category] = await listCategories({ db, householdId: household.id })
+    if (category === undefined) {
+      throw new Error('expected a seeded category')
+    }
+    const visa = await createCard({
+      db,
+      householdId: household.id,
+      name: 'Visa',
+    })
+    const now = new Date()
+    await createCardPurchase({
+      db,
+      householdId: household.id,
+      cardId: visa.id,
+      categoryId: category.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Zapatillas',
+      total: 80,
+      cuotas: 1,
+      purchaseDate: new Date(now.getFullYear(), now.getMonth(), 1),
+      comments: '',
+    })
+
+    renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
+
+    expect(
+      await screen.findByRole('region', { name: 'Tarjetas el mes que viene' }),
+    ).toHaveTextContent('$80')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mes anterior' }))
+
+    expect(
+      screen.getByRole('region', { name: 'Tarjetas el mes que viene' }),
+    ).toHaveTextContent('$80')
   })
 })

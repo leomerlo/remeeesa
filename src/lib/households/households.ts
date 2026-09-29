@@ -83,6 +83,8 @@ export const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
   listCards: 'cargar las tarjetas',
   createCard: 'guardar la tarjeta',
   createCardPurchase: 'guardar la compra con tarjeta',
+  listCardPurchasesInMonth: 'cargar las compras con tarjeta',
+  getCardPurchases: 'cargar las compras del resumen',
 }
 
 export class FirestoreDeniedError extends Error {

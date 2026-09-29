@@ -257,4 +257,14 @@ export type HouseholdsDb = {
     readonly purchaseDate: Date
     readonly comments: string
   }): Promise<CardPurchase>
+  listCardPurchasesInMonth(input: {
+    readonly householdId: string
+    readonly monthStart: Date
+    readonly monthEnd: Date
+  }): Promise<readonly CardPurchase[]>
+  // In purchaseIds order; an id with no purchase behind it is skipped.
+  getCardPurchases(input: {
+    readonly householdId: string
+    readonly purchaseIds: readonly string[]
+  }): Promise<readonly CardPurchase[]>
 }

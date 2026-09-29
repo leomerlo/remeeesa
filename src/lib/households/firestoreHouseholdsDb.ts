@@ -17,7 +17,10 @@ import {
 } from 'firebase/firestore'
 import type { DocumentReference, Firestore } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
-import { parseCardDocument } from '@/lib/cards/converters'
+import {
+  parseCardDocument,
+  parseCardPurchaseDocument,
+} from '@/lib/cards/converters'
 import { cuotasOf, resumenIdFor } from '@/lib/cards/cuotas'
 import {
   CardNotFoundError,
@@ -1389,6 +1392,53 @@ export function createFirestoreHouseholdsDb(
           })
         },
         { householdId: input.householdId, cardId: input.cardId },
+      )
+    },
+    async listCardPurchasesInMonth(input) {
+      return withHouseholdAccess(
+        'listCardPurchasesInMonth',
+        async () => {
+          const snap = await getDocs(
+            query(
+              collection(firestore, 'card_purchases'),
+              where('household_id', '==', input.householdId),
+              where(
+                'purchase_date',
+                '>=',
+                Timestamp.fromDate(input.monthStart),
+              ),
+              where('purchase_date', '<=', Timestamp.fromDate(input.monthEnd)),
+              orderBy('purchase_date', 'desc'),
+            ),
+          )
+          return snap.docs.map((purchaseDoc) =>
+            parseCardPurchaseDocument({
+              id: purchaseDoc.id,
+              data: purchaseDoc.data(),
+            }),
+          )
+        },
+        { householdId: input.householdId },
+      )
+    },
+    async getCardPurchases(input) {
+      return withHouseholdAccess(
+        'getCardPurchases',
+        async () => {
+          // One get per id: a Resumen holds a handful of purchases, and the
+          // rules allow reading each one the household owns.
+          const snaps = await Promise.all(
+            input.purchaseIds.map((id) =>
+              getDoc(doc(firestore, 'card_purchases', id)),
+            ),
+          )
+          return snaps.flatMap((snap) =>
+            snap.exists() && snap.data().household_id === input.householdId
+              ? [parseCardPurchaseDocument({ id: snap.id, data: snap.data() })]
+              : [],
+          )
+        },
+        { householdId: input.householdId },
       )
     },
   }

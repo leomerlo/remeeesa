@@ -622,6 +622,22 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       state.cards.set(card.id, card)
       return card
     },
+    async listCardPurchasesInMonth(input) {
+      assertMemberOf(state, userId, input.householdId)
+      return [...state.cardPurchases.values()].filter(
+        (purchase) =>
+          purchase.householdId === input.householdId &&
+          purchase.purchaseDate >= input.monthStart &&
+          purchase.purchaseDate <= input.monthEnd,
+      )
+    },
+    async getCardPurchases(input) {
+      assertMemberOf(state, userId, input.householdId)
+      return input.purchaseIds.flatMap((id) => {
+        const purchase = state.cardPurchases.get(id)
+        return purchase?.householdId === input.householdId ? [purchase] : []
+      })
+    },
     async createCardPurchase(input) {
       assertMemberOf(state, userId, input.householdId)
       if (input.memberId !== userId) {

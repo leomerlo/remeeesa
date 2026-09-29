@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseCardDocument } from './converters'
+import { parseCardDocument, parseCardPurchaseDocument } from './converters'
 
 const createdAt = new Date(2026, 8, 1)
 
@@ -44,5 +44,50 @@ describe('parseCardDocument', () => {
         data: { household_id: 'h-1', name: 'Visa' },
       }),
     ).toThrow('created_at must be a timestamp')
+  })
+})
+
+describe('parseCardPurchaseDocument', () => {
+  const data = {
+    household_id: 'h-1',
+    card_id: 'card-1',
+    category_id: 'cat-1',
+    member_id: 'user-1',
+    author_display_name: 'Ada',
+    name: 'Zapatillas',
+    total: 300,
+    cuotas: 3,
+    purchase_date: new Date(2026, 8, 5),
+    comments: '',
+    created_at: createdAt,
+  }
+
+  it('parses a valid document', () => {
+    expect(parseCardPurchaseDocument({ id: 'p-1', data })).toEqual({
+      id: 'p-1',
+      householdId: 'h-1',
+      cardId: 'card-1',
+      categoryId: 'cat-1',
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Zapatillas',
+      total: 300,
+      cuotas: 3,
+      purchaseDate: new Date(2026, 8, 5),
+      comments: '',
+      createdAt,
+    })
+  })
+
+  it('rejects a non-integer cuotas', () => {
+    expect(() =>
+      parseCardPurchaseDocument({ id: 'p-1', data: { ...data, cuotas: 1.5 } }),
+    ).toThrow('cuotas must be an integer')
+  })
+
+  it('rejects a missing total', () => {
+    expect(() =>
+      parseCardPurchaseDocument({ id: 'p-1', data: { ...data, total: '3' } }),
+    ).toThrow('total must be a number')
   })
 })

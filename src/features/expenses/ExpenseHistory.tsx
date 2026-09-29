@@ -25,12 +25,16 @@ import { downloadTextFile } from '@/lib/download'
 import type { Category, Expense } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
-import { paidDateLabel } from '@/lib/format'
+import { cardPurchaseMark } from '@/lib/cards'
+import type { CardPurchase } from '@/lib/cards'
+import { formatDate, paidDateLabel } from '@/lib/format'
 import { listHouseholdMembers } from '@/lib/households'
 import type { HouseholdMember, HouseholdsDb } from '@/lib/households'
 import { EmptyState } from '@/components/EmptyState'
 import { ILLUSTRATIONS } from '@/components/illustrations'
 import { MonthPager } from './MonthPager'
+import { newestFirst, useCardPurchasesInMonth } from './useCardPurchasesInMonth'
+import type { MovementRow } from './useCardPurchasesInMonth'
 import {
   allExpensesQueryKey,
   categoriesQueryKey,
@@ -127,6 +131,47 @@ function ExpenseRow({
   )
 }
 
+// Listed in its purchase month so the household sees what it bought, but
+// never in the month's total: it counts through its Resúmenes. Read-only
+// here -- editing a purchase is its own flow.
+function CardPurchaseRow({
+  purchase,
+  cardName,
+  category,
+  authorDisplayName,
+}: {
+  readonly purchase: CardPurchase
+  readonly cardName: string
+  readonly category: Category | undefined
+  readonly authorDisplayName: string
+}): ReactElement {
+  const categoryName = category?.name ?? 'Categoría desconocida'
+  const categoryColor = category?.color ?? colorForCategoryName(categoryName)
+  return (
+    <li>
+      <MovementCard
+        categoryName={categoryName}
+        categoryColor={categoryColor}
+        CategoryIcon={iconForCategoryName(categoryName)}
+        title={purchase.name}
+        when={`Comprado el ${formatDate(purchase.purchaseDate)}`}
+        meta={authorDisplayName}
+        amount={
+          <span className="font-display text-muted-foreground text-lg">
+            {formatCurrency(purchase.total)}
+          </span>
+        }
+        badge={
+          <TintedBadge
+            label={cardPurchaseMark(cardName, purchase.cuotas)}
+            color="#4e4c56"
+          />
+        }
+      />
+    </li>
+  )
+}
+
 export function ExpenseHistory({
   db,
   householdId,
@@ -164,6 +209,12 @@ export function ExpenseHistory({
   const membersQuery = useQuery({
     queryKey: membersQueryKey({ householdId }),
     queryFn: () => listHouseholdMembers({ db, householdId }),
+  })
+  const purchasesQuery = useCardPurchasesInMonth({
+    db,
+    householdId,
+    monthStart,
+    monthEnd,
   })
   const [filter, setFilter] = useState<HistoryFilter>('all')
   const [query, setQuery] = useState('')
@@ -243,7 +294,8 @@ export function ExpenseHistory({
   if (
     historyQuery.isPending ||
     membersQuery.isPending ||
-    categoriesQuery.isPending
+    categoriesQuery.isPending ||
+    purchasesQuery.isPending
   ) {
     return (
       <div className="flex w-full flex-col gap-6">
@@ -272,10 +324,15 @@ export function ExpenseHistory({
     )
   }
 
-  if (historyQuery.isError || membersQuery.isError || categoriesQuery.isError) {
+  if (
+    historyQuery.isError ||
+    membersQuery.isError ||
+    categoriesQuery.isError ||
+    purchasesQuery.isError
+  ) {
     const failed = historyQuery.isError
       ? historyQuery.error
-      : (membersQuery.error ?? categoriesQuery.error)
+      : (membersQuery.error ?? categoriesQuery.error ?? purchasesQuery.error)
     const message =
       failed instanceof Error
         ? failed.message
@@ -316,6 +373,24 @@ export function ExpenseHistory({
     (sum, expense) => sum + expense.price,
     0,
   )
+  // A card purchase is a gasto of its month, never a servicio. Searching
+  // covers Expenses only.
+  // ponytail: search skips card purchases; add a household-wide purchases
+  // read if people search for them.
+  const shownPurchases =
+    isSearching || filter === 'servicio' ? [] : purchasesQuery.data.purchases
+  const rows: readonly MovementRow[] = [
+    ...filteredExpenses.map((expense): MovementRow => ({
+      kind: 'expense',
+      expense,
+      date: expense.expenseDate,
+    })),
+    ...shownPurchases.map((purchase): MovementRow => ({
+      kind: 'purchase',
+      purchase,
+      date: purchase.purchaseDate,
+    })),
+  ].sort(newestFirst)
 
   return (
     <div className="flex w-full flex-col gap-6">
@@ -386,7 +461,7 @@ export function ExpenseHistory({
             </div>
           ))}
         </div>
-      ) : filteredExpenses.length === 0 ? (
+      ) : rows.length === 0 ? (
         isSearching ? (
           <EmptyState
             title="Sin resultados"
@@ -418,13 +493,30 @@ export function ExpenseHistory({
           }
           className="flex flex-col gap-3 text-sm"
         >
-          {filteredExpenses.map((expense) => {
-            const category = categoryById.get(expense.categoryId)
+          {rows.map((row) => {
+            if (row.kind === 'purchase') {
+              return (
+                <CardPurchaseRow
+                  key={`purchase-${row.purchase.id}`}
+                  purchase={row.purchase}
+                  cardName={
+                    purchasesQuery.data.cardNameById.get(row.purchase.cardId) ??
+                    'Tarjeta'
+                  }
+                  category={categoryById.get(row.purchase.categoryId)}
+                  authorDisplayName={
+                    memberById.get(row.purchase.memberId)?.displayName ??
+                    row.purchase.authorDisplayName
+                  }
+                />
+              )
+            }
+            const { expense } = row
             return (
               <ExpenseRow
                 key={expense.id}
                 expense={expense}
-                category={category}
+                category={categoryById.get(expense.categoryId)}
                 authorDisplayName={
                   memberById.get(expense.memberId)?.displayName ??
                   expense.authorDisplayName
