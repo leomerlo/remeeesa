@@ -229,7 +229,8 @@ service cloud.firestore {
         && pendienteId.matches('^.+_[0-9]{4}-[0-9]{2}$')
         && pendienteId[0:pendienteId.size() - 8] == data.card_id
         && data.purchase_ids is list
-        && data.purchase_ids.size() > 0
+        && data.purchase_ids.size() == 1
+        && data.expected_amount is number
         && data.recurring == false
         && (!('auto_debit' in data) || data.auto_debit == false)
         && get(/databases/$(database)/documents/cards/$(data.card_id)).data.household_id == data.household_id;
@@ -252,8 +253,10 @@ service cloud.firestore {
           .hasOnly(['expected_amount', 'purchase_ids'])
         && request.resource.data.expected_amount is number
         && request.resource.data.expected_amount > 0
+        // Exactly one purchase added, none dropped.
         && request.resource.data.purchase_ids is list
-        && request.resource.data.purchase_ids.size() > 0;
+        && request.resource.data.purchase_ids.size() == resource.data.purchase_ids.size() + 1
+        && request.resource.data.purchase_ids.hasAll(resource.data.purchase_ids);
     }
 
     // Editing is only allowed while the pendiente is still pending -- once paid,
@@ -266,12 +269,13 @@ service cloud.firestore {
     // Pendiente that references it, paid ones included -- a paid Pendiente that kept
     // pointing at a deleted category would render with no name and no color in
     // the Histórico. Narrow on purpose: category_id is the only key that may
-    // move, and it must land on a category that exists.
+    // move, and it must land on a category of the same household.
     function isPendienteCategoryRepoint() {
       return request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['category_id'])
         && request.resource.data.category_id is string
-        && exists(/databases/$(database)/documents/categories/$(request.resource.data.category_id));
+        && exists(/databases/$(database)/documents/categories/$(request.resource.data.category_id))
+        && get(/databases/$(database)/documents/categories/$(request.resource.data.category_id)).data.household_id == resource.data.household_id;
     }
 
     // Resúmenes are excluded: their amount is the sum of their cuotas, and
@@ -449,8 +453,11 @@ service cloud.firestore {
         && isOwnResumenId(pendienteId);
       allow create: if isMemberOf(request.resource.data.household_id)
         && isValidPendiente(request.resource.data)
-        && (!('card_id' in request.resource.data)
-          || isValidResumen(pendienteId, request.resource.data));
+        // Resumen-shaped ids are reserved for Resúmenes, so another
+        // household cannot squat on one of this household's card months.
+        && (('card_id' in request.resource.data)
+          ? isValidResumen(pendienteId, request.resource.data)
+          : !pendienteId.matches('^.+_[0-9]{4}-[0-9]{2}$'));
       allow update: if isMemberOf(resource.data.household_id)
         && (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid() || isValidResumenUpdate());
       allow delete: if isMemberOf(resource.data.household_id)

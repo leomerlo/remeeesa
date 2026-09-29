@@ -255,9 +255,13 @@ describe('firestore.rules pendiente category repoint', () => {
     )
   })
 
-  it('requires the destination category to exist', () => {
-    expect(rules).toMatch(
-      /function isPendienteCategoryRepoint\(\)[\s\S]*exists\(\/databases\/\$\(database\)\/documents\/categories\/\$\(request\.resource\.data\.category_id\)\);/,
+  it('requires the destination category to exist in the same household', () => {
+    const fn = ruleFunction('isPendienteCategoryRepoint')
+    expect(fn).toContain(
+      'exists(/databases/$(database)/documents/categories/$(request.resource.data.category_id))',
+    )
+    expect(fn).toContain(
+      'get(/databases/$(database)/documents/categories/$(request.resource.data.category_id)).data.household_id == resource.data.household_id',
     )
   })
 
@@ -387,7 +391,7 @@ describe('firestore.rules pendientes', () => {
 
   it('lets members create pendientes', () => {
     expect(rules).toMatch(
-      /match \/pendientes\/\{pendienteId\}[\s\S]*allow create: if isMemberOf\(request\.resource\.data\.household_id\)\s*&& isValidPendiente\(request\.resource\.data\)\s*&& \(!\('card_id' in request\.resource\.data\)/,
+      /match \/pendientes\/\{pendienteId\}[\s\S]*allow create: if isMemberOf\(request\.resource\.data\.household_id\)\s*&& isValidPendiente\(request\.resource\.data\)/,
     )
   })
 
@@ -724,13 +728,14 @@ describe('firestore.rules Resúmenes', () => {
 
   it('ties a created Resumen to its id and a card of the same household', () => {
     expect(rules).toContain(
-      '|| isValidResumen(pendienteId, request.resource.data));',
+      '? isValidResumen(pendienteId, request.resource.data)',
     )
     const fn = ruleFunction('isValidResumen')
     expect(fn).toContain(
       'pendienteId[0:pendienteId.size() - 8] == data.card_id',
     )
-    expect(fn).toContain('data.purchase_ids is list')
+    expect(fn).toContain('data.purchase_ids.size() == 1')
+    expect(fn).toContain('data.expected_amount is number')
     expect(fn).toContain(
       "(!('auto_debit' in data) || data.auto_debit == false)",
     )
@@ -740,7 +745,19 @@ describe('firestore.rules Resúmenes', () => {
     const fn = ruleFunction('isValidResumenUpdate')
     expect(fn).toContain("resource.data.status == 'pending'")
     expect(fn).toContain(".hasOnly(['expected_amount', 'purchase_ids'])")
+    expect(fn).toContain(
+      'request.resource.data.purchase_ids.size() == resource.data.purchase_ids.size() + 1',
+    )
+    expect(fn).toContain(
+      'request.resource.data.purchase_ids.hasAll(resource.data.purchase_ids)',
+    )
     expect(rules).toContain('|| isValidResumenUpdate());')
+  })
+
+  it('reserves Resumen-shaped ids for Resúmenes so no one can squat on a card month', () => {
+    expect(rules).toContain(
+      ": !pendienteId.matches('^.+_[0-9]{4}-[0-9]{2}$'));",
+    )
   })
 
   it('keeps the generic edit and mark-paid paths off Resúmenes', () => {
