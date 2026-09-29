@@ -1,6 +1,10 @@
 import { screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { createExpense, listCategories } from '@/lib/expenses'
+import {
+  createExpense,
+  listCategories,
+  updateCategoryBudget,
+} from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
@@ -51,6 +55,161 @@ async function seed(input: {
 }
 
 describe('CategoryBreakdown', () => {
+  describe('topes por categoría', () => {
+    it('says nothing at all while no category has a ceiling', async () => {
+      const { db, householdId, byName } = await seedHousehold()
+      const comida = byName.get('Comida')
+      if (comida === undefined) {
+        throw new Error('expected seeded categories')
+      }
+      await seed({
+        db,
+        householdId,
+        categoryId: comida.id,
+        name: 'A',
+        price: 75,
+      })
+
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
+
+      await screen.findByText('Por categoría')
+      expect(screen.queryByText('Topes por categoría')).not.toBeInTheDocument()
+    })
+
+    it('shows what is left of a ceiling', async () => {
+      const { db, householdId, byName } = await seedHousehold()
+      const comida = byName.get('Comida')
+      if (comida === undefined) {
+        throw new Error('expected seeded categories')
+      }
+      await updateCategoryBudget({
+        db,
+        householdId,
+        categoryId: comida.id,
+        monthlyBudget: 300,
+      })
+      await seed({
+        db,
+        householdId,
+        categoryId: comida.id,
+        name: 'A',
+        price: 75,
+      })
+
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
+
+      expect(await screen.findByText('Topes por categoría')).toBeInTheDocument()
+      expect(screen.getByText('$75 de $300')).toBeInTheDocument()
+      expect(screen.getByText('Quedan $225')).toBeInTheDocument()
+    })
+
+    it('says how far past a ceiling the month has gone', async () => {
+      const { db, householdId, byName } = await seedHousehold()
+      const comida = byName.get('Comida')
+      if (comida === undefined) {
+        throw new Error('expected seeded categories')
+      }
+      await updateCategoryBudget({
+        db,
+        householdId,
+        categoryId: comida.id,
+        monthlyBudget: 100,
+      })
+      await seed({
+        db,
+        householdId,
+        categoryId: comida.id,
+        name: 'A',
+        price: 175,
+      })
+
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
+
+      expect(
+        await screen.findByText('$75 por encima del tope'),
+      ).toBeInTheDocument()
+    })
+
+    // Before anything has been spent is the most useful moment to look at a
+    // ceiling, and summarizeByCategory drops a category with no spending.
+    it('shows a ceiling on a category nothing has gone into yet', async () => {
+      const { db, householdId, byName } = await seedHousehold()
+      const comida = byName.get('Comida')
+      const salud = byName.get('Salud')
+      if (comida === undefined || salud === undefined) {
+        throw new Error('expected seeded categories')
+      }
+      await updateCategoryBudget({
+        db,
+        householdId,
+        categoryId: salud.id,
+        monthlyBudget: 300,
+      })
+      await seed({
+        db,
+        householdId,
+        categoryId: comida.id,
+        name: 'A',
+        price: 75,
+      })
+
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
+
+      expect(await screen.findByText('$0 de $300')).toBeInTheDocument()
+    })
+
+    // Per direct feedback the ceilings do not have to add up -- but promising
+    // more than the household has is worth saying out loud.
+    it('warns when the ceilings add up to more than the monthly budget', async () => {
+      const { db, householdId, byName } = await seedHousehold()
+      const comida = byName.get('Comida')
+      const salud = byName.get('Salud')
+      if (comida === undefined || salud === undefined) {
+        throw new Error('expected seeded categories')
+      }
+      await updateCategoryBudget({
+        db,
+        householdId,
+        categoryId: comida.id,
+        monthlyBudget: 800,
+      })
+      await updateCategoryBudget({
+        db,
+        householdId,
+        categoryId: salud.id,
+        monthlyBudget: 500,
+      })
+
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
+
+      // monthlyBudget is 1000; 800 + 500 promises 300 more than that.
+      expect(
+        await screen.findByText(/suman \$300 más que el presupuesto del mes/),
+      ).toBeInTheDocument()
+    })
+
+    it('stays quiet while the ceilings fit inside the monthly budget', async () => {
+      const { db, householdId, byName } = await seedHousehold()
+      const comida = byName.get('Comida')
+      if (comida === undefined) {
+        throw new Error('expected seeded categories')
+      }
+      await updateCategoryBudget({
+        db,
+        householdId,
+        categoryId: comida.id,
+        monthlyBudget: 300,
+      })
+
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
+
+      await screen.findByText('Topes por categoría')
+      expect(
+        screen.queryByText(/más que el presupuesto/),
+      ).not.toBeInTheDocument()
+    })
+  })
+
   it('shows an empty state instead of an arc-less donut when the month has no expenses', async () => {
     const { db, householdId } = await seedHousehold()
 

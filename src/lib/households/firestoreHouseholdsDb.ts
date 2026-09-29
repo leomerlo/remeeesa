@@ -27,7 +27,6 @@ import {
   PendienteNotFoundError,
   PendienteNotPaidError,
 } from '@/lib/pendientes/pendientes'
-import { nextCycleDueDate } from '@/lib/pendientes/recurrence'
 import { chunkForWriteBatch } from '@/lib/expenses/batching'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import {
@@ -48,7 +47,11 @@ import {
   EXPENSE_HISTORY_PAGE_SIZE,
 } from '@/lib/expenses/history'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
-import { parseCategoryColor, parseCategoryName } from '@/lib/expenses/validate'
+import {
+  parseCategoryBudget,
+  parseCategoryColor,
+  parseCategoryName,
+} from '@/lib/expenses/validate'
 import { logFirebaseError } from '@/lib/firebaseDevLog'
 import {
   householdToDocument,
@@ -236,6 +239,7 @@ export function createFirestoreHouseholdsDb(
                 householdId: category.householdId,
                 name: category.name,
                 color: category.color,
+                monthlyBudget: category.monthlyBudget,
                 createdAt: category.createdAt,
               }),
               created_at: now,
@@ -474,6 +478,9 @@ export function createFirestoreHouseholdsDb(
                 householdId: input.householdId,
                 name,
                 color,
+                // A category is born with no ceiling; one is set later, from
+                // Categorías, only on the ones the household cares about.
+                monthlyBudget: 0,
                 createdAt,
               }),
               created_at: now,
@@ -497,6 +504,7 @@ export function createFirestoreHouseholdsDb(
             householdId: input.householdId,
             name,
             color,
+            monthlyBudget: 0,
             createdAt,
           }
         },
@@ -511,6 +519,20 @@ export function createFirestoreHouseholdsDb(
           const color = parseCategoryColor(input.color)
           await updateDoc(doc(firestore, 'categories', existing.id), { color })
           return { ...existing, color }
+        },
+        { householdId: input.householdId, categoryId: input.categoryId },
+      )
+    },
+    async updateCategoryBudget(input) {
+      return withHouseholdAccess(
+        'updateCategoryBudget',
+        async () => {
+          const existing = await readOwnCategory(firestore, input)
+          const monthlyBudget = parseCategoryBudget(input.monthlyBudget)
+          await updateDoc(doc(firestore, 'categories', existing.id), {
+            monthly_budget: monthlyBudget,
+          })
+          return { ...existing, monthlyBudget }
         },
         { householdId: input.householdId, categoryId: input.categoryId },
       )
@@ -546,6 +568,10 @@ export function createFirestoreHouseholdsDb(
               householdId: existing.householdId,
               name,
               color: existing.color,
+              // A rename is a create-repoint-delete, so everything the old
+              // doc carried has to be copied across or it is lost -- the
+              // ceiling included.
+              monthlyBudget: existing.monthlyBudget,
               createdAt: existing.createdAt,
             }),
             created_at: Timestamp.fromDate(existing.createdAt),
@@ -901,15 +927,19 @@ export function createFirestoreHouseholdsDb(
         )
       })
     },
-    async listPendientesPaidInMonth(input) {
-      return withHouseholdAccess('listPendientesPaidInMonth', async () => {
+    async listPaidPendientesDueInMonth(input) {
+      return withHouseholdAccess('listPaidPendientesDueInMonth', async () => {
+        // By due_date, not paid_at: a servicio belongs to the month it was
+        // due for, whichever month it happened to be settled in. Reuses the
+        // household_id + status + due_date index the pending query already
+        // needs, so no new index.
         const pendientesQuery = query(
           collection(firestore, 'pendientes'),
           where('household_id', '==', input.householdId),
           where('status', '==', 'paid'),
-          where('paid_at', '>=', Timestamp.fromDate(input.monthStart)),
-          where('paid_at', '<=', Timestamp.fromDate(input.monthEnd)),
-          orderBy('paid_at', 'desc'),
+          where('due_date', '>=', toFirestorePendienteDate(input.monthStart)),
+          where('due_date', '<=', toFirestorePendienteDate(input.monthEnd)),
+          orderBy('due_date', 'asc'),
         )
         const snap = await getDocs(pendientesQuery)
         return snap.docs.map((pendienteDoc) =>
@@ -997,14 +1027,11 @@ export function createFirestoreHouseholdsDb(
         async () => {
           const memberId = await awaitAuthenticatedUserId(firestore)
           const pendienteRef = doc(firestore, 'pendientes', input.pendienteId)
-          const expenseRef = doc(collection(firestore, 'expenses'))
           // Hoisted out of the transaction callback deliberately: the
           // callback is re-run on contention, and a ref minted inside it
           // would take a different id on each attempt, so the id written
-          // could drift from the one returned to the caller. This only mints
-          // a client-side id -- nothing is written -- so leaving it unused on
-          // the non-recurring path creates no orphan document.
-          const nextPendienteRef = doc(collection(firestore, 'pendientes'))
+          // could drift from the one returned to the caller.
+          const expenseRef = doc(collection(firestore, 'expenses'))
           const now = Timestamp.now()
           const createdAt = now.toDate()
 
@@ -1054,37 +1081,10 @@ export function createFirestoreHouseholdsDb(
               paid_at: toFirestorePendienteDate(input.paymentDate),
             })
 
-            // A recurring pendiente spawns its next cycle in this same
-            // transaction, so all three writes land together or not at all.
-            // The expected amount carries over from the cycle just paid --
-            // most recurring bills (rent, subscriptions) cost the same
-            // amount next cycle too, so this is a pre-fill the user can
-            // still edit, not a guess pulled from nowhere.
-            const nextDueDate = current.recurring
-              ? nextCycleDueDate(current.dueDate)
-              : null
-            if (nextDueDate !== null) {
-              tx.set(nextPendienteRef, {
-                ...pendienteToDocument({
-                  householdId: input.householdId,
-                  categoryId: current.categoryId,
-                  name: current.name,
-                  dueDate: nextDueDate,
-                  expectedAmount: input.finalAmount,
-                  recurring: true,
-                  // Auto-debit carries over: the bank will debit next month
-                  // too, so the next cycle settles itself the same way.
-                  autoDebit: current.autoDebit,
-                  status: 'pending',
-                  paidExpenseId: null,
-                  paidAt: null,
-                  createdAt,
-                }),
-                due_date: toFirestorePendienteDate(nextDueDate),
-                created_at: now,
-              })
-            }
-
+            // A recurring pendiente does not spawn next month's copy here:
+            // carrying bills over is a deliberate step ("Pasar recurrentes"
+            // on Servicios), per direct feedback -- doing it on every payment
+            // doubled a bill whenever a payment was undone and redone.
             return {
               pendiente: {
                 ...current,
@@ -1092,23 +1092,6 @@ export function createFirestoreHouseholdsDb(
                 paidExpenseId: expenseRef.id,
                 paidAt: input.paymentDate,
               },
-              nextPendiente:
-                nextDueDate === null
-                  ? null
-                  : {
-                      id: nextPendienteRef.id,
-                      householdId: input.householdId,
-                      categoryId: current.categoryId,
-                      name: current.name,
-                      dueDate: nextDueDate,
-                      expectedAmount: input.finalAmount,
-                      recurring: true,
-                      autoDebit: current.autoDebit,
-                      status: 'pending' as const,
-                      paidExpenseId: null,
-                      paidAt: null,
-                      createdAt,
-                    },
               expense: {
                 id: expenseRef.id,
                 householdId: input.householdId,

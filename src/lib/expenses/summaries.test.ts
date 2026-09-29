@@ -27,6 +27,7 @@ function makeCategory(overrides: Partial<Category> = {}): Category {
     householdId: 'hh-1',
     name: 'Comida',
     color: '#7b5cfa',
+    monthlyBudget: 0,
     createdAt: new Date(2026, 0, 1),
     ...overrides,
   }

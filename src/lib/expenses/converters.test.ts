@@ -25,8 +25,41 @@ describe('parseCategoryDocument', () => {
       householdId: 'h1',
       name: 'Comida',
       color: '#7b5cfa',
+      // No stored ceiling: every category written before they existed reads
+      // as "sin tope" rather than failing to parse.
+      monthlyBudget: 0,
       createdAt: new Date('2026-01-15T12:00:00.000Z'),
     })
+  })
+
+  it('reads a stored category ceiling', () => {
+    expect(
+      parseCategoryDocument({
+        id: 'c1',
+        data: {
+          household_id: 'h1',
+          name: 'Comida',
+          color: '#7b5cfa',
+          monthly_budget: 40000,
+          created_at: new Date('2026-01-15T12:00:00.000Z'),
+        },
+      }).monthlyBudget,
+    ).toBe(40000)
+  })
+
+  it('refuses a negative category ceiling', () => {
+    expect(() =>
+      parseCategoryDocument({
+        id: 'c1',
+        data: {
+          household_id: 'h1',
+          name: 'Comida',
+          color: '#7b5cfa',
+          monthly_budget: -1,
+          created_at: new Date('2026-01-15T12:00:00.000Z'),
+        },
+      }),
+    ).toThrow('El presupuesto de la categoría no puede ser negativo')
   })
 
   it('reads a Firestore Timestamp via toDate', () => {
@@ -220,12 +253,14 @@ describe('toDocument converters', () => {
         householdId: 'h1',
         name: 'Comida',
         color: '#7b5cfa',
+        monthlyBudget: 40000,
         createdAt,
       }),
     ).toEqual({
       household_id: 'h1',
       name: 'Comida',
       color: '#7b5cfa',
+      monthly_budget: 40000,
       created_at: createdAt,
     })
   })

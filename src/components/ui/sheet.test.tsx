@@ -47,6 +47,19 @@ describe('Sheet', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
+  it('blurs the page behind it, not only dims it', () => {
+    render(
+      <Sheet open onOpenChange={() => {}} title="Sheet title">
+        <p>Sheet body</p>
+      </Sheet>,
+    )
+
+    const overlay = document.querySelector('[data-slot="sheet-overlay"]')
+    // A flat scrim alone still lets every card behind it read, so the modal
+    // competes with the screen it is supposed to sit above.
+    expect(overlay).toHaveClass('backdrop-blur-[6px]', 'bg-black/50')
+  })
+
   it('has a close control with a 44x44 (h-11 w-11) hit area', () => {
     render(
       <Sheet open onOpenChange={() => {}} title="Sheet title">
