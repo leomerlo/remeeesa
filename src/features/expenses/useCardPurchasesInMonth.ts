@@ -53,9 +53,9 @@ export type MovementRow =
       readonly date: Date
     }
 
-// By calendar day, then by when it was logged: an Expense is stored at
-// midday and a card purchase at midnight, so their raw times would put every
-// expense of a day ahead of that day's purchases.
+// By calendar day, then by when it was logged: a purchase logged before
+// purchase dates moved to midday is stored at midnight, and its raw time would
+// sort it behind every expense of that day.
 export function newestFirst(left: MovementRow, right: MovementRow): number {
   const day = (date: Date): number =>
     new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
