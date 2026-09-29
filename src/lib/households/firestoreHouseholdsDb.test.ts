@@ -812,3 +812,11 @@ describe('listCardPurchasesInMonth adapter', () => {
     ])
   })
 })
+
+describe('createCardPurchase purchase_date', () => {
+  it('stores the purchase date at midday, like expense_date', () => {
+    expect(adapterSource).toContain(
+      'purchase_date: toFirestoreExpenseDate(input.purchaseDate),',
+    )
+  })
+})

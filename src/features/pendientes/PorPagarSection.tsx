@@ -25,7 +25,7 @@ import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { formatDate } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
 import { pendientesQueryKey } from './queryKeys'
-import { ResumenSheet } from './ResumenSheet'
+import { ResumenSheet, resumenLabel } from './ResumenSheet'
 
 export type PorPagarSectionProps = {
   readonly db: HouseholdsDb
@@ -229,7 +229,7 @@ export function PorPagarSection({
                 // Pendiente edit form.
                 <button
                   type="button"
-                  aria-label={`Ver resumen ${pendiente.name}`}
+                  aria-label={`Ver ${resumenLabel(pendiente)}`}
                   className="bg-card flex aspect-square w-full flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
                   onClick={() => {
                     setOpenResumen(pendiente)

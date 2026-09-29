@@ -631,7 +631,9 @@ describe('PorPagarSection', () => {
       />,
     )
 
-    const card = await screen.findByRole('button', { name: 'Ver resumen Visa' })
+    const card = await screen.findByRole('button', {
+      name: /^Ver Resumen Visa de /,
+    })
     expect(card).toHaveTextContent('220')
     fireEvent.click(card)
     expect(onMarkPaid).not.toHaveBeenCalled()

@@ -24,7 +24,7 @@ import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { dueDateLabel, isOverdue, paidDateLabel } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
 import { pendientesQueryKey } from './queryKeys'
-import { ResumenSheet } from './ResumenSheet'
+import { ResumenSheet, resumenLabel } from './ResumenSheet'
 import { AlertMessage } from '@/components/ui/alert-message'
 
 export type PendientesListProps = {
@@ -207,7 +207,7 @@ export function PendientesList({
               size="sm"
               variant="outline"
               className="px-5"
-              aria-label={`Ver resumen ${pendiente.name}`}
+              aria-label={`Ver ${resumenLabel(pendiente)}`}
               onClick={() => {
                 setOpenResumen(pendiente)
               }}

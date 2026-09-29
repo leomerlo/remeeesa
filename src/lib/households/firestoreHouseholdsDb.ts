@@ -1330,7 +1330,9 @@ export function createFirestoreHouseholdsDb(
               name: input.name,
               total: input.total,
               cuotas: input.cuotas,
-              purchase_date: Timestamp.fromDate(input.purchaseDate),
+              // Midday, like expense_date: a local-midnight instant reads as
+              // the previous day (and month) for a member further west.
+              purchase_date: toFirestoreExpenseDate(input.purchaseDate),
               comments: input.comments,
               created_at: now,
             })

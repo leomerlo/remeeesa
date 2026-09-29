@@ -939,7 +939,7 @@ describe('PendientesList', () => {
     const row = (await screen.findByText('Visa')).closest('li') as HTMLElement
     expect(within(row).getAllByRole('button')).toHaveLength(1)
     fireEvent.click(
-      within(row).getByRole('button', { name: 'Ver resumen Visa' }),
+      within(row).getByRole('button', { name: /^Ver Resumen Visa de / }),
     )
     const cuotas = await screen.findByRole('list', {
       name: 'Cuotas del resumen',

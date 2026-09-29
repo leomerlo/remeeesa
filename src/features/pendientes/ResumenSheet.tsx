@@ -24,6 +24,12 @@ export type ResumenSheetProps = {
   readonly onClose: () => void
 }
 
+// "Resumen Visa de octubre de 2026": a card has one Resumen a month, and an
+// overdue one can sit beside the current one, so the name alone is ambiguous.
+export function resumenLabel(resumen: Pendiente): string {
+  return `Resumen ${resumen.name} de ${formatMonthLabel(resumen.dueDate).toLowerCase()}`
+}
+
 // A card's Resumen, opened: the cuotas it adds up. Read-only -- paying it is
 // its own flow.
 export function ResumenSheet({
@@ -40,7 +46,7 @@ export function ResumenSheet({
           onClose()
         }
       }}
-      title={resumen === null ? 'Resumen' : `Resumen ${resumen.name}`}
+      title={resumen === null ? 'Resumen' : resumenLabel(resumen)}
     >
       {resumen === null ? null : (
         <ResumenDetail db={db} householdId={householdId} resumen={resumen} />
@@ -74,7 +80,7 @@ function ResumenDetail({
   return (
     <div className="flex min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain">
       <div className="flex flex-col gap-1">
-        <h2 className="text-title font-semibold">{resumen.name}</h2>
+        <p className="text-title font-semibold">{resumen.name}</p>
         <p className="text-muted-foreground text-sm">
           {formatMonthLabel(resumen.dueDate)} · Vence el{' '}
           {formatDate(resumen.dueDate)}
