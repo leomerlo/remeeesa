@@ -161,16 +161,9 @@ describe('AddGastoSheet (unified add flow)', () => {
       expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
 
-    // Paid immediately, so nothing shows up as still pending under its
-    // original name -- only the next cycle (a fresh id, one month later).
-    const pendientes = await listPendientes({ db, householdId })
-    expect(pendientes).toHaveLength(1)
-    expect(pendientes[0]).toMatchObject({
-      name: 'Gimnasio',
-      recurring: true,
-      status: 'pending',
-      expectedAmount: 8000,
-    })
+    // Paid immediately, so nothing is left pending -- next month's copy is
+    // carried over by hand ("Pasar recurrentes"), not spawned by paying.
+    expect(await listPendientes({ db, householdId })).toEqual([])
     const expenses = await listExpensesInMonth({
       db,
       householdId,

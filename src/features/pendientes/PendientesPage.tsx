@@ -6,6 +6,7 @@ import { useHouseholdMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { PageHeader } from '@/components/PageHeader'
 import { AddPendienteSheet } from './AddPendienteSheet'
+import { CarryRecurrentesSheet } from './CarryRecurrentesSheet'
 import type { EditPendienteTarget } from './AddPendienteForm'
 import { MonthPager } from '@/features/expenses'
 import { SearchInput } from '@/components/ui/search-input'
@@ -105,11 +106,20 @@ export function PendientesPage({
           service's due date is in the future by definition, so next month's
           list is the whole point of the screen. */}
       {query.trim() === '' ? (
-        <MonthPager
-          viewedMonth={viewedMonth}
-          onViewedMonthChange={setViewedMonth}
-          allowFuture
-        />
+        <>
+          <MonthPager
+            viewedMonth={viewedMonth}
+            onViewedMonthChange={setViewedMonth}
+            allowFuture
+          />
+          {/* Next to the month it fills: bills do not carry over on their
+              own, a member picks which ones come into this month. */}
+          <CarryRecurrentesSheet
+            db={db}
+            householdId={membership.householdId}
+            monthStart={monthStart}
+          />
+        </>
       ) : null}
       <PendientesList
         db={db}

@@ -558,33 +558,10 @@ describe('markPendientePaid adapter', () => {
   // runTransaction retries its callback on contention. A doc ref minted
   // inside the callback would get a fresh client-side id on every attempt,
   // so the id written to the store could drift from the one handed back to
-  // the caller -- hoisting it out pins one id for the whole operation. The
-  // hoisted ref is harmless on the non-recurring path: doc(collection(...))
-  // only mints an id locally, it writes nothing.
-  it('mints the next-cycle doc ref outside the runTransaction callback so retries keep one stable id', () => {
+  // the caller -- hoisting it out pins one id for the whole operation.
+  it('mints the expense doc ref outside the runTransaction callback so retries keep one stable id', () => {
     expect(adapterSource).toMatch(
-      /async markPendientePaid\(input\) \{[\s\S]*?const nextPendienteRef = doc\(collection\(firestore, 'pendientes'\)\)[\s\S]*?runTransaction\(firestore, async \(tx\) => \{/,
-    )
-  })
-
-  it('writes the next cycle via tx.set after the pendiente update, guarded by the recurring check', () => {
-    expect(adapterSource).toMatch(
-      /async markPendientePaid\(input\) \{[\s\S]*?tx\.update\(pendienteRef, \{[\s\S]*?current\.recurring[\s\S]*?tx\.set\(nextPendienteRef, \{/,
-    )
-  })
-
-  it('carries the just-paid amount into the next cycle as its pre-filled expected amount', () => {
-    expect(adapterSource).toMatch(
-      /tx\.set\(nextPendienteRef, \{[\s\S]*?expectedAmount: input\.finalAmount,/,
-    )
-  })
-
-  // recurring: true is what keeps the series going -- writing false here
-  // would silently end every recurring pendiente after one extra cycle, and the
-  // ordering assertions above would not notice.
-  it('writes the next cycle as a fresh unpaid recurring pendiente', () => {
-    expect(adapterSource).toMatch(
-      /tx\.set\(nextPendienteRef, \{[\s\S]*?recurring: true,[\s\S]*?status: 'pending',[\s\S]*?paidExpenseId: null,/,
+      /async markPendientePaid\(input\) \{[\s\S]*?const expenseRef = doc\(collection\(firestore, 'expenses'\)\)[\s\S]*?runTransaction\(firestore, async \(tx\) => \{/,
     )
   })
 })

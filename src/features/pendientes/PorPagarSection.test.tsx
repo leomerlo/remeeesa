@@ -371,12 +371,7 @@ describe('PorPagarSection', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  // Paying a recurring pendiente spawns a brand-new pending row for next
-  // month's cycle. That row used to appear here immediately, reading as a
-  // debt due *now*, and needed a "Ya pagaste este mes" badge to explain
-  // itself away. Scoping the section to the viewed month removes the
-  // problem rather than labelling it.
-  it("does not show next month's cycle after paying a recurring bill", async () => {
+  it('removes itself once the only recurring bill this month is paid', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
     const gym = await seedPendiente({
       db,
@@ -401,55 +396,13 @@ describe('PorPagarSection', () => {
       <Section db={db} householdId={householdId} onMarkPaid={vi.fn()} />,
     )
 
-    // Neither the settled cycle nor next month's: nothing is owed for this
-    // month any more, so the section removes itself entirely.
+    // Nothing is owed for this month any more, so the section removes
+    // itself entirely.
     await waitFor(() => {
       expect(screen.queryByRole('status')).not.toBeInTheDocument()
     })
     expect(screen.queryByText('Gimnasio')).not.toBeInTheDocument()
     expect(container).toBeEmptyDOMElement()
-  })
-
-  it('shows that next cycle once the viewed month reaches it', async () => {
-    const { db, householdId, categoryId } = await seedHousehold()
-    const gym = await seedPendiente({
-      db,
-      householdId,
-      categoryId,
-      name: 'Gimnasio',
-      dayOfMonth: 10,
-      expectedAmount: 8000,
-      recurring: true,
-    })
-    await markPendientePaid({
-      db,
-      householdId,
-      pendienteId: gym.id,
-      memberId: 'user-1',
-      authorDisplayName: 'Ada',
-      finalAmount: 8000,
-      paymentDate: new Date(),
-    })
-
-    renderSection(
-      <Section
-        db={db}
-        householdId={householdId}
-        onMarkPaid={vi.fn()}
-        monthStart={new Date(2026, 11, 1)}
-        monthEnd={new Date(2026, 11, 31, 23, 59, 59, 999)}
-      />,
-    )
-
-    const list = await screen.findByRole('list', {
-      name: 'Servicios por pagar',
-    })
-    // Exactly one row, and an actionable one -- not a display-only paid row.
-    const rows = within(list).getAllByText('Gimnasio')
-    expect(rows).toHaveLength(1)
-    expect(
-      within(rows[0]?.closest('li') as HTMLElement).getByRole('button'),
-    ).toBeInTheDocument()
   })
 
   it('keeps showing what is still owed after another bill is paid', async () => {
