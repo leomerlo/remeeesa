@@ -5,6 +5,7 @@ import {
 } from '@/lib/pendientes/pendientes'
 import { nextCycleDueDate } from '@/lib/pendientes/recurrence'
 import type { Pendiente } from '@/lib/pendientes/types'
+import type { Card } from '@/lib/cards/types'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import {
   CategoryInUseError,
@@ -56,6 +57,7 @@ type MemoryState = {
   categories: Map<string, Category>
   expenses: Map<string, Expense>
   pendientes: Map<string, Pendiente>
+  cards: Map<string, Card>
 }
 
 function toHousehold(id: string, record: HouseholdRecord): Household {
@@ -586,6 +588,23 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       }
       state.expenses.delete(input.expenseId)
     },
+    async listCards(input) {
+      assertMemberOf(state, userId, input.householdId)
+      return [...state.cards.values()].filter(
+        (card) => card.householdId === input.householdId,
+      )
+    },
+    async createCard(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const card: Card = {
+        id: crypto.randomUUID(),
+        householdId: input.householdId,
+        name: input.name,
+        createdAt: new Date(),
+      }
+      state.cards.set(card.id, card)
+      return card
+    },
     async createPendiente(input) {
       assertMemberOf(state, userId, input.householdId)
       const category = state.categories.get(input.categoryId)
@@ -835,6 +854,7 @@ export function createMemoryHouseholdsDb(): {
     categories: new Map(),
     expenses: new Map(),
     pendientes: new Map(),
+    cards: new Map(),
   }
 
   return {

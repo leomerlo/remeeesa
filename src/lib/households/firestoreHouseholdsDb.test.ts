@@ -657,3 +657,22 @@ describe('updatePendiente/deletePendiente adapter', () => {
     )
   })
 })
+
+describe('firestore.rules cards', () => {
+  it('lets only household members read and create cards', () => {
+    expect(rules).toMatch(
+      /match \/cards\/\{cardId\} \{\s*\n\s*allow read: if isMemberOf\(resource\.data\.household_id\);\s*\n\s*allow create: if isMemberOf\(request\.resource\.data\.household_id\)\s*\n\s*&& isValidCard\(request\.resource\.data\);\s*\n\s*\}/,
+    )
+  })
+
+  it('restricts card fields and requires a non-blank name', () => {
+    expect(rules).toContain('function isValidCard(data)')
+    expect(rules).toContain(
+      "data.keys().hasOnly(['household_id', 'name', 'created_at'])",
+    )
+    const body = rules.slice(rules.indexOf('function isValidCard(data)'))
+    const fn = body.slice(0, body.indexOf('}'))
+    expect(fn).toContain("data.name.matches('.*\\\\S.*')")
+    expect(fn).toContain('data.created_at is timestamp')
+  })
+})
