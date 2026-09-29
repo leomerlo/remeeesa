@@ -12,7 +12,44 @@ import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { AddPendienteSheet } from './AddPendienteSheet'
 import type { AddPendienteSheetProps } from './AddPendienteSheet'
+import { createCard, createCardPurchase } from '@/lib/cards'
 import { PendientesList } from './PendientesList'
+
+// A card purchase dated the 1st of this month (never in the future) lands
+// its single cuota in next month's Resumen.
+async function seedResumen(
+  db: HouseholdsDb,
+  householdId: string,
+  categoryId: string,
+) {
+  const now = new Date()
+  const card = await createCard({ db, householdId, name: 'Visa' })
+  await createCardPurchase({
+    db,
+    householdId,
+    cardId: card.id,
+    categoryId,
+    memberId: 'user-1',
+    authorDisplayName: 'Ada',
+    name: 'Zapatillas',
+    total: 120,
+    cuotas: 1,
+    purchaseDate: new Date(now.getFullYear(), now.getMonth(), 1),
+    comments: '',
+  })
+  return {
+    monthStart: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+    monthEnd: new Date(
+      now.getFullYear(),
+      now.getMonth() + 2,
+      0,
+      23,
+      59,
+      59,
+      999,
+    ),
+  }
+}
 
 function formatPendienteDueDate(date: Date): string {
   // "06/09/2026". Written long-hand here on purpose: asserting with the
@@ -842,5 +879,34 @@ describe('PendientesList', () => {
     await screen.findByText('Luz')
     const icon = screen.getByTestId('category-icon')
     expect(icon.querySelector('svg')).not.toBeNull()
+  })
+
+  it("offers neither Pagar nor Editar on a card's Resumen", async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100000,
+    })
+    const categoryId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Comida',
+    })
+    const month = await seedResumen(db, household.id, categoryId)
+
+    renderWithProviders(
+      <List
+        db={db}
+        householdId={household.id}
+        onMarkPaid={vi.fn()}
+        onEditPendiente={vi.fn()}
+        {...month}
+      />,
+    )
+
+    const row = (await screen.findByText('Visa')).closest('li') as HTMLElement
+    expect(within(row).queryByRole('button')).not.toBeInTheDocument()
   })
 })

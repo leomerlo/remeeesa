@@ -18,6 +18,12 @@ import {
 import type { DocumentReference, Firestore } from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
 import { parseCardDocument } from '@/lib/cards/converters'
+import { cuotasOf, resumenIdFor } from '@/lib/cards/cuotas'
+import {
+  CardNotFoundError,
+  RESUMEN_DUE_DAY,
+  ResumenAlreadyPaidError,
+} from '@/lib/cards/purchases'
 import {
   pendienteToDocument,
   parsePendienteDocument,
@@ -117,28 +123,30 @@ export function mapHouseholdFirestoreError(
   throw error
 }
 
-// Every document that stores this category's id, across both collections that
+// Every document that stores this category's id, across every collection that
 // can hold one. Rename and merge move all of them; delete refuses while any
-// exist. Pendientes are queried alongside Expenses on purpose -- forgetting them
-// is what would leave paid bills pointing at a category that no longer exists.
+// exist. Pendientes and card purchases are queried alongside Expenses on
+// purpose -- forgetting one is what would leave it pointing at a category that
+// no longer exists.
 async function categoryReferences(
   firestore: Firestore,
   input: { readonly householdId: string; readonly categoryId: string },
 ) {
-  const [expensesSnap, pendientesSnap] = await Promise.all(
-    (['expenses', 'pendientes'] as const).map((collectionName) =>
-      getDocs(
-        query(
-          collection(firestore, collectionName),
-          where('household_id', '==', input.householdId),
-          where('category_id', '==', input.categoryId),
+  const snaps = await Promise.all(
+    (['expenses', 'pendientes', 'card_purchases'] as const).map(
+      (collectionName) =>
+        getDocs(
+          query(
+            collection(firestore, collectionName),
+            where('household_id', '==', input.householdId),
+            where('category_id', '==', input.categoryId),
+          ),
         ),
-      ),
     ),
   )
-  return [...(expensesSnap?.docs ?? []), ...(pendientesSnap?.docs ?? [])].map(
-    (referencing) => referencing.ref,
-  )
+  return snaps
+    .flatMap((snap) => snap.docs)
+    .map((referencing) => referencing.ref)
 }
 
 // Batched rather than transactional: a household can accumulate more
@@ -1262,6 +1270,125 @@ export function createFirestoreHouseholdsDb(
           }
         },
         { householdId: input.householdId },
+      )
+    },
+    async createCardPurchase(input) {
+      return withHouseholdAccess(
+        'createCardPurchase',
+        async () => {
+          const memberId = await awaitAuthenticatedUserId(firestore)
+          // Minted outside the callback so a retried transaction keeps one id.
+          const purchaseRef = doc(collection(firestore, 'card_purchases'))
+          const cardRef = doc(firestore, 'cards', input.cardId)
+          const now = Timestamp.now()
+          const createdAt = now.toDate()
+          const cuotas = cuotasOf(input).map((cuota) => ({
+            ...cuota,
+            ref: doc(
+              firestore,
+              'pendientes',
+              resumenIdFor(input.cardId, cuota.monthStart),
+            ),
+          }))
+
+          return runTransaction(firestore, async (tx) => {
+            const cardSnap = await tx.get(cardRef)
+            if (
+              !cardSnap.exists() ||
+              cardSnap.data().household_id !== input.householdId
+            ) {
+              throw new CardNotFoundError()
+            }
+            const card = parseCardDocument({
+              id: cardSnap.id,
+              data: cardSnap.data(),
+            })
+            // Every read before any write, as transactions require.
+            const resumenSnaps = await Promise.all(
+              cuotas.map((cuota) => tx.get(cuota.ref)),
+            )
+            const existing = resumenSnaps.map((snap) =>
+              snap.exists()
+                ? parsePendienteDocument({ id: snap.id, data: snap.data() })
+                : null,
+            )
+            cuotas.forEach((cuota, index) => {
+              if (existing[index]?.status === 'paid') {
+                throw new ResumenAlreadyPaidError(card.name, cuota.monthStart)
+              }
+            })
+
+            tx.set(purchaseRef, {
+              household_id: input.householdId,
+              card_id: input.cardId,
+              category_id: input.categoryId,
+              member_id: memberId,
+              author_display_name: input.authorDisplayName,
+              name: input.name,
+              total: input.total,
+              cuotas: input.cuotas,
+              purchase_date: Timestamp.fromDate(input.purchaseDate),
+              comments: input.comments,
+              created_at: now,
+            })
+            cuotas.forEach((cuota, index) => {
+              const resumen = existing[index]
+              if (resumen !== null && resumen !== undefined) {
+                tx.update(cuota.ref, {
+                  expected_amount:
+                    Math.round(
+                      ((resumen.expectedAmount ?? 0) + cuota.amount) * 100,
+                    ) / 100,
+                  purchase_ids: [
+                    ...(resumen.purchaseIds ?? []),
+                    purchaseRef.id,
+                  ],
+                })
+                return
+              }
+              const dueDate = new Date(
+                cuota.monthStart.getFullYear(),
+                cuota.monthStart.getMonth(),
+                RESUMEN_DUE_DAY,
+              )
+              tx.set(cuota.ref, {
+                ...pendienteToDocument({
+                  householdId: input.householdId,
+                  categoryId: input.resumenCategoryId,
+                  name: card.name,
+                  dueDate,
+                  expectedAmount: cuota.amount,
+                  recurring: false,
+                  autoDebit: false,
+                  status: 'pending',
+                  paidExpenseId: null,
+                  paidAt: null,
+                  createdAt,
+                }),
+                due_date: toFirestorePendienteDate(dueDate),
+                created_at: now,
+                card_id: input.cardId,
+                purchase_ids: [purchaseRef.id],
+              })
+            })
+
+            return {
+              id: purchaseRef.id,
+              householdId: input.householdId,
+              cardId: input.cardId,
+              categoryId: input.categoryId,
+              memberId,
+              authorDisplayName: input.authorDisplayName,
+              name: input.name,
+              total: input.total,
+              cuotas: input.cuotas,
+              purchaseDate: input.purchaseDate,
+              comments: input.comments,
+              createdAt,
+            }
+          })
+        },
+        { householdId: input.householdId, cardId: input.cardId },
       )
     },
   }

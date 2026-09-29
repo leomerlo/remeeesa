@@ -222,6 +222,13 @@ export function PorPagarSection({
                 <div className="bg-card flex aspect-square w-full flex-col gap-2 rounded-2xl border border-dashed border-border p-4 text-left">
                   {cardContent}
                 </div>
+              ) : pendiente.cardId !== undefined ? (
+                // A card's Resumen is paid and viewed through its own flow,
+                // never the generic Pendiente edit form -- until that flow
+                // exists it is not interactive.
+                <div className="bg-card flex aspect-square w-full flex-col gap-2 rounded-2xl p-4 text-left">
+                  {cardContent}
+                </div>
               ) : (
                 <button
                   type="button"

@@ -14,6 +14,32 @@ import {
 } from './categoryManagement'
 import { createPendiente } from '@/lib/pendientes/pendientes'
 import { createExpense, listCategories } from './expenses'
+import { createCard, createCardPurchase } from '@/lib/cards'
+
+async function seedCardPurchase(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly categoryId: string
+}) {
+  const card = await createCard({
+    db: input.db,
+    householdId: input.householdId,
+    name: 'Visa',
+  })
+  await createCardPurchase({
+    db: input.db,
+    householdId: input.householdId,
+    cardId: card.id,
+    categoryId: input.categoryId,
+    memberId: 'user-1',
+    authorDisplayName: 'Ada',
+    name: 'Remedios',
+    total: 30,
+    cuotas: 1,
+    purchaseDate: new Date(),
+    comments: '',
+  })
+}
 
 async function seedHousehold() {
   const db = createMemoryHouseholdsDb().asUser('user-1')
@@ -253,9 +279,37 @@ describe('deleteCategory', () => {
     const categories = await listCategories({ db, householdId })
     expect(categories.map((c) => c.id)).toContain(servicios.id)
   })
+
+  it('refuses while a card purchase still points at it', async () => {
+    const { db, householdId, byName } = await seedHousehold()
+    const salud = categoryOrThrow(byName, 'Salud')
+    await seedCardPurchase({ db, householdId, categoryId: salud.id })
+
+    await expect(
+      deleteCategory({ db, householdId, categoryId: salud.id }),
+    ).rejects.toBeInstanceOf(CategoryInUseError)
+  })
 })
 
 describe('mergeCategories', () => {
+  it('moves card purchases onto the survivor too', async () => {
+    const { db, householdId, byName } = await seedHousehold()
+    const salud = categoryOrThrow(byName, 'Salud')
+    const otros = categoryOrThrow(byName, 'Otros')
+    await seedCardPurchase({ db, householdId, categoryId: salud.id })
+
+    await mergeCategories({
+      db,
+      householdId,
+      sourceCategoryId: salud.id,
+      survivorCategoryId: otros.id,
+    })
+
+    await expect(
+      deleteCategory({ db, householdId, categoryId: otros.id }),
+    ).rejects.toBeInstanceOf(CategoryInUseError)
+  })
+
   it('moves every Expense and Pendiente onto the survivor and drops the source', async () => {
     const { db, householdId, byName } = await seedHousehold()
     const source = categoryOrThrow(byName, 'Comida')

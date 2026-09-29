@@ -1,4 +1,4 @@
-import type { Card } from '@/lib/cards/types'
+import type { Card, CardPurchase } from '@/lib/cards/types'
 import type { Pendiente } from '@/lib/pendientes/types'
 import type { Category, Expense } from '@/lib/expenses/types'
 import type { ExpenseHistoryCursor } from '@/lib/expenses/history'
@@ -240,4 +240,21 @@ export type HouseholdsDb = {
     readonly householdId: string
     readonly name: string
   }): Promise<Card>
+  // One transaction: writes the purchase and adds each of its cuotas to the
+  // card's Resumen of that month (a Pendiente with id resumenIdFor, created
+  // in resumenCategoryId if missing). Rejects -- writing nothing -- with
+  // ResumenAlreadyPaidError when any of those Resúmenes is already paid.
+  createCardPurchase(input: {
+    readonly householdId: string
+    readonly cardId: string
+    readonly categoryId: string
+    readonly resumenCategoryId: string
+    readonly memberId: string
+    readonly authorDisplayName: string
+    readonly name: string
+    readonly total: number
+    readonly cuotas: number
+    readonly purchaseDate: Date
+    readonly comments: string
+  }): Promise<CardPurchase>
 }

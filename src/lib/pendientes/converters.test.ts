@@ -35,6 +35,49 @@ describe('parsePendienteDocument', () => {
     })
   })
 
+  it("reads a Resumen's card_id and purchase_ids", () => {
+    const resumen = parsePendienteDocument({
+      id: 'card-1_2026-10',
+      data: {
+        household_id: 'h1',
+        category_id: 'c1',
+        name: 'Visa',
+        due_date: new Date(2026, 9, 10),
+        expected_amount: 100,
+        recurring: false,
+        status: 'pending',
+        paid_expense_id: null,
+        created_at: new Date(2026, 8, 1),
+        card_id: 'card-1',
+        purchase_ids: ['p1', 'p2'],
+      },
+    })
+
+    expect(resumen.cardId).toBe('card-1')
+    expect(resumen.purchaseIds).toEqual(['p1', 'p2'])
+  })
+
+  it('rejects a Resumen whose purchase_ids is not a list of strings', () => {
+    expect(() =>
+      parsePendienteDocument({
+        id: 'card-1_2026-10',
+        data: {
+          household_id: 'h1',
+          category_id: 'c1',
+          name: 'Visa',
+          due_date: new Date(2026, 9, 10),
+          expected_amount: 100,
+          recurring: false,
+          status: 'pending',
+          paid_expense_id: null,
+          created_at: new Date(2026, 8, 1),
+          card_id: 'card-1',
+          purchase_ids: [1],
+        },
+      }),
+    ).toThrow('purchase_ids must be a list of strings')
+  })
+
   it('defaults paidAt to null when paid_at is missing, e.g. a Pendiente doc written before the field existed', () => {
     const pendiente = parsePendienteDocument({
       id: 'q1',

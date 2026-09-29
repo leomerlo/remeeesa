@@ -10,7 +10,44 @@ import { createHouseholdWithMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
+import { createCard, createCardPurchase } from '@/lib/cards'
 import { PorPagarSection } from './PorPagarSection'
+
+// A card purchase dated the 1st of this month (never in the future) lands
+// its single cuota in next month's Resumen.
+async function seedResumen(
+  db: HouseholdsDb,
+  householdId: string,
+  categoryId: string,
+) {
+  const now = new Date()
+  const card = await createCard({ db, householdId, name: 'Visa' })
+  await createCardPurchase({
+    db,
+    householdId,
+    cardId: card.id,
+    categoryId,
+    memberId: 'user-1',
+    authorDisplayName: 'Ada',
+    name: 'Zapatillas',
+    total: 120,
+    cuotas: 1,
+    purchaseDate: new Date(now.getFullYear(), now.getMonth(), 1),
+    comments: '',
+  })
+  return {
+    monthStart: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+    monthEnd: new Date(
+      now.getFullYear(),
+      now.getMonth() + 2,
+      0,
+      23,
+      59,
+      59,
+      999,
+    ),
+  }
+}
 
 function renderSection(ui: ReactElement, queryClient?: QueryClient) {
   return renderWithProviders(<MemoryRouter>{ui}</MemoryRouter>, {
@@ -539,5 +576,27 @@ describe('PorPagarSection', () => {
     )
 
     expect(await screen.findByText('Gas')).toBeInTheDocument()
+  })
+
+  it("shows a card's Resumen with its total but never opens the Pendiente form from it", async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    const month = await seedResumen(db, householdId, categoryId)
+    const onMarkPaid = vi.fn()
+
+    renderSection(
+      <Section
+        db={db}
+        householdId={householdId}
+        onMarkPaid={onMarkPaid}
+        {...month}
+      />,
+    )
+
+    const name = await screen.findByText('Visa')
+    const card = name.closest('li') as HTMLElement
+    expect(card).toHaveTextContent('120')
+    expect(within(card).queryByRole('button')).not.toBeInTheDocument()
+    fireEvent.click(name)
+    expect(onMarkPaid).not.toHaveBeenCalled()
   })
 })
