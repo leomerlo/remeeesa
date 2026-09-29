@@ -26,6 +26,7 @@ export function defaultCategoryRecords(input: {
     householdId: input.householdId,
     name,
     color: colorForCategoryName(name),
+    monthlyBudget: 0,
     createdAt: input.createdAt,
   }))
 }

@@ -81,6 +81,14 @@ export type HouseholdsDb = {
     readonly categoryId: string
     readonly color: string
   }): Promise<Category>
+  // The category's own ceiling inside the monthly budget. Zero clears it.
+  // A plain field update for the same reason color is: the doc id is
+  // derived from the name, and this does not touch the name.
+  updateCategoryBudget(input: {
+    readonly householdId: string
+    readonly categoryId: string
+    readonly monthlyBudget: number
+  }): Promise<Category>
   // Creates a doc at the new name's id (carrying over color and createdAt),
   // repoints every referencing Expense and Pendiente, then deletes the old doc.
   // Rejects -- writing nothing -- when the new name already belongs to another
@@ -183,7 +191,7 @@ export type HouseholdsDb = {
   // only ever returns status == 'pending'. This is the one place a paid
   // Pendiente can still be found, scoped by when it was paid (paidAt) rather
   // than its due date, since paying it doesn't change when it was due.
-  listPendientesPaidInMonth(input: {
+  listPaidPendientesDueInMonth(input: {
     readonly householdId: string
     readonly monthStart: Date
     readonly monthEnd: Date

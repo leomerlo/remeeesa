@@ -43,7 +43,7 @@ export type PorPagarSectionProps = {
 // leaves the moment it is paid -- what was paid lives on as an Expense, in
 // Histórico -- and a bill due in a later month does not appear yet. What is
 // left is exactly the month's outstanding list, which is also precisely the
-// pending figure "Gastos de este mes" and "Por categoría" count, so the
+// pending figure "Gastos del mes" and "Por categoría" count, so the
 // section and the cards above it can no longer disagree.
 //
 // Note this means an unpaid bill from a past month shows under *that*

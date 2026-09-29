@@ -102,7 +102,7 @@ export function PendientesPage({
           across months here too, so a pager that no longer decided what was
           on screen would be a lie.
 
-          Otherwise it is the one pager in the app that goes forward -- a
+          Otherwise it is the one pager in the app with no forward limit -- a
           service's due date is in the future by definition, so next month's
           list is the whole point of the screen. */}
       {query.trim() === '' ? (
@@ -110,7 +110,7 @@ export function PendientesPage({
           <MonthPager
             viewedMonth={viewedMonth}
             onViewedMonthChange={setViewedMonth}
-            allowFuture
+            maxMonthsAhead={Infinity}
           />
           {/* Next to the month it fills: bills do not carry over on their
               own, a member picks which ones come into this month. */}

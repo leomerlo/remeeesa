@@ -7,6 +7,7 @@ import {
 import { colorForCategoryName } from './categoryColor'
 import type { Category, Expense } from './types'
 import {
+  parseCategoryBudget,
   parseCategoryName,
   parseExpenseName,
   parseExpensePrice,
@@ -50,7 +51,7 @@ export function parseCategoryDocument(input: {
     throw new Error('Category document must be an object')
   }
 
-  const { household_id, name, color, created_at } = input.data
+  const { household_id, name, color, monthly_budget, created_at } = input.data
   if (typeof name !== 'string') {
     throw new Error('Category name must be a string')
   }
@@ -71,6 +72,12 @@ export function parseCategoryDocument(input: {
     householdId: parseRequiredString(household_id, 'household_id'),
     name: parsedName,
     color: parsedColor,
+    // Missing on every category written before ceilings existed, which is
+    // all of them -- read as "sin tope" rather than rejecting the document.
+    monthlyBudget:
+      typeof monthly_budget === 'number'
+        ? parseCategoryBudget(monthly_budget)
+        : 0,
     createdAt: parseTimestamp(created_at, 'created_at'),
   }
 }
@@ -79,17 +86,20 @@ export function categoryToDocument(input: {
   readonly householdId: string
   readonly name: string
   readonly color: string
+  readonly monthlyBudget: number
   readonly createdAt: Date
 }): {
   readonly household_id: string
   readonly name: string
   readonly color: string
+  readonly monthly_budget: number
   readonly created_at: Date
 } {
   return {
     household_id: input.householdId,
     name: input.name,
     color: input.color,
+    monthly_budget: input.monthlyBudget,
     created_at: input.createdAt,
   }
 }

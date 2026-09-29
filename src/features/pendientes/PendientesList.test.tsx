@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { useState } from 'react'
 import type { ComponentProps, ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { createPendiente } from '@/lib/pendientes'
+import { createPendiente, markPendientePaid } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import { listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
@@ -59,6 +59,96 @@ function List(props: ComponentProps<typeof PendientesList>): ReactElement {
 }
 
 describe('PendientesList', () => {
+  // The bug this guards: paying a recurring bill used to spawn next month's
+  // cycle, and settling that one early filed it under the month it was *paid*. So
+  // September listed the seguro twice -- both rows stamped with a September
+  // payment date, while opening the second showed an October due date -- and
+  // October, where it actually belonged, showed nothing at all.
+  it('files a settled servicio under the month it was due, not the month it was paid', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100000,
+    })
+    const categoryId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Servicios',
+    })
+    const octoberBill = await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId,
+      name: 'Seguro vivienda',
+      dueDate: new Date(2026, 9, 10),
+      expectedAmount: 50000,
+      recurring: true,
+    })
+    await markPendientePaid({
+      db,
+      householdId: household.id,
+      pendienteId: octoberBill.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 50000,
+      // Settled in September, a month before it falls due.
+      paymentDate: new Date(2026, 8, 20),
+    })
+
+    renderWithProviders(<List db={db} householdId={household.id} />)
+
+    expect(
+      await screen.findByText('Ningún servicio este mes'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Seguro vivienda')).not.toBeInTheDocument()
+  })
+
+  it('shows that servicio in its own month', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100000,
+    })
+    const categoryId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Servicios',
+    })
+    const octoberBill = await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId,
+      name: 'Seguro vivienda',
+      dueDate: new Date(2026, 9, 10),
+      expectedAmount: 50000,
+      recurring: true,
+    })
+    await markPendientePaid({
+      db,
+      householdId: household.id,
+      pendienteId: octoberBill.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 50000,
+      paymentDate: new Date(2026, 8, 20),
+    })
+
+    renderWithProviders(
+      <PendientesList
+        monthStart={new Date(2026, 9, 1)}
+        monthEnd={new Date(2026, 9, 31, 23, 59, 59, 999)}
+        db={db}
+        householdId={household.id}
+      />,
+    )
+
+    expect(await screen.findByText('Seguro vivienda')).toBeInTheDocument()
+  })
+
   it('shows an empty state when the household has no pending pendientes', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({

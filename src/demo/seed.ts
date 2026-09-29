@@ -1,4 +1,8 @@
-import { createExpense, findOrCreateCategory } from '@/lib/expenses'
+import {
+  createExpense,
+  findOrCreateCategory,
+  updateCategoryBudget,
+} from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { createPendiente, markPendientePaid } from '@/lib/pendientes'
@@ -51,6 +55,21 @@ async function seedCompleta(db: HouseholdsDb): Promise<void> {
   const servicios = await categoryFor('Servicios')
   const transporte = await categoryFor('Transporte')
   const salud = await categoryFor('Salud')
+
+  // Ceilings on the few categories a household actually wants to move
+  // carefully inside -- one comfortably inside it, one already over.
+  await updateCategoryBudget({
+    db,
+    householdId,
+    categoryId: comida.id,
+    monthlyBudget: 120000,
+  })
+  await updateCategoryBudget({
+    db,
+    householdId,
+    categoryId: transporte.id,
+    monthlyBudget: 50000,
+  })
 
   const gastos: readonly {
     readonly name: string

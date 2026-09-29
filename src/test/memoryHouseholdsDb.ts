@@ -11,7 +11,11 @@ import {
   CategoryNotFoundError,
 } from '@/lib/expenses/categoryManagement'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
-import { parseCategoryColor, parseCategoryName } from '@/lib/expenses/validate'
+import {
+  parseCategoryBudget,
+  parseCategoryColor,
+  parseCategoryName,
+} from '@/lib/expenses/validate'
 import { ExpenseNotFoundError } from '@/lib/expenses/expenses'
 import { buildExpenseHistoryPage } from '@/lib/expenses/history'
 import type { Category, Expense } from '@/lib/expenses/types'
@@ -344,6 +348,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         householdId: input.householdId,
         name: input.name,
         color: colorForCategoryName(input.name),
+        monthlyBudget: 0,
         createdAt: new Date(),
       }
       state.categories.set(id, category)
@@ -355,6 +360,16 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       const updated: Category = {
         ...existing,
         color: parseCategoryColor(input.color),
+      }
+      state.categories.set(existing.id, updated)
+      return updated
+    },
+    async updateCategoryBudget(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const existing = ownCategory(state, input)
+      const updated: Category = {
+        ...existing,
+        monthlyBudget: parseCategoryBudget(input.monthlyBudget),
       }
       state.categories.set(existing.id, updated)
       return updated
@@ -623,23 +638,21 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       )
       return pendientes
     },
-    async listPendientesPaidInMonth(input) {
+    async listPaidPendientesDueInMonth(input) {
       assertMemberOf(state, userId, input.householdId)
       const pendientes: Pendiente[] = []
       for (const pendiente of state.pendientes.values()) {
         if (
           pendiente.householdId === input.householdId &&
           pendiente.status === 'paid' &&
-          pendiente.paidAt !== null &&
-          pendiente.paidAt >= input.monthStart &&
-          pendiente.paidAt <= input.monthEnd
+          pendiente.dueDate >= input.monthStart &&
+          pendiente.dueDate <= input.monthEnd
         ) {
           pendientes.push(pendiente)
         }
       }
       pendientes.sort(
-        (left, right) =>
-          (right.paidAt?.getTime() ?? 0) - (left.paidAt?.getTime() ?? 0),
+        (left, right) => left.dueDate.getTime() - right.dueDate.getTime(),
       )
       return pendientes
     },

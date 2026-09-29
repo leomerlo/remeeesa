@@ -27,6 +27,51 @@ async function seedHousehold(monthlyBudget: number) {
 }
 
 describe('RemainingBudgetDisplay', () => {
+  it('states the budget the remainder is measured against, and what has gone', async () => {
+    const { db, household, comida } = await seedHousehold(1000)
+    await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Café',
+      price: 250,
+      comments: '',
+      expenseDate: new Date(),
+    })
+
+    renderWithProviders(
+      <RemainingBudgetDisplay db={db} householdId={household.id} />,
+    )
+
+    // The card only ever showed what was left and a percentage; the figure
+    // those are measured against was nowhere on it.
+    expect(await screen.findByText('$250 de $1.000')).toBeInTheDocument()
+    expect(screen.getByText('25% usado')).toBeInTheDocument()
+  })
+
+  it('shows more spent than the budget once it is overspent, rather than clamping', async () => {
+    const { db, household, comida } = await seedHousehold(1000)
+    await createExpense({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Mudanza',
+      price: 1200,
+      comments: '',
+      expenseDate: new Date(),
+    })
+
+    renderWithProviders(
+      <RemainingBudgetDisplay db={db} householdId={household.id} />,
+    )
+
+    expect(await screen.findByText('$1.200 de $1.000')).toBeInTheDocument()
+  })
+
   describe('with no budget set', () => {
     it('offers to set one instead of counting down from nothing', async () => {
       const { db, household } = await seedHousehold(0)

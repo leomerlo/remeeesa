@@ -9,6 +9,7 @@ function category(name: string, color: string): Category {
     householdId: 'house-1',
     name,
     color,
+    monthlyBudget: 0,
     createdAt: new Date('2026-09-01T00:00:00Z'),
   }
 }

@@ -655,7 +655,8 @@ describe('listPendientesForMonth', () => {
     )
   })
 
-  it('includes a pendiente paid within the given month', async () => {
+  // Due September, settled in August -- it is September's bill either way.
+  it('includes a settled pendiente in the month it was due, not the month it was paid', async () => {
     const { db, household, pendiente } = await seedPendingPendiente()
 
     await markPendientePaid({
@@ -668,16 +669,23 @@ describe('listPendientesForMonth', () => {
       paymentDate: new Date(2026, 7, 15),
     })
 
-    const listed = await listPendientesForMonth({
+    const september = await listPendientesForMonth({
+      db,
+      householdId: household.id,
+      monthStart: new Date(2026, 8, 1),
+      monthEnd: new Date(2026, 8, 30, 23, 59, 59, 999),
+    })
+    const august = await listPendientesForMonth({
       db,
       householdId: household.id,
       monthStart: new Date(2026, 7, 1),
       monthEnd: new Date(2026, 7, 31, 23, 59, 59, 999),
     })
 
-    const paidEntry = listed.find((entry) => entry.id === pendiente.id)
+    const paidEntry = september.find((entry) => entry.id === pendiente.id)
     expect(paidEntry).toBeDefined()
     expect(paidEntry?.status).toBe('paid')
+    expect(august.find((entry) => entry.id === pendiente.id)).toBeUndefined()
   })
 
   it('excludes a pendiente paid in a different month', async () => {
@@ -703,7 +711,7 @@ describe('listPendientesForMonth', () => {
     expect(listed.find((entry) => entry.id === pendiente.id)).toBeUndefined()
   })
 
-  it('lists pending entries before paid-this-month entries', async () => {
+  it('lists pending entries before settled ones', async () => {
     const {
       db,
       household,
@@ -728,11 +736,12 @@ describe('listPendientesForMonth', () => {
       expectedAmount: 300,
     })
 
+    // Both are due in September, whichever month they were settled in.
     const listed = await listPendientesForMonth({
       db,
       householdId: household.id,
-      monthStart: new Date(2026, 7, 1),
-      monthEnd: new Date(2026, 7, 31, 23, 59, 59, 999),
+      monthStart: new Date(2026, 8, 1),
+      monthEnd: new Date(2026, 8, 30, 23, 59, 59, 999),
     })
 
     expect(listed.map((entry) => entry.id)).toEqual([
