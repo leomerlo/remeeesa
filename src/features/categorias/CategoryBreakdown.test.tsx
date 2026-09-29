@@ -8,8 +8,14 @@ import {
 import { createHouseholdWithMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
+import { MemoryRouter } from 'react-router-dom'
+import type { ReactElement } from 'react'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { CategoryBreakdown } from './CategoryBreakdown'
+
+function renderInRouter(ui: ReactElement) {
+  return renderWithProviders(<MemoryRouter>{ui}</MemoryRouter>)
+}
 
 async function seedHousehold() {
   const db = createMemoryHouseholdsDb().asUser('user-1')
@@ -64,9 +70,7 @@ describe('CategoryBreakdown', () => {
         price: 75,
       })
 
-      renderWithProviders(
-        <CategoryBreakdown db={db} householdId={householdId} />,
-      )
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
 
       await screen.findByText('Por categoría')
       expect(screen.queryByText('Topes por categoría')).not.toBeInTheDocument()
@@ -92,9 +96,7 @@ describe('CategoryBreakdown', () => {
         price: 75,
       })
 
-      renderWithProviders(
-        <CategoryBreakdown db={db} householdId={householdId} />,
-      )
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
 
       expect(await screen.findByText('Topes por categoría')).toBeInTheDocument()
       expect(screen.getByText('$75 de $300')).toBeInTheDocument()
@@ -121,9 +123,7 @@ describe('CategoryBreakdown', () => {
         price: 175,
       })
 
-      renderWithProviders(
-        <CategoryBreakdown db={db} householdId={householdId} />,
-      )
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
 
       expect(
         await screen.findByText('$75 por encima del tope'),
@@ -153,9 +153,7 @@ describe('CategoryBreakdown', () => {
         price: 75,
       })
 
-      renderWithProviders(
-        <CategoryBreakdown db={db} householdId={householdId} />,
-      )
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
 
       expect(await screen.findByText('$0 de $300')).toBeInTheDocument()
     })
@@ -182,9 +180,7 @@ describe('CategoryBreakdown', () => {
         monthlyBudget: 500,
       })
 
-      renderWithProviders(
-        <CategoryBreakdown db={db} householdId={householdId} />,
-      )
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
 
       // monthlyBudget is 1000; 800 + 500 promises 300 more than that.
       expect(
@@ -205,9 +201,7 @@ describe('CategoryBreakdown', () => {
         monthlyBudget: 300,
       })
 
-      renderWithProviders(
-        <CategoryBreakdown db={db} householdId={householdId} />,
-      )
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
 
       await screen.findByText('Topes por categoría')
       expect(
@@ -219,7 +213,7 @@ describe('CategoryBreakdown', () => {
   it('shows an empty state instead of an arc-less donut when the month has no expenses', async () => {
     const { db, householdId } = await seedHousehold()
 
-    const { container } = renderWithProviders(
+    const { container } = renderInRouter(
       <CategoryBreakdown db={db} householdId={householdId} />,
     )
 
@@ -251,7 +245,7 @@ describe('CategoryBreakdown', () => {
       price: 75,
     })
 
-    renderWithProviders(<CategoryBreakdown db={db} householdId={householdId} />)
+    renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
 
     const list = await screen.findByRole('list', {
       name: 'Gastos por categoría',
@@ -263,6 +257,12 @@ describe('CategoryBreakdown', () => {
     expect(items[1]).toHaveTextContent('Transporte')
     expect(items[1]).toHaveTextContent('25%')
     expect(items[1]).toHaveTextContent('$25')
+    const now = new Date()
+    const month = `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    expect(within(items[0]!).getByRole('link')).toHaveAttribute(
+      'href',
+      `/historico?month=${month}&category=${comida.id}`,
+    )
   })
 
   // The total lives beside the heading, not inside the donut's hole: a real
@@ -284,7 +284,7 @@ describe('CategoryBreakdown', () => {
       price: 25,
     })
 
-    const { container } = renderWithProviders(
+    const { container } = renderInRouter(
       <CategoryBreakdown db={db} householdId={householdId} />,
     )
 
@@ -306,7 +306,7 @@ describe('CategoryBreakdown', () => {
     await seed({ db, householdId, categoryId: comida.id, name: 'A', price: 75 })
     await seed({ db, householdId, categoryId: comida.id, name: 'B', price: 25 })
 
-    const { container } = renderWithProviders(
+    const { container } = renderInRouter(
       <CategoryBreakdown db={db} householdId={householdId} />,
     )
 
@@ -338,7 +338,7 @@ describe('CategoryBreakdown', () => {
       price: 25,
     })
 
-    const { container } = renderWithProviders(
+    const { container } = renderInRouter(
       <CategoryBreakdown db={db} householdId={householdId} />,
     )
     await screen.findByRole('list', { name: 'Gastos por categoría' })
@@ -372,7 +372,7 @@ describe('CategoryBreakdown', () => {
       })
     }
 
-    const { container } = renderWithProviders(
+    const { container } = renderInRouter(
       <CategoryBreakdown db={db} householdId={householdId} />,
     )
     await screen.findByRole('list', { name: 'Gastos por categoría' })
@@ -433,7 +433,7 @@ describe('CategoryBreakdown', () => {
       999,
     )
 
-    renderWithProviders(
+    renderInRouter(
       <CategoryBreakdown
         db={db}
         householdId={householdId}
@@ -466,7 +466,7 @@ describe('CategoryBreakdown', () => {
       999,
     )
 
-    renderWithProviders(
+    renderInRouter(
       <CategoryBreakdown
         db={db}
         householdId={householdId}
