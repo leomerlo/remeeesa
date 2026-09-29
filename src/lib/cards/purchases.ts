@@ -38,11 +38,16 @@ export class CardNotFoundError extends Error {
   }
 }
 
-export function parseCuotas(cuotas: number): number {
+// total is the purchase's already-parsed price: every cuota has to be at
+// least one cent.
+export function parseCuotas(cuotas: number, total: number): number {
   if (!Number.isInteger(cuotas) || cuotas < 1 || cuotas > MAX_CUOTAS) {
     throw new Error(
       `Las cuotas deben ser un número entero entre 1 y ${String(MAX_CUOTAS)}`,
     )
+  }
+  if (Math.round(total * 100) < cuotas) {
+    throw new Error('El precio tiene que ser de al menos $0,01 por cuota')
   }
   return cuotas
 }
@@ -62,11 +67,7 @@ export async function createCardPurchase(input: {
 }): Promise<CardPurchase> {
   const name = parseExpenseName(input.name)
   const total = parseExpensePrice(input.total)
-  const cuotas = parseCuotas(input.cuotas)
-  // Every cuota has to be at least one cent.
-  if (Math.round(total * 100) < cuotas) {
-    throw new Error('El precio tiene que ser de al menos $0,01 por cuota')
-  }
+  const cuotas = parseCuotas(input.cuotas, total)
   const purchaseDate = parseExpenseDate(input.purchaseDate)
   const authorDisplayName = parseAuthorDisplayName(input.authorDisplayName)
   const resumenCategory = await input.db.findOrCreateCategory({

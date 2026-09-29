@@ -459,6 +459,55 @@ describe('AddGastoSheet (unified add flow)', () => {
       expect(categoryNames).not.toContain('Electro')
     })
 
+    it('rejects less than one cent per cuota before creating any category', async () => {
+      const { db, householdId } = await renderForm({ cardNames: ['Visa'] })
+
+      fillCommon({ name: 'Chicle', category: 'Kiosco' })
+      fireEvent.change(screen.getByLabelText('Precio'), {
+        target: { value: '0,05' },
+      })
+      await pickVisa()
+      fireEvent.change(screen.getByLabelText('Cuotas'), {
+        target: { value: '12' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Agregar compra' }))
+
+      expect(
+        await screen.findByText(
+          'El precio tiene que ser de al menos $0,01 por cuota',
+        ),
+      ).toBeInTheDocument()
+      const categoryNames = (await listCategories({ db, householdId })).map(
+        (c) => c.name,
+      )
+      expect(categoryNames).not.toContain('Kiosco')
+    })
+
+    it('says so when the cards cannot be loaded, instead of looking like there are none', async () => {
+      const db = createMemoryHouseholdsDb().asUser('user-1')
+      const household = await createHouseholdWithMembership({
+        db,
+        userId: 'user-1',
+        name: 'Casa Verde',
+        monthlyBudget: 100,
+      })
+      renderWithProviders(
+        <MemoryRouter>
+          <AddGastoSheetHarness
+            db={{ ...db, listCards: () => Promise.reject(new Error('boom')) }}
+            householdId={household.id}
+            memberId="user-1"
+            authorDisplayName="Ada"
+          />
+        </MemoryRouter>,
+      )
+      fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
+
+      expect(
+        await screen.findByText('No se pudieron cargar las tarjetas.'),
+      ).toBeInTheDocument()
+    })
+
     it('pulls a future due date back to today once a card is picked', async () => {
       const now = new Date()
       await renderForm({

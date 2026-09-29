@@ -328,7 +328,7 @@ export function AddGastoForm({
       }
       // Before mutate: a rejected purchase must not leave a new category.
       if (isCard) {
-        parseCuotas(Number(cuotas))
+        parseCuotas(Number(cuotas), fields.amount ?? 0)
       }
       setError(null)
       mutation.mutate(fields)
@@ -342,7 +342,9 @@ export function AddGastoForm({
   const alertMessage =
     error ??
     (mutation.isError ? mutationErrorMessage(mutation.error) : null) ??
-    loadErrorMessage(categoriesQuery.error)
+    loadErrorMessage(categoriesQuery.error) ??
+    // Without this, a failed load would look like a household with no cards.
+    (cardsQuery.isError ? 'No se pudieron cargar las tarjetas.' : null)
 
   // Switching Recurrente off takes Débito automático with it: a one-off is
   // never on automatic debit, and leaving it checked-but-ignored would come
