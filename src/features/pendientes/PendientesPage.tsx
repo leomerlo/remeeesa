@@ -136,6 +136,11 @@ export function PendientesPage({
             expectedAmount: pendiente.expectedAmount,
             recurring: pendiente.recurring,
             autoDebit: pendiente.autoDebit,
+            // Without it a paid row opened as an editable pending one, and
+            // "Eliminar servicio" was refused and swallowed: the sheet
+            // closed and the bill stayed. Paid, the only action offered is
+            // "Deshacer pago" -- after which it can be deleted.
+            isPaid: pendiente.status === 'paid',
           })
         }}
         onMarkPaid={(pendiente, categoryName) => {

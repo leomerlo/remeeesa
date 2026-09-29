@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
@@ -313,6 +313,77 @@ describe('PendientesPage', () => {
   // recurrentes" lists this month's recurring ones as a checklist, all
   // ticked, and only the ones left ticked come in. One already there is
   // listed too, but locked.
+  // A paid row's pencil used to open the form as if the bill were still
+  // pending: "Eliminar servicio" was refused (paid bills cannot be deleted)
+  // and the refusal swallowed, so the sheet closed and the bill stayed. Per
+  // direct feedback: "lo elimino y sigue ahí".
+  it('opens a paid row as paid, so it is undone first and can then be deleted', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories.find((category) => category.name === 'Comida')
+    if (comida === undefined) {
+      throw new Error('expected seeded Comida category')
+    }
+    const firstOfMonth = currentMonthRange().monthStart
+    const seguro = await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Seguro de vivienda',
+      dueDate: firstOfMonth,
+      expectedAmount: 500,
+      recurring: true,
+      autoDebit: false,
+    })
+    await markPendientePaid({
+      db,
+      householdId: household.id,
+      pendienteId: seguro.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 500,
+      paymentDate: firstOfMonth,
+    })
+
+    renderPendientesPage(
+      <PendientesPage currentUserId="user-1" householdsDb={db} />,
+    )
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Editar Seguro de vivienda' }),
+    )
+
+    expect(
+      screen.queryByRole('button', { name: 'Eliminar servicio' }),
+    ).not.toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText('Ya lo pagué'))
+    fireEvent.click(screen.getByRole('button', { name: 'Deshacer pago' }))
+
+    // Pending again, so "Pagar" is back beside the pencil.
+    await screen.findByRole('button', {
+      name: 'Marcar pagado Seguro de vivienda',
+    })
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Editar Seguro de vivienda' }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar servicio' }))
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Eliminar servicio',
+      }),
+    )
+
+    expect(
+      await screen.findByText('Ningún servicio este mes'),
+    ).toBeInTheDocument()
+    expect(await listPendientes({ db, householdId: household.id })).toEqual([])
+  })
+
   it('carries only the ticked recurring bills into the viewed month, with ones already there locked', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
