@@ -251,7 +251,7 @@ describe('firestore.rules pendiente category repoint', () => {
     expect(rules).toContain('function isPendienteCategoryRepoint()')
     expect(rules).toContain("hasOnly(['category_id'])")
     expect(rules).toContain(
-      '&& (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid());',
+      '&& (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid() || isValidResumenUpdate());',
     )
   })
 
@@ -347,7 +347,7 @@ describe('firestore.rules pendientes', () => {
   it('requires the exact field set and a category belonging to the same household', () => {
     expect(rules).toContain('function isValidPendiente(data)')
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'auto_debit', 'status', 'paid_expense_id', 'paid_at', 'created_at'])",
+      "data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'auto_debit', 'status', 'paid_expense_id', 'paid_at', 'created_at', 'card_id', 'purchase_ids'])",
     )
     expect(rules).toContain('data.due_date is timestamp')
     expect(rules).toContain(
@@ -387,7 +387,7 @@ describe('firestore.rules pendientes', () => {
 
   it('lets members create pendientes', () => {
     expect(rules).toMatch(
-      /match \/pendientes\/\{pendienteId\}[\s\S]*allow create: if isMemberOf\(request\.resource\.data\.household_id\)\s*&& isValidPendiente\(request\.resource\.data\);/,
+      /match \/pendientes\/\{pendienteId\}[\s\S]*allow create: if isMemberOf\(request\.resource\.data\.household_id\)\s*&& isValidPendiente\(request\.resource\.data\)\s*&& \(!\('card_id' in request\.resource\.data\)/,
     )
   })
 
@@ -401,7 +401,7 @@ describe('firestore.rules pendientes', () => {
       /function isValidPendienteUpdate\(\) \{[\s\S]*?!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'status', 'paid_expense_id', 'paid_at', 'created_at'\]\)/,
     )
     expect(rules).toMatch(
-      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isValidPendienteUnmarkPaid\(\)\);/,
+      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\)\);/,
     )
   })
 
@@ -473,7 +473,7 @@ describe('firestore.rules pendientes mark-paid', () => {
 
   it('ORs isValidPendienteMarkPaid into the pendiente update rule alongside isValidPendienteUpdate', () => {
     expect(rules).toMatch(
-      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isValidPendienteUnmarkPaid\(\)\);/,
+      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\)\);/,
     )
   })
 })
@@ -674,5 +674,94 @@ describe('firestore.rules cards', () => {
     const fn = body.slice(0, body.indexOf('}'))
     expect(fn).toContain("data.name.matches('.*\\\\S.*')")
     expect(fn).toContain('data.created_at is timestamp')
+  })
+})
+
+function ruleFunction(name: string): string {
+  const body = rules.slice(rules.indexOf(`function ${name}(`))
+  return body.slice(0, body.indexOf('\n    }\n'))
+}
+
+describe('firestore.rules card purchases', () => {
+  it('lets only household members read and create card purchases', () => {
+    expect(rules).toMatch(
+      /match \/card_purchases\/\{purchaseId\} \{\s*\n\s*allow read: if isMemberOf\(resource\.data\.household_id\);\s*\n\s*allow create: if isMemberOf\(request\.resource\.data\.household_id\)\s*\n\s*&& isValidCardPurchase\(request\.resource\.data\);\s*\n\s*\}/,
+    )
+  })
+
+  it('checks cuotas, the cent-per-cuota floor, the date and same-household refs', () => {
+    const fn = ruleFunction('isValidCardPurchase')
+    expect(fn).toContain('data.cuotas is int')
+    expect(fn).toContain('data.cuotas >= 1')
+    expect(fn).toContain('data.cuotas <= 24')
+    expect(fn).toContain('data.total * 100 >= data.cuotas - 0.5')
+    expect(fn).toContain('expenseDateNotInFuture(data.purchase_date)')
+    expect(fn).toContain('data.member_id == request.auth.uid')
+    expect(fn).toContain(
+      'get(/databases/$(database)/documents/cards/$(data.card_id)).data.household_id == data.household_id',
+    )
+    expect(fn).toContain(
+      'get(/databases/$(database)/documents/categories/$(data.category_id)).data.household_id == data.household_id',
+    )
+  })
+})
+
+describe('firestore.rules Resúmenes', () => {
+  it('lets a member get a missing Resumen of their own card so the purchase transaction can read it', () => {
+    expect(rules).toMatch(
+      /allow get: if isSignedIn\(\)\s*\n\s*&& resource == null\s*\n\s*&& isOwnResumenId\(pendienteId\);/,
+    )
+  })
+
+  it('ties a created Resumen to its id and a card of the same household', () => {
+    expect(rules).toContain(
+      '|| isValidResumen(pendienteId, request.resource.data));',
+    )
+    const fn = ruleFunction('isValidResumen')
+    expect(fn).toContain(
+      'pendienteId[0:pendienteId.size() - 8] == data.card_id',
+    )
+    expect(fn).toContain('data.purchase_ids is list')
+  })
+
+  it("only lets a purchase move a pending Resumen's amount and purchase list", () => {
+    const fn = ruleFunction('isValidResumenUpdate')
+    expect(fn).toContain("resource.data.status == 'pending'")
+    expect(fn).toContain(".hasOnly(['expected_amount', 'purchase_ids'])")
+    expect(rules).toContain('|| isValidResumenUpdate());')
+  })
+
+  it('keeps the generic edit and mark-paid paths off Resúmenes', () => {
+    expect(ruleFunction('isValidPendienteUpdate')).toContain(
+      "!('card_id' in resource.data)",
+    )
+    expect(ruleFunction('isValidPendienteMarkPaid')).toContain(
+      "!('card_id' in resource.data)",
+    )
+  })
+})
+
+describe('createCardPurchase adapter', () => {
+  const source = adapterSource.slice(
+    adapterSource.indexOf('async createCardPurchase(input)'),
+  )
+
+  it('writes the purchase and its Resúmenes in one transaction', () => {
+    expect(source).toMatch(/return runTransaction\(firestore, async \(tx\) =>/)
+  })
+
+  it('reads the card and every Resumen before writing, rejecting a paid one', () => {
+    const firstWrite = source.indexOf('tx.set(')
+    expect(source.indexOf('tx.get(cardRef)')).toBeLessThan(firstWrite)
+    expect(source.indexOf('tx.get(cuota.ref)')).toBeLessThan(firstWrite)
+    expect(source.indexOf('throw new ResumenAlreadyPaidError')).toBeLessThan(
+      firstWrite,
+    )
+  })
+
+  it('mints the purchase ref outside the transaction callback', () => {
+    expect(
+      source.indexOf("doc(collection(firestore, 'card_purchases'))"),
+    ).toBeLessThan(source.indexOf('runTransaction('))
   })
 })

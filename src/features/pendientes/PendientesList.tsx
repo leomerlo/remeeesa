@@ -190,9 +190,14 @@ export function PendientesList({
     // A projected cycle has no record behind it: there is nothing to pay
     // and nothing to edit. It says the month owes this; paying the real,
     // earlier cycle is what brings it into existence.
-    const canMarkPaid = onMarkPaid !== undefined && !isPaid && !projected
+    // A card's Resumen gets its own pay and view flow, never the generic
+    // Pendiente form both of these open -- so neither shows on one.
+    const isResumen = pendiente.cardId !== undefined
+    const canMarkPaid =
+      onMarkPaid !== undefined && !isPaid && !projected && !isResumen
+    const canEdit = onEditPendiente !== undefined && !projected && !isResumen
     const actions =
-      !canMarkPaid && (onEditPendiente === undefined || projected) ? null : (
+      !canMarkPaid && !canEdit ? null : (
         <>
           {canMarkPaid ? (
             <Button
@@ -207,14 +212,14 @@ export function PendientesList({
               Pagar
             </Button>
           ) : null}
-          {onEditPendiente !== undefined && !projected ? (
+          {canEdit ? (
             <Button
               type="button"
               variant="ghost"
               size="icon-mini"
               aria-label={`Editar ${pendiente.name}`}
               onClick={() => {
-                onEditPendiente(pendiente, category?.name ?? '')
+                onEditPendiente?.(pendiente, category?.name ?? '')
               }}
             >
               <Pencil aria-hidden="true" />

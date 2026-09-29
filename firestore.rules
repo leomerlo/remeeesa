@@ -197,7 +197,7 @@ service cloud.firestore {
     // from creating a Pendiente that is already marked paid. Editing, deleting,
     // and marking a pendiente paid are handled by later tickets in this feature.
     function isValidPendiente(data) {
-      return data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'auto_debit', 'status', 'paid_expense_id', 'paid_at', 'created_at'])
+      return data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'auto_debit', 'status', 'paid_expense_id', 'paid_at', 'created_at', 'card_id', 'purchase_ids'])
         && data.household_id is string
         && data.household_id.size() > 0
         && data.category_id is string
@@ -220,6 +220,41 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/categories/$(data.category_id)).data.household_id == data.household_id;
     }
 
+    // A Resumen is a Pendiente keyed `{cardId}_{YYYY-MM}` (8 chars of suffix)
+    // whose card is in the same household. purchase_ids lists the purchases
+    // with a cuota in it; rules cannot sum them, so expected_amount is only
+    // checked for shape (by isValidPendiente).
+    function isValidResumen(pendienteId, data) {
+      return data.card_id is string
+        && pendienteId.matches('^.+_[0-9]{4}-[0-9]{2}$')
+        && pendienteId[0:pendienteId.size() - 8] == data.card_id
+        && data.purchase_ids is list
+        && data.purchase_ids.size() > 0
+        && data.recurring == false
+        && get(/databases/$(database)/documents/cards/$(data.card_id)).data.household_id == data.household_id;
+    }
+
+    // Missing Resúmenes have no resource, but the purchase transaction has to
+    // tx.get one before creating it -- allowed only for a card of the
+    // caller's own household.
+    function isOwnResumenId(pendienteId) {
+      return pendienteId.matches('^.+_[0-9]{4}-[0-9]{2}$')
+        && isMemberOf(get(/databases/$(database)/documents/cards/$(pendienteId[0:pendienteId.size() - 8])).data.household_id);
+    }
+
+    // Logging a card purchase adds its cuota to a still-pending Resumen:
+    // only the amount and the purchase list move.
+    function isValidResumenUpdate() {
+      return resource.data.status == 'pending'
+        && ('card_id' in resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['expected_amount', 'purchase_ids'])
+        && request.resource.data.expected_amount is number
+        && request.resource.data.expected_amount > 0
+        && request.resource.data.purchase_ids is list
+        && request.resource.data.purchase_ids.size() > 0;
+    }
+
     // Editing is only allowed while the pendiente is still pending -- once paid,
     // it is frozen at the rules level (mirrors isValidExpenseUpdate's shape,
     // adapted to the pendiente field set). A future category-merge feature may
@@ -238,8 +273,11 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/categories/$(request.resource.data.category_id));
     }
 
+    // Resúmenes are excluded: their amount is the sum of their cuotas, and
+    // they are only ever changed through purchases (isValidResumenUpdate).
     function isValidPendienteUpdate() {
       return resource.data.status == 'pending'
+        && !('card_id' in resource.data)
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['name', 'category_id', 'due_date', 'expected_amount', 'recurring', 'auto_debit'])
         && !request.resource.data.diff(resource.data).affectedKeys()
@@ -268,8 +306,10 @@ service cloud.firestore {
     // same household, so this write can't fake a paid status against a
     // missing or cross-household Expense id -- it does not, and cannot,
     // verify the Expense's amount/category/member match.
+    // Not for a Resumen: paying one writes an Expense per cuota, not one.
     function isValidPendienteMarkPaid() {
       return resource.data.status == 'pending'
+        && !('card_id' in resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paid_expense_id', 'paid_at'])
         && request.resource.data.status == 'paid'
         && resource.data.paid_expense_id == null
@@ -403,12 +443,51 @@ service cloud.firestore {
 
     match /pendientes/{pendienteId} {
       allow read: if isMemberOf(resource.data.household_id);
+      allow get: if isSignedIn()
+        && resource == null
+        && isOwnResumenId(pendienteId);
       allow create: if isMemberOf(request.resource.data.household_id)
-        && isValidPendiente(request.resource.data);
+        && isValidPendiente(request.resource.data)
+        && (!('card_id' in request.resource.data)
+          || isValidResumen(pendienteId, request.resource.data));
       allow update: if isMemberOf(resource.data.household_id)
-        && (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid());
+        && (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid() || isValidResumenUpdate());
       allow delete: if isMemberOf(resource.data.household_id)
         && resource.data.status == 'pending';
+    }
+
+    // total is rounded to cents, so total * 100 sits within float noise of a
+    // whole number of cents; the 0.5 slack makes "at least one cent per
+    // cuota" exact instead of tripping on 0.03 < 3 * 0.01 in doubles.
+    function isValidCardPurchase(data) {
+      return data.keys().hasOnly(['household_id', 'card_id', 'category_id', 'member_id', 'author_display_name', 'name', 'total', 'cuotas', 'purchase_date', 'comments', 'created_at'])
+        && data.household_id is string
+        && data.household_id.size() > 0
+        && data.card_id is string
+        && data.category_id is string
+        && data.member_id == request.auth.uid
+        && data.author_display_name is string
+        && data.author_display_name.matches('.*\\S.*')
+        && data.name is string
+        && data.name.matches('.*\\S.*')
+        && data.cuotas is int
+        && data.cuotas >= 1
+        && data.cuotas <= 24
+        && data.total is number
+        && data.total * 100 >= data.cuotas - 0.5
+        && data.purchase_date is timestamp
+        && expenseDateNotInFuture(data.purchase_date)
+        && data.comments is string
+        && data.created_at is timestamp
+        && get(/databases/$(database)/documents/cards/$(data.card_id)).data.household_id == data.household_id
+        && get(/databases/$(database)/documents/categories/$(data.category_id)).data.household_id == data.household_id;
+    }
+
+    // No update/delete yet: editing and deleting purchases is a later ticket.
+    match /card_purchases/{purchaseId} {
+      allow read: if isMemberOf(resource.data.household_id);
+      allow create: if isMemberOf(request.resource.data.household_id)
+        && isValidCardPurchase(request.resource.data);
     }
 
     // No update/delete yet: renaming a card is a later ticket.

@@ -1,8 +1,10 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { useState } from 'react'
+import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
 import { currentMonthRange, listExpensesInMonth } from '@/lib/expenses'
+import { createCard } from '@/lib/cards'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { listPendientes } from '@/lib/pendientes'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
@@ -21,6 +23,7 @@ async function renderForm(
   options: {
     readonly showRecurringOptions?: boolean
     readonly defaultDueDate?: Date
+    readonly cardNames?: readonly string[]
   } = {},
 ) {
   const db = createMemoryHouseholdsDb().asUser('user-1')
@@ -30,19 +33,24 @@ async function renderForm(
     name: 'Casa Verde',
     monthlyBudget: 100,
   })
+  for (const cardName of options.cardNames ?? []) {
+    await createCard({ db, householdId: household.id, name: cardName })
+  }
   renderWithProviders(
-    <AddGastoSheetHarness
-      db={db}
-      householdId={household.id}
-      memberId="user-1"
-      authorDisplayName="Ada"
-      {...(options.showRecurringOptions === undefined
-        ? {}
-        : { showRecurringOptions: options.showRecurringOptions })}
-      {...(options.defaultDueDate === undefined
-        ? {}
-        : { defaultDueDate: options.defaultDueDate })}
-    />,
+    <MemoryRouter>
+      <AddGastoSheetHarness
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+        {...(options.showRecurringOptions === undefined
+          ? {}
+          : { showRecurringOptions: options.showRecurringOptions })}
+        {...(options.defaultDueDate === undefined
+          ? {}
+          : { defaultDueDate: options.defaultDueDate })}
+      />
+    </MemoryRouter>,
   )
   fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
   await screen.findByLabelText('Nombre')
@@ -340,5 +348,117 @@ describe('AddGastoSheet (unified add flow)', () => {
     expect(screen.getByLabelText('Fecha')).toHaveValue(
       `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
     )
+  })
+
+  describe('Pagó con', () => {
+    it('defaults to "Efectivo / débito" and offers a shortcut to Ajustes when there are no cards', async () => {
+      await renderForm()
+
+      const paidWith = screen.getByLabelText('Pagó con')
+      expect(paidWith).toHaveValue('')
+      expect(
+        within(paidWith)
+          .getAllByRole('option')
+          .map((o) => o.textContent),
+      ).toEqual(['Efectivo / débito'])
+      expect(
+        await screen.findByRole('link', {
+          name: 'Crear una tarjeta en Ajustes',
+        }),
+      ).toHaveAttribute('href', '/household')
+      expect(screen.queryByLabelText('Cuotas')).not.toBeInTheDocument()
+    })
+
+    it('lists the household cards and asks for cuotas, defaulting to 1, once one is picked', async () => {
+      await renderForm({ cardNames: ['Visa', 'Amex'] })
+
+      const paidWith = screen.getByLabelText('Pagó con')
+      await within(paidWith).findByRole('option', { name: 'Visa' })
+      expect(
+        screen.queryByRole('link', { name: 'Crear una tarjeta en Ajustes' }),
+      ).not.toBeInTheDocument()
+
+      fireEvent.change(paidWith, {
+        target: {
+          value: within(paidWith)
+            .getByRole('option', { name: 'Visa' })
+            .getAttribute('value'),
+        },
+      })
+
+      expect(screen.getByLabelText('Cuotas')).toHaveValue(1)
+      expect(screen.getByLabelText('Precio')).toBeInTheDocument()
+      expect(screen.queryByLabelText('Ya lo pagué')).not.toBeInTheDocument()
+      expect(screen.queryByLabelText('Recurrente')).not.toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: 'Agregar compra' }),
+      ).toBeInTheDocument()
+    })
+
+    async function pickVisa(): Promise<void> {
+      const paidWith = screen.getByLabelText('Pagó con')
+      const visa = await within(paidWith).findByRole('option', { name: 'Visa' })
+      fireEvent.change(paidWith, {
+        target: { value: visa.getAttribute('value') },
+      })
+    }
+
+    it("logs a card purchase as next month's Resumen, not as an expense this month", async () => {
+      const { db, householdId } = await renderForm({ cardNames: ['Visa'] })
+
+      fillCommon({ name: 'Zapatillas', category: 'Ropa' })
+      fireEvent.change(screen.getByLabelText('Precio'), {
+        target: { value: '100' },
+      })
+      await pickVisa()
+      fireEvent.change(screen.getByLabelText('Cuotas'), {
+        target: { value: '3' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Agregar compra' }))
+
+      await waitFor(() => {
+        expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
+      })
+      expect(
+        await listExpensesInMonth({ db, householdId, ...currentMonthRange() }),
+      ).toEqual([])
+      const resumenes = await listPendientes({ db, householdId })
+      expect(resumenes.map((r) => [r.name, r.expectedAmount])).toEqual([
+        ['Visa', 33.33],
+        ['Visa', 33.33],
+        ['Visa', 33.34],
+      ])
+    })
+
+    it('rejects cuotas outside 1–24 and writes nothing', async () => {
+      const { db, householdId } = await renderForm({ cardNames: ['Visa'] })
+
+      fillCommon({ name: 'Tele', category: 'Otros' })
+      fireEvent.change(screen.getByLabelText('Precio'), {
+        target: { value: '100' },
+      })
+      await pickVisa()
+      fireEvent.change(screen.getByLabelText('Cuotas'), {
+        target: { value: '25' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Agregar compra' }))
+
+      expect(
+        await screen.findByText(
+          'Las cuotas deben ser un número entero entre 1 y 24',
+        ),
+      ).toBeInTheDocument()
+      expect(await listPendientes({ db, householdId })).toEqual([])
+    })
+
+    it('requires a price for a card purchase', async () => {
+      await renderForm({ cardNames: ['Visa'] })
+
+      fillCommon({ name: 'Tele', category: 'Otros' })
+      await pickVisa()
+      fireEvent.click(screen.getByRole('button', { name: 'Agregar compra' }))
+
+      expect(await screen.findByText('Ingresá un monto')).toBeInTheDocument()
+    })
   })
 })

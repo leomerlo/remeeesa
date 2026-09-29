@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertMessage } from '@/components/ui/alert-message'
 import { useEffect, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
+import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import { Input } from '@/components/ui/input'
@@ -24,6 +25,8 @@ import {
   parsePendienteName,
 } from '@/lib/pendientes'
 import type { HouseholdsDb } from '@/lib/households'
+import { createCardPurchase, listCards, MAX_CUOTAS } from '@/lib/cards'
+import { cardsQueryKey } from '@/features/household/cardsQueryKey'
 import { categoriesQueryKey, expensesQueryKey } from './queryKeys'
 // Imported from the leaf file, not the @/features/pendientes barrel --
 // that barrel re-exports AddPendienteForm, which imports from this very
@@ -196,8 +199,18 @@ export function AddGastoForm({
   // Checked by default: adding a gasto usually means logging something that
   // already happened, not setting up a future bill -- per direct feedback.
   const [markPaid, setMarkPaid] = useState(defaultDueDate === undefined)
+  // '' is "Efectivo / débito": today's behaviour. A card id turns this into
+  // a card purchase, which counts in its Resúmenes, not in this month.
+  const [cardId, setCardId] = useState('')
+  const [cuotas, setCuotas] = useState('1')
   const [error, setError] = useState<string | null>(null)
   const today = localDateInputValue(new Date())
+  const cardsQuery = useQuery({
+    queryKey: cardsQueryKey({ householdId }),
+    queryFn: () => listCards({ db, householdId }),
+  })
+  const cards = cardsQuery.data ?? []
+  const isCard = cardId !== ''
 
   async function invalidateGastoViews(): Promise<void> {
     await queryClient.invalidateQueries({ queryKey: categoriesKey })
@@ -212,6 +225,23 @@ export function AddGastoForm({
         householdId,
         name: fields.categoryName,
       })
+      if (cardId !== '') {
+        await createCardPurchase({
+          db,
+          householdId,
+          cardId,
+          categoryId: resolvedCategory.id,
+          memberId,
+          authorDisplayName,
+          name: fields.name,
+          // Required for a card purchase -- checked in onSubmit.
+          total: fields.amount ?? 0,
+          cuotas: Number(cuotas),
+          purchaseDate: fields.date,
+          comments: '',
+        })
+        return
+      }
       const isPlainGasto = !fields.recurring && markPaid
       if (isPlainGasto) {
         // fields.amount === null is caught before mutate() is called (see
@@ -260,6 +290,8 @@ export function AddGastoForm({
       setRecurring(reset.recurring)
       setAutoDebit(reset.autoDebit)
       setMarkPaid(defaultDueDate === undefined)
+      setCardId('')
+      setCuotas('1')
       setError(null)
       onAdded?.()
       await invalidateGastoViews()
@@ -273,11 +305,20 @@ export function AddGastoForm({
   function onSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault()
     try {
+      // A card purchase already happened: it parses like a paid, one-off
+      // gasto, whatever the (hidden) toggles below say.
       const fields = parseGastoFields(
-        { name, category, date, amount, recurring, autoDebit },
-        markPaid,
+        {
+          name,
+          category,
+          date,
+          amount,
+          recurring: !isCard && recurring,
+          autoDebit,
+        },
+        isCard || markPaid,
       )
-      if (markPaid && fields.amount === null) {
+      if ((isCard || markPaid) && fields.amount === null) {
         throw new Error('Ingresá un monto')
       }
       setError(null)
@@ -314,14 +355,25 @@ export function AddGastoForm({
     }
   }
 
-  const isPlainGasto = !recurring && markPaid
-  const submitLabel = markPaid
-    ? recurring
-      ? 'Agregar y marcar pagado'
-      : 'Agregar gasto'
-    : recurring
-      ? 'Agregar servicio'
-      : 'Agregar servicio'
+  // Like "Ya lo pagué": a purchase cannot be dated in the future, so picking
+  // a card over a future date pulls it back to today.
+  function onCardChange(next: string): void {
+    setCardId(next)
+    if (next !== '' && date > today) {
+      setDate(today)
+    }
+  }
+
+  const isPlainGasto = isCard || (!recurring && markPaid)
+  const submitLabel = isCard
+    ? 'Agregar compra'
+    : markPaid
+      ? recurring
+        ? 'Agregar y marcar pagado'
+        : 'Agregar gasto'
+      : recurring
+        ? 'Agregar servicio'
+        : 'Agregar servicio'
 
   return (
     <form
@@ -391,7 +443,7 @@ export function AddGastoForm({
 
         <div className="flex w-full flex-col gap-2">
           <Label htmlFor="gasto-date">
-            {markPaid ? 'Fecha' : 'Fecha de vencimiento'}
+            {isCard || markPaid ? 'Fecha' : 'Fecha de vencimiento'}
           </Label>
           {/* Restricted to today or earlier only while markPaid is checked
               -- a due date (not yet paid) is explicitly allowed to be in the
@@ -401,12 +453,59 @@ export function AddGastoForm({
             name="gasto-date"
             type="date"
             value={date}
-            max={markPaid ? today : undefined}
+            max={isCard || markPaid ? today : undefined}
             onChange={(event) => {
               setDate(event.target.value)
             }}
           />
         </div>
+
+        <div className="flex w-full flex-col gap-2">
+          <Label htmlFor="gasto-paid-with">Pagó con</Label>
+          <select
+            id="gasto-paid-with"
+            name="gasto-paid-with"
+            value={cardId}
+            onChange={(event) => {
+              onCardChange(event.target.value)
+            }}
+            className="border-input focus-visible:border-ring focus-visible:ring-ring/50 h-12 w-full min-w-0 rounded-lg border bg-transparent px-4 text-base outline-none focus-visible:ring-3 md:text-sm"
+          >
+            <option value="">Efectivo / débito</option>
+            {cards.map((card) => (
+              <option key={card.id} value={card.id}>
+                {card.name}
+              </option>
+            ))}
+          </select>
+          {cardsQuery.isSuccess && cards.length === 0 ? (
+            <Link
+              to="/household"
+              className="text-primary self-start text-sm font-medium underline-offset-4 hover:underline"
+            >
+              Crear una tarjeta en Ajustes
+            </Link>
+          ) : null}
+        </div>
+
+        {isCard ? (
+          <div className="flex w-full flex-col gap-2">
+            <Label htmlFor="gasto-cuotas">Cuotas</Label>
+            <Input
+              id="gasto-cuotas"
+              name="gasto-cuotas"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={MAX_CUOTAS}
+              step={1}
+              value={cuotas}
+              onChange={(event) => {
+                setCuotas(event.target.value)
+              }}
+            />
+          </div>
+        ) : null}
 
         {/* One toggle per line, switch then label -- the same shape the
             servicio form uses, so the two entry points to the same
@@ -414,38 +513,42 @@ export function AddGastoForm({
             had nowhere to go but a second line at phone width, where it
             clipped. Débito automático means the household does not pay this
             one: the bank takes it on the due date. */}
-        <div className="flex w-full flex-col gap-4">
-          {showRecurringOptions ? (
-            <>
-              <div className="flex w-full items-center gap-3">
-                <Switch
-                  id="gasto-recurring"
-                  checked={recurring}
-                  onCheckedChange={onRecurringChange}
-                />
-                <Label htmlFor="gasto-recurring">Recurrente</Label>
-              </div>
-              <div className="flex w-full items-center gap-3">
-                <Switch
-                  id="gasto-auto-debit"
-                  checked={autoDebit}
-                  disabled={!recurring}
-                  onCheckedChange={setAutoDebit}
-                />
-                <Label htmlFor="gasto-auto-debit">Débito automático</Label>
-              </div>
-            </>
-          ) : null}
+        {/* A card purchase is neither a bill for later nor recurring: it
+            already happened, and its Resúmenes are what gets paid. */}
+        {isCard ? null : (
+          <div className="flex w-full flex-col gap-4">
+            {showRecurringOptions ? (
+              <>
+                <div className="flex w-full items-center gap-3">
+                  <Switch
+                    id="gasto-recurring"
+                    checked={recurring}
+                    onCheckedChange={onRecurringChange}
+                  />
+                  <Label htmlFor="gasto-recurring">Recurrente</Label>
+                </div>
+                <div className="flex w-full items-center gap-3">
+                  <Switch
+                    id="gasto-auto-debit"
+                    checked={autoDebit}
+                    disabled={!recurring}
+                    onCheckedChange={setAutoDebit}
+                  />
+                  <Label htmlFor="gasto-auto-debit">Débito automático</Label>
+                </div>
+              </>
+            ) : null}
 
-          <div className="flex w-full items-center gap-3">
-            <Switch
-              id="gasto-mark-paid"
-              checked={markPaid}
-              onCheckedChange={onMarkPaidChange}
-            />
-            <Label htmlFor="gasto-mark-paid">Ya lo pagué</Label>
+            <div className="flex w-full items-center gap-3">
+              <Switch
+                id="gasto-mark-paid"
+                checked={markPaid}
+                onCheckedChange={onMarkPaidChange}
+              />
+              <Label htmlFor="gasto-mark-paid">Ya lo pagué</Label>
+            </div>
           </div>
-        </div>
+        )}
 
         {alertMessage !== null ? (
           <AlertMessage>{alertMessage}</AlertMessage>

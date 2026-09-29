@@ -5,7 +5,13 @@ import {
 } from '@/lib/pendientes/pendientes'
 import { nextCycleDueDate } from '@/lib/pendientes/recurrence'
 import type { Pendiente } from '@/lib/pendientes/types'
-import type { Card } from '@/lib/cards/types'
+import type { Card, CardPurchase } from '@/lib/cards/types'
+import { cuotasOf, resumenIdFor } from '@/lib/cards/cuotas'
+import {
+  CardNotFoundError,
+  RESUMEN_DUE_DAY,
+  ResumenAlreadyPaidError,
+} from '@/lib/cards/purchases'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import {
   CategoryInUseError,
@@ -58,6 +64,7 @@ type MemoryState = {
   expenses: Map<string, Expense>
   pendientes: Map<string, Pendiente>
   cards: Map<string, Card>
+  cardPurchases: Map<string, CardPurchase>
 }
 
 function toHousehold(id: string, record: HouseholdRecord): Household {
@@ -605,6 +612,75 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       state.cards.set(card.id, card)
       return card
     },
+    async createCardPurchase(input) {
+      assertMemberOf(state, userId, input.householdId)
+      if (input.memberId !== userId) {
+        throw new HouseholdAccessDeniedError()
+      }
+      const card = state.cards.get(input.cardId)
+      if (card === undefined || card.householdId !== input.householdId) {
+        throw new CardNotFoundError()
+      }
+      const createdAt = new Date()
+      const purchase: CardPurchase = {
+        id: crypto.randomUUID(),
+        householdId: input.householdId,
+        cardId: input.cardId,
+        categoryId: input.categoryId,
+        memberId: input.memberId,
+        authorDisplayName: input.authorDisplayName,
+        name: input.name,
+        total: input.total,
+        cuotas: input.cuotas,
+        purchaseDate: input.purchaseDate,
+        comments: input.comments,
+        createdAt,
+      }
+      // Every Resumen is built before any write, mirroring the real
+      // adapter's all-or-nothing transaction.
+      const resumenes = cuotasOf(input).map((cuota): Pendiente => {
+        const id = resumenIdFor(input.cardId, cuota.monthStart)
+        const existing = state.pendientes.get(id)
+        if (existing?.status === 'paid') {
+          throw new ResumenAlreadyPaidError(card.name, cuota.monthStart)
+        }
+        if (existing !== undefined) {
+          return {
+            ...existing,
+            expectedAmount:
+              Math.round(
+                ((existing.expectedAmount ?? 0) + cuota.amount) * 100,
+              ) / 100,
+            purchaseIds: [...(existing.purchaseIds ?? []), purchase.id],
+          }
+        }
+        return {
+          id,
+          householdId: input.householdId,
+          categoryId: input.resumenCategoryId,
+          name: card.name,
+          dueDate: new Date(
+            cuota.monthStart.getFullYear(),
+            cuota.monthStart.getMonth(),
+            RESUMEN_DUE_DAY,
+          ),
+          expectedAmount: cuota.amount,
+          recurring: false,
+          autoDebit: false,
+          status: 'pending',
+          paidExpenseId: null,
+          paidAt: null,
+          createdAt,
+          cardId: input.cardId,
+          purchaseIds: [purchase.id],
+        }
+      })
+      state.cardPurchases.set(purchase.id, purchase)
+      for (const resumen of resumenes) {
+        state.pendientes.set(resumen.id, resumen)
+      }
+      return purchase
+    },
     async createPendiente(input) {
       assertMemberOf(state, userId, input.householdId)
       const category = state.categories.get(input.categoryId)
@@ -855,6 +931,7 @@ export function createMemoryHouseholdsDb(): {
     expenses: new Map(),
     pendientes: new Map(),
     cards: new Map(),
+    cardPurchases: new Map(),
   }
 
   return {
