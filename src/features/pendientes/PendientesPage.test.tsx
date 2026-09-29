@@ -309,13 +309,11 @@ describe('PendientesPage', () => {
     ])
   })
 
-  // The recurring path is the one payment that does not simply leave the
-  // pending list one row shorter: the paid row goes away and the next cycle
-  // takes its place. Only the mutation's cache invalidation makes that new
-  // row appear -- a lib-level assertion on listPendientes would still
-  // pass with a stale query cache, so the "appears immediately" guarantee
-  // has to be checked here, on what the member actually sees.
-  it('replaces a paid recurring pendiente with its next cycle in the pending list, dated a month later and pre-filled with the amount just paid', async () => {
+  // Bills do not carry over on their own: from next month, "Pasar
+  // recurrentes" lists this month's recurring ones as a checklist, all
+  // ticked, and only the ones left ticked come in. One already there is
+  // listed too, but locked.
+  it('carries only the ticked recurring bills into the viewed month, with ones already there locked', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -328,62 +326,52 @@ describe('PendientesPage', () => {
     if (comida === undefined) {
       throw new Error('expected seeded Comida category')
     }
-    const paidDueDate = new Date(2026, 8, 10)
-    await createPendiente({
-      db,
-      householdId: household.id,
-      categoryId: comida.id,
-      name: 'Alquiler',
-      dueDate: paidDueDate,
-      expectedAmount: 500,
-      recurring: true,
-      autoDebit: false,
-    })
+    const { monthStart } = currentMonthRange()
+    const thisMonth = (day: number) =>
+      new Date(monthStart.getFullYear(), monthStart.getMonth(), day)
+    const nextMonth = (day: number) =>
+      new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, day)
+    const add = (name: string, dueDate: Date) =>
+      createPendiente({
+        db,
+        householdId: household.id,
+        categoryId: comida.id,
+        name,
+        dueDate,
+        expectedAmount: 500,
+        recurring: true,
+        autoDebit: false,
+      })
+    await add('Alquiler', thisMonth(10))
+    await add('Gimnasio', thisMonth(12))
+    await add('Internet', thisMonth(5))
+    await add('Internet', nextMonth(5))
 
     renderPendientesPage(
       <PendientesPage currentUserId="user-1" householdsDb={db} />,
     )
-
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Marcar pagado Alquiler' }),
+      await screen.findByRole('button', { name: 'Mes siguiente' }),
     )
-    await screen.findByLabelText('Monto esperado')
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Guardar y marcar pagado' }),
-    )
+    fireEvent.click(screen.getByRole('button', { name: 'Pasar recurrentes' }))
 
-    await waitFor(() => {
-      expect(screen.queryByLabelText('Fecha de pago')).not.toBeInTheDocument()
-    })
-    // The screen reads one month at a time, so the cycle just settled stays
-    // here, marked as such, and the one it spawned is next month's business.
-    await waitFor(() => {
-      // A settled bill says when it was *paid*, not when it was due -- the
-      // payment date is the useful fact once the money has gone.
-      expect(screen.getByText(/^Pagado el /)).toBeInTheDocument()
-    })
-    expect(screen.getAllByRole('listitem')).toHaveLength(1)
+    const internet = await screen.findByRole('checkbox', { name: /Internet/ })
+    expect(internet).toBeChecked()
+    expect(internet).toBeDisabled()
+    expect(screen.getByRole('checkbox', { name: /Alquiler/ })).toBeChecked()
+    fireEvent.click(screen.getByRole('checkbox', { name: /Gimnasio/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Pasar 1 recurrente' }))
+
     expect(
-      screen.queryByText(
-        `Vence el ${formatPendienteDueDate(new Date(2026, 9, 10))}`,
-      ),
-    ).not.toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Mes siguiente' }))
-
-    // Both cycles carry the same name, so the due date -- not the name --
-    // is what tells the new row apart from the one just paid.
-    const nextCycle = (
       await screen.findByText(
-        `Vence el ${formatPendienteDueDate(new Date(2026, 9, 10))}`,
-      )
-    ).closest('li')
-    expect(nextCycle).toHaveTextContent('Alquiler')
-    expect(nextCycle).toHaveTextContent('Comida')
-    expect(nextCycle).not.toHaveTextContent('Pagado')
-    // The next cycle is pre-filled with the amount just paid, an editable
-    // starting point rather than a blank "$ --,--" placeholder.
-    expect(nextCycle).toHaveTextContent('$500')
+        `Vence el ${formatPendienteDueDate(nextMonth(10))}`,
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Gimnasio')).not.toBeInTheDocument()
+    const carried = (await listPendientes({ db, householdId: household.id }))
+      .filter((pendiente) => pendiente.name === 'Alquiler')
+      .map((pendiente) => pendiente.dueDate)
+    expect(carried).toEqual([thisMonth(10), nextMonth(10)])
   })
 
   it('keeps the mark-paid sheet open with a clear alert and refreshes the stale row out of the pending list when the pendiente was already paid', async () => {

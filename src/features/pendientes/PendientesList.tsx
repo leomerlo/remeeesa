@@ -7,11 +7,8 @@ import { matchesSearch } from '@/lib/search/fuzzyMatch'
 import { Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  listPendientesForMonth,
-  pendingForMonthWithProjections,
-} from '@/lib/pendientes'
-import type { Pendiente, PendienteForMonth } from '@/lib/pendientes'
+import { listPendientesForMonth, pendientesDueInMonth } from '@/lib/pendientes'
+import type { Pendiente } from '@/lib/pendientes'
 import { EmptyState } from '@/components/EmptyState'
 import { ILLUSTRATIONS } from '@/components/illustrations'
 import {
@@ -121,20 +118,14 @@ export function PendientesList({
       pendiente.name,
       categoryById.get(pendiente.categoryId)?.name,
     ])
-  // Searching lists the real records only: a projection is a preview of a
-  // month, not something the household has written down anywhere, so it has
-  // no business turning up in a search for a name.
   const stillOwed = (
     isSearching
-      ? pendientes
-          .filter((pendiente) => pendiente.status === 'pending')
-          .map((pendiente) => ({ ...pendiente, projected: false }))
-      : pendingForMonthWithProjections(pendientes, monthStart, monthEnd)
+      ? pendientes.filter((pendiente) => pendiente.status === 'pending')
+      : pendientesDueInMonth(pendientes, monthStart, monthEnd)
   ).filter(matches)
   const alreadyPaid = pendientes
     .filter((pendiente) => pendiente.status === 'paid')
     .filter(matches)
-    .map((pendiente) => ({ ...pendiente, projected: false }))
   if (stillOwed.length === 0 && alreadyPaid.length === 0) {
     // The month pager above already says which month is empty, so this does
     // not repeat it. The piggy-bank drawing rather than the notepad every
@@ -154,12 +145,7 @@ export function PendientesList({
     )
   }
 
-  function renderRow(entry: PendienteForMonth): ReactElement {
-    // `projected` is a fact about this month's view, not about the record.
-    // Splitting it off here means the callbacks below hand their caller a
-    // plain Pendiente, exactly what it would have got before projections
-    // existed.
-    const { projected, ...pendiente } = entry
+  function renderRow(pendiente: Pendiente): ReactElement {
     const category = categoryById.get(pendiente.categoryId)
     const categoryName = category?.name ?? 'Categoría desconocida'
     const categoryColor = category?.color ?? colorForCategoryName(categoryName)
@@ -187,12 +173,9 @@ export function PendientesList({
     // real button because it is what this screen exists for; Editar is a
     // pencil against the right edge, the same one Histórico and Categorías
     // use, so the three lists agree. Per direct feedback.
-    // A projected cycle has no record behind it: there is nothing to pay
-    // and nothing to edit. It says the month owes this; paying the real,
-    // earlier cycle is what brings it into existence.
-    const canMarkPaid = onMarkPaid !== undefined && !isPaid && !projected
+    const canMarkPaid = onMarkPaid !== undefined && !isPaid
     const actions =
-      !canMarkPaid && (onEditPendiente === undefined || projected) ? null : (
+      !canMarkPaid && onEditPendiente === undefined ? null : (
         <>
           {canMarkPaid ? (
             <Button
@@ -207,7 +190,7 @@ export function PendientesList({
               Pagar
             </Button>
           ) : null}
-          {onEditPendiente !== undefined && !projected ? (
+          {onEditPendiente !== undefined ? (
             <Button
               type="button"
               variant="ghost"
@@ -224,7 +207,7 @@ export function PendientesList({
       )
 
     return (
-      <li key={entry.id}>
+      <li key={pendiente.id}>
         <MovementCard
           categoryName={categoryName}
           categoryColor={categoryColor}
@@ -233,25 +216,16 @@ export function PendientesList({
           // actually is -- the amount here is last cycle's, carried over. So
           // the badge says both things: you do not have to pay it, and the
           // number is worth a look.
-          {...(projected
+          {...(pendiente.autoDebit
             ? {
                 badge: (
                   <TintedBadge
-                    label="Previsto · se crea al pagar el anterior"
+                    label="Débito automático · revisar monto"
                     color="#4e4c56"
                   />
                 ),
               }
-            : pendiente.autoDebit
-              ? {
-                  badge: (
-                    <TintedBadge
-                      label="Débito automático · revisar monto"
-                      color="#4e4c56"
-                    />
-                  ),
-                }
-              : {})}
+            : {})}
           title={pendiente.name}
           when={
             isPaid

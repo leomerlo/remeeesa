@@ -95,7 +95,6 @@ describe('a servicio stays in the month it is due', () => {
       recurring: true,
     })
 
-    // Paying it spawns October's cycle, which must not join September's list.
     await markPendientePaid({
       db,
       householdId,
@@ -118,7 +117,6 @@ describe('a servicio stays in the month it is due', () => {
     })
 
     expect(settledNames(september)).toEqual(['Seguro vivienda'])
-    // October's cycle exists and is still pending, so nothing is settled there.
     expect(settledNames(october)).toEqual([])
   })
 
