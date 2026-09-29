@@ -106,6 +106,11 @@ function repointReferences(
       state.pendientes.set(id, { ...pendiente, categoryId: toCategoryId })
     }
   }
+  for (const [id, purchase] of state.cardPurchases) {
+    if (purchase.categoryId === fromCategoryId) {
+      state.cardPurchases.set(id, { ...purchase, categoryId: toCategoryId })
+    }
+  }
 }
 
 function assertNoReferences(state: MemoryState, categoryId: string): void {
@@ -118,6 +123,11 @@ function assertNoReferences(state: MemoryState, categoryId: string): void {
   // dropping it would leave the Histórico with unlabelled rows.
   for (const pendiente of state.pendientes.values()) {
     if (pendiente.categoryId === categoryId) {
+      throw new CategoryInUseError()
+    }
+  }
+  for (const purchase of state.cardPurchases.values()) {
+    if (purchase.categoryId === categoryId) {
       throw new CategoryInUseError()
     }
   }
@@ -620,6 +630,14 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       const card = state.cards.get(input.cardId)
       if (card === undefined || card.householdId !== input.householdId) {
         throw new CardNotFoundError()
+      }
+      // Mirrors the rules' same-household checks on both category refs.
+      for (const categoryId of [input.categoryId, input.resumenCategoryId]) {
+        if (
+          state.categories.get(categoryId)?.householdId !== input.householdId
+        ) {
+          throw new Error('Category not found')
+        }
       }
       const createdAt = new Date()
       const purchase: CardPurchase = {

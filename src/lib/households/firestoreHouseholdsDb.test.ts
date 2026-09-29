@@ -685,7 +685,16 @@ function ruleFunction(name: string): string {
 describe('firestore.rules card purchases', () => {
   it('lets only household members read and create card purchases', () => {
     expect(rules).toMatch(
-      /match \/card_purchases\/\{purchaseId\} \{\s*\n\s*allow read: if isMemberOf\(resource\.data\.household_id\);\s*\n\s*allow create: if isMemberOf\(request\.resource\.data\.household_id\)\s*\n\s*&& isValidCardPurchase\(request\.resource\.data\);\s*\n\s*\}/,
+      /match \/card_purchases\/\{purchaseId\} \{\s*\n\s*allow read: if isMemberOf\(resource\.data\.household_id\);\s*\n\s*allow create: if isMemberOf\(request\.resource\.data\.household_id\)\s*\n\s*&& isValidCardPurchase\(request\.resource\.data\);/,
+    )
+  })
+
+  it('lets a category rename or merge repoint a purchase, and nothing else', () => {
+    expect(rules).toMatch(
+      /match \/card_purchases\/\{purchaseId\}[\s\S]*?allow update: if isMemberOf\(resource\.data\.household_id\)\s*\n\s*&& isPendienteCategoryRepoint\(\);/,
+    )
+    expect(adapterSource).toContain(
+      "(['expenses', 'pendientes', 'card_purchases'] as const)",
     )
   })
 
@@ -722,6 +731,9 @@ describe('firestore.rules Resúmenes', () => {
       'pendienteId[0:pendienteId.size() - 8] == data.card_id',
     )
     expect(fn).toContain('data.purchase_ids is list')
+    expect(fn).toContain(
+      "(!('auto_debit' in data) || data.auto_debit == false)",
+    )
   })
 
   it("only lets a purchase move a pending Resumen's amount and purchase list", () => {

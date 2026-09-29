@@ -3,7 +3,11 @@ import { useState } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
-import { currentMonthRange, listExpensesInMonth } from '@/lib/expenses'
+import {
+  currentMonthRange,
+  listCategories,
+  listExpensesInMonth,
+} from '@/lib/expenses'
 import { createCard } from '@/lib/cards'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { listPendientes } from '@/lib/pendientes'
@@ -433,7 +437,7 @@ describe('AddGastoSheet (unified add flow)', () => {
     it('rejects cuotas outside 1–24 and writes nothing', async () => {
       const { db, householdId } = await renderForm({ cardNames: ['Visa'] })
 
-      fillCommon({ name: 'Tele', category: 'Otros' })
+      fillCommon({ name: 'Tele', category: 'Electro' })
       fireEvent.change(screen.getByLabelText('Precio'), {
         target: { value: '100' },
       })
@@ -449,6 +453,10 @@ describe('AddGastoSheet (unified add flow)', () => {
         ),
       ).toBeInTheDocument()
       expect(await listPendientes({ db, householdId })).toEqual([])
+      const categoryNames = (await listCategories({ db, householdId })).map(
+        (c) => c.name,
+      )
+      expect(categoryNames).not.toContain('Electro')
     })
 
     it('pulls a future due date back to today once a card is picked', async () => {

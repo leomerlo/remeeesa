@@ -25,7 +25,12 @@ import {
   parsePendienteName,
 } from '@/lib/pendientes'
 import type { HouseholdsDb } from '@/lib/households'
-import { createCardPurchase, listCards, MAX_CUOTAS } from '@/lib/cards'
+import {
+  createCardPurchase,
+  listCards,
+  MAX_CUOTAS,
+  parseCuotas,
+} from '@/lib/cards'
 import { cardsQueryKey } from '@/features/household/cardsQueryKey'
 import { categoriesQueryKey, expensesQueryKey } from './queryKeys'
 // Imported from the leaf file, not the @/features/pendientes barrel --
@@ -320,6 +325,10 @@ export function AddGastoForm({
       )
       if ((isCard || markPaid) && fields.amount === null) {
         throw new Error('Ingresá un monto')
+      }
+      // Before mutate: a rejected purchase must not leave a new category.
+      if (isCard) {
+        parseCuotas(Number(cuotas))
       }
       setError(null)
       mutation.mutate(fields)

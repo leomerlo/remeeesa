@@ -231,6 +231,7 @@ service cloud.firestore {
         && data.purchase_ids is list
         && data.purchase_ids.size() > 0
         && data.recurring == false
+        && (!('auto_debit' in data) || data.auto_debit == false)
         && get(/databases/$(database)/documents/cards/$(data.card_id)).data.household_id == data.household_id;
     }
 
@@ -483,11 +484,16 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/categories/$(data.category_id)).data.household_id == data.household_id;
     }
 
-    // No update/delete yet: editing and deleting purchases is a later ticket.
+    // No other update, and no delete yet: editing and deleting purchases is a
+    // later ticket.
     match /card_purchases/{purchaseId} {
       allow read: if isMemberOf(resource.data.household_id);
       allow create: if isMemberOf(request.resource.data.household_id)
         && isValidCardPurchase(request.resource.data);
+      // Renaming or merging a category repoints its purchases too (same
+      // narrow category_id-only update Pendientes allow).
+      allow update: if isMemberOf(resource.data.household_id)
+        && isPendienteCategoryRepoint();
     }
 
     // No update/delete yet: renaming a card is a later ticket.

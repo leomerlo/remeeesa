@@ -123,28 +123,30 @@ export function mapHouseholdFirestoreError(
   throw error
 }
 
-// Every document that stores this category's id, across both collections that
+// Every document that stores this category's id, across every collection that
 // can hold one. Rename and merge move all of them; delete refuses while any
-// exist. Pendientes are queried alongside Expenses on purpose -- forgetting them
-// is what would leave paid bills pointing at a category that no longer exists.
+// exist. Pendientes and card purchases are queried alongside Expenses on
+// purpose -- forgetting one is what would leave it pointing at a category that
+// no longer exists.
 async function categoryReferences(
   firestore: Firestore,
   input: { readonly householdId: string; readonly categoryId: string },
 ) {
-  const [expensesSnap, pendientesSnap] = await Promise.all(
-    (['expenses', 'pendientes'] as const).map((collectionName) =>
-      getDocs(
-        query(
-          collection(firestore, collectionName),
-          where('household_id', '==', input.householdId),
-          where('category_id', '==', input.categoryId),
+  const snaps = await Promise.all(
+    (['expenses', 'pendientes', 'card_purchases'] as const).map(
+      (collectionName) =>
+        getDocs(
+          query(
+            collection(firestore, collectionName),
+            where('household_id', '==', input.householdId),
+            where('category_id', '==', input.categoryId),
+          ),
         ),
-      ),
     ),
   )
-  return [...(expensesSnap?.docs ?? []), ...(pendientesSnap?.docs ?? [])].map(
-    (referencing) => referencing.ref,
-  )
+  return snaps
+    .flatMap((snap) => snap.docs)
+    .map((referencing) => referencing.ref)
 }
 
 // Batched rather than transactional: a household can accumulate more
