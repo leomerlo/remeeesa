@@ -235,6 +235,17 @@ describe('createCardPurchase', () => {
     ).toEqual([])
   })
 
+  it('accepts 24 cuotas, the last landing two years on', async () => {
+    const s = await setup()
+
+    await purchase(s, { total: 2400, cuotas: 24 })
+
+    expect(
+      (await resumenesIn(s, 2028, 8)).map((r) => [r.dueDate, r.expectedAmount]),
+    ).toEqual([[new Date(2028, 8, 10), 100]])
+    expect(await resumenesIn(s, 2028, 9)).toEqual([])
+  })
+
   it('rejects a total smaller than one cent per cuota', async () => {
     const s = await setup()
 

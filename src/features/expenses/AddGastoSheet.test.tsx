@@ -451,6 +451,20 @@ describe('AddGastoSheet (unified add flow)', () => {
       expect(await listPendientes({ db, householdId })).toEqual([])
     })
 
+    it('pulls a future due date back to today once a card is picked', async () => {
+      const now = new Date()
+      await renderForm({
+        cardNames: ['Visa'],
+        defaultDueDate: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+      })
+
+      await pickVisa()
+
+      expect(screen.getByLabelText('Fecha')).toHaveValue(
+        `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
+      )
+    })
+
     it('requires a price for a card purchase', async () => {
       await renderForm({ cardNames: ['Visa'] })
 
