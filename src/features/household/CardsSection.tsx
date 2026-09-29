@@ -93,11 +93,13 @@ export function CardsSection({
       )}
       <form onSubmit={handleSubmit} className="flex flex-col gap-2">
         <Label htmlFor="new-card-name">Nombre de la tarjeta</Label>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <Input
             id="new-card-name"
             value={name}
-            disabled={mutation.isPending}
+            // readOnly, not disabled: disabling drops keyboard focus to
+            // <body>, and this section stays open for the next card.
+            readOnly={mutation.isPending}
             onChange={(event) => {
               setName(event.target.value)
             }}

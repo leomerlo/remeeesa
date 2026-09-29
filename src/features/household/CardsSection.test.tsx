@@ -1,5 +1,5 @@
 import { fireEvent, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createCard, listCards } from '@/lib/cards'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
@@ -34,6 +34,36 @@ describe('CardsSection', () => {
     expect(
       await screen.findByText('Todavía no hay tarjetas'),
     ).toBeInTheDocument()
+  })
+
+  // Disabling the input would drop keyboard focus to <body> mid-save; the
+  // section stays open for the next card, so only the button is disabled.
+  it('keeps the input focusable while a card is saving', async () => {
+    const { db, householdId } = await seedHousehold()
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const slowDb = {
+      ...db,
+      createCard: async (input: Parameters<typeof db.createCard>[0]) => {
+        await gate
+        return db.createCard(input)
+      },
+    }
+    renderWithProviders(<CardsSection db={slowDb} householdId={householdId} />)
+    await screen.findByText('Todavía no hay tarjetas')
+
+    addCard('Visa')
+
+    await vi.waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: 'Agregar tarjeta' }),
+      ).toBeDisabled()
+    })
+    expect(screen.getByLabelText('Nombre de la tarjeta')).toBeEnabled()
+    release()
+    expect(await screen.findByRole('listitem')).toHaveTextContent('Visa')
   })
 
   it('creates a card, lists it, and clears the input', async () => {
