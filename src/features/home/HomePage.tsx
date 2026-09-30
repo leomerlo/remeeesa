@@ -10,6 +10,7 @@ import {
 import type { EditExpenseTarget } from '@/features/expenses/AddExpenseForm'
 import {
   AddPendienteSheet,
+  CardsNextMonth,
   PendienteDueSoonBanner,
   PorPagarSection,
 } from '@/features/pendientes'
@@ -226,6 +227,9 @@ export function HomePage({
           category split is a reference panel beside them. */}
       <div className="flex w-full flex-col gap-8 lg:grid lg:grid-cols-3 lg:items-start">
         <div className="flex w-full flex-col gap-8 lg:col-span-2">
+          {/* Always next calendar month, not the viewed one: it is the card
+              bill coming up, said before it arrives. */}
+          <CardsNextMonth db={db} householdId={membership.householdId} />
           <PorPagarSection
             db={db}
             householdId={membership.householdId}

@@ -1,4 +1,4 @@
-import { fireEvent, screen } from '@testing-library/react'
+import { fireEvent, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
@@ -9,6 +9,7 @@ import {
   updateMemberDisplayName,
 } from '@/lib/households'
 import { createPendiente, markPendientePaid } from '@/lib/pendientes'
+import { createCard, createCardPurchase } from '@/lib/cards'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { RecentExpensesList } from './RecentExpensesList'
@@ -581,5 +582,195 @@ describe('RecentExpensesList', () => {
       'Solo los integrantes del hogar pueden acceder a este hogar',
     )
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
+  })
+})
+
+describe('RecentExpensesList card purchases', () => {
+  it('lists a card purchase in its purchase month, marked with the card and cuotas', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 20, 12))
+    try {
+      const db = createMemoryHouseholdsDb().asUser('user-1')
+      const household = await createHouseholdWithMembership({
+        db,
+        userId: 'user-1',
+        name: 'Casa',
+        monthlyBudget: 100,
+        displayName: 'Ada',
+      })
+      const [category] = await listCategories({
+        db,
+        householdId: household.id,
+      })
+      if (category === undefined) {
+        throw new Error('expected a seeded category')
+      }
+      const visa = await createCard({
+        db,
+        householdId: household.id,
+        name: 'Visa',
+      })
+      const base = {
+        db,
+        householdId: household.id,
+        cardId: visa.id,
+        categoryId: category.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        comments: '',
+      }
+      await createCardPurchase({
+        ...base,
+        name: 'Zapatillas',
+        total: 300,
+        cuotas: 3,
+        purchaseDate: new Date(2026, 8, 5),
+      })
+      await createCardPurchase({
+        ...base,
+        name: 'Cena',
+        total: 40,
+        cuotas: 1,
+        purchaseDate: new Date(2026, 8, 10),
+      })
+
+      renderPage(
+        <RecentExpensesList
+          db={db}
+          householdId={household.id}
+          onEditExpense={() => {}}
+        />,
+      )
+
+      const list = await screen.findByRole('list', {
+        name: 'Últimos gastos del mes',
+      })
+      const rows = within(list).getAllByRole('listitem')
+      expect(rows.map((row) => row.textContent)).toEqual([
+        expect.stringContaining('Cena'),
+        expect.stringContaining('Zapatillas'),
+      ])
+      expect(
+        within(list).getByText('Visa · 1 cuota · no suma este mes'),
+      ).toBeInTheDocument()
+      expect(
+        within(list).getByText('Visa · 3 cuotas · no suma este mes'),
+      ).toBeInTheDocument()
+      // Not editable yet: that is a later ticket.
+      expect(
+        within(list).queryByRole('button', { name: /Zapatillas/ }),
+      ).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('RecentExpensesList card purchases and the row cap', () => {
+  it('counts card purchases toward the five-row cap, a same-day purchase logged last going first', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 20, 9))
+    try {
+      const db = createMemoryHouseholdsDb().asUser('user-1')
+      const household = await createHouseholdWithMembership({
+        db,
+        userId: 'user-1',
+        name: 'Casa',
+        monthlyBudget: 100,
+      })
+      const [category] = await listCategories({
+        db,
+        householdId: household.id,
+      })
+      if (category === undefined) {
+        throw new Error('expected a seeded category')
+      }
+      for (let i = 1; i <= 5; i += 1) {
+        vi.setSystemTime(new Date(2026, 8, 20, 9, i))
+        await createExpense({
+          db,
+          householdId: household.id,
+          categoryId: category.id,
+          memberId: 'user-1',
+          authorDisplayName: 'Ada',
+          name: `Expense ${String(i)}`,
+          price: 5,
+          comments: '',
+          expenseDate: new Date(2026, 8, 20),
+        })
+      }
+      vi.setSystemTime(new Date(2026, 8, 20, 10))
+      const visa = await createCard({
+        db,
+        householdId: household.id,
+        name: 'Visa',
+      })
+      await createCardPurchase({
+        db,
+        householdId: household.id,
+        cardId: visa.id,
+        categoryId: category.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        name: 'Zapatillas',
+        total: 300,
+        cuotas: 3,
+        purchaseDate: new Date(2026, 8, 20),
+        comments: '',
+      })
+
+      renderPage(<RecentExpensesList db={db} householdId={household.id} />)
+
+      const list = await screen.findByRole('list', {
+        name: 'Últimos gastos del mes',
+      })
+      const rows = within(list).getAllByRole('listitem')
+      expect(rows).toHaveLength(6)
+      expect(rows[0]).toHaveTextContent('Zapatillas')
+      expect(rows[5]).toHaveTextContent('Expense 1')
+      expect(rows[5]).toHaveClass('hidden', 'lg:block')
+      expect(screen.getByRole('link', { name: 'Ver más' })).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("still lists the month's expenses when card purchases fail to load", async () => {
+    const memory = createMemoryHouseholdsDb()
+    const base = memory.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db: base,
+      userId: 'user-1',
+      name: 'Casa',
+      monthlyBudget: 100,
+    })
+    const [category] = await listCategories({
+      db: base,
+      householdId: household.id,
+    })
+    if (category === undefined) {
+      throw new Error('expected a seeded category')
+    }
+    await createExpense({
+      db: base,
+      householdId: household.id,
+      categoryId: category.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Pan',
+      price: 10,
+      comments: '',
+      expenseDate: currentMonthDate(1),
+    })
+    const db = {
+      ...base,
+      listCardPurchasesInMonth: () =>
+        Promise.reject(new Error('No se pudo cargar las compras con tarjeta')),
+    }
+
+    renderPage(<RecentExpensesList db={db} householdId={household.id} />)
+
+    expect(await screen.findByText('Pan')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })

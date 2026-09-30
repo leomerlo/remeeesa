@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
 import { TintedBadge } from '@/components/CategoryBadge'
 import { MovementCard } from '@/components/MovementCard'
@@ -24,6 +24,7 @@ import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { dueDateLabel, isOverdue, paidDateLabel } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
 import { pendientesQueryKey } from './queryKeys'
+import { ResumenSheet, resumenLabel } from './ResumenSheet'
 import { AlertMessage } from '@/components/ui/alert-message'
 
 export type PendientesListProps = {
@@ -58,6 +59,7 @@ export function PendientesList({
   // states was the confusion -- a due date on its own does not say whether
   // it is behind you. Per direct feedback.
   const isSearching = query.trim() !== ''
+  const [openResumen, setOpenResumen] = useState<Pendiente | null>(null)
   const defaultRange = useMemo(() => currentMonthRange(), [])
   const monthStart = monthStartProp ?? defaultRange.monthStart
   const monthEnd = monthEndProp ?? defaultRange.monthEnd
@@ -197,8 +199,22 @@ export function PendientesList({
       onMarkPaid !== undefined && !isPaid && !projected && !isResumen
     const canEdit = onEditPendiente !== undefined && !projected && !isResumen
     const actions =
-      !canMarkPaid && !canEdit ? null : (
+      !canMarkPaid && !canEdit && !isResumen ? null : (
         <>
+          {isResumen ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="px-5"
+              aria-label={`Ver ${resumenLabel(pendiente)}`}
+              onClick={() => {
+                setOpenResumen(pendiente)
+              }}
+            >
+              Ver
+            </Button>
+          ) : null}
           {canMarkPaid ? (
             <Button
               type="button"
@@ -273,6 +289,14 @@ export function PendientesList({
 
   return (
     <div className="flex w-full flex-col gap-8 text-sm">
+      <ResumenSheet
+        db={db}
+        householdId={householdId}
+        resumen={openResumen}
+        onClose={() => {
+          setOpenResumen(null)
+        }}
+      />
       {/* Group labels, not titles. At the section size they were a third
           heading in a row of three -- page name, month, group -- all at
           much the same weight, so nothing said which was which. Smaller and

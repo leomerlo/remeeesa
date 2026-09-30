@@ -794,3 +794,29 @@ describe('createCardPurchase adapter', () => {
     ).toBeLessThan(source.indexOf('runTransaction('))
   })
 })
+
+describe('listCardPurchasesInMonth adapter', () => {
+  it('scopes to the household and the month, newest purchase first', () => {
+    expect(adapterSource).toMatch(
+      /async listCardPurchasesInMonth\(input\) \{[\s\S]*?collection\(firestore, 'card_purchases'\),\s*where\('household_id', '==', input\.householdId\),[\s\S]*?'purchase_date',\s*'>=',[\s\S]*?where\('purchase_date', '<=',[\s\S]*?orderBy\('purchase_date', 'desc'\),/,
+    )
+  })
+
+  it('declares the composite index that query needs', () => {
+    const purchaseIndex = indexes.indexes.find(
+      (index) => index.collectionGroup === 'card_purchases',
+    )
+    expect(purchaseIndex?.fields).toEqual([
+      { fieldPath: 'household_id', order: 'ASCENDING' },
+      { fieldPath: 'purchase_date', order: 'DESCENDING' },
+    ])
+  })
+})
+
+describe('createCardPurchase purchase_date', () => {
+  it('stores the purchase date at midday, like expense_date', () => {
+    expect(adapterSource).toContain(
+      'purchase_date: toFirestoreExpenseDate(input.purchaseDate),',
+    )
+  })
+})

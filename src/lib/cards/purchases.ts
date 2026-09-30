@@ -4,7 +4,12 @@ import {
   parseExpenseName,
   parseExpensePrice,
 } from '@/lib/expenses/validate'
+import { currentMonthRange } from '@/lib/expenses/remainingBudget'
 import type { HouseholdsDb } from '@/lib/households/types'
+import { pendientesDueInMonth } from '@/lib/pendientes/pendingForMonth'
+import type { Pendiente } from '@/lib/pendientes/types'
+import { cuotasOf } from './cuotas'
+import type { Cuota } from './cuotas'
 import type { CardPurchase } from './types'
 
 export const MAX_CUOTAS = 24
@@ -87,4 +92,72 @@ export async function createCardPurchase(input: {
     purchaseDate,
     comments: input.comments,
   })
+}
+
+// Newest first, like the Expenses they are listed beside.
+export async function listCardPurchasesInMonth(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly monthStart: Date
+  readonly monthEnd: Date
+}): Promise<readonly CardPurchase[]> {
+  const purchases = await input.db.listCardPurchasesInMonth(input)
+  return [...purchases].sort(
+    (left, right) =>
+      right.purchaseDate.getTime() - left.purchaseDate.getTime() ||
+      right.createdAt.getTime() - left.createdAt.getTime(),
+  )
+}
+
+export type ResumenCuota = {
+  readonly purchase: CardPurchase
+  readonly cuota: Cuota
+}
+
+// The cuotas a Resumen adds up: for each of its purchases, the one cuota
+// that lands in the Resumen's month.
+export async function listResumenCuotas(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly resumen: Pendiente
+}): Promise<readonly ResumenCuota[]> {
+  const purchases = await input.db.getCardPurchases({
+    householdId: input.householdId,
+    purchaseIds: input.resumen.purchaseIds ?? [],
+  })
+  const year = input.resumen.dueDate.getFullYear()
+  const month = input.resumen.dueDate.getMonth()
+  return purchases.flatMap((purchase) => {
+    const cuota = cuotasOf(purchase).find(
+      (candidate) =>
+        candidate.monthStart.getFullYear() === year &&
+        candidate.monthStart.getMonth() === month,
+    )
+    return cuota === undefined ? [] : [{ purchase, cuota }]
+  })
+}
+
+// Home's "Tarjetas el mes que viene": always the calendar month after today,
+// whichever month is on screen.
+export function cardsDueNextMonthTotal(
+  pendientes: readonly Pendiente[],
+  today: Date,
+): number {
+  const { monthStart, monthEnd } = currentMonthRange(
+    new Date(today.getFullYear(), today.getMonth() + 1, 1),
+  )
+  const cents = pendientesDueInMonth(pendientes, monthStart, monthEnd)
+    .filter((pendiente) => pendiente.cardId !== undefined)
+    .reduce(
+      (sum, resumen) => sum + Math.round((resumen.expectedAmount ?? 0) * 100),
+      0,
+    )
+  return cents / 100
+}
+
+// How a purchase reads in the movements list of its month, where it shows
+// but does not count: "Visa · 3 cuotas · no suma este mes".
+export function cardPurchaseMark(cardName: string, cuotas: number): string {
+  const count = cuotas === 1 ? '1 cuota' : `${String(cuotas)} cuotas`
+  return `${cardName} · ${count} · no suma este mes`
 }

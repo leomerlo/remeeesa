@@ -257,4 +257,16 @@ export type HouseholdsDb = {
     readonly purchaseDate: Date
     readonly comments: string
   }): Promise<CardPurchase>
+  listCardPurchasesInMonth(input: {
+    readonly householdId: string
+    readonly monthStart: Date
+    readonly monthEnd: Date
+  }): Promise<readonly CardPurchase[]>
+  // In purchaseIds order. Expects a Resumen's own purchaseIds: an id with no
+  // purchase of this household behind it is skipped in memory, but Firestore
+  // rules deny reading it, so the real adapter rejects the whole call.
+  getCardPurchases(input: {
+    readonly householdId: string
+    readonly purchaseIds: readonly string[]
+  }): Promise<readonly CardPurchase[]>
 }

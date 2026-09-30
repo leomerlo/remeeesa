@@ -49,6 +49,41 @@ async function seedResumen(
   }
 }
 
+// Next month's Resumen then holds cuota 1/1 of Zapatillas (seedResumen) and
+// cuota 2/3 of a Heladera bought on the 1st of last month.
+async function seedTwoCuotaResumen(
+  db: HouseholdsDb,
+  householdId: string,
+  categoryId: string,
+) {
+  const month = await seedResumen(db, householdId, categoryId)
+  const [card] = await db.listCards({ householdId })
+  if (card === undefined) {
+    throw new Error('expected the seeded card')
+  }
+  const now = new Date()
+  const heladeraDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  await createCardPurchase({
+    db,
+    householdId,
+    cardId: card.id,
+    categoryId,
+    memberId: 'user-1',
+    authorDisplayName: 'Ada',
+    name: 'Heladera',
+    total: 300,
+    cuotas: 3,
+    purchaseDate: heladeraDate,
+    comments: '',
+  })
+  return { month, heladeraDate }
+}
+
+function formatLongDate(date: Date): string {
+  const pad = (value: number): string => String(value).padStart(2, '0')
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${String(date.getFullYear())}`
+}
+
 function renderSection(ui: ReactElement, queryClient?: QueryClient) {
   return renderWithProviders(<MemoryRouter>{ui}</MemoryRouter>, {
     ...(queryClient === undefined ? {} : { queryClient }),
@@ -578,9 +613,13 @@ describe('PorPagarSection', () => {
     expect(await screen.findByText('Gas')).toBeInTheDocument()
   })
 
-  it("shows a card's Resumen with its total but never opens the Pendiente form from it", async () => {
+  it("opens a card's Resumen to its cuotas, never the Pendiente form", async () => {
     const { db, householdId, categoryId } = await seedHousehold()
-    const month = await seedResumen(db, householdId, categoryId)
+    const { month, heladeraDate } = await seedTwoCuotaResumen(
+      db,
+      householdId,
+      categoryId,
+    )
     const onMarkPaid = vi.fn()
 
     renderSection(
@@ -592,11 +631,27 @@ describe('PorPagarSection', () => {
       />,
     )
 
-    const name = await screen.findByText('Visa')
-    const card = name.closest('li') as HTMLElement
-    expect(card).toHaveTextContent('120')
-    expect(within(card).queryByRole('button')).not.toBeInTheDocument()
-    fireEvent.click(name)
+    const card = await screen.findByRole('button', {
+      name: /^Ver Resumen Visa de /,
+    })
+    expect(card).toHaveTextContent('220')
+    fireEvent.click(card)
     expect(onMarkPaid).not.toHaveBeenCalled()
+
+    const cuotas = await screen.findByRole('list', {
+      name: 'Cuotas del resumen',
+    })
+    const rows = within(cuotas).getAllByRole('listitem')
+    expect(rows).toHaveLength(2)
+    const heladera = rows.find((row) => row.textContent.includes('Heladera'))
+    expect(heladera).toHaveTextContent('Comida')
+    expect(heladera).toHaveTextContent(formatLongDate(heladeraDate))
+    expect(heladera).toHaveTextContent('cuota 2/3')
+    expect(heladera).toHaveTextContent('$100')
+    const zapatillas = rows.find((row) =>
+      row.textContent.includes('Zapatillas'),
+    )
+    expect(zapatillas).toHaveTextContent('$120')
+    expect(zapatillas).not.toHaveTextContent('cuota')
   })
 })

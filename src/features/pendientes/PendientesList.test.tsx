@@ -51,6 +51,36 @@ async function seedResumen(
   }
 }
 
+// Next month's Resumen then holds cuota 1/1 of Zapatillas (seedResumen) and
+// cuota 2/3 of a Heladera bought on the 1st of last month.
+async function seedTwoCuotaResumen(
+  db: HouseholdsDb,
+  householdId: string,
+  categoryId: string,
+) {
+  const month = await seedResumen(db, householdId, categoryId)
+  const [card] = await db.listCards({ householdId })
+  if (card === undefined) {
+    throw new Error('expected the seeded card')
+  }
+  const now = new Date()
+  const heladeraDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  await createCardPurchase({
+    db,
+    householdId,
+    cardId: card.id,
+    categoryId,
+    memberId: 'user-1',
+    authorDisplayName: 'Ada',
+    name: 'Heladera',
+    total: 300,
+    cuotas: 3,
+    purchaseDate: heladeraDate,
+    comments: '',
+  })
+  return { month, heladeraDate }
+}
+
 function formatPendienteDueDate(date: Date): string {
   // "06/09/2026". Written long-hand here on purpose: asserting with the
   // very function under render would still pass if the formatting silently
@@ -881,7 +911,7 @@ describe('PendientesList', () => {
     expect(icon.querySelector('svg')).not.toBeNull()
   })
 
-  it("offers neither Pagar nor Editar on a card's Resumen", async () => {
+  it("offers neither Pagar nor Editar on a card's Resumen, only its cuotas", async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -894,7 +924,7 @@ describe('PendientesList', () => {
       householdId: household.id,
       name: 'Comida',
     })
-    const month = await seedResumen(db, household.id, categoryId)
+    const { month } = await seedTwoCuotaResumen(db, household.id, categoryId)
 
     renderWithProviders(
       <List
@@ -907,6 +937,15 @@ describe('PendientesList', () => {
     )
 
     const row = (await screen.findByText('Visa')).closest('li') as HTMLElement
-    expect(within(row).queryByRole('button')).not.toBeInTheDocument()
+    expect(within(row).getAllByRole('button')).toHaveLength(1)
+    fireEvent.click(
+      within(row).getByRole('button', { name: /^Ver Resumen Visa de / }),
+    )
+    const cuotas = await screen.findByRole('list', {
+      name: 'Cuotas del resumen',
+    })
+    expect(within(cuotas).getByText('Heladera')).toBeInTheDocument()
+    expect(within(cuotas).getByText('cuota 2/3')).toBeInTheDocument()
+    expect(within(cuotas).getByText('Zapatillas')).toBeInTheDocument()
   })
 })
