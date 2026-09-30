@@ -262,6 +262,9 @@ export type HouseholdsDb = {
   // resumenCategoryId and deleting one left with no purchase. Rejects --
   // writing nothing -- with CardPurchaseNotFoundError, CardNotFoundError, or
   // ResumenAlreadyPaidError when any Resumen it is in before or after is paid.
+  // Firestore rules deny reading a purchase outside the caller's household,
+  // so there an outsider gets CardPurchaseNotFoundError rather than the
+  // memory adapter's HouseholdAccessDeniedError.
   updateCardPurchase(input: {
     readonly householdId: string
     readonly purchaseId: string
@@ -287,7 +290,8 @@ export type HouseholdsDb = {
   }): Promise<readonly CardPurchase[]>
   // In purchaseIds order. An id with no purchase of this household behind it
   // (missing, or another household's -- rules deny reading those) is
-  // skipped rather than failing the whole Resumen.
+  // skipped rather than failing the whole Resumen -- in Firestore that also
+  // means a caller outside the household gets an empty list.
   getCardPurchases(input: {
     readonly householdId: string
     readonly purchaseIds: readonly string[]
