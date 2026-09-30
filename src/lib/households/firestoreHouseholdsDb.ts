@@ -15,15 +15,26 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore'
-import type { DocumentReference, Firestore } from 'firebase/firestore'
+import type {
+  DocumentReference,
+  Firestore,
+  Transaction,
+} from 'firebase/firestore'
 import { getAuth } from 'firebase/auth'
 import {
   parseCardDocument,
   parseCardPurchaseDocument,
 } from '@/lib/cards/converters'
-import { cuotasOf, resumenIdFor } from '@/lib/cards/cuotas'
+import {
+  applyResumenChange,
+  cuotasOf,
+  resumenChanges,
+  resumenIdFor,
+} from '@/lib/cards/cuotas'
+import type { CardPurchase } from '@/lib/cards/types'
 import {
   CardNotFoundError,
+  CardPurchaseNotFoundError,
   RESUMEN_DUE_DAY,
   ResumenAlreadyPaidError,
 } from '@/lib/cards/purchases'
@@ -210,6 +221,132 @@ function authenticatedUserId(firestore: Firestore): string {
 async function awaitAuthenticatedUserId(firestore: Firestore): Promise<string> {
   await getAuth(firestore.app).authStateReady()
   return authenticatedUserId(firestore)
+}
+
+// A Resumen's first write, from the purchase with a cuota in its month.
+function newResumenDocument(input: {
+  readonly householdId: string
+  readonly resumenCategoryId: string
+  readonly cardId: string
+  readonly cardName: string
+  readonly monthStart: Date
+  readonly amount: number
+  readonly purchaseId: string
+  readonly now: Timestamp
+}): Record<string, unknown> {
+  const dueDate = new Date(
+    input.monthStart.getFullYear(),
+    input.monthStart.getMonth(),
+    RESUMEN_DUE_DAY,
+  )
+  return {
+    ...pendienteToDocument({
+      householdId: input.householdId,
+      categoryId: input.resumenCategoryId,
+      name: input.cardName,
+      dueDate,
+      expectedAmount: input.amount,
+      recurring: false,
+      autoDebit: false,
+      status: 'pending',
+      paidExpenseId: null,
+      paidAt: null,
+      createdAt: input.now.toDate(),
+    }),
+    due_date: toFirestorePendienteDate(dueDate),
+    created_at: input.now,
+    card_id: input.cardId,
+    purchase_ids: [input.purchaseId],
+  }
+}
+
+// The edit/delete transaction's shared half: reads the purchase and every
+// Resumen it is in before or after (after = null deletes it), rejects if any
+// is paid, then moves the cuotas. Every read lands before any write, as
+// transactions require; the caller writes the purchase itself afterwards.
+async function moveCardPurchaseCuotas(input: {
+  readonly firestore: Firestore
+  readonly tx: Transaction
+  readonly householdId: string
+  readonly purchaseId: string
+  readonly after: (before: CardPurchase) => {
+    readonly purchase: CardPurchase
+    readonly cardName: string
+    readonly resumenCategoryId: string
+  } | null
+}): Promise<CardPurchase | null> {
+  const { firestore, tx } = input
+  const purchaseSnap = await tx.get(
+    doc(firestore, 'card_purchases', input.purchaseId),
+  )
+  if (
+    !purchaseSnap.exists() ||
+    purchaseSnap.data().household_id !== input.householdId
+  ) {
+    throw new CardPurchaseNotFoundError()
+  }
+  const before = parseCardPurchaseDocument({
+    id: purchaseSnap.id,
+    data: purchaseSnap.data(),
+  })
+  const after = input.after(before)
+  const changes = resumenChanges(before, after?.purchase ?? null)
+  const refs = changes.map((change) => doc(firestore, 'pendientes', change.id))
+  const snaps = await Promise.all(refs.map((ref) => tx.get(ref)))
+  const existing = snaps.map((snap) =>
+    snap.exists()
+      ? parsePendienteDocument({ id: snap.id, data: snap.data() })
+      : null,
+  )
+  changes.forEach((change, index) => {
+    const resumen = existing[index]
+    if (resumen?.status === 'paid') {
+      throw new ResumenAlreadyPaidError(resumen.name, change.monthStart)
+    }
+  })
+
+  const now = Timestamp.now()
+  changes.forEach((change, index) => {
+    const ref = refs[index]
+    const resumen = existing[index]
+    if (ref === undefined) {
+      return
+    }
+    if (resumen === null || resumen === undefined) {
+      if (change.holdsPurchase && after !== null) {
+        tx.set(
+          ref,
+          newResumenDocument({
+            householdId: input.householdId,
+            resumenCategoryId: after.resumenCategoryId,
+            cardId: after.purchase.cardId,
+            cardName: after.cardName,
+            monthStart: change.monthStart,
+            amount: change.cents / 100,
+            purchaseId: before.id,
+            now,
+          }),
+        )
+      }
+      return
+    }
+    const next = applyResumenChange(resumen, change, before.id)
+    if (next === null) {
+      tx.delete(ref)
+      return
+    }
+    // A pure rename or recategorisation leaves the cuotas where they were.
+    if (
+      change.cents !== 0 ||
+      next.purchaseIds.length !== (resumen.purchaseIds ?? []).length
+    ) {
+      tx.update(ref, {
+        expected_amount: next.expectedAmount,
+        purchase_ids: next.purchaseIds,
+      })
+    }
+  })
+  return after?.purchase ?? null
 }
 
 export function createFirestoreHouseholdsDb(
@@ -1351,30 +1488,19 @@ export function createFirestoreHouseholdsDb(
                 })
                 return
               }
-              const dueDate = new Date(
-                cuota.monthStart.getFullYear(),
-                cuota.monthStart.getMonth(),
-                RESUMEN_DUE_DAY,
-              )
-              tx.set(cuota.ref, {
-                ...pendienteToDocument({
+              tx.set(
+                cuota.ref,
+                newResumenDocument({
                   householdId: input.householdId,
-                  categoryId: input.resumenCategoryId,
-                  name: card.name,
-                  dueDate,
-                  expectedAmount: cuota.amount,
-                  recurring: false,
-                  autoDebit: false,
-                  status: 'pending',
-                  paidExpenseId: null,
-                  paidAt: null,
-                  createdAt,
+                  resumenCategoryId: input.resumenCategoryId,
+                  cardId: input.cardId,
+                  cardName: card.name,
+                  monthStart: cuota.monthStart,
+                  amount: cuota.amount,
+                  purchaseId: purchaseRef.id,
+                  now,
                 }),
-                due_date: toFirestorePendienteDate(dueDate),
-                created_at: now,
-                card_id: input.cardId,
-                purchase_ids: [purchaseRef.id],
-              })
+              )
             })
 
             return {
@@ -1394,6 +1520,80 @@ export function createFirestoreHouseholdsDb(
           })
         },
         { householdId: input.householdId, cardId: input.cardId },
+      )
+    },
+    async updateCardPurchase(input) {
+      return withHouseholdAccess(
+        'updateCardPurchase',
+        async () => {
+          const purchaseRef = doc(firestore, 'card_purchases', input.purchaseId)
+          return runTransaction(firestore, async (tx) => {
+            const cardSnap = await tx.get(doc(firestore, 'cards', input.cardId))
+            if (
+              !cardSnap.exists() ||
+              cardSnap.data().household_id !== input.householdId
+            ) {
+              throw new CardNotFoundError()
+            }
+            const cardName = parseCardDocument({
+              id: cardSnap.id,
+              data: cardSnap.data(),
+            }).name
+            const edited = await moveCardPurchaseCuotas({
+              firestore,
+              tx,
+              householdId: input.householdId,
+              purchaseId: input.purchaseId,
+              after: (before) => ({
+                purchase: {
+                  ...before,
+                  cardId: input.cardId,
+                  categoryId: input.categoryId,
+                  name: input.name,
+                  total: input.total,
+                  cuotas: input.cuotas,
+                  purchaseDate: input.purchaseDate,
+                  comments: input.comments,
+                },
+                cardName,
+                resumenCategoryId: input.resumenCategoryId,
+              }),
+            })
+            if (edited === null) {
+              throw new CardPurchaseNotFoundError()
+            }
+            // member_id, author and created_at stay the original author's.
+            tx.update(purchaseRef, {
+              card_id: input.cardId,
+              category_id: input.categoryId,
+              name: input.name,
+              total: input.total,
+              cuotas: input.cuotas,
+              purchase_date: toFirestoreExpenseDate(input.purchaseDate),
+              comments: input.comments,
+            })
+            return edited
+          })
+        },
+        { householdId: input.householdId, purchaseId: input.purchaseId },
+      )
+    },
+    async deleteCardPurchase(input) {
+      return withHouseholdAccess(
+        'deleteCardPurchase',
+        async () => {
+          await runTransaction(firestore, async (tx) => {
+            await moveCardPurchaseCuotas({
+              firestore,
+              tx,
+              householdId: input.householdId,
+              purchaseId: input.purchaseId,
+              after: () => null,
+            })
+            tx.delete(doc(firestore, 'card_purchases', input.purchaseId))
+          })
+        },
+        { householdId: input.householdId, purchaseId: input.purchaseId },
       )
     },
     async listCardPurchasesInMonth(input) {
@@ -1429,16 +1629,26 @@ export function createFirestoreHouseholdsDb(
         async () => {
           // One get per id: a Resumen holds a handful of purchases, and the
           // rules allow reading each one the household owns.
-          const snaps = await Promise.all(
+          // Rules deny reading a missing or foreign id, so one bad id in
+          // purchase_ids is skipped rather than failing the whole Resumen.
+          const results = await Promise.allSettled(
             input.purchaseIds.map((id) =>
               getDoc(doc(firestore, 'card_purchases', id)),
             ),
           )
-          return snaps.flatMap((snap) =>
-            snap.exists() && snap.data().household_id === input.householdId
+          return results.flatMap((result) => {
+            if (result.status === 'rejected') {
+              if (isFirestorePermissionDenied(result.reason)) {
+                return []
+              }
+              throw result.reason
+            }
+            const snap = result.value
+            return snap.exists() &&
+              snap.data().household_id === input.householdId
               ? [parseCardPurchaseDocument({ id: snap.id, data: snap.data() })]
-              : [],
-          )
+              : []
+          })
         },
         { householdId: input.householdId },
       )

@@ -16,9 +16,11 @@ import { createCard } from './cards'
 import {
   cardsDueNextMonthTotal,
   createCardPurchase,
+  deleteCardPurchase,
   listCardPurchasesInMonth,
   listResumenCuotas,
   ResumenAlreadyPaidError,
+  updateCardPurchase,
 } from './purchases'
 
 const TODAY = new Date(2026, 8, 20, 12)
@@ -348,6 +350,241 @@ describe('createCardPurchase', () => {
         },
       ),
     ).rejects.toBeInstanceOf(HouseholdAccessDeniedError)
+  })
+})
+
+async function resumenSummary(s: Setup) {
+  const pendientes = await listPendientes({
+    db: s.db,
+    householdId: s.householdId,
+  })
+  return pendientes.map((p) => [p.id, p.expectedAmount, p.purchaseIds])
+}
+
+function edit(
+  s: Setup,
+  purchaseId: string,
+  overrides: Partial<Parameters<typeof updateCardPurchase>[0]> = {},
+) {
+  return updateCardPurchase({
+    db: s.db,
+    householdId: s.householdId,
+    purchaseId,
+    cardId: s.visa.id,
+    categoryId: s.comidaId,
+    name: 'Zapatillas',
+    total: 300,
+    cuotas: 3,
+    purchaseDate: new Date(2026, 8, 5),
+    comments: '',
+    ...overrides,
+  })
+}
+
+describe('updateCardPurchase', () => {
+  it('rewrites every field and returns the edited purchase', async () => {
+    const s = await setup()
+    const created = await purchase(s)
+    const categories = await listCategories({
+      db: s.db,
+      householdId: s.householdId,
+    })
+    const hogar = categories.find((category) => category.name !== 'Comida')
+    if (hogar === undefined) {
+      throw new Error('expected a second seeded category')
+    }
+
+    const edited = await edit(s, created.id, {
+      name: '  Botines ',
+      categoryId: hogar.id,
+      total: 90,
+      cuotas: 2,
+      purchaseDate: new Date(2026, 8, 1),
+      comments: 'regalo',
+    })
+
+    expect(edited).toEqual({
+      ...created,
+      name: 'Botines',
+      categoryId: hogar.id,
+      total: 90,
+      cuotas: 2,
+      purchaseDate: new Date(2026, 8, 1),
+      comments: 'regalo',
+    })
+    expect(
+      await listCardPurchasesInMonth({
+        db: s.db,
+        householdId: s.householdId,
+        ...monthRange(2026, 8),
+      }),
+    ).toEqual([edited])
+  })
+
+  it('recomputes each Resumen the purchase is in and drops ones left empty', async () => {
+    const s = await setup()
+    const other = await purchase(s, { total: 10, cuotas: 1 })
+    const created = await purchase(s, { total: 300, cuotas: 3 })
+
+    await edit(s, created.id, { total: 100, cuotas: 1 })
+
+    expect(await resumenSummary(s)).toEqual([
+      [`${s.visa.id}_2026-10`, 110, [other.id, created.id]],
+    ])
+  })
+
+  it('moves the cuotas to the new months when the date changes', async () => {
+    const s = await setup()
+    const created = await purchase(s, { total: 100, cuotas: 2 })
+
+    await edit(s, created.id, {
+      total: 100,
+      cuotas: 2,
+      purchaseDate: new Date(2026, 7, 20),
+    })
+
+    expect(await resumenSummary(s)).toEqual([
+      [`${s.visa.id}_2026-09`, 50, [created.id]],
+      [`${s.visa.id}_2026-10`, 50, [created.id]],
+    ])
+  })
+
+  it("moves the cuotas to the other card's Resúmenes", async () => {
+    const s = await setup()
+    const master = await createCard({
+      db: s.db,
+      householdId: s.householdId,
+      name: 'Master',
+    })
+    const created = await purchase(s, { total: 20, cuotas: 1 })
+
+    await edit(s, created.id, { cardId: master.id, total: 20, cuotas: 1 })
+
+    const pendientes = await listPendientes({
+      db: s.db,
+      householdId: s.householdId,
+    })
+    expect(
+      pendientes.map((p) => [p.id, p.name, p.expectedAmount, p.purchaseIds]),
+    ).toEqual([[`${master.id}_2026-10`, 'Master', 20, [created.id]]])
+  })
+
+  it('writes nothing when a Resumen it touches is already paid', async () => {
+    const s = await setup()
+    const created = await purchase(s, { total: 100, cuotas: 1 })
+    const [october] = await listPendientes({
+      db: s.db,
+      householdId: s.householdId,
+    })
+    if (october === undefined) {
+      throw new Error('expected the October Resumen')
+    }
+    s.memory.seedPendiente({ ...october, status: 'paid' })
+
+    await expect(edit(s, created.id, { total: 50, cuotas: 1 })).rejects.toThrow(
+      'El resumen de Visa de octubre de 2026 ya está pagado.',
+    )
+    expect(
+      await listCardPurchasesInMonth({
+        db: s.db,
+        householdId: s.householdId,
+        ...monthRange(2026, 8),
+      }),
+    ).toEqual([created])
+  })
+
+  it('validates like a new purchase', async () => {
+    const s = await setup()
+    const created = await purchase(s)
+
+    await expect(edit(s, created.id, { cuotas: 25 })).rejects.toThrow(
+      'Las cuotas deben ser un número entero entre 1 y 24',
+    )
+    await expect(
+      edit(s, created.id, { purchaseDate: new Date(2026, 8, 21) }),
+    ).rejects.toThrow()
+  })
+
+  it('rejects a purchase that does not exist or belongs to another household', async () => {
+    const s = await setup()
+
+    await expect(edit(s, 'missing')).rejects.toThrow(
+      'No se encontró la compra.',
+    )
+  })
+
+  it('denies someone outside the household', async () => {
+    const s = await setup()
+    const created = await purchase(s)
+
+    await expect(
+      edit({ ...s, db: s.memory.asUser('outsider') }, created.id),
+    ).rejects.toBeInstanceOf(HouseholdAccessDeniedError)
+  })
+})
+
+describe('deleteCardPurchase', () => {
+  it('removes the purchase and its cuotas, dropping Resúmenes left empty', async () => {
+    const s = await setup()
+    const other = await purchase(s, { total: 10, cuotas: 1 })
+    const created = await purchase(s, { total: 300, cuotas: 3 })
+
+    await deleteCardPurchase({
+      db: s.db,
+      householdId: s.householdId,
+      purchaseId: created.id,
+    })
+
+    expect(await resumenSummary(s)).toEqual([
+      [`${s.visa.id}_2026-10`, 10, [other.id]],
+    ])
+    expect(
+      await listCardPurchasesInMonth({
+        db: s.db,
+        householdId: s.householdId,
+        ...monthRange(2026, 8),
+      }),
+    ).toEqual([other])
+  })
+
+  it('writes nothing when one of its Resúmenes is already paid', async () => {
+    const s = await setup()
+    const created = await purchase(s, { total: 100, cuotas: 1 })
+    const [october] = await listPendientes({
+      db: s.db,
+      householdId: s.householdId,
+    })
+    if (october === undefined) {
+      throw new Error('expected the October Resumen')
+    }
+    s.memory.seedPendiente({ ...october, status: 'paid' })
+
+    await expect(
+      deleteCardPurchase({
+        db: s.db,
+        householdId: s.householdId,
+        purchaseId: created.id,
+      }),
+    ).rejects.toBeInstanceOf(ResumenAlreadyPaidError)
+    expect(
+      await listCardPurchasesInMonth({
+        db: s.db,
+        householdId: s.householdId,
+        ...monthRange(2026, 8),
+      }),
+    ).toEqual([created])
+  })
+
+  it('rejects a purchase that does not exist', async () => {
+    const s = await setup()
+
+    await expect(
+      deleteCardPurchase({
+        db: s.db,
+        householdId: s.householdId,
+        purchaseId: 'missing',
+      }),
+    ).rejects.toThrow('No se encontró la compra.')
   })
 })
 

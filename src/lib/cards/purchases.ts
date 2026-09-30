@@ -43,6 +43,14 @@ export class CardNotFoundError extends Error {
   }
 }
 
+export class CardPurchaseNotFoundError extends Error {
+  override readonly name = 'CardPurchaseNotFoundError'
+
+  constructor() {
+    super('No se encontró la compra.')
+  }
+}
+
 // total is the purchase's already-parsed price: every cuota has to be at
 // least one cent.
 export function parseCuotas(cuotas: number, total: number): number {
@@ -91,6 +99,54 @@ export async function createCardPurchase(input: {
     cuotas,
     purchaseDate,
     comments: input.comments,
+  })
+}
+
+// Any field may change, card and cuotas included: the old cuotas leave their
+// Resúmenes and the new ones join theirs, in one transaction.
+export async function updateCardPurchase(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly purchaseId: string
+  readonly cardId: string
+  readonly categoryId: string
+  readonly name: string
+  readonly total: number
+  readonly cuotas: number
+  readonly purchaseDate: Date
+  readonly comments: string
+}): Promise<CardPurchase> {
+  const name = parseExpenseName(input.name)
+  const total = parseExpensePrice(input.total)
+  const cuotas = parseCuotas(input.cuotas, total)
+  const purchaseDate = parseExpenseDate(input.purchaseDate)
+  // A new month may need a new Resumen.
+  const resumenCategory = await input.db.findOrCreateCategory({
+    householdId: input.householdId,
+    name: RESUMEN_CATEGORY_NAME,
+  })
+  return input.db.updateCardPurchase({
+    householdId: input.householdId,
+    purchaseId: input.purchaseId,
+    cardId: input.cardId,
+    categoryId: input.categoryId,
+    resumenCategoryId: resumenCategory.id,
+    name,
+    total,
+    cuotas,
+    purchaseDate,
+    comments: input.comments,
+  })
+}
+
+export async function deleteCardPurchase(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly purchaseId: string
+}): Promise<void> {
+  await input.db.deleteCardPurchase({
+    householdId: input.householdId,
+    purchaseId: input.purchaseId,
   })
 }
 

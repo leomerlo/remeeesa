@@ -244,8 +244,10 @@ service cloud.firestore {
         && isMemberOf(get(/databases/$(database)/documents/cards/$(pendienteId[0:pendienteId.size() - 8])).data.household_id);
     }
 
-    // Logging a card purchase adds its cuota to a still-pending Resumen:
-    // only the amount and the purchase list move.
+    // Logging, editing or deleting a card purchase moves its cuota in or out
+    // of a still-pending Resumen: only the amount and the purchase list move.
+    // A Resumen left with no purchase is deleted instead (pending Pendientes
+    // may be deleted).
     function isValidResumenUpdate() {
       return resource.data.status == 'pending'
         && ('card_id' in resource.data)
@@ -253,10 +255,17 @@ service cloud.firestore {
           .hasOnly(['expected_amount', 'purchase_ids'])
         && request.resource.data.expected_amount is number
         && request.resource.data.expected_amount > 0
-        // Exactly one purchase added, none dropped.
+        // One purchase joins, one leaves, or the list stays as it was (an
+        // edited amount) -- never a wholesale rewrite.
         && request.resource.data.purchase_ids is list
-        && request.resource.data.purchase_ids.size() == resource.data.purchase_ids.size() + 1
-        && request.resource.data.purchase_ids.hasAll(resource.data.purchase_ids);
+        && (
+          (request.resource.data.purchase_ids.size() == resource.data.purchase_ids.size() + 1
+            && request.resource.data.purchase_ids.hasAll(resource.data.purchase_ids))
+          || (request.resource.data.purchase_ids.size() == resource.data.purchase_ids.size() - 1
+            && resource.data.purchase_ids.hasAll(request.resource.data.purchase_ids))
+          || (request.resource.data.purchase_ids.size() == resource.data.purchase_ids.size()
+            && request.resource.data.purchase_ids.hasAll(resource.data.purchase_ids))
+        );
     }
 
     // Editing is only allowed while the pendiente is still pending -- once paid,
@@ -473,7 +482,7 @@ service cloud.firestore {
         && data.household_id.size() > 0
         && data.card_id is string
         && data.category_id is string
-        && data.member_id == request.auth.uid
+        && data.member_id is string
         && data.author_display_name is string
         && data.author_display_name.matches('.*\\S.*')
         && data.name is string
@@ -491,16 +500,29 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/categories/$(data.category_id)).data.household_id == data.household_id;
     }
 
-    // No other update, and no delete yet: editing and deleting purchases is a
-    // later ticket.
+    // Any member may edit any field but the author's and the timestamps
+    // (member_id stays whoever logged it, so it is not checked against the
+    // editor). The Resúmenes move in the same transaction -- rules cannot tie
+    // the two together, the same limit as the category-delete guard. Every
+    // rule get() here and on those Resúmenes hits one of a handful of docs
+    // (membership, card, category, "Tarjeta"), well inside the 20-lookup
+    // budget even at 24 cuotas.
+    function isValidCardPurchaseEdit() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['card_id', 'category_id', 'name', 'total', 'cuotas', 'purchase_date', 'comments'])
+        && isValidCardPurchase(request.resource.data);
+    }
+
     match /card_purchases/{purchaseId} {
       allow read: if isMemberOf(resource.data.household_id);
       allow create: if isMemberOf(request.resource.data.household_id)
+        && request.resource.data.member_id == request.auth.uid
         && isValidCardPurchase(request.resource.data);
       // Renaming or merging a category repoints its purchases too (same
       // narrow category_id-only update Pendientes allow).
       allow update: if isMemberOf(resource.data.household_id)
-        && isPendienteCategoryRepoint();
+        && (isPendienteCategoryRepoint() || isValidCardPurchaseEdit());
+      allow delete: if isMemberOf(resource.data.household_id);
     }
 
     // No update/delete yet: renaming a card is a later ticket.

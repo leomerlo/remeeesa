@@ -45,6 +45,10 @@ export type ExpenseHistoryProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly onEditExpense?: (expense: Expense, categoryName: string) => void
+  readonly onEditPurchase?: (
+    purchase: CardPurchase,
+    categoryName: string,
+  ) => void
 }
 
 type HistoryFilter = 'all' | 'servicio' | 'gasto'
@@ -132,18 +136,22 @@ function ExpenseRow({
 }
 
 // Listed in its purchase month so the household sees what it bought, but
-// never in the month's total: it counts through its Resúmenes. Read-only
-// here -- editing a purchase is its own flow.
+// never in the month's total: it counts through its Resúmenes.
 function CardPurchaseRow({
   purchase,
   cardName,
   category,
   authorDisplayName,
+  onEditPurchase,
 }: {
   readonly purchase: CardPurchase
   readonly cardName: string
   readonly category: Category | undefined
   readonly authorDisplayName: string
+  readonly onEditPurchase?: (
+    purchase: CardPurchase,
+    categoryName: string,
+  ) => void
 }): ReactElement {
   const categoryName = category?.name ?? 'Categoría desconocida'
   const categoryColor = category?.color ?? colorForCategoryName(categoryName)
@@ -167,6 +175,23 @@ function CardPurchaseRow({
             color="#4e4c56"
           />
         }
+        {...(onEditPurchase === undefined
+          ? {}
+          : {
+              actions: (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-mini"
+                  aria-label={`Editar ${purchase.name}`}
+                  onClick={() => {
+                    onEditPurchase(purchase, category?.name ?? '')
+                  }}
+                >
+                  <Pencil aria-hidden="true" />
+                </Button>
+              ),
+            })}
       />
     </li>
   )
@@ -176,6 +201,7 @@ export function ExpenseHistory({
   db,
   householdId,
   onEditExpense,
+  onEditPurchase,
 }: ExpenseHistoryProps): ReactElement {
   // One month at a time, paged by the same control Home and Servicios use,
   // rather than an endless cursor-walk behind "Cargar más". Per direct
@@ -503,6 +529,7 @@ export function ExpenseHistory({
                     memberById.get(row.purchase.memberId)?.displayName ??
                     row.purchase.authorDisplayName
                   }
+                  {...(onEditPurchase === undefined ? {} : { onEditPurchase })}
                 />
               )
             }

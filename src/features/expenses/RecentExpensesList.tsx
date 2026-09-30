@@ -21,6 +21,7 @@ import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { formatDate } from '@/lib/format'
 import type { Expense } from '@/lib/expenses'
+import type { CardPurchase } from '@/lib/cards'
 import { listHouseholdMembers } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { EmptyState } from '@/components/EmptyState'
@@ -34,6 +35,10 @@ export type RecentExpensesListProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly onEditExpense?: (expense: Expense, categoryName: string) => void
+  readonly onEditPurchase?: (
+    purchase: CardPurchase,
+    categoryName: string,
+  ) => void
   // Defaults to the current month. MonthNavigator's viewed month flows down
   // to this (and every other Home section that reads a month of Expenses)
   // so paging back a month moves the whole page together, not just the two
@@ -74,6 +79,7 @@ export function RecentExpensesList({
   db,
   householdId,
   onEditExpense,
+  onEditPurchase,
   monthStart: monthStartProp,
   monthEnd: monthEndProp,
 }: RecentExpensesListProps): ReactElement {
@@ -212,6 +218,16 @@ export function RecentExpensesList({
             category?.color ?? colorForCategoryName(categoryName)
           const CategoryIcon = iconForCategoryName(categoryName)
           const item = row.kind === 'expense' ? row.expense : row.purchase
+          const onEdit =
+            row.kind === 'expense'
+              ? onEditExpense &&
+                (() => {
+                  onEditExpense(row.expense, category?.name ?? '')
+                })
+              : onEditPurchase &&
+                (() => {
+                  onEditPurchase(row.purchase, category?.name ?? '')
+                })
 
           const rowContent = (
             <>
@@ -275,16 +291,14 @@ export function RecentExpensesList({
                 index >= RECENT_EXPENSES_LIMIT && 'hidden lg:block',
               )}
             >
-              {/* A card purchase is read-only here for now: editing one is
-                  its own flow, not the expense form. */}
-              {onEditExpense !== undefined && row.kind === 'expense' ? (
+              {/* A card purchase edits in the add-gasto form, an expense in
+                  the expense form. */}
+              {onEdit !== undefined ? (
                 <button
                   type="button"
                   className="bg-card flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
-                  aria-label={`Editar ${row.expense.name}`}
-                  onClick={() => {
-                    onEditExpense(row.expense, category?.name ?? '')
-                  }}
+                  aria-label={`Editar ${item.name}`}
+                  onClick={onEdit}
                 >
                   {rowContent}
                 </button>

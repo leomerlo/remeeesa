@@ -27,10 +27,13 @@ import {
 import type { HouseholdsDb } from '@/lib/households'
 import {
   createCardPurchase,
+  deleteCardPurchase,
   listCards,
   MAX_CUOTAS,
   parseCuotas,
+  updateCardPurchase,
 } from '@/lib/cards'
+import type { CardPurchase } from '@/lib/cards'
 import { cardsQueryKey } from '@/features/household/cardsQueryKey'
 import { categoriesQueryKey, expensesQueryKey } from './queryKeys'
 // Imported from the leaf file, not the @/features/pendientes barrel --
@@ -38,6 +41,12 @@ import { categoriesQueryKey, expensesQueryKey } from './queryKeys'
 // feature (CategoryCombobox), and going through it here would create a
 // features/expenses <-> features/pendientes import cycle.
 import { pendientesQueryKey } from '@/features/pendientes/queryKeys'
+
+// A card purchase opened from the movements list to edit or delete.
+export type EditPurchaseTarget = {
+  readonly purchase: CardPurchase
+  readonly categoryName: string
+}
 
 export type AddGastoFormProps = {
   readonly db: HouseholdsDb
@@ -55,6 +64,9 @@ export type AddGastoFormProps = {
   // then ("Ya lo pagué" off, date on this day) rather than as a gasto paid
   // today, since planning that month is why the person is looking at it.
   readonly defaultDueDate?: Date
+  readonly editPurchase?: EditPurchaseTarget | null
+  // Called once an edit is saved, deleted, or cancelled.
+  readonly onEditFinished?: () => void
 }
 
 type GastoFormFields = {
@@ -79,6 +91,17 @@ function emptyFormFields(defaultDueDate?: Date): GastoFormFields {
     category: '',
     date: localDateInputValue(defaultDueDate ?? new Date()),
     amount: '',
+    recurring: false,
+    autoDebit: false,
+  }
+}
+
+function editFormFields(target: EditPurchaseTarget): GastoFormFields {
+  return {
+    name: target.purchase.name,
+    category: target.categoryName,
+    date: localDateInputValue(target.purchase.purchaseDate),
+    amount: String(target.purchase.total),
     recurring: false,
     autoDebit: false,
   }
@@ -170,11 +193,11 @@ function loadErrorMessage(error: unknown): string | null {
 // created and marked paid in the same instant, so this form always decides
 // at submit time which of the two it actually is.
 //
-// Editing is deliberately out of scope here -- an existing Expense and an
-// existing Pendiente stay two different edit flows (AddExpenseForm /
-// AddPendienteForm), reached from their own rows, since converting one into
-// the other mid-edit has no clean mapping (a Pendiente's dueDate/recurring
-// have no Expense equivalent, and vice versa).
+// Editing an Expense or a Pendiente is out of scope here -- those stay two
+// different edit flows (AddExpenseForm / AddPendienteForm), reached from
+// their own rows, since converting one into the other mid-edit has no clean
+// mapping. A card purchase is the exception (editPurchase): this is the only
+// form it has, so it edits here, staying a card purchase.
 export function AddGastoForm({
   db,
   householdId,
@@ -184,6 +207,8 @@ export function AddGastoForm({
   onPendingChange,
   showRecurringOptions = true,
   defaultDueDate,
+  editPurchase = null,
+  onEditFinished,
 }: AddGastoFormProps): ReactElement {
   const queryClient = useQueryClient()
   const categoriesKey = categoriesQueryKey({ householdId })
@@ -194,7 +219,11 @@ export function AddGastoForm({
     queryFn: () => listCategories({ db, householdId }),
   })
 
-  const initialFields = emptyFormFields(defaultDueDate)
+  const isEditing = editPurchase !== null
+  const initialFields =
+    editPurchase === null
+      ? emptyFormFields(defaultDueDate)
+      : editFormFields(editPurchase)
   const [name, setName] = useState(initialFields.name)
   const [category, setCategory] = useState(initialFields.category)
   const [date, setDate] = useState(initialFields.date)
@@ -206,9 +235,12 @@ export function AddGastoForm({
   const [markPaid, setMarkPaid] = useState(defaultDueDate === undefined)
   // '' is "Efectivo / débito": today's behaviour. A card id turns this into
   // a card purchase, which counts in its Resúmenes, not in this month.
-  const [cardId, setCardId] = useState('')
-  const [cuotas, setCuotas] = useState('1')
+  const [cardId, setCardId] = useState(editPurchase?.purchase.cardId ?? '')
+  const [cuotas, setCuotas] = useState(
+    String(editPurchase?.purchase.cuotas ?? 1),
+  )
   const [error, setError] = useState<string | null>(null)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const today = localDateInputValue(new Date())
   const cardsQuery = useQuery({
     queryKey: cardsQueryKey({ householdId }),
@@ -230,6 +262,21 @@ export function AddGastoForm({
         householdId,
         name: fields.categoryName,
       })
+      if (editPurchase !== null) {
+        await updateCardPurchase({
+          db,
+          householdId,
+          purchaseId: editPurchase.purchase.id,
+          cardId,
+          categoryId: resolvedCategory.id,
+          name: fields.name,
+          total: fields.amount ?? 0,
+          cuotas: Number(cuotas),
+          purchaseDate: fields.date,
+          comments: editPurchase.purchase.comments,
+        })
+        return
+      }
       if (cardId !== '') {
         await createCardPurchase({
           db,
@@ -287,6 +334,11 @@ export function AddGastoForm({
       }
     },
     onSuccess: async () => {
+      if (isEditing) {
+        onEditFinished?.()
+        await invalidateGastoViews()
+        return
+      }
       const reset = emptyFormFields(defaultDueDate)
       setName(reset.name)
       setCategory(reset.category)
@@ -303,9 +355,31 @@ export function AddGastoForm({
     },
   })
 
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      if (editPurchase === null) {
+        throw new Error('No hay una compra para eliminar')
+      }
+      await deleteCardPurchase({
+        db,
+        householdId,
+        purchaseId: editPurchase.purchase.id,
+      })
+    },
+    onSuccess: async () => {
+      setConfirmingDelete(false)
+      onEditFinished?.()
+      await invalidateGastoViews()
+    },
+    onError: () => {
+      setConfirmingDelete(false)
+    },
+  })
+
+  const isPending = mutation.isPending || deleteMutation.isPending
   useEffect(() => {
-    onPendingChange?.(mutation.isPending)
-  }, [mutation.isPending, onPendingChange])
+    onPendingChange?.(isPending)
+  }, [isPending, onPendingChange])
 
   function onSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault()
@@ -342,6 +416,9 @@ export function AddGastoForm({
   const alertMessage =
     error ??
     (mutation.isError ? mutationErrorMessage(mutation.error) : null) ??
+    (deleteMutation.isError
+      ? mutationErrorMessage(deleteMutation.error)
+      : null) ??
     loadErrorMessage(categoriesQuery.error) ??
     // Without this, a failed load would look like a household with no cards.
     (cardsQuery.isError ? 'No se pudieron cargar las tarjetas.' : null)
@@ -376,15 +453,17 @@ export function AddGastoForm({
   }
 
   const isPlainGasto = isCard || (!recurring && markPaid)
-  const submitLabel = isCard
-    ? 'Agregar compra'
-    : markPaid
-      ? recurring
-        ? 'Agregar y marcar pagado'
-        : 'Agregar gasto'
-      : recurring
-        ? 'Agregar servicio'
-        : 'Agregar servicio'
+  const submitLabel = isEditing
+    ? 'Guardar cambios'
+    : isCard
+      ? 'Agregar compra'
+      : markPaid
+        ? recurring
+          ? 'Agregar y marcar pagado'
+          : 'Agregar gasto'
+        : recurring
+          ? 'Agregar servicio'
+          : 'Agregar servicio'
 
   return (
     <form
@@ -398,7 +477,9 @@ export function AddGastoForm({
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto overscroll-contain">
         {/* The Sheet's own title is visually hidden (it exists only for the
             dialog's accessible name). */}
-        <h2 className="text-title font-semibold">Agregar gasto</h2>
+        <h2 className="text-title font-semibold">
+          {isEditing ? 'Editar compra' : 'Agregar gasto'}
+        </h2>
 
         <div className="flex w-full flex-col gap-2">
           <Label htmlFor="gasto-name">Nombre</Label>
@@ -482,7 +563,9 @@ export function AddGastoForm({
             }}
             className="border-input focus-visible:border-ring focus-visible:ring-ring/50 h-12 w-full min-w-0 rounded-lg border bg-transparent px-4 text-base outline-none focus-visible:ring-3 md:text-sm"
           >
-            <option value="">Efectivo / débito</option>
+            {/* A purchase being edited stays a card purchase: turning it
+                into a gasto is deleting it and adding one. */}
+            {isEditing ? null : <option value="">Efectivo / débito</option>}
             {cards.map((card) => (
               <option key={card.id} value={card.id}>
                 {card.name}
@@ -567,9 +650,61 @@ export function AddGastoForm({
       </div>
 
       <div className="shrink-0 pt-6">
-        <Button type="submit" disabled={mutation.isPending} className="w-full">
-          {submitLabel}
-        </Button>
+        {confirmingDelete ? (
+          <div
+            role="alertdialog"
+            aria-labelledby="delete-purchase-title"
+            className="bg-card flex w-full flex-col gap-4 rounded-2xl border border-border p-4"
+          >
+            <p id="delete-purchase-title" className="text-sm font-medium">
+              ¿Eliminar la compra? Sus cuotas salen de los resúmenes.
+            </p>
+            <div className="flex w-full gap-2">
+              <Button
+                type="button"
+                variant="destructive-outline"
+                className="flex-1"
+                disabled={deleteMutation.isPending}
+                onClick={() => {
+                  setConfirmingDelete(false)
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                className="flex-1"
+                disabled={deleteMutation.isPending}
+                onClick={() => {
+                  deleteMutation.mutate()
+                }}
+              >
+                Eliminar compra
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex w-full flex-col items-center gap-2">
+            <Button type="submit" disabled={isPending} className="w-full">
+              {submitLabel}
+            </Button>
+            {isEditing ? (
+              <Button
+                type="button"
+                variant="destructive-outline"
+                className="w-full"
+                disabled={isPending}
+                onClick={() => {
+                  setError(null)
+                  setConfirmingDelete(true)
+                }}
+              >
+                Eliminar compra
+              </Button>
+            ) : null}
+          </div>
+        )}
       </div>
     </form>
   )

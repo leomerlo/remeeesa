@@ -600,4 +600,60 @@ describe('HomePage', () => {
       await screen.findByRole('region', { name: 'Tarjetas el mes que viene' }),
     ).toHaveTextContent('$80')
   })
+
+  it('edits a card purchase tapped in the recent list, updating "Tarjetas el mes que viene"', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const [category] = await listCategories({ db, householdId: household.id })
+    if (category === undefined) {
+      throw new Error('expected a seeded category')
+    }
+    const visa = await createCard({
+      db,
+      householdId: household.id,
+      name: 'Visa',
+    })
+    const now = new Date()
+    await createCardPurchase({
+      db,
+      householdId: household.id,
+      cardId: visa.id,
+      categoryId: category.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Zapatillas',
+      total: 80,
+      cuotas: 1,
+      purchaseDate: new Date(now.getFullYear(), now.getMonth(), 1),
+      comments: '',
+    })
+
+    renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Editar Zapatillas' }),
+    )
+    const dialog = await screen.findByRole('dialog', { name: 'Editar compra' })
+    expect(within(dialog).getByLabelText('Precio')).toHaveValue('80')
+    fireEvent.change(within(dialog).getByLabelText('Precio'), {
+      target: { value: '120' },
+    })
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Guardar cambios' }),
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('region', { name: 'Tarjetas el mes que viene' }),
+      ).toHaveTextContent('$120')
+    })
+    expect(
+      screen.queryByRole('dialog', { name: 'Editar compra' }),
+    ).not.toBeInTheDocument()
+  })
 })

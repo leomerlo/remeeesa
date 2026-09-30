@@ -10,6 +10,7 @@ import {
   ExpenseHistory,
 } from '@/features/expenses'
 import type { EditExpenseTarget } from '@/features/expenses/AddExpenseForm'
+import type { EditPurchaseTarget } from '@/features/expenses/AddGastoForm'
 import { useHouseholdMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 
@@ -32,6 +33,9 @@ export function HistoricoPage({
   })
   const [editExpense, setEditExpense] = useState<EditExpenseTarget | null>(null)
   const [isAddGastoSheetOpen, setIsAddGastoSheetOpen] = useState(false)
+  const [editPurchase, setEditPurchase] = useState<EditPurchaseTarget | null>(
+    null,
+  )
 
   // The header renders in every state so this nav destination is never a
   // blank page while the session/membership resolve.
@@ -90,6 +94,10 @@ export function HistoricoPage({
           showRecurringOptions={false}
           open={isAddGastoSheetOpen}
           onOpenChange={setIsAddGastoSheetOpen}
+          editPurchase={editPurchase}
+          onEditFinished={() => {
+            setEditPurchase(null)
+          }}
           db={db}
           householdId={membership.householdId}
           memberId={currentUserId}
@@ -129,6 +137,9 @@ export function HistoricoPage({
             pendienteId: expense.pendienteId,
             isService: expense.isService,
           })
+        }}
+        onEditPurchase={(purchase, categoryName) => {
+          setEditPurchase({ purchase, categoryName })
         }}
       />
     </div>

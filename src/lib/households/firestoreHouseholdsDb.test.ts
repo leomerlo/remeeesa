@@ -687,15 +687,15 @@ function ruleFunction(name: string): string {
 }
 
 describe('firestore.rules card purchases', () => {
-  it('lets only household members read and create card purchases', () => {
+  it('lets only household members read and create card purchases, as themselves', () => {
     expect(rules).toMatch(
-      /match \/card_purchases\/\{purchaseId\} \{\s*\n\s*allow read: if isMemberOf\(resource\.data\.household_id\);\s*\n\s*allow create: if isMemberOf\(request\.resource\.data\.household_id\)\s*\n\s*&& isValidCardPurchase\(request\.resource\.data\);/,
+      /match \/card_purchases\/\{purchaseId\} \{\s*\n\s*allow read: if isMemberOf\(resource\.data\.household_id\);\s*\n\s*allow create: if isMemberOf\(request\.resource\.data\.household_id\)\s*\n\s*&& request\.resource\.data\.member_id == request\.auth\.uid\s*\n\s*&& isValidCardPurchase\(request\.resource\.data\);/,
     )
   })
 
-  it('lets a category rename or merge repoint a purchase, and nothing else', () => {
+  it('lets a member repoint, edit or delete a purchase', () => {
     expect(rules).toMatch(
-      /match \/card_purchases\/\{purchaseId\}[\s\S]*?allow update: if isMemberOf\(resource\.data\.household_id\)\s*\n\s*&& isPendienteCategoryRepoint\(\);/,
+      /match \/card_purchases\/\{purchaseId\}[\s\S]*?allow update: if isMemberOf\(resource\.data\.household_id\)\s*\n\s*&& \(isPendienteCategoryRepoint\(\) \|\| isValidCardPurchaseEdit\(\)\);\s*\n\s*allow delete: if isMemberOf\(resource\.data\.household_id\);/,
     )
     expect(adapterSource).toContain(
       "(['expenses', 'pendientes', 'card_purchases'] as const)",
@@ -709,7 +709,7 @@ describe('firestore.rules card purchases', () => {
     expect(fn).toContain('data.cuotas <= 24')
     expect(fn).toContain('data.total * 100 >= data.cuotas - 0.5')
     expect(fn).toContain('expenseDateNotInFuture(data.purchase_date)')
-    expect(fn).toContain('data.member_id == request.auth.uid')
+    expect(fn).toContain('data.member_id is string')
     expect(fn).toContain(
       'get(/databases/$(database)/documents/cards/$(data.card_id)).data.household_id == data.household_id',
     )
@@ -754,6 +754,27 @@ describe('firestore.rules Resúmenes', () => {
     expect(rules).toContain('|| isValidResumenUpdate());')
   })
 
+  it('keeps an edit off the author and the timestamps, and re-validates the whole purchase', () => {
+    const fn = ruleFunction('isValidCardPurchaseEdit')
+    expect(fn).toContain(
+      ".hasOnly(['card_id', 'category_id', 'name', 'total', 'cuotas', 'purchase_date', 'comments'])",
+    )
+    expect(fn).toContain('isValidCardPurchase(request.resource.data)')
+  })
+
+  it('lets a Resumen update add one purchase, drop one, or keep the list', () => {
+    const fn = ruleFunction('isValidResumenUpdate')
+    expect(fn).toContain(
+      'request.resource.data.purchase_ids.size() == resource.data.purchase_ids.size() - 1',
+    )
+    expect(fn).toContain(
+      'resource.data.purchase_ids.hasAll(request.resource.data.purchase_ids)',
+    )
+    expect(fn).toContain(
+      'request.resource.data.purchase_ids.size() == resource.data.purchase_ids.size()\n',
+    )
+  })
+
   it('reserves Resumen-shaped ids for Resúmenes so no one can squat on a card month', () => {
     expect(rules).toContain(
       ": !pendienteId.matches('^.+_[0-9]{4}-[0-9]{2}$'));",
@@ -792,6 +813,48 @@ describe('createCardPurchase adapter', () => {
     expect(
       source.indexOf("doc(collection(firestore, 'card_purchases'))"),
     ).toBeLessThan(source.indexOf('runTransaction('))
+  })
+})
+
+describe('updateCardPurchase and deleteCardPurchase adapters', () => {
+  const helper = adapterSource.slice(
+    adapterSource.indexOf('async function moveCardPurchaseCuotas('),
+    adapterSource.indexOf('export function createFirestoreHouseholdsDb('),
+  )
+
+  it('reads the purchase and every Resumen it touches before writing, rejecting a paid one', () => {
+    const firstWrite = helper.search(/tx\.(set|update|delete)\(/)
+    expect(firstWrite).toBeGreaterThan(0)
+    expect(helper.indexOf('tx.get(')).toBeLessThan(firstWrite)
+    expect(helper.indexOf('refs.map((ref) => tx.get(ref))')).toBeLessThan(
+      firstWrite,
+    )
+    expect(helper.indexOf('throw new ResumenAlreadyPaidError')).toBeLessThan(
+      firstWrite,
+    )
+  })
+
+  it('deletes a Resumen left with no purchase', () => {
+    expect(helper).toMatch(/if \(next === null\) \{\s*tx\.delete\(ref\)/)
+  })
+
+  it('runs each in one transaction', () => {
+    for (const name of ['updateCardPurchase', 'deleteCardPurchase']) {
+      const source = adapterSource.slice(
+        adapterSource.indexOf(`async ${name}(input)`),
+      )
+      expect(source.slice(0, 400)).toContain('runTransaction(firestore')
+    }
+  })
+})
+
+describe('getCardPurchases adapter', () => {
+  it('skips an id whose read the rules deny instead of failing the whole Resumen', () => {
+    const source = adapterSource.slice(
+      adapterSource.indexOf('async getCardPurchases(input)'),
+    )
+    expect(source).toContain('Promise.allSettled(')
+    expect(source).toContain('isFirestorePermissionDenied(result.reason)')
   })
 })
 
