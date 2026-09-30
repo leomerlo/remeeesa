@@ -383,6 +383,7 @@ export function AddGastoForm({
 
   function onSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault()
+    deleteMutation.reset()
     try {
       // A card purchase already happened: it parses like a paid, one-off
       // gasto, whatever the (hidden) toggles below say.
@@ -697,6 +698,7 @@ export function AddGastoForm({
                 disabled={isPending}
                 onClick={() => {
                   setError(null)
+                  mutation.reset()
                   setConfirmingDelete(true)
                 }}
               >
