@@ -276,9 +276,15 @@ async function moveCardPurchaseCuotas(input: {
   } | null
 }): Promise<CardPurchase | null> {
   const { firestore, tx } = input
-  const purchaseSnap = await tx.get(
-    doc(firestore, 'card_purchases', input.purchaseId),
-  )
+  // Rules deny reading a missing purchase (no resource to check), so a
+  // purchase another member just deleted reads as denied, not as missing.
+  const purchaseSnap = await tx
+    .get(doc(firestore, 'card_purchases', input.purchaseId))
+    .catch((error: unknown) => {
+      throw isFirestorePermissionDenied(error)
+        ? new CardPurchaseNotFoundError()
+        : error
+    })
   if (
     !purchaseSnap.exists() ||
     purchaseSnap.data().household_id !== input.householdId
@@ -1559,6 +1565,7 @@ export function createFirestoreHouseholdsDb(
                 resumenCategoryId: input.resumenCategoryId,
               }),
             })
+            // Only a delete has no purchase after; narrows the type.
             if (edited === null) {
               throw new CardPurchaseNotFoundError()
             }

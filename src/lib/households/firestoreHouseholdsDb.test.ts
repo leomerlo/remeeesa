@@ -834,6 +834,12 @@ describe('updateCardPurchase and deleteCardPurchase adapters', () => {
     )
   })
 
+  it('reads a purchase the rules refuse (already deleted) as not found', () => {
+    expect(helper).toMatch(
+      /isFirestorePermissionDenied\(error\)\s*\?\s*new CardPurchaseNotFoundError\(\)/,
+    )
+  })
+
   it('deletes a Resumen left with no purchase', () => {
     expect(helper).toMatch(/if \(next === null\) \{\s*tx\.delete\(ref\)/)
   })
