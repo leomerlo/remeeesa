@@ -449,6 +449,69 @@ describe('updateCardPurchase', () => {
     ])
   })
 
+  it('leaves the Resúmenes untouched when only the name changes', async () => {
+    const s = await setup()
+    const created = await purchase(s, { total: 100, cuotas: 3 })
+    const before = await resumenSummary(s)
+
+    await edit(s, created.id, { name: 'Botines', total: 100, cuotas: 3 })
+
+    expect(await resumenSummary(s)).toEqual(before)
+    expect(before).toEqual([
+      [`${s.visa.id}_2026-10`, 33.33, [created.id]],
+      [`${s.visa.id}_2026-11`, 33.33, [created.id]],
+      [`${s.visa.id}_2026-12`, 33.34, [created.id]],
+    ])
+  })
+
+  it('keeps shared Resúmenes exact to the cent when the cuotas shift a month', async () => {
+    const s = await setup()
+    const other = await purchase(s, { total: 0.1, cuotas: 1 })
+    const created = await purchase(s, { total: 100, cuotas: 3 })
+
+    await edit(s, created.id, {
+      total: 100,
+      cuotas: 3,
+      purchaseDate: new Date(2026, 7, 5),
+    })
+
+    expect(await resumenSummary(s)).toEqual([
+      [`${s.visa.id}_2026-09`, 33.33, [created.id]],
+      [`${s.visa.id}_2026-10`, 33.43, [other.id, created.id]],
+      [`${s.visa.id}_2026-11`, 33.34, [created.id]],
+    ])
+  })
+
+  it('rejects an edit into a month whose Resumen is already paid, writing nothing', async () => {
+    const s = await setup()
+    await purchase(s, {
+      total: 10,
+      cuotas: 1,
+      purchaseDate: new Date(2026, 7, 5),
+    })
+    const created = await purchase(s, { total: 100, cuotas: 1 })
+    const september = (
+      await listPendientes({
+        db: s.db,
+        householdId: s.householdId,
+      })
+    ).find((p) => p.id === `${s.visa.id}_2026-09`)
+    if (september === undefined) {
+      throw new Error('expected the September Resumen')
+    }
+    s.memory.seedPendiente({ ...september, status: 'paid' })
+    const before = await resumenSummary(s)
+
+    await expect(
+      edit(s, created.id, {
+        total: 100,
+        cuotas: 1,
+        purchaseDate: new Date(2026, 7, 10),
+      }),
+    ).rejects.toBeInstanceOf(ResumenAlreadyPaidError)
+    expect(await resumenSummary(s)).toEqual(before)
+  })
+
   it("moves the cuotas to the other card's Resúmenes", async () => {
     const s = await setup()
     const master = await createCard({
@@ -545,6 +608,22 @@ describe('deleteCardPurchase', () => {
         ...monthRange(2026, 8),
       }),
     ).toEqual([other])
+  })
+
+  it("keeps the other purchase's amount exact in a shared Resumen", async () => {
+    const s = await setup()
+    const other = await purchase(s, { total: 0.1, cuotas: 1 })
+    const created = await purchase(s, { total: 0.2, cuotas: 1 })
+
+    await deleteCardPurchase({
+      db: s.db,
+      householdId: s.householdId,
+      purchaseId: created.id,
+    })
+
+    expect(await resumenSummary(s)).toEqual([
+      [`${s.visa.id}_2026-10`, 0.1, [other.id]],
+    ])
   })
 
   it('writes nothing when one of its Resúmenes is already paid', async () => {

@@ -803,6 +803,82 @@ describe('HistoricoPage card purchases', () => {
     }
   })
 
+  it('keeps the purchase when the delete confirmation is cancelled', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 20, 12))
+    try {
+      const { db, householdId } = await seedPurchase()
+      const before = await listPendientes({ db, householdId })
+      renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Editar Zapatillas' }),
+      )
+      const dialog = await screen.findByRole('dialog')
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: 'Eliminar compra' }),
+      )
+      fireEvent.click(
+        within(within(dialog).getByRole('alertdialog')).getByRole('button', {
+          name: 'Cancelar',
+        }),
+      )
+
+      expect(within(dialog).queryByRole('alertdialog')).not.toBeInTheDocument()
+      expect(
+        within(dialog).getByRole('button', { name: 'Guardar cambios' }),
+      ).toBeInTheDocument()
+      expect(await listPendientes({ db, householdId })).toEqual(before)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('shows why a delete was refused and keeps the sheet open', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 20, 12))
+    try {
+      const { db, householdId } = await seedPurchase()
+      const [october] = await listPendientes({ db, householdId })
+      if (october === undefined) {
+        throw new Error('expected the October Resumen')
+      }
+      await markPendientePaid({
+        db,
+        householdId,
+        pendienteId: october.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        finalAmount: 100,
+        paymentDate: new Date(),
+      })
+      renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Editar Zapatillas' }),
+      )
+      const dialog = await screen.findByRole('dialog')
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: 'Eliminar compra' }),
+      )
+      fireEvent.click(
+        within(within(dialog).getByRole('alertdialog')).getByRole('button', {
+          name: 'Eliminar compra',
+        }),
+      )
+
+      expect(
+        await within(dialog).findByText(
+          'El resumen de Visa de octubre de 2026 ya está pagado.',
+        ),
+      ).toBeInTheDocument()
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      expect(within(dialog).queryByRole('alertdialog')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('shows why an edit was refused and keeps the sheet open', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date(2026, 8, 20, 12))
