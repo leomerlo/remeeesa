@@ -771,7 +771,7 @@ describe('firestore.rules Resúmenes', () => {
       'resource.data.purchase_ids.hasAll(request.resource.data.purchase_ids)',
     )
     expect(fn).toContain(
-      'request.resource.data.purchase_ids.size() == resource.data.purchase_ids.size()\n',
+      '|| request.resource.data.purchase_ids == resource.data.purchase_ids',
     )
   })
 

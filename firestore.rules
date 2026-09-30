@@ -263,8 +263,7 @@ service cloud.firestore {
             && request.resource.data.purchase_ids.hasAll(resource.data.purchase_ids))
           || (request.resource.data.purchase_ids.size() == resource.data.purchase_ids.size() - 1
             && resource.data.purchase_ids.hasAll(request.resource.data.purchase_ids))
-          || (request.resource.data.purchase_ids.size() == resource.data.purchase_ids.size()
-            && request.resource.data.purchase_ids.hasAll(resource.data.purchase_ids))
+          || request.resource.data.purchase_ids == resource.data.purchase_ids
         );
     }
 
