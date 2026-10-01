@@ -687,6 +687,35 @@ describe('firestore.rules renaming a card', () => {
   })
 })
 
+describe('renameCard adapter', () => {
+  const source = adapterSource.slice(
+    adapterSource.indexOf('async renameCard(input)'),
+    adapterSource.indexOf('async createCardPurchase(input)'),
+  )
+
+  it('rejects a card outside the household before writing', () => {
+    expect(source).toMatch(
+      /cardSnap\.data\(\)\.household_id !== input\.householdId[\s\S]*throw new CardNotFoundError\(\)/,
+    )
+    expect(source.indexOf('throw new CardNotFoundError()')).toBeLessThan(
+      source.indexOf('writeBatch('),
+    )
+  })
+
+  it("queries only this household's Resúmenes of the card, so the rules allow the read", () => {
+    expect(source).toContain("where('household_id', '==', input.householdId)")
+    expect(source).toContain("where('card_id', '==', input.cardId)")
+  })
+
+  it('renames the card and every Resumen in one batch, name only', () => {
+    expect(source).toContain('batch.update(cardRef, { name: input.name })')
+    expect(source).toMatch(
+      /for \(const resumen of resumenes\.docs\) \{\s*batch\.update\(resumen\.ref, \{ name: input\.name \}\)/,
+    )
+    expect(source).toContain('await batch.commit()')
+  })
+})
+
 describe('firestore.rules card purchases', () => {
   it('lets only household members read and create card purchases, as themselves and unlocked', () => {
     expect(rules).toMatch(
