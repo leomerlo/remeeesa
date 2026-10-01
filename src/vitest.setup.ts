@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup, configure } from '@testing-library/react'
-import { afterEach, beforeAll, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, vi } from 'vitest'
 
 // Testing Library's default 1s budget for waitFor/findBy is fine for a
 // single file but too tight for the whole suite: several screens chain two
@@ -61,4 +61,14 @@ beforeAll(() => {
 afterEach(() => {
   cleanup()
   localStorageMock.clear()
+})
+
+// Tests seed fixed 2026 dates and page "one month back" relative to now, so
+// they only passed while the real clock sat in the right month. Pinning Date
+// (only Date -- timers stay real, waitFor still polls) makes them
+// independent of the day the suite runs. Tests that need another instant
+// override this with their own setSystemTime.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date(2026, 8, 15))
 })
