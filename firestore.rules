@@ -162,7 +162,9 @@ service cloud.firestore {
     // same, cached document for every cuota.
     function isCardResumenExpense(data) {
       return data.pendiente_id is string
-        && ('card_id' in get(/databases/$(database)/documents/pendientes/$(data.pendiente_id)).data);
+        && ('card_id' in get(/databases/$(database)/documents/pendientes/$(data.pendiente_id)).data)
+        && get(/databases/$(database)/documents/pendientes/$(data.pendiente_id)).data.status == 'pending'
+        && getAfter(/databases/$(database)/documents/pendientes/$(data.pendiente_id)).data.status == 'paid';
     }
 
     // A reassigned author's member_id and author_display_name must land
@@ -483,8 +485,10 @@ service cloud.firestore {
       allow create: if isMemberOf(request.resource.data.household_id)
         && request.resource.data.member_id == request.auth.uid
         && isValidExpense(request.resource.data);
+      // Renaming or merging a category repoints its expenses too, a
+      // negative Resumen ajuste included (isValidExpenseUpdate needs price > 0).
       allow update: if isMemberOf(resource.data.household_id)
-        && isValidExpenseUpdate();
+        && (isValidExpenseUpdate() || isPendienteCategoryRepoint());
       allow delete: if isMemberOf(resource.data.household_id);
     }
 

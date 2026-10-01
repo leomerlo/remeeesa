@@ -1074,10 +1074,9 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         resumen,
         purchases,
         categoryNameById: new Map(
-          [...state.categories.values()].map((category) => [
-            category.id,
-            category.name,
-          ]),
+          [...state.categories.values()]
+            .filter((category) => category.householdId === input.householdId)
+            .map((category) => [category.id, category.name]),
         ),
         amountPaid: input.amountPaid,
         paymentDate: input.paymentDate,

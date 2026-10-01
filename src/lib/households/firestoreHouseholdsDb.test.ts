@@ -333,7 +333,7 @@ describe('firestore.rules expenses', () => {
       /!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'created_at'\]\)/,
     )
     expect(rules).toMatch(
-      /allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& isValidExpenseUpdate\(\);/,
+      /allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidExpenseUpdate\(\) \|\| isPendienteCategoryRepoint\(\)\);/,
     )
     expect(rules).toMatch(
       /match \/expenses\/\{expenseId\}[\s\S]*allow delete: if isMemberOf\(resource\.data\.household_id\);/,
@@ -913,6 +913,10 @@ describe('firestore.rules paying a Resumen', () => {
     )
     expect(ruleFunction('isCardResumenExpense')).toContain(
       "('card_id' in get(/databases/$(database)/documents/pendientes/$(data.pendiente_id)).data)",
+    )
+    // Only inside the commit that pays it.
+    expect(ruleFunction('isCardResumenExpense')).toContain(
+      "getAfter(/databases/$(database)/documents/pendientes/$(data.pendiente_id)).data.status == 'paid'",
     )
   })
 

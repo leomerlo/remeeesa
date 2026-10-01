@@ -236,11 +236,13 @@ function ResumenPayment({
       onDone()
       await onSettled()
     },
-    onError: (caught) => {
+    onError: (caught, action) => {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'No se pudo pagar el resumen',
+          : action === 'undo'
+            ? 'No se pudo deshacer el pago'
+            : 'No se pudo pagar el resumen',
       )
     },
   })

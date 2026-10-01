@@ -750,3 +750,45 @@ describe('deleting an expense a Resumen payment generated', () => {
     }
   })
 })
+
+describe('editing a Resumen ajuste', () => {
+  it("can't be saved, only undone, since a saved expense can't be negative", async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa',
+      monthlyBudget: 1000,
+    })
+
+    renderWithProviders(
+      <AddExpenseForm
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+        editExpense={{
+          expenseId: 'ajuste',
+          name: 'Visa — ajuste',
+          price: -10,
+          categoryName: 'Tarjeta',
+          comments: '',
+          expenseDate: new Date(),
+          memberId: 'user-1',
+          pendienteId: 'card-1_2026-10',
+          isService: false,
+        }}
+      />,
+    )
+
+    expect(
+      await screen.findByText(
+        'Es el ajuste de un resumen pagado: para cambiarlo, deshacé el pago.',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Guardar cambios' }),
+    ).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Deshacer pago' })).toBeEnabled()
+  })
+})
