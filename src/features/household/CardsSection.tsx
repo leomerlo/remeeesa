@@ -1,13 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { AlertMessage } from '@/components/ui/alert-message'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
-import { createCard, listCards } from '@/lib/cards'
+import { createCard, listCards, renameCard } from '@/lib/cards'
+import type { Card } from '@/lib/cards'
 import type { HouseholdsDb } from '@/lib/households'
+import { pendientesQueryKey } from '@/features/pendientes/queryKeys'
 import { cardsQueryKey } from './cardsQueryKey'
 
 export type CardsSectionProps = {
@@ -85,9 +87,12 @@ export function CardsSection({
       ) : (
         <ul className="flex flex-col gap-2">
           {cards.map((card) => (
-            <li key={card.id} className="text-foreground text-sm font-medium">
-              {card.name}
-            </li>
+            <CardRow
+              key={card.id}
+              db={db}
+              householdId={householdId}
+              card={card}
+            />
           ))}
         </ul>
       )}
@@ -111,5 +116,124 @@ export function CardsSection({
         {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
       </form>
     </section>
+  )
+}
+
+function CardRow({
+  db,
+  householdId,
+  card,
+}: CardsSectionProps & { readonly card: Card }): ReactElement {
+  const [draft, setDraft] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+  // The form unmounts on save or cancel; focus goes back to "Renombrar"
+  // instead of dropping to <body>.
+  const returnFocus = useRef(false)
+
+  function close(): void {
+    returnFocus.current = true
+    setDraft(null)
+    setError(null)
+  }
+
+  const mutation = useMutation({
+    mutationFn: (name: string) =>
+      renameCard({ db, householdId, cardId: card.id, name }),
+    onMutate: () => {
+      setError(null)
+    },
+    onSuccess: async () => {
+      // Resúmenes carry the card's name, so every Pendiente view refreshes.
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: cardsQueryKey({ householdId }),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: pendientesQueryKey({ householdId }),
+        }),
+      ])
+      close()
+    },
+    onError: (caught: unknown) => {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'No se pudo renombrar la tarjeta. Volvé a intentar.',
+      )
+    },
+  })
+
+  if (draft === null) {
+    return (
+      <li className="flex items-center justify-between gap-2">
+        <span className="text-foreground text-sm font-medium">{card.name}</span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-label={`Renombrar ${card.name}`}
+          ref={(button) => {
+            if (button !== null && returnFocus.current) {
+              returnFocus.current = false
+              button.focus()
+            }
+          }}
+          onClick={() => {
+            setDraft(card.name)
+          }}
+        >
+          Renombrar
+        </Button>
+      </li>
+    )
+  }
+
+  const inputId = `rename-card-${card.id}`
+  return (
+    <li>
+      <form
+        className="flex flex-col gap-2"
+        onSubmit={(event: FormEvent<HTMLFormElement>) => {
+          event.preventDefault()
+          // Nothing changed: no batch over every Resumen of the card.
+          if (draft.trim() === card.name) {
+            close()
+            return
+          }
+          mutation.mutate(draft)
+        }}
+      >
+        <Label htmlFor={inputId}>Nuevo nombre de {card.name}</Label>
+        <div className="flex items-center gap-2">
+          <Input
+            id={inputId}
+            value={draft}
+            autoFocus
+            readOnly={mutation.isPending}
+            onChange={(event) => {
+              setDraft(event.target.value)
+            }}
+          />
+          <Button
+            type="submit"
+            disabled={mutation.isPending}
+            aria-label={`Guardar nombre de ${card.name}`}
+          >
+            Guardar
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={mutation.isPending}
+            aria-label={`Cancelar renombrar ${card.name}`}
+            onClick={close}
+          >
+            Cancelar
+          </Button>
+        </div>
+        {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
+      </form>
+    </li>
   )
 }

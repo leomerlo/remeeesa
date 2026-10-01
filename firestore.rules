@@ -283,6 +283,14 @@ service cloud.firestore {
         );
     }
 
+    // Renaming a card renames its Resúmenes in the same batch, paid ones too:
+    // name only, and only to the card's name as the batch leaves it.
+    function isResumenRename() {
+      return ('card_id' in resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
+        && request.resource.data.name == getAfter(/databases/$(database)/documents/cards/$(resource.data.card_id)).data.name;
+    }
+
     // Editing is only allowed while the pendiente is still pending -- once paid,
     // it is frozen at the rules level (mirrors isValidExpenseUpdate's shape,
     // adapted to the pendiente field set). A future category-merge feature may
@@ -508,7 +516,7 @@ service cloud.firestore {
           ? isValidResumen(pendienteId, request.resource.data)
           : !pendienteId.matches('^.+_[0-9]{4}-[0-9]{2}$'));
       allow update: if isMemberOf(resource.data.household_id)
-        && (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenMarkPaid());
+        && (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenMarkPaid() || isResumenRename());
       allow delete: if isMemberOf(resource.data.household_id)
         && resource.data.status == 'pending';
     }
@@ -605,10 +613,13 @@ service cloud.firestore {
         && isUnlockedCardPurchase();
     }
 
-    // No update/delete yet: renaming a card is a later ticket.
+    // No delete: a card's Resúmenes and purchases point at it.
     match /cards/{cardId} {
       allow read: if isMemberOf(resource.data.household_id);
       allow create: if isMemberOf(request.resource.data.household_id)
+        && isValidCard(request.resource.data);
+      allow update: if isMemberOf(resource.data.household_id)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
         && isValidCard(request.resource.data);
     }
   }

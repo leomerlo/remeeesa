@@ -1,5 +1,7 @@
+import { QueryClient } from '@tanstack/react-query'
 import { fireEvent, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+import { pendientesQueryKey } from '@/features/pendientes/queryKeys'
 import { createCard, listCards } from '@/lib/cards'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
@@ -143,5 +145,121 @@ describe('CardsSection', () => {
     )
 
     expect(await screen.findByText('Visa')).toBeInTheDocument()
+  })
+
+  describe('renaming', () => {
+    async function renderWithCard() {
+      const seeded = await seedHousehold()
+      await createCard({ ...seeded, name: 'Visa' })
+      const queryClient = new QueryClient({
+        defaultOptions: { queries: { retry: false } },
+      })
+      renderWithProviders(
+        <CardsSection db={seeded.db} householdId={seeded.householdId} />,
+        { queryClient },
+      )
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Renombrar Visa' }),
+      )
+      return { ...seeded, queryClient }
+    }
+
+    function rename(name: string): void {
+      fireEvent.change(screen.getByLabelText('Nuevo nombre de Visa'), {
+        target: { value: name },
+      })
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Guardar nombre de Visa' }),
+      )
+    }
+
+    it('starts from the current name', async () => {
+      await renderWithCard()
+
+      expect(screen.getByLabelText('Nuevo nombre de Visa')).toHaveValue('Visa')
+    })
+
+    it('saves the trimmed name and lists it', async () => {
+      const { db, householdId } = await renderWithCard()
+
+      rename('  Visa Gold ')
+
+      expect(
+        await screen.findByRole('button', { name: 'Renombrar Visa Gold' }),
+      ).toHaveFocus()
+      expect(screen.getByRole('listitem')).toHaveTextContent('Visa Gold')
+      expect((await listCards({ db, householdId })).map((c) => c.name)).toEqual(
+        ['Visa Gold'],
+      )
+    })
+
+    it("refreshes the Resúmenes, which carry the card's name", async () => {
+      const { householdId, queryClient } = await renderWithCard()
+      const pendientesKey = [...pendientesQueryKey({ householdId }), 'all']
+      queryClient.setQueryData(pendientesKey, [])
+
+      rename('Visa Gold')
+
+      await vi.waitFor(() => {
+        expect(queryClient.getQueryState(pendientesKey)?.isInvalidated).toBe(
+          true,
+        )
+      })
+    })
+
+    it("rejects another card's name and keeps editing", async () => {
+      const { db, householdId } = await renderWithCard()
+      await createCard({ db, householdId, name: 'Amex' })
+
+      rename('amex')
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Ya existe una tarjeta con ese nombre.',
+      )
+      expect(screen.getByLabelText('Nuevo nombre de Visa')).toHaveValue('amex')
+    })
+
+    it('rejects a blank name', async () => {
+      await renderWithCard()
+
+      rename('   ')
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Ingresá un nombre para la tarjeta',
+      )
+    })
+
+    it('writes nothing when the name is unchanged', async () => {
+      const { db, householdId } = await renderWithCard()
+      const renameSpy = vi.spyOn(db, 'renameCard')
+
+      rename(' Visa ')
+
+      expect(
+        screen.getByRole('button', { name: 'Renombrar Visa' }),
+      ).toHaveFocus()
+      expect(renameSpy).not.toHaveBeenCalled()
+      expect((await listCards({ db, householdId })).map((c) => c.name)).toEqual(
+        ['Visa'],
+      )
+    })
+
+    it('cancels without saving', async () => {
+      const { db, householdId } = await renderWithCard()
+      fireEvent.change(screen.getByLabelText('Nuevo nombre de Visa'), {
+        target: { value: 'Otra' },
+      })
+
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Cancelar renombrar Visa' }),
+      )
+
+      expect(
+        screen.getByRole('button', { name: 'Renombrar Visa' }),
+      ).toHaveFocus()
+      expect((await listCards({ db, householdId })).map((c) => c.name)).toEqual(
+        ['Visa'],
+      )
+    })
   })
 })
