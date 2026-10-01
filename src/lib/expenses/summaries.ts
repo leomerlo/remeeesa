@@ -85,3 +85,51 @@ export function summarizeByCategory(input: {
     }))
     .sort((left, right) => right.total - left.total)
 }
+
+export type TarjetaLine = {
+  readonly name: string
+  readonly total: number
+}
+
+// The Tarjeta slice opened up: its paid cuotas by the purchase's category
+// (Expense.subcategory), largest first, then the ajuste (subcategory null)
+// and the month's still-unpaid Resúmenes, each on a line of its own. Lines
+// add up to the slice's total in summarizeByCategory, given the same input.
+export function summarizeTarjeta(input: {
+  readonly categoryId: string
+  readonly expenses: readonly Expense[]
+  readonly pendientes: readonly {
+    readonly categoryId: string
+    readonly expectedAmount: number | null
+  }[]
+}): readonly TarjetaLine[] {
+  const bySubcategory = new Map<string, number>()
+  let ajuste: number | null = null
+  for (const expense of input.expenses) {
+    if (expense.categoryId !== input.categoryId) continue
+    if (expense.subcategory === null) {
+      ajuste = (ajuste ?? 0) + expense.price
+    } else {
+      bySubcategory.set(
+        expense.subcategory,
+        (bySubcategory.get(expense.subcategory) ?? 0) + expense.price,
+      )
+    }
+  }
+  let unpaid: number | null = null
+  for (const pendiente of input.pendientes) {
+    if (
+      pendiente.categoryId === input.categoryId &&
+      pendiente.expectedAmount !== null
+    ) {
+      unpaid = (unpaid ?? 0) + pendiente.expectedAmount
+    }
+  }
+  return [
+    ...Array.from(bySubcategory, ([name, total]) => ({ name, total })).sort(
+      (left, right) => right.total - left.total,
+    ),
+    ...(ajuste === null ? [] : [{ name: 'Ajuste', total: ajuste }]),
+    ...(unpaid === null ? [] : [{ name: 'Sin pagar', total: unpaid }]),
+  ]
+}

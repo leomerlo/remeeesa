@@ -14,6 +14,7 @@ export {
   listResumenCuotas,
   markResumenPaid,
   MAX_CUOTAS,
+  RESUMEN_CATEGORY_NAME,
   parseCuotas,
   ResumenAlreadyPaidError,
   ResumenNotYetPayableError,

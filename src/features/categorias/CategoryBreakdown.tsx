@@ -13,6 +13,7 @@ import {
 } from '@/features/expenses'
 import {
   categoryBudgetRows,
+  categoryDocumentId,
   categoryBudgetsOverspill,
   currentMonthRange,
   formatCurrency,
@@ -20,7 +21,9 @@ import {
   listCategories,
   listExpensesInMonth,
   summarizeByCategory,
+  summarizeTarjeta,
 } from '@/lib/expenses'
+import { RESUMEN_CATEGORY_NAME } from '@/lib/cards'
 import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
 import { pendientesQueryKey } from '@/features/pendientes'
 import { getHousehold } from '@/lib/households'
@@ -133,10 +136,18 @@ export function CategoryBreakdown({
     )
   }
 
+  const pendingInMonth = pendientesDueInMonth(pending, monthStart, monthEnd)
   const byCategory = summarizeByCategory({
     expenses,
     categories,
-    pendientes: pendientesDueInMonth(pending, monthStart, monthEnd),
+    pendientes: pendingInMonth,
+  })
+  // The category every card cuota and Resumen is filed under (find-or-created
+  // by this name, so its id is fixed). Its row opens into the card breakdown
+  // instead of linking to Histórico.
+  const tarjetaId = categoryDocumentId({
+    householdId,
+    name: RESUMEN_CATEGORY_NAME,
   })
   const monthParam = `${String(monthStart.getFullYear())}-${String(monthStart.getMonth() + 1).padStart(2, '0')}`
   const total = byCategory.reduce((sum, entry) => sum + entry.total, 0)
@@ -266,12 +277,9 @@ export function CategoryBreakdown({
               aria-label="Gastos por categoría"
               className="flex w-full min-w-0 flex-1 flex-col gap-2 text-sm"
             >
-              {byCategory.map((entry) => (
-                <li key={entry.categoryId}>
-                  <Link
-                    to={`/historico?month=${monthParam}&category=${entry.categoryId}`}
-                    className="flex min-w-0 flex-1 items-center justify-between gap-2"
-                  >
+              {byCategory.map((entry) => {
+                const row = (
+                  <>
                     <span className="flex min-w-0 items-center gap-2">
                       <span
                         aria-hidden="true"
@@ -291,9 +299,52 @@ export function CategoryBreakdown({
                         {formatCurrency(entry.total)}
                       </span>
                     </span>
-                  </Link>
-                </li>
-              ))}
+                  </>
+                )
+                if (entry.categoryId !== tarjetaId) {
+                  return (
+                    <li key={entry.categoryId}>
+                      <Link
+                        to={`/historico?month=${monthParam}&category=${entry.categoryId}`}
+                        className="flex min-w-0 flex-1 items-center justify-between gap-2"
+                      >
+                        {row}
+                      </Link>
+                    </li>
+                  )
+                }
+                return (
+                  <li key={entry.categoryId}>
+                    <details>
+                      <summary className="flex min-w-0 flex-1 cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
+                        {row}
+                      </summary>
+                      <ul
+                        aria-label={`${entry.name} por categoría`}
+                        className="border-border mt-2 ml-1 flex flex-col gap-1.5 border-l pl-4"
+                      >
+                        {summarizeTarjeta({
+                          categoryId: entry.categoryId,
+                          expenses,
+                          pendientes: pendingInMonth,
+                        }).map((line) => (
+                          <li
+                            key={line.name}
+                            className="flex items-baseline justify-between gap-2"
+                          >
+                            <span className="text-muted-foreground truncate">
+                              {line.name}
+                            </span>
+                            <span className="text-foreground shrink-0">
+                              {formatCurrency(line.total)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  </li>
+                )
+              })}
             </ul>
           </div>
         </section>

@@ -1,11 +1,13 @@
-import { screen, within } from '@testing-library/react'
+import { fireEvent, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import {
   createExpense,
   listCategories,
   updateCategoryBudget,
 } from '@/lib/expenses'
+import { createCard, createCardPurchase, markResumenPaid } from '@/lib/cards'
 import { createHouseholdWithMembership } from '@/lib/households'
+import { listPendientes } from '@/lib/pendientes'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { MemoryRouter } from 'react-router-dom'
@@ -479,5 +481,97 @@ describe('CategoryBreakdown', () => {
     expect(
       screen.queryByText('Todavía no hay nada para repartir'),
     ).not.toBeInTheDocument()
+  })
+  describe('Tarjeta', () => {
+    // Visa's Resumen of this month is paid $10 over its cuotas (the ajuste);
+    // Master's is still unpaid. Both come from purchases dated last month,
+    // whose single cuota lands in this month's Resumen.
+    async function seedCards() {
+      const s = await seedHousehold()
+      const comida = s.byName.get('Comida')
+      const transporte = s.byName.get('Transporte')
+      if (comida === undefined || transporte === undefined) {
+        throw new Error('expected seeded categories')
+      }
+      const now = new Date()
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 15)
+      const visa = await createCard({ ...s, name: 'Visa' })
+      const master = await createCard({ ...s, name: 'Master' })
+      const buy = (
+        cardId: string,
+        categoryId: string,
+        name: string,
+        total: number,
+      ) =>
+        createCardPurchase({
+          db: s.db,
+          householdId: s.householdId,
+          cardId,
+          categoryId,
+          memberId: 'user-1',
+          authorDisplayName: 'Ada',
+          name,
+          total,
+          cuotas: 1,
+          purchaseDate: lastMonth,
+          comments: '',
+        })
+      await buy(visa.id, comida.id, 'Super grande', 300)
+      await buy(master.id, transporte.id, 'Peaje', 50)
+      const pendientes = await listPendientes(s)
+      const visaResumen = pendientes.find((p) => p.cardId === visa.id)
+      if (visaResumen === undefined) {
+        throw new Error('expected a Visa Resumen')
+      }
+      await markResumenPaid({
+        db: s.db,
+        householdId: s.householdId,
+        resumenId: visaResumen.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        amountPaid: 310,
+        paymentDate: now,
+      })
+      await seed({ ...s, categoryId: comida.id, name: 'Verdura', price: 75 })
+      return s
+    }
+
+    it('is its own slice, ajuste and unpaid Resúmenes included, and card spending stays out of the other categories', async () => {
+      const { db, householdId } = await seedCards()
+
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
+
+      const list = await screen.findByRole('list', {
+        name: 'Gastos por categoría',
+      })
+      const items = within(list)
+        .getAllByRole('listitem')
+        .filter((item) => item.parentElement === list)
+      expect(items).toHaveLength(2)
+      expect(items[0]).toHaveTextContent('Tarjeta')
+      expect(items[0]).toHaveTextContent('$360')
+      expect(items[1]).toHaveTextContent('Comida')
+      expect(items[1]).toHaveTextContent('$75')
+    })
+
+    it('opens into its subcategories, with Ajuste and Sin pagar as their own lines', async () => {
+      const { db, householdId } = await seedCards()
+
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
+
+      const toggle = await screen.findByText('Tarjeta')
+      const lines = screen.getByRole('list', { name: 'Tarjeta por categoría' })
+      expect(lines).not.toBeVisible()
+
+      fireEvent.click(toggle)
+
+      expect(lines).toBeVisible()
+      const rows = within(lines).getAllByRole('listitem')
+      expect(rows.map((row) => row.textContent)).toEqual([
+        expect.stringMatching(/^Comida.*\$300/),
+        expect.stringMatching(/^Ajuste.*\$10/),
+        expect.stringMatching(/^Sin pagar.*\$50/),
+      ])
+    })
   })
 })

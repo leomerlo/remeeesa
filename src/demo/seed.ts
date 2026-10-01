@@ -1,3 +1,4 @@
+import { createCard, createCardPurchase, markResumenPaid } from '@/lib/cards'
 import {
   createExpense,
   findOrCreateCategory,
@@ -5,7 +6,11 @@ import {
 } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
-import { createPendiente, markPendientePaid } from '@/lib/pendientes'
+import {
+  createPendiente,
+  listPendientes,
+  markPendientePaid,
+} from '@/lib/pendientes'
 
 export const DEMO_USER_ID = 'demo-user'
 export const DEMO_AUTHOR = 'Jlors'
@@ -21,6 +26,12 @@ export function scenarioFromSearch(search: string): DemoScenario {
 function dayThisMonth(day: number): Date {
   const today = new Date()
   return new Date(today.getFullYear(), today.getMonth(), day)
+}
+
+// For what already happened (gastos, payments): never later than today, which
+// would be a future date the app rejects early in the month.
+function pastDayThisMonth(day: number): Date {
+  return dayThisMonth(Math.min(day, new Date().getDate()))
 }
 
 // A household that has just signed up: a name, no budget, and nothing
@@ -55,6 +66,7 @@ async function seedCompleta(db: HouseholdsDb): Promise<void> {
   const servicios = await categoryFor('Servicios')
   const transporte = await categoryFor('Transporte')
   const salud = await categoryFor('Salud')
+  const ropa = await categoryFor('Ropa')
 
   // Ceilings on the few categories a household actually wants to move
   // carefully inside -- one comfortably inside it, one already over.
@@ -93,7 +105,7 @@ async function seedCompleta(db: HouseholdsDb): Promise<void> {
       name: gasto.name,
       price: gasto.price,
       comments: '',
-      expenseDate: dayThisMonth(gasto.day),
+      expenseDate: pastDayThisMonth(gasto.day),
     })
   }
 
@@ -128,9 +140,91 @@ async function seedCompleta(db: HouseholdsDb): Promise<void> {
         memberId: DEMO_USER_ID,
         authorDisplayName: DEMO_AUTHOR,
         finalAmount: bill.amount,
-        paymentDate: dayThisMonth(bill.day),
+        paymentDate: pastDayThisMonth(bill.day),
       })
     }
+  }
+  // Two cards, so the Tarjeta slice has both a paid Resumen (Visa, paid with
+  // a small ajuste) and an unpaid one (Master, in Por pagar). Purchases are
+  // dated last month: cuota 1 lands in this month's Resumen, and the 3-cuota
+  // one keeps going into the next months.
+  const today = new Date()
+  const lastMonth = (day: number) =>
+    new Date(today.getFullYear(), today.getMonth() - 1, day)
+  const visa = await createCard({ db, householdId, name: 'Visa' })
+  const master = await createCard({ db, householdId, name: 'Master' })
+  const compras: readonly {
+    readonly cardId: string
+    readonly name: string
+    readonly total: number
+    readonly cuotas: number
+    readonly categoryId: string
+    readonly day: number
+  }[] = [
+    {
+      cardId: visa.id,
+      name: 'Zapatillas',
+      total: 90000,
+      cuotas: 3,
+      categoryId: ropa.id,
+      day: 12,
+    },
+    {
+      cardId: visa.id,
+      name: 'Mayorista',
+      total: 36500,
+      cuotas: 1,
+      categoryId: comida.id,
+      day: 20,
+    },
+    {
+      cardId: master.id,
+      name: 'Service del auto',
+      total: 64000,
+      cuotas: 1,
+      categoryId: transporte.id,
+      day: 18,
+    },
+    {
+      cardId: master.id,
+      name: 'Óptica',
+      total: 45000,
+      cuotas: 2,
+      categoryId: salud.id,
+      day: 25,
+    },
+  ]
+  for (const compra of compras) {
+    await createCardPurchase({
+      db,
+      householdId,
+      cardId: compra.cardId,
+      categoryId: compra.categoryId,
+      memberId: DEMO_USER_ID,
+      authorDisplayName: DEMO_AUTHOR,
+      name: compra.name,
+      total: compra.total,
+      cuotas: compra.cuotas,
+      purchaseDate: lastMonth(compra.day),
+      comments: '',
+    })
+  }
+  const visaResumen = (await listPendientes({ db, householdId })).find(
+    (pendiente) =>
+      pendiente.cardId === visa.id &&
+      pendiente.dueDate.getMonth() === today.getMonth(),
+  )
+  if (visaResumen?.expectedAmount != null) {
+    await markResumenPaid({
+      db,
+      householdId,
+      resumenId: visaResumen.id,
+      memberId: DEMO_USER_ID,
+      authorDisplayName: DEMO_AUTHOR,
+      // A little interest on top: the difference becomes the ajuste.
+      amountPaid: visaResumen.expectedAmount + 1850,
+      paymentDate: today,
+    })
   }
 }
 
