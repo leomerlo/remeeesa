@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { colorForCategoryName } from './categoryColor'
-import { summarizeByCategory } from './summaries'
+import { summarizeByCategory, summarizeTarjeta } from './summaries'
 import type { Category, Expense } from './types'
 
 function makeExpense(overrides: Partial<Expense> = {}): Expense {
@@ -280,5 +280,85 @@ describe('summarizeByCategory share', () => {
 
     expect(summary).toEqual([])
     expect(summary.some((entry) => Number.isNaN(entry.share))).toBe(false)
+  })
+})
+
+describe('summarizeTarjeta', () => {
+  it('sums cuotas by subcategory, largest first, then a negative ajuste and the unpaid Resúmenes, ignoring other categories', () => {
+    const tarjeta = (overrides: Partial<Expense>) =>
+      makeExpense({ categoryId: 'cat-tarjeta', ...overrides })
+
+    const lines = summarizeTarjeta({
+      categoryId: 'cat-tarjeta',
+      expenses: [
+        tarjeta({ subcategory: 'Ropa', price: 20 }),
+        tarjeta({ subcategory: 'Comida', price: 30 }),
+        tarjeta({ subcategory: 'Ropa', price: 25 }),
+        tarjeta({ subcategory: null, price: -5 }),
+        makeExpense({ categoryId: 'cat-comida', price: 99 }),
+      ],
+      pendientes: [
+        { categoryId: 'cat-tarjeta', expectedAmount: 40 },
+        { categoryId: 'cat-tarjeta', expectedAmount: 2 },
+        { categoryId: 'cat-tarjeta', expectedAmount: null },
+        { categoryId: 'cat-servicios', expectedAmount: 500 },
+      ],
+    })
+
+    expect(lines).toEqual([
+      { name: 'Ropa', total: 45 },
+      { name: 'Comida', total: 30 },
+      { name: 'Ajuste', total: -5 },
+      { name: 'Sin pagar', total: 42 },
+    ])
+  })
+
+  it('leaves out Ajuste and Sin pagar when there is neither', () => {
+    expect(
+      summarizeTarjeta({
+        categoryId: 'cat-tarjeta',
+        expenses: [
+          makeExpense({ categoryId: 'cat-tarjeta', subcategory: 'Ropa' }),
+        ],
+        pendientes: [],
+      }),
+    ).toEqual([{ name: 'Ropa', total: 10 }])
+  })
+
+  it('adds up to the Tarjeta slice of summarizeByCategory given the same input', () => {
+    const expenses = [
+      makeExpense({
+        categoryId: 'cat-tarjeta',
+        subcategory: 'Ropa',
+        price: 30,
+      }),
+      makeExpense({
+        categoryId: 'cat-tarjeta',
+        subcategory: null,
+        price: -4.5,
+      }),
+      makeExpense({ categoryId: 'cat-comida', price: 99 }),
+    ]
+    const pendientes = [
+      { categoryId: 'cat-tarjeta', expectedAmount: 12.25 },
+      { categoryId: 'cat-tarjeta', expectedAmount: null },
+      { categoryId: 'cat-comida', expectedAmount: 7 },
+    ]
+
+    const slice = summarizeByCategory({
+      expenses,
+      categories: [
+        makeCategory({ id: 'cat-tarjeta', name: 'Tarjeta' }),
+        makeCategory({ id: 'cat-comida', name: 'Comida' }),
+      ],
+      pendientes,
+    }).find((entry) => entry.categoryId === 'cat-tarjeta')
+    const lines = summarizeTarjeta({
+      categoryId: 'cat-tarjeta',
+      expenses,
+      pendientes,
+    })
+
+    expect(lines.reduce((sum, line) => sum + line.total, 0)).toBe(slice?.total)
   })
 })
