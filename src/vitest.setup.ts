@@ -56,6 +56,8 @@ class ResizeObserverStub {
 beforeAll(() => {
   vi.stubGlobal('localStorage', localStorageMock)
   vi.stubGlobal('ResizeObserver', ResizeObserverStub)
+  // No test may reach the network; the dólar blue lookup fails gracefully.
+  vi.stubGlobal('fetch', () => Promise.reject(new Error('network disabled')))
 })
 
 afterEach(() => {
