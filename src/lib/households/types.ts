@@ -257,14 +257,41 @@ export type HouseholdsDb = {
     readonly purchaseDate: Date
     readonly comments: string
   }): Promise<CardPurchase>
+  // One transaction: rewrites the purchase and moves its cuotas between
+  // Resúmenes (see resumenChanges), creating a missing one in
+  // resumenCategoryId and deleting one left with no purchase. Rejects --
+  // writing nothing -- with CardPurchaseNotFoundError, CardNotFoundError, or
+  // ResumenAlreadyPaidError when any Resumen it is in before or after is paid.
+  // Firestore rules deny reading a purchase outside the caller's household,
+  // so there an outsider gets CardPurchaseNotFoundError rather than the
+  // memory adapter's HouseholdAccessDeniedError.
+  updateCardPurchase(input: {
+    readonly householdId: string
+    readonly purchaseId: string
+    readonly cardId: string
+    readonly categoryId: string
+    readonly resumenCategoryId: string
+    readonly name: string
+    readonly total: number
+    readonly cuotas: number
+    readonly purchaseDate: Date
+    readonly comments: string
+  }): Promise<CardPurchase>
+  // Same transaction and rejections as updateCardPurchase, with no cuotas
+  // after.
+  deleteCardPurchase(input: {
+    readonly householdId: string
+    readonly purchaseId: string
+  }): Promise<void>
   listCardPurchasesInMonth(input: {
     readonly householdId: string
     readonly monthStart: Date
     readonly monthEnd: Date
   }): Promise<readonly CardPurchase[]>
-  // In purchaseIds order. Expects a Resumen's own purchaseIds: an id with no
-  // purchase of this household behind it is skipped in memory, but Firestore
-  // rules deny reading it, so the real adapter rejects the whole call.
+  // In purchaseIds order. An id with no purchase of this household behind it
+  // (missing, or another household's -- rules deny reading those) is
+  // skipped rather than failing the whole Resumen -- in Firestore that also
+  // means a caller outside the household gets an empty list.
   getCardPurchases(input: {
     readonly householdId: string
     readonly purchaseIds: readonly string[]

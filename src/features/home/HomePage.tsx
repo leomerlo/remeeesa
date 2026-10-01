@@ -8,6 +8,7 @@ import {
   RecentExpensesList,
 } from '@/features/expenses'
 import type { EditExpenseTarget } from '@/features/expenses/AddExpenseForm'
+import type { EditPurchaseTarget } from '@/features/expenses/AddGastoForm'
 import {
   AddPendienteSheet,
   CardsNextMonth,
@@ -57,6 +58,9 @@ export function HomePage({
   const [homeEpoch, setHomeEpoch] = useState(0)
   const [editExpense, setEditExpense] = useState<EditExpenseTarget | null>(null)
   const [isAddGastoSheetOpen, setIsAddGastoSheetOpen] = useState(false)
+  const [editPurchase, setEditPurchase] = useState<EditPurchaseTarget | null>(
+    null,
+  )
   const [editPendiente, setEditPendiente] =
     useState<EditPendienteTarget | null>(null)
   // Owned here (not inside MonthNavigator) so every month-scoped section on
@@ -187,6 +191,10 @@ export function HomePage({
           {...(isFutureMonth ? { defaultDueDate: monthStart } : {})}
           open={isAddGastoSheetOpen}
           onOpenChange={setIsAddGastoSheetOpen}
+          editPurchase={editPurchase}
+          onEditFinished={() => {
+            setEditPurchase(null)
+          }}
           db={db}
           householdId={membership.householdId}
           memberId={currentUserId}
@@ -275,6 +283,9 @@ export function HomePage({
                     pendienteId: expense.pendienteId,
                     isService: expense.isService,
                   })
+                }}
+                onEditPurchase={(purchase, categoryName) => {
+                  setEditPurchase({ purchase, categoryName })
                 }}
               />
             </div>
