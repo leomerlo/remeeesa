@@ -16,6 +16,7 @@ import { useFirebase } from '@/lib/firebaseContext'
 import { cn } from '@/lib/utils'
 import { createFirestoreHouseholdsDb } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
+import { DolarConverter } from './DolarConverter'
 import { useCurrentMembership } from './useShowNav'
 
 export type AppShellProps = {
@@ -112,7 +113,7 @@ export function AppShell({
           className={cn(
             'bg-card shadow-raised fixed z-30',
             'inset-x-0 bottom-0 mx-auto max-w-md rounded-t-3xl px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:max-w-lg',
-            'lg:inset-y-0 lg:right-auto lg:left-0 lg:mx-0 lg:w-64 lg:max-w-none lg:rounded-none lg:px-4 lg:py-6',
+            'lg:flex lg:flex-col lg:inset-y-0 lg:right-auto lg:left-0 lg:mx-0 lg:w-64 lg:max-w-none lg:rounded-none lg:px-4 lg:py-6',
           )}
         >
           {/* The wordmark lives in the header on a phone; with a sidebar
@@ -141,6 +142,9 @@ export function AppShell({
               </li>
             ))}
           </ul>
+          <div className="hidden lg:contents">
+            <DolarConverter />
+          </div>
         </nav>
       ) : null}
     </>
