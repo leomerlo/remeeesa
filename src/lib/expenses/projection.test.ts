@@ -15,6 +15,7 @@ function expense(categoryId: string, price: number): Expense {
     expenseDate: new Date(),
     pendienteId: null,
     isService: false,
+    subcategory: null,
     createdAt: new Date(),
   }
 }
