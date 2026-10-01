@@ -118,7 +118,7 @@ service cloud.firestore {
     }
 
     function isValidExpense(data) {
-      return data.keys().hasOnly(['household_id', 'category_id', 'member_id', 'name', 'price', 'comments', 'expense_date', 'pendiente_id', 'is_service', 'created_at', 'author_display_name'])
+      return data.keys().hasOnly(['household_id', 'category_id', 'member_id', 'name', 'price', 'comments', 'expense_date', 'pendiente_id', 'is_service', 'subcategory', 'created_at', 'author_display_name'])
         && data.household_id is string
         && data.household_id.size() > 0
         && data.category_id is string
@@ -129,7 +129,11 @@ service cloud.firestore {
         && data.name.size() > 0
         && data.name.matches('.*\\S.*')
         && data.price is number
-        && data.price > 0
+        // A Resumen's ajuste is negative when less was paid than its total.
+        && (data.price > 0 || isCardResumenExpense(data))
+        // Only a card cuota expense carries a subcategory.
+        && (!('subcategory' in data) || data.subcategory == null
+          || (data.subcategory is string && isCardResumenExpense(data)))
         && data.comments is string
         && data.expense_date is timestamp
         && expenseDateNotInFuture(data.expense_date)
@@ -151,6 +155,14 @@ service cloud.firestore {
         && data.author_display_name.matches('.*\\S.*')
         && exists(/databases/$(database)/documents/categories/$(data.category_id))
         && get(/databases/$(database)/documents/categories/$(data.category_id)).data.household_id == data.household_id;
+    }
+
+    // Paying a Resumen writes its Expenses in the same commit that marks it
+    // paid, so the pendiente get() here (and in isValidExpense) reads the
+    // same, cached document for every cuota.
+    function isCardResumenExpense(data) {
+      return data.pendiente_id is string
+        && ('card_id' in get(/databases/$(database)/documents/pendientes/$(data.pendiente_id)).data);
     }
 
     // A reassigned author's member_id and author_display_name must land
@@ -346,15 +358,37 @@ service cloud.firestore {
     // once every write in the same commit has landed) confirms the Expense
     // that payment created was actually deleted in this same commit, not
     // just unlinked here while it silently lingers as an orphan.
+    // A Resumen also clears paid_expense_ids; rules cannot loop over that
+    // list, so only the first Expense is checked to be gone.
     function isValidPendienteUnmarkPaid() {
       return resource.data.status == 'paid'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paid_expense_id', 'paid_at'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paid_expense_id', 'paid_expense_ids', 'paid_at'])
         && request.resource.data.status == 'pending'
         && request.resource.data.paid_expense_id == null
+        && request.resource.data.get('paid_expense_ids', []).size() == 0
         && request.resource.data.paid_at == null
         && (!('paid_expense_id' in resource.data)
           || resource.data.paid_expense_id == null
           || !existsAfter(/databases/$(database)/documents/expenses/$(resource.data.paid_expense_id)));
+    }
+
+    // Paying a Resumen: one Expense per cuota plus the ajuste, all listed in
+    // paid_expense_ids (paid_expense_id is the first). Rules cannot loop
+    // over the list, so only the first is checked to exist in this
+    // household. Never before its month starts: due_date is day 10, so
+    // month start is 9 days earlier (a day of slack for time zones).
+    function isValidResumenMarkPaid() {
+      return resource.data.status == 'pending'
+        && ('card_id' in resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paid_expense_id', 'paid_expense_ids', 'paid_at'])
+        && request.resource.data.status == 'paid'
+        && request.resource.data.paid_expense_ids is list
+        && request.resource.data.paid_expense_ids.size() > 0
+        && request.resource.data.paid_expense_id == request.resource.data.paid_expense_ids[0]
+        && request.resource.data.paid_at is timestamp
+        && request.time > resource.data.due_date - duration.value(10, 'd')
+        && existsAfter(/databases/$(database)/documents/expenses/$(request.resource.data.paid_expense_id))
+        && getAfter(/databases/$(database)/documents/expenses/$(request.resource.data.paid_expense_id)).data.household_id == resource.data.household_id;
     }
 
     match /households/{householdId} {
@@ -467,7 +501,7 @@ service cloud.firestore {
           ? isValidResumen(pendienteId, request.resource.data)
           : !pendienteId.matches('^.+_[0-9]{4}-[0-9]{2}$'));
       allow update: if isMemberOf(resource.data.household_id)
-        && (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid() || isValidResumenUpdate());
+        && (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenMarkPaid());
       allow delete: if isMemberOf(resource.data.household_id)
         && resource.data.status == 'pending';
     }
@@ -476,7 +510,7 @@ service cloud.firestore {
     // whole number of cents; the 0.5 slack makes "at least one cent per
     // cuota" exact instead of tripping on 0.03 < 3 * 0.01 in doubles.
     function isValidCardPurchase(data) {
-      return data.keys().hasOnly(['household_id', 'card_id', 'category_id', 'member_id', 'author_display_name', 'name', 'total', 'cuotas', 'purchase_date', 'comments', 'created_at'])
+      return data.keys().hasOnly(['household_id', 'card_id', 'category_id', 'member_id', 'author_display_name', 'name', 'total', 'cuotas', 'purchase_date', 'comments', 'created_at', 'paid_resumen_ids'])
         && data.household_id is string
         && data.household_id.size() > 0
         && data.card_id is string
@@ -507,21 +541,55 @@ service cloud.firestore {
     // (membership, card, category, "Tarjeta"), well inside the 20-lookup
     // budget even at 24 cuotas.
     function isValidCardPurchaseEdit() {
-      return request.resource.data.diff(resource.data).affectedKeys()
+      return isUnlockedCardPurchase()
+        && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['card_id', 'category_id', 'name', 'total', 'cuotas', 'purchase_date', 'comments'])
         && isValidCardPurchase(request.resource.data);
+    }
+
+    // paid_resumen_ids lists the paid Resúmenes holding one of the
+    // purchase's cuotas; while it is non-empty the purchase is frozen.
+    function isUnlockedCardPurchase() {
+      return resource.data.get('paid_resumen_ids', []).size() == 0;
+    }
+
+    // Paying a Resumen adds its id to each of its purchases, undoing it
+    // removes it -- one id at a time, and only when that Resumen is (or is
+    // no longer) paid by the end of the same commit. Every purchase of one
+    // payment reads the same Resumen, so the getAfter() lookups stay cached.
+    function isCardPurchaseLockChange(purchaseId) {
+      let before = resource.data.get('paid_resumen_ids', []);
+      let after = request.resource.data.paid_resumen_ids;
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paid_resumen_ids'])
+        && after is list
+        && (
+          (after.size() == before.size() + 1
+            && after.hasAll(before)
+            && isPaidResumenOf(after.removeAll(before)[0], purchaseId))
+          || (after.size() == before.size() - 1
+            && before.hasAll(after)
+            && getAfter(/databases/$(database)/documents/pendientes/$(before.removeAll(after)[0])).data.status == 'pending')
+        );
+    }
+
+    function isPaidResumenOf(resumenId, purchaseId) {
+      return getAfter(/databases/$(database)/documents/pendientes/$(resumenId)).data.status == 'paid'
+        && getAfter(/databases/$(database)/documents/pendientes/$(resumenId)).data.household_id == resource.data.household_id
+        && getAfter(/databases/$(database)/documents/pendientes/$(resumenId)).data.purchase_ids.hasAny([purchaseId]);
     }
 
     match /card_purchases/{purchaseId} {
       allow read: if isMemberOf(resource.data.household_id);
       allow create: if isMemberOf(request.resource.data.household_id)
         && request.resource.data.member_id == request.auth.uid
-        && isValidCardPurchase(request.resource.data);
+        && isValidCardPurchase(request.resource.data)
+        && !('paid_resumen_ids' in request.resource.data);
       // Renaming or merging a category repoints its purchases too (same
-      // narrow category_id-only update Pendientes allow).
+      // narrow category_id-only update Pendientes allow), locked or not.
       allow update: if isMemberOf(resource.data.household_id)
-        && (isPendienteCategoryRepoint() || isValidCardPurchaseEdit());
-      allow delete: if isMemberOf(resource.data.household_id);
+        && (isPendienteCategoryRepoint() || isValidCardPurchaseEdit() || isCardPurchaseLockChange(purchaseId));
+      allow delete: if isMemberOf(resource.data.household_id)
+        && isUnlockedCardPurchase();
     }
 
     // No update/delete yet: renaming a card is a later ticket.

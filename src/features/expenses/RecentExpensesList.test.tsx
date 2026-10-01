@@ -9,7 +9,7 @@ import {
   updateMemberDisplayName,
 } from '@/lib/households'
 import { createPendiente, markPendientePaid } from '@/lib/pendientes'
-import { createCard, createCardPurchase } from '@/lib/cards'
+import { createCard, createCardPurchase, markResumenPaid } from '@/lib/cards'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { RecentExpensesList } from './RecentExpensesList'
@@ -830,5 +830,77 @@ describe('RecentExpensesList card purchases and the row cap', () => {
 
     expect(await screen.findByText('Pan')).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})
+
+describe('RecentExpensesList locked card purchase', () => {
+  it('makes a purchase with a cuota in a paid Resumen read-only, saying why', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 15, 12))
+    try {
+      const db = createMemoryHouseholdsDb().asUser('user-1')
+      const household = await createHouseholdWithMembership({
+        db,
+        userId: 'user-1',
+        name: 'Casa',
+        monthlyBudget: 100,
+        displayName: 'Ada',
+      })
+      const [category] = await listCategories({
+        db,
+        householdId: household.id,
+      })
+      if (category === undefined) {
+        throw new Error('expected a seeded category')
+      }
+      const visa = await createCard({
+        db,
+        householdId: household.id,
+        name: 'Visa',
+      })
+      await createCardPurchase({
+        db,
+        householdId: household.id,
+        cardId: visa.id,
+        categoryId: category.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        name: 'Zapatillas',
+        total: 300,
+        cuotas: 3,
+        purchaseDate: new Date(2026, 8, 5),
+        comments: '',
+      })
+      await markResumenPaid({
+        db,
+        householdId: household.id,
+        resumenId: `${visa.id}_2026-10`,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        amountPaid: 100,
+        paymentDate: new Date(2026, 9, 15),
+      })
+
+      renderPage(
+        <RecentExpensesList
+          db={db}
+          householdId={household.id}
+          monthStart={new Date(2026, 8, 1)}
+          monthEnd={new Date(2026, 8, 30, 23, 59, 59, 999)}
+          onEditPurchase={vi.fn()}
+        />,
+      )
+
+      expect(
+        await screen.findByText(
+          'Tiene cuotas en un resumen ya pagado: no se puede editar ni borrar.',
+        ),
+      ).toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: 'Editar Zapatillas' }),
+      ).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

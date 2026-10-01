@@ -1,3 +1,4 @@
+import type { Expense } from '@/lib/expenses/types'
 import {
   parseAuthorDisplayName,
   parseExpenseDate,
@@ -32,6 +33,28 @@ export class ResumenAlreadyPaidError extends Error {
     super(
       `El resumen de ${cardName} de ${monthFormatter.format(monthStart)} ya está pagado.`,
     )
+  }
+}
+
+export class ResumenNotYetPayableError extends Error {
+  override readonly name = 'ResumenNotYetPayableError'
+
+  constructor(cardName: string, monthStart: Date) {
+    super(
+      `El resumen de ${cardName} de ${monthFormatter.format(monthStart)} no se puede pagar antes de que empiece el mes.`,
+    )
+  }
+}
+
+export const CARD_PURCHASE_LOCKED_MESSAGE =
+  'Tiene cuotas en un resumen ya pagado: no se puede editar ni borrar.'
+
+// Any of its cuotas is in a paid Resumen (CardPurchase.paidResumenIds).
+export class CardPurchaseLockedError extends Error {
+  override readonly name = 'CardPurchaseLockedError'
+
+  constructor() {
+    super(CARD_PURCHASE_LOCKED_MESSAGE)
   }
 }
 
@@ -181,8 +204,15 @@ export async function listResumenCuotas(input: {
     householdId: input.householdId,
     purchaseIds: input.resumen.purchaseIds ?? [],
   })
-  const year = input.resumen.dueDate.getFullYear()
-  const month = input.resumen.dueDate.getMonth()
+  return resumenCuotasOf(input.resumen, purchases)
+}
+
+function resumenCuotasOf(
+  resumen: Pendiente,
+  purchases: readonly CardPurchase[],
+): readonly ResumenCuota[] {
+  const year = resumen.dueDate.getFullYear()
+  const month = resumen.dueDate.getMonth()
   return purchases.flatMap((purchase) => {
     const cuota = cuotasOf(purchase).find(
       (candidate) =>
@@ -190,6 +220,112 @@ export async function listResumenCuotas(input: {
         candidate.monthStart.getMonth() === month,
     )
     return cuota === undefined ? [] : [{ purchase, cuota }]
+  })
+}
+
+export function resumenMonthStart(resumen: Pendiente): Date {
+  return new Date(resumen.dueDate.getFullYear(), resumen.dueDate.getMonth(), 1)
+}
+
+// The October Resumen is paid in October or later, never in September.
+export function canPayResumen(resumen: Pendiente, today: Date): boolean {
+  return today >= resumenMonthStart(resumen)
+}
+
+export type ResumenPaymentExpense = {
+  readonly name: string
+  readonly price: number
+  // The purchase's category name; null on the ajuste.
+  readonly subcategory: string | null
+}
+
+// What paying a Resumen writes, shared by both adapters: one Expense per
+// cuota and, when the amount paid differs from the total, one "<card> —
+// ajuste" for the difference (negative when less was paid). All of them
+// count against the Resumen's month: dated on the payment date when it is
+// in that month, otherwise on the month's last day.
+export function resumenPayment(input: {
+  readonly resumen: Pendiente
+  readonly purchases: readonly CardPurchase[]
+  readonly categoryNameById: ReadonlyMap<string, string>
+  readonly amountPaid: number
+  readonly paymentDate: Date
+}): {
+  readonly expenseDate: Date
+  readonly expenses: readonly ResumenPaymentExpense[]
+} {
+  const monthStart = resumenMonthStart(input.resumen)
+  if (input.paymentDate < monthStart) {
+    throw new ResumenNotYetPayableError(input.resumen.name, monthStart)
+  }
+  const monthLastDay = new Date(
+    monthStart.getFullYear(),
+    monthStart.getMonth() + 1,
+    0,
+  )
+  const expenseDate =
+    input.paymentDate.getFullYear() === monthStart.getFullYear() &&
+    input.paymentDate.getMonth() === monthStart.getMonth()
+      ? input.paymentDate
+      : monthLastDay
+  const cuotas = resumenCuotasOf(input.resumen, input.purchases).map(
+    ({ purchase, cuota }): ResumenPaymentExpense => ({
+      name: purchase.name,
+      price: cuota.amount,
+      subcategory:
+        input.categoryNameById.get(purchase.categoryId) ?? 'Sin categoría',
+    }),
+  )
+  const totalCents = cuotas.reduce(
+    (sum, cuota) => sum + Math.round(cuota.price * 100),
+    0,
+  )
+  const ajusteCents = Math.round(input.amountPaid * 100) - totalCents
+  return {
+    expenseDate,
+    expenses:
+      ajusteCents === 0
+        ? cuotas
+        : [
+            ...cuotas,
+            {
+              name: `${input.resumen.name} — ajuste`,
+              price: ajusteCents / 100,
+              subcategory: null,
+            },
+          ],
+  }
+}
+
+// Pays a card's Resumen in one transaction (see HouseholdsDb.markResumenPaid).
+// Undoing it is unmarkPendientePaid, as for any Pendiente.
+export async function markResumenPaid(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly resumenId: string
+  readonly memberId: string
+  readonly authorDisplayName: string
+  readonly amountPaid: number
+  readonly paymentDate: Date
+}): Promise<{
+  readonly pendiente: Pendiente
+  readonly expenses: readonly Expense[]
+}> {
+  const amountPaid = parseExpensePrice(input.amountPaid)
+  const paymentDate = parseExpenseDate(input.paymentDate)
+  const authorDisplayName = parseAuthorDisplayName(input.authorDisplayName)
+  const tarjeta = await input.db.findOrCreateCategory({
+    householdId: input.householdId,
+    name: RESUMEN_CATEGORY_NAME,
+  })
+  return input.db.markResumenPaid({
+    householdId: input.householdId,
+    resumenId: input.resumenId,
+    memberId: input.memberId,
+    authorDisplayName,
+    amountPaid,
+    paymentDate,
+    tarjetaCategoryId: tarjeta.id,
   })
 }
 

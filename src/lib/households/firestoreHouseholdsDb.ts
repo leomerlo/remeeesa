@@ -1,4 +1,5 @@
 import {
+  arrayRemove,
   collection,
   deleteDoc,
   doc,
@@ -32,11 +33,15 @@ import {
   resumenIdFor,
 } from '@/lib/cards/cuotas'
 import type { CardPurchase } from '@/lib/cards/types'
+import type { Expense } from '@/lib/expenses/types'
 import {
   CardNotFoundError,
+  CardPurchaseLockedError,
   CardPurchaseNotFoundError,
   RESUMEN_DUE_DAY,
   ResumenAlreadyPaidError,
+  resumenMonthStart,
+  resumenPayment,
 } from '@/lib/cards/purchases'
 import {
   pendienteToDocument,
@@ -295,6 +300,9 @@ async function moveCardPurchaseCuotas(input: {
     id: purchaseSnap.id,
     data: purchaseSnap.data(),
   })
+  if (before.paidResumenIds.length > 0) {
+    throw new CardPurchaseLockedError()
+  }
   const after = input.after(before)
   const changes = resumenChanges(before, after?.purchase ?? null)
   const refs = changes.map((change) => doc(firestore, 'pendientes', change.id))
@@ -809,6 +817,7 @@ export function createFirestoreHouseholdsDb(
               expenseDate: input.expenseDate,
               pendienteId: null,
               isService: false,
+              subcategory: null,
               createdAt,
             }),
             expense_date: toFirestoreExpenseDate(input.expenseDate),
@@ -826,6 +835,7 @@ export function createFirestoreHouseholdsDb(
             expenseDate: input.expenseDate,
             pendienteId: null,
             isService: false,
+            subcategory: null,
             createdAt,
           }
         },
@@ -984,6 +994,7 @@ export function createFirestoreHouseholdsDb(
             memberId: input.memberId,
             authorDisplayName: input.authorDisplayName,
             isService: input.isService,
+            subcategory: null,
           }
         },
         {
@@ -1229,6 +1240,7 @@ export function createFirestoreHouseholdsDb(
                 // Pendiente that may later be edited or deleted. Per direct
                 // feedback.
                 isService: current.recurring,
+                subcategory: null,
                 createdAt,
               }),
               expense_date: toFirestoreExpenseDate(input.paymentDate),
@@ -1314,6 +1326,7 @@ export function createFirestoreHouseholdsDb(
                 // Pendiente that may later be edited or deleted. Per direct
                 // feedback.
                 isService: current.recurring,
+                subcategory: null,
                 createdAt,
               },
             }
@@ -1351,26 +1364,42 @@ export function createFirestoreHouseholdsDb(
               throw new PendienteNotPaidError()
             }
 
-            // The Expense markPendientePaid created is deleted outright,
-            // not just unlinked -- it only exists because of this payment,
-            // so once the payment is undone there is nothing left for it to
-            // represent. isValidExpenseUpdate never allows pendiente_id to
-            // move (see firestore.rules), so this id can't have drifted
-            // onto an unrelated Expense since it was written.
-            if (current.paidExpenseId !== null) {
-              tx.delete(doc(firestore, 'expenses', current.paidExpenseId))
+            // Every Expense the payment created (a Resumen's: one per
+            // cuota plus the ajuste) is deleted outright, not just unlinked
+            // -- it only exists because of this payment, so once the
+            // payment is undone there is nothing left for it to represent.
+            // isValidExpenseUpdate never allows pendiente_id to move (see
+            // firestore.rules), so these ids can't have drifted onto an
+            // unrelated Expense since they were written.
+            const paidExpenseIds =
+              current.paidExpenseIds ??
+              (current.paidExpenseId === null ? [] : [current.paidExpenseId])
+            for (const expenseId of paidExpenseIds) {
+              tx.delete(doc(firestore, 'expenses', expenseId))
             }
+            const isResumen = current.cardId !== undefined
             tx.update(pendienteRef, {
               status: 'pending',
               paid_expense_id: null,
               paid_at: null,
+              ...(isResumen ? { paid_expense_ids: [] } : {}),
             })
+            // A Resumen's purchases unlock (unless another paid Resumen
+            // still holds one of their cuotas).
+            for (const purchaseId of isResumen
+              ? (current.purchaseIds ?? [])
+              : []) {
+              tx.update(doc(firestore, 'card_purchases', purchaseId), {
+                paid_resumen_ids: arrayRemove(current.id),
+              })
+            }
 
             return {
               ...current,
               status: 'pending' as const,
               paidExpenseId: null,
               paidAt: null,
+              ...(isResumen ? { paidExpenseIds: [] } : {}),
             }
           })
         },
@@ -1378,6 +1407,132 @@ export function createFirestoreHouseholdsDb(
           pendienteId: input.pendienteId,
           householdId: input.householdId,
         },
+      )
+    },
+    async markResumenPaid(input) {
+      return withHouseholdAccess(
+        'markResumenPaid',
+        async () => {
+          const memberId = await awaitAuthenticatedUserId(firestore)
+          const resumenRef = doc(firestore, 'pendientes', input.resumenId)
+          const now = Timestamp.now()
+          const createdAt = now.toDate()
+
+          return runTransaction(firestore, async (tx) => {
+            const resumenSnap = await tx.get(resumenRef)
+            if (
+              !resumenSnap.exists() ||
+              resumenSnap.data().household_id !== input.householdId
+            ) {
+              throw new PendienteNotFoundError()
+            }
+            const resumen = parsePendienteDocument({
+              id: resumenSnap.id,
+              data: resumenSnap.data(),
+            })
+            if (resumen.cardId === undefined) {
+              throw new PendienteNotFoundError()
+            }
+            if (resumen.status !== 'pending') {
+              throw new ResumenAlreadyPaidError(
+                resumen.name,
+                resumenMonthStart(resumen),
+              )
+            }
+            // Every read before any write, as transactions require.
+            const purchases = await Promise.all(
+              (resumen.purchaseIds ?? []).map(async (id) => {
+                const snap = await tx.get(doc(firestore, 'card_purchases', id))
+                if (!snap.exists()) {
+                  throw new CardPurchaseNotFoundError()
+                }
+                return parseCardPurchaseDocument({
+                  id: snap.id,
+                  data: snap.data(),
+                })
+              }),
+            )
+            const categoryIds = [
+              ...new Set(purchases.map((purchase) => purchase.categoryId)),
+            ]
+            const categorySnaps = await Promise.all(
+              categoryIds.map((id) => tx.get(doc(firestore, 'categories', id))),
+            )
+            const categoryNameById = new Map(
+              categorySnaps.flatMap((snap) =>
+                snap.exists()
+                  ? [
+                      [
+                        snap.id,
+                        parseCategoryDocument({
+                          id: snap.id,
+                          data: snap.data(),
+                        }).name,
+                      ] as const,
+                    ]
+                  : [],
+              ),
+            )
+            const payment = resumenPayment({
+              resumen,
+              purchases,
+              categoryNameById,
+              amountPaid: input.amountPaid,
+              paymentDate: input.paymentDate,
+            })
+
+            // Minted per attempt: only the committed attempt's ids are
+            // written, and those are the ones returned.
+            const expenses = payment.expenses.map((line): Expense => ({
+              id: doc(collection(firestore, 'expenses')).id,
+              householdId: input.householdId,
+              categoryId: input.tarjetaCategoryId,
+              memberId,
+              authorDisplayName: input.authorDisplayName,
+              name: line.name,
+              price: line.price,
+              comments: '',
+              expenseDate: payment.expenseDate,
+              pendienteId: resumen.id,
+              isService: false,
+              subcategory: line.subcategory,
+              createdAt,
+            }))
+            for (const expense of expenses) {
+              tx.set(doc(firestore, 'expenses', expense.id), {
+                ...expenseToDocument(expense),
+                expense_date: toFirestoreExpenseDate(expense.expenseDate),
+                created_at: now,
+              })
+            }
+            const paidExpenseIds = expenses.map((expense) => expense.id)
+            tx.update(resumenRef, {
+              status: 'paid',
+              paid_expense_id: paidExpenseIds[0] ?? null,
+              paid_expense_ids: paidExpenseIds,
+              paid_at: toFirestorePendienteDate(input.paymentDate),
+            })
+            // Locks each purchase (rules check this Resumen is paid by the
+            // end of the commit).
+            for (const purchase of purchases) {
+              tx.update(doc(firestore, 'card_purchases', purchase.id), {
+                paid_resumen_ids: [...purchase.paidResumenIds, resumen.id],
+              })
+            }
+
+            return {
+              pendiente: {
+                ...resumen,
+                status: 'paid' as const,
+                paidExpenseId: paidExpenseIds[0] ?? null,
+                paidExpenseIds,
+                paidAt: input.paymentDate,
+              },
+              expenses,
+            }
+          })
+        },
+        { resumenId: input.resumenId, householdId: input.householdId },
       )
     },
     async listCards(input) {
@@ -1522,6 +1677,7 @@ export function createFirestoreHouseholdsDb(
               purchaseDate: input.purchaseDate,
               comments: input.comments,
               createdAt,
+              paidResumenIds: [],
             }
           })
         },

@@ -581,6 +581,8 @@ function EditPendienteHarness(props: {
         }}
       />
       <PendientesList
+        memberId="user-1"
+        authorDisplayName="Ada"
         db={props.db}
         householdId={props.householdId}
         onEditPendiente={(pendiente, categoryName) => {

@@ -24,4 +24,7 @@ export type Pendiente = {
   // sum of the cuotas in purchaseIds that land in its month.
   readonly cardId?: string
   readonly purchaseIds?: readonly string[]
+  // Every Expense paying a Resumen created (one per cuota, plus the ajuste);
+  // paidExpenseId is the first of them.
+  readonly paidExpenseIds?: readonly string[]
 }

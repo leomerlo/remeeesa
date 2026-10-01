@@ -76,7 +76,23 @@ describe('parseCardPurchaseDocument', () => {
       purchaseDate: new Date(2026, 8, 5),
       comments: '',
       createdAt,
+      paidResumenIds: [],
     })
+  })
+
+  it('reads the paid Resúmenes that lock it', () => {
+    expect(
+      parseCardPurchaseDocument({
+        id: 'p-1',
+        data: { ...data, paid_resumen_ids: ['card-1_2026-10'] },
+      }).paidResumenIds,
+    ).toEqual(['card-1_2026-10'])
+    expect(() =>
+      parseCardPurchaseDocument({
+        id: 'p-1',
+        data: { ...data, paid_resumen_ids: 'card-1_2026-10' },
+      }),
+    ).toThrow('paid_resumen_ids must be a list of strings')
   })
 
   it('rejects a non-integer cuotas', () => {

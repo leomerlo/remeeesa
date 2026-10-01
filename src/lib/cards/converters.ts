@@ -54,5 +54,20 @@ export function parseCardPurchaseDocument(input: {
     purchaseDate: parseTimestamp(d.purchase_date, 'purchase_date'),
     comments: typeof d.comments === 'string' ? d.comments : '',
     createdAt: parseTimestamp(d.created_at, 'created_at'),
+    // Absent until one of its Resúmenes is paid.
+    paidResumenIds: parseIdList(d.paid_resumen_ids, 'paid_resumen_ids'),
   }
+}
+
+function parseIdList(value: unknown, field: string): readonly string[] {
+  if (value === undefined) {
+    return []
+  }
+  if (
+    !Array.isArray(value) ||
+    !value.every((item): item is string => typeof item === 'string')
+  ) {
+    throw new Error(`${field} must be a list of strings`)
+  }
+  return value
 }

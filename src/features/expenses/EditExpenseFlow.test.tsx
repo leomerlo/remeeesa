@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   createExpense,
   deleteExpense,
@@ -11,7 +11,17 @@ import {
 import { createHouseholdWithMembership } from '@/lib/households'
 import type { Expense } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
-import { createPendiente, markPendientePaid } from '@/lib/pendientes'
+import {
+  createPendiente,
+  getPendiente,
+  markPendientePaid,
+} from '@/lib/pendientes'
+import {
+  createCard,
+  createCardPurchase,
+  listCardPurchasesInMonth,
+  markResumenPaid,
+} from '@/lib/cards'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { AddExpenseForm } from './AddExpenseForm'
@@ -636,5 +646,107 @@ describe('EditExpenseFlow', () => {
     expect(
       screen.queryByLabelText('Marcar como servicio'),
     ).not.toBeInTheDocument()
+  })
+})
+
+describe('deleting an expense a Resumen payment generated', () => {
+  it('undoes the whole payment: every cuota expense and the ajuste go, the Resumen is pending again and its purchases unlock', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 15, 12))
+    try {
+      const db = createMemoryHouseholdsDb().asUser('user-1')
+      const household = await createHouseholdWithMembership({
+        db,
+        userId: 'user-1',
+        name: 'Casa',
+        monthlyBudget: 1000,
+      })
+      const householdId = household.id
+      const [category] = await listCategories({ db, householdId })
+      if (category === undefined) {
+        throw new Error('expected a seeded category')
+      }
+      const visa = await createCard({ db, householdId, name: 'Visa' })
+      for (const name of ['Zapatillas', 'Remera']) {
+        await createCardPurchase({
+          db,
+          householdId,
+          cardId: visa.id,
+          categoryId: category.id,
+          memberId: 'user-1',
+          authorDisplayName: 'Ada',
+          name,
+          total: 100,
+          cuotas: 1,
+          purchaseDate: new Date(2026, 8, 5),
+          comments: '',
+        })
+      }
+      const resumenId = `${visa.id}_2026-10`
+      const { expenses } = await markResumenPaid({
+        db,
+        householdId,
+        resumenId,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        amountPaid: 210,
+        paymentDate: new Date(2026, 9, 15),
+      })
+      const [first] = expenses
+      if (first === undefined) {
+        throw new Error('expected a cuota expense')
+      }
+
+      renderWithProviders(
+        <AddExpenseForm
+          db={db}
+          householdId={householdId}
+          memberId="user-1"
+          authorDisplayName="Ada"
+          editExpense={{
+            expenseId: first.id,
+            name: first.name,
+            price: first.price,
+            categoryName: 'Tarjeta',
+            comments: first.comments,
+            expenseDate: first.expenseDate,
+            memberId: first.memberId,
+            pendienteId: first.pendienteId,
+            isService: first.isService,
+          }}
+        />,
+      )
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Deshacer pago' }),
+      )
+      fireEvent.click(
+        within(screen.getByRole('alertdialog')).getByRole('button', {
+          name: 'Deshacer pago',
+        }),
+      )
+
+      const range = {
+        monthStart: new Date(2026, 9, 1),
+        monthEnd: new Date(2026, 9, 31, 23, 59, 59, 999),
+      }
+      await waitFor(async () => {
+        expect(
+          await listExpensesInMonth({ db, householdId, ...range }),
+        ).toEqual([])
+      })
+      expect(
+        (await getPendiente({ db, householdId, pendienteId: resumenId }))
+          ?.status,
+      ).toBe('pending')
+      const purchases = await listCardPurchasesInMonth({
+        db,
+        householdId,
+        monthStart: new Date(2026, 8, 1),
+        monthEnd: new Date(2026, 8, 30, 23, 59, 59, 999),
+      })
+      expect(purchases.map((p) => p.paidResumenIds)).toEqual([[], []])
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

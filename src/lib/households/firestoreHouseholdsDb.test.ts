@@ -251,7 +251,7 @@ describe('firestore.rules pendiente category repoint', () => {
     expect(rules).toContain('function isPendienteCategoryRepoint()')
     expect(rules).toContain("hasOnly(['category_id'])")
     expect(rules).toContain(
-      '&& (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid() || isValidResumenUpdate());',
+      '&& (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenMarkPaid());',
     )
   })
 
@@ -282,7 +282,7 @@ describe('firestore.rules expenses', () => {
   it('lets members create expenses attributed to themselves with price and date checks', () => {
     expect(rules).toContain('function isValidExpense(data)')
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'category_id', 'member_id', 'name', 'price', 'comments', 'expense_date', 'pendiente_id', 'is_service', 'created_at', 'author_display_name'])",
+      "data.keys().hasOnly(['household_id', 'category_id', 'member_id', 'name', 'price', 'comments', 'expense_date', 'pendiente_id', 'is_service', 'subcategory', 'created_at', 'author_display_name'])",
     )
     expect(rules).toContain('data.price is number')
     expect(rules).toContain('data.price > 0')
@@ -405,7 +405,7 @@ describe('firestore.rules pendientes', () => {
       /function isValidPendienteUpdate\(\) \{[\s\S]*?!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'status', 'paid_expense_id', 'paid_at', 'created_at'\]\)/,
     )
     expect(rules).toMatch(
-      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\)\);/,
+      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\) \|\| isValidResumenMarkPaid\(\)\);/,
     )
   })
 
@@ -477,7 +477,7 @@ describe('firestore.rules pendientes mark-paid', () => {
 
   it('ORs isValidPendienteMarkPaid into the pendiente update rule alongside isValidPendienteUpdate', () => {
     expect(rules).toMatch(
-      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\)\);/,
+      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\) \|\| isValidResumenMarkPaid\(\)\);/,
     )
   })
 })
@@ -493,7 +493,7 @@ describe('firestore.rules pendientes unmark-paid', () => {
       /function isValidPendienteUnmarkPaid\(\) \{[\s\S]*?resource\.data\.status == 'paid'/,
     )
     expect(rules).toMatch(
-      /function isValidPendienteUnmarkPaid\(\) \{[\s\S]*?request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\.hasOnly\(\['status', 'paid_expense_id', 'paid_at'\]\)/,
+      /function isValidPendienteUnmarkPaid\(\) \{[\s\S]*?request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\.hasOnly\(\['status', 'paid_expense_id', 'paid_expense_ids', 'paid_at'\]\)/,
     )
     expect(rules).toMatch(
       /function isValidPendienteUnmarkPaid\(\) \{[\s\S]*?request\.resource\.data\.status == 'pending'/,
@@ -611,9 +611,15 @@ describe('unmarkPendientePaid adapter', () => {
     )
   })
 
-  it('deletes the paid Expense via tx.delete before updating the pendiente back to pending', () => {
+  it('deletes every Expense the payment created via tx.delete before updating the pendiente back to pending', () => {
     expect(adapterSource).toMatch(
-      /async unmarkPendientePaid\(input\) \{[\s\S]*?tx\.delete\(doc\(firestore, 'expenses', current\.paidExpenseId\)\)[\s\S]*?tx\.update\(pendienteRef, \{[\s\S]*?status: 'pending',[\s\S]*?paid_expense_id: null,[\s\S]*?paid_at: null,/,
+      /async unmarkPendientePaid\(input\) \{[\s\S]*?current\.paidExpenseIds \?\?[\s\S]*?tx\.delete\(doc\(firestore, 'expenses', expenseId\)\)[\s\S]*?tx\.update\(pendienteRef, \{[\s\S]*?status: 'pending',[\s\S]*?paid_expense_id: null,[\s\S]*?paid_at: null,/,
+    )
+  })
+
+  it("unlocks a Resumen's purchases in the same transaction", () => {
+    expect(adapterSource).toMatch(
+      /async unmarkPendientePaid\(input\) \{[\s\S]*?tx\.update\(doc\(firestore, 'card_purchases', purchaseId\), \{\s*paid_resumen_ids: arrayRemove\(current\.id\),/,
     )
   })
 })
@@ -687,15 +693,21 @@ function ruleFunction(name: string): string {
 }
 
 describe('firestore.rules card purchases', () => {
-  it('lets only household members read and create card purchases, as themselves', () => {
+  it('lets only household members read and create card purchases, as themselves and unlocked', () => {
     expect(rules).toMatch(
-      /match \/card_purchases\/\{purchaseId\} \{\s*\n\s*allow read: if isMemberOf\(resource\.data\.household_id\);\s*\n\s*allow create: if isMemberOf\(request\.resource\.data\.household_id\)\s*\n\s*&& request\.resource\.data\.member_id == request\.auth\.uid\s*\n\s*&& isValidCardPurchase\(request\.resource\.data\);/,
+      /match \/card_purchases\/\{purchaseId\} \{\s*\n\s*allow read: if isMemberOf\(resource\.data\.household_id\);\s*\n\s*allow create: if isMemberOf\(request\.resource\.data\.household_id\)\s*\n\s*&& request\.resource\.data\.member_id == request\.auth\.uid\s*\n\s*&& isValidCardPurchase\(request\.resource\.data\)\s*\n\s*&& !\('paid_resumen_ids' in request\.resource\.data\);/,
     )
   })
 
-  it('lets a member repoint, edit or delete a purchase', () => {
+  it('lets a member repoint, edit or delete a purchase, editing and deleting only while unlocked', () => {
     expect(rules).toMatch(
-      /match \/card_purchases\/\{purchaseId\}[\s\S]*?allow update: if isMemberOf\(resource\.data\.household_id\)\s*\n\s*&& \(isPendienteCategoryRepoint\(\) \|\| isValidCardPurchaseEdit\(\)\);\s*\n\s*allow delete: if isMemberOf\(resource\.data\.household_id\);/,
+      /match \/card_purchases\/\{purchaseId\}[\s\S]*?allow update: if isMemberOf\(resource\.data\.household_id\)\s*\n\s*&& \(isPendienteCategoryRepoint\(\) \|\| isValidCardPurchaseEdit\(\) \|\| isCardPurchaseLockChange\(purchaseId\)\);\s*\n\s*allow delete: if isMemberOf\(resource\.data\.household_id\)\s*\n\s*&& isUnlockedCardPurchase\(\);/,
+    )
+    expect(ruleFunction('isValidCardPurchaseEdit')).toContain(
+      'isUnlockedCardPurchase()',
+    )
+    expect(ruleFunction('isUnlockedCardPurchase')).toContain(
+      "resource.data.get('paid_resumen_ids', []).size() == 0",
     )
     expect(adapterSource).toContain(
       "(['expenses', 'pendientes', 'card_purchases'] as const)",
@@ -751,7 +763,9 @@ describe('firestore.rules Resúmenes', () => {
     expect(fn).toContain(
       'request.resource.data.purchase_ids.hasAll(resource.data.purchase_ids)',
     )
-    expect(rules).toContain('|| isValidResumenUpdate());')
+    expect(rules).toContain(
+      '|| isValidResumenUpdate() || isValidResumenMarkPaid());',
+    )
   })
 
   it('keeps an edit off the author and the timestamps, and re-validates the whole purchase', () => {
@@ -886,6 +900,104 @@ describe('createCardPurchase purchase_date', () => {
   it('stores the purchase date at midday, like expense_date', () => {
     expect(adapterSource).toContain(
       'purchase_date: toFirestoreExpenseDate(input.purchaseDate),',
+    )
+  })
+})
+
+describe('firestore.rules paying a Resumen', () => {
+  it('lets only a Resumen expense carry a subcategory or a negative price', () => {
+    const fn = ruleFunction('isValidExpense')
+    expect(fn).toContain('(data.price > 0 || isCardResumenExpense(data))')
+    expect(fn).toContain(
+      '(data.subcategory is string && isCardResumenExpense(data))',
+    )
+    expect(ruleFunction('isCardResumenExpense')).toContain(
+      "('card_id' in get(/databases/$(database)/documents/pendientes/$(data.pendiente_id)).data)",
+    )
+  })
+
+  it('marks a pending Resumen paid with its list of expenses, never before its month', () => {
+    const fn = ruleFunction('isValidResumenMarkPaid')
+    expect(fn).toContain("resource.data.status == 'pending'")
+    expect(fn).toContain("('card_id' in resource.data)")
+    expect(fn).toContain(
+      ".hasOnly(['status', 'paid_expense_id', 'paid_expense_ids', 'paid_at'])",
+    )
+    expect(fn).toContain(
+      'request.resource.data.paid_expense_id == request.resource.data.paid_expense_ids[0]',
+    )
+    expect(fn).toContain(
+      "request.time > resource.data.due_date - duration.value(10, 'd')",
+    )
+    expect(fn).toContain(
+      'existsAfter(/databases/$(database)/documents/expenses/$(request.resource.data.paid_expense_id))',
+    )
+  })
+
+  it('clears paid_expense_ids when undoing', () => {
+    expect(ruleFunction('isValidPendienteUnmarkPaid')).toContain(
+      "request.resource.data.get('paid_expense_ids', []).size() == 0",
+    )
+  })
+
+  it('locks a purchase only with a Resumen paid in the same commit, and unlocks it only once that Resumen is pending', () => {
+    const fn = ruleFunction('isCardPurchaseLockChange')
+    expect(fn).toContain(".hasOnly(['paid_resumen_ids'])")
+    expect(fn).toContain(
+      'isPaidResumenOf(after.removeAll(before)[0], purchaseId)',
+    )
+    expect(fn).toContain(
+      "getAfter(/databases/$(database)/documents/pendientes/$(before.removeAll(after)[0])).data.status == 'pending'",
+    )
+    const paid = ruleFunction('isPaidResumenOf')
+    expect(paid).toContain(".data.status == 'paid'")
+    expect(paid).toContain('.data.purchase_ids.hasAny([purchaseId])')
+  })
+})
+
+describe('markResumenPaid adapter', () => {
+  const source = adapterSource.slice(
+    adapterSource.indexOf('async markResumenPaid(input)'),
+    adapterSource.indexOf('async listCards(input)'),
+  )
+
+  it('attributes the expenses to the signed-in member', () => {
+    expect(source).toContain(
+      'const memberId = await awaitAuthenticatedUserId(firestore)',
+    )
+    expect(source).not.toMatch(/memberId: input\.memberId/)
+  })
+
+  it('reads the Resumen, its purchases and their categories before any write, in one transaction', () => {
+    expect(source).toContain('return runTransaction(firestore, async (tx) =>')
+    const firstWrite = source.search(/tx\.(set|update|delete)\(/)
+    expect(source.indexOf('tx.get(resumenRef)')).toBeLessThan(firstWrite)
+    expect(
+      source.indexOf("tx.get(doc(firestore, 'card_purchases', id))"),
+    ).toBeLessThan(firstWrite)
+    expect(
+      source.indexOf("tx.get(doc(firestore, 'categories', id))"),
+    ).toBeLessThan(firstWrite)
+    expect(source.indexOf('throw new ResumenAlreadyPaidError')).toBeLessThan(
+      firstWrite,
+    )
+  })
+
+  it('marks the Resumen paid and locks each of its purchases', () => {
+    expect(source).toMatch(
+      /tx\.update\(resumenRef, \{\s*status: 'paid',\s*paid_expense_id: paidExpenseIds\[0\] \?\? null,\s*paid_expense_ids: paidExpenseIds,/,
+    )
+    expect(source).toContain(
+      'paid_resumen_ids: [...purchase.paidResumenIds, resumen.id],',
+    )
+  })
+
+  it('rejects editing a locked purchase before touching any Resumen', () => {
+    const helper = adapterSource.slice(
+      adapterSource.indexOf('async function moveCardPurchaseCuotas('),
+    )
+    expect(helper.indexOf('throw new CardPurchaseLockedError()')).toBeLessThan(
+      helper.indexOf('refs.map((ref) => tx.get(ref))'),
     )
   })
 })

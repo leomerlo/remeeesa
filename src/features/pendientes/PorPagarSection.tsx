@@ -30,6 +30,9 @@ import { ResumenSheet, resumenLabel } from './ResumenSheet'
 export type PorPagarSectionProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
+  // Who pays a Resumen opened from here.
+  readonly memberId: string
+  readonly authorDisplayName: string
   readonly onMarkPaid: (pendiente: Pendiente, categoryName: string) => void
   // Defaults to the current month. MonthNavigator's viewed month flows down
   // to this the same way it does to RecentExpensesList: the section shows
@@ -61,6 +64,8 @@ export type PorPagarSectionProps = {
 export function PorPagarSection({
   db,
   householdId,
+  memberId,
+  authorDisplayName,
   onMarkPaid,
   monthStart: monthStartProp,
   monthEnd: monthEndProp,
@@ -269,6 +274,8 @@ export function PorPagarSection({
       <ResumenSheet
         db={db}
         householdId={householdId}
+        memberId={memberId}
+        authorDisplayName={authorDisplayName}
         resumen={openResumen}
         onClose={() => {
           setOpenResumen(null)

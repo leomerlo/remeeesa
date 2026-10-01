@@ -119,9 +119,20 @@ async function findCategoryId(input: {
 const MONTH_START = new Date(2026, 8, 1)
 const MONTH_END = new Date(2026, 8, 30, 23, 59, 59, 999)
 
-function List(props: ComponentProps<typeof PendientesList>): ReactElement {
+function List(
+  props: Omit<
+    ComponentProps<typeof PendientesList>,
+    'memberId' | 'authorDisplayName'
+  >,
+): ReactElement {
   return (
-    <PendientesList monthStart={MONTH_START} monthEnd={MONTH_END} {...props} />
+    <PendientesList
+      memberId="user-1"
+      authorDisplayName="Ada"
+      monthStart={MONTH_START}
+      monthEnd={MONTH_END}
+      {...props}
+    />
   )
 }
 
@@ -201,6 +212,8 @@ describe('PendientesList', () => {
 
     renderWithProviders(
       <PendientesList
+        memberId="user-1"
+        authorDisplayName="Ada"
         monthStart={new Date(2026, 9, 1)}
         monthEnd={new Date(2026, 9, 31, 23, 59, 59, 999)}
         db={db}
@@ -300,6 +313,8 @@ describe('PendientesList', () => {
 
     renderWithProviders(
       <PendientesList
+        memberId="user-1"
+        authorDisplayName="Ada"
         monthStart={new Date(2026, 9, 1)}
         monthEnd={new Date(2026, 9, 31, 23, 59, 59, 999)}
         db={db}

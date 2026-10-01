@@ -18,7 +18,7 @@ import {
   listPendientes,
   markPendientePaid,
 } from '@/lib/pendientes'
-import { createCard, createCardPurchase } from '@/lib/cards'
+import { createCard, createCardPurchase, markResumenPaid } from '@/lib/cards'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { HistoricoPage } from './HistoricoPage'
@@ -717,6 +717,37 @@ describe('HistoricoPage card purchases', () => {
     })
     return { db, householdId, visa, master }
   }
+
+  it('shows a purchase with a cuota in a paid Resumen as locked, with no pencil', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 15, 12))
+    try {
+      const { db, householdId, visa } = await seedPurchase()
+      await markResumenPaid({
+        db,
+        householdId,
+        resumenId: `${visa.id}_2026-10`,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        amountPaid: 100,
+        paymentDate: new Date(2026, 9, 15),
+      })
+      renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+      await goBackMonths(1)
+
+      expect(await screen.findByText('Resumen pagado')).toBeInTheDocument()
+      expect(
+        screen.getByRole('img', {
+          name: 'Tiene cuotas en un resumen ya pagado: no se puede editar ni borrar.',
+        }),
+      ).toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: 'Editar Zapatillas' }),
+      ).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 
   it('opens a card purchase in the add-gasto form, pre-filled, and saves any field', async () => {
     vi.useFakeTimers({ toFake: ['Date'] })

@@ -10,7 +10,6 @@ import {
   parseCategoryBudget,
   parseCategoryName,
   parseExpenseName,
-  parseExpensePrice,
 } from './validate'
 
 function parseNullableString(value: unknown, field: string): string | null {
@@ -126,12 +125,13 @@ export function parseExpenseDocument(input: {
     expense_date,
     pendiente_id,
     is_service,
+    subcategory,
     created_at,
   } = input.data
   if (typeof name !== 'string') {
     throw new Error('Expense name must be a string')
   }
-  if (typeof price !== 'number') {
+  if (typeof price !== 'number' || !Number.isFinite(price)) {
     throw new Error('Expense price must be a number')
   }
   if (typeof comments !== 'string') {
@@ -151,13 +151,16 @@ export function parseExpenseDocument(input: {
       'author_display_name',
     ),
     name: parseExpenseName(name),
-    price: parseExpensePrice(price),
+    // Not parseExpensePrice: a card Resumen's ajuste is negative when less
+    // was paid than its total.
+    price: Math.round(price * 100) / 100,
     comments,
     expenseDate: parseTimestamp(expense_date, 'expense_date'),
     // Missing (not just null) on any Expense doc written before this field
     // existed -- treated the same as "not from a Pendiente".
     pendienteId: parseNullableString(pendiente_id, 'pendiente_id'),
     isService: parseOptionalBoolean(is_service, 'is_service', false),
+    subcategory: parseNullableString(subcategory, 'subcategory'),
     createdAt: parseTimestamp(created_at, 'created_at'),
   }
 }
@@ -188,6 +191,7 @@ export function expenseToDocument(input: {
   readonly expenseDate: Date
   readonly pendienteId: string | null
   readonly isService: boolean
+  readonly subcategory: string | null
   readonly createdAt: Date
 }): {
   readonly household_id: string
@@ -200,6 +204,7 @@ export function expenseToDocument(input: {
   readonly expense_date: Date
   readonly pendiente_id: string | null
   readonly is_service: boolean
+  readonly subcategory: string | null
   readonly created_at: Date
 } {
   return {
@@ -213,6 +218,7 @@ export function expenseToDocument(input: {
     expense_date: input.expenseDate,
     pendiente_id: input.pendienteId,
     is_service: input.isService,
+    subcategory: input.subcategory,
     created_at: input.createdAt,
   }
 }

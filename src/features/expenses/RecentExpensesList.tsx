@@ -26,7 +26,7 @@ import { listHouseholdMembers } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { EmptyState } from '@/components/EmptyState'
 import { ILLUSTRATIONS } from '@/components/illustrations'
-import { cardPurchaseMark } from '@/lib/cards'
+import { CARD_PURCHASE_LOCKED_MESSAGE, cardPurchaseMark } from '@/lib/cards'
 import { expensesInMonthQueryKey } from './queryKeys'
 import { newestFirst, useCardPurchasesInMonth } from './useCardPurchasesInMonth'
 import type { MovementRow as Row } from './useCardPurchasesInMonth'
@@ -224,10 +224,13 @@ export function RecentExpensesList({
                 (() => {
                   onEditExpense(row.expense, category?.name ?? '')
                 })
-              : onEditPurchase &&
-                (() => {
-                  onEditPurchase(row.purchase, category?.name ?? '')
-                })
+              : // A purchase with a cuota in a paid Resumen is read-only.
+                row.purchase.paidResumenIds.length === 0
+                ? onEditPurchase &&
+                  (() => {
+                    onEditPurchase(row.purchase, category?.name ?? '')
+                  })
+                : undefined
 
           const rowContent = (
             <>
@@ -278,6 +281,12 @@ export function RecentExpensesList({
                         'Tarjeta',
                       row.purchase.cuotas,
                     )}
+                  </span>
+                ) : null}
+                {row.kind === 'purchase' &&
+                row.purchase.paidResumenIds.length > 0 ? (
+                  <span className="text-xs text-muted-foreground">
+                    {CARD_PURCHASE_LOCKED_MESSAGE}
                   </span>
                 ) : null}
               </div>
