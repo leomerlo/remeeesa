@@ -17,3 +17,7 @@ export async function fetchDolarBlueRate(): Promise<number> {
 export function arsToUsd(ars: number, rate: number): number {
   return ars / rate
 }
+
+export function usdToArs(usd: number, rate: number): number {
+  return usd * rate
+}
