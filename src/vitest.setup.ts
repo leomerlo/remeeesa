@@ -70,5 +70,5 @@ afterEach(() => {
 // override this with their own setSystemTime.
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'] })
-  vi.setSystemTime(new Date(2026, 8, 15))
+  vi.setSystemTime(new Date(2026, 8, 25))
 })
