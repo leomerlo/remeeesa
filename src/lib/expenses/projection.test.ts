@@ -44,4 +44,12 @@ describe('buildProjection', () => {
     )
     expect(rows).toEqual([{ categoryId: 'b', price: 20, source: 'projected' }])
   })
+
+  it('matches a bill paid through Servicios, ignoring accents', () => {
+    const paid = {
+      ...expense('b', 40, 'Tarjeta de crédito'),
+      pendienteId: 'p1',
+    }
+    expect(buildProjection([paid], [], ['Tarjeta de credito'])).toEqual([])
+  })
 })

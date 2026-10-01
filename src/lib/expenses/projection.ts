@@ -20,7 +20,19 @@ function totalsByCategory(expenses: readonly Expense[]): Map<string, number> {
   return totals
 }
 
-const normalize = (name: string): string => name.trim().toLowerCase()
+// Accents folded too: "Tarjeta de crédito" and "Tarjeta de credito" are the
+// same bill to whoever typed them.
+const normalize = (name: string): string =>
+  name
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .trim()
+    .toLowerCase()
+
+// Paid through Servicios (pendienteId) or flagged by hand (isService): either
+// way it is a bill, not a one-off gasto.
+const isBill = (expense: Expense): boolean =>
+  isServicio(expense) || expense.pendienteId !== null
 
 // Per category: this month's total when it has any expense, otherwise last
 // month's total. A servicio of last month that also exists in the active month
@@ -33,11 +45,11 @@ export function buildProjection(
 ): readonly ProjectionRow[] {
   const active = new Set([
     ...activeServicioNames.map(normalize),
-    ...current.filter(isServicio).map((e) => normalize(e.name)),
+    ...current.filter(isBill).map((e) => normalize(e.name)),
   ])
   const now = totalsByCategory(current)
   const before = totalsByCategory(
-    previous.filter((e) => !(isServicio(e) && active.has(normalize(e.name)))),
+    previous.filter((e) => !(isBill(e) && active.has(normalize(e.name)))),
   )
   const rows: ProjectionRow[] = [...now].map(([categoryId, price]) => ({
     categoryId,
