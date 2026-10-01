@@ -130,7 +130,9 @@ service cloud.firestore {
         && data.name.matches('.*\\S.*')
         && data.price is number
         // A Resumen's ajuste is negative when less was paid than its total.
-        && (data.price > 0 || isCardResumenExpense(data))
+        // NaN and -Infinity fail both bounds.
+        && (data.price > 0
+          || (data.price < 0 && data.price > -1000000000 && isCardResumenExpense(data)))
         // Only a card cuota expense carries a subcategory.
         && (!('subcategory' in data) || data.subcategory == null
           || (data.subcategory is string && isCardResumenExpense(data)))
@@ -367,7 +369,7 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paid_expense_id', 'paid_expense_ids', 'paid_at'])
         && request.resource.data.status == 'pending'
         && request.resource.data.paid_expense_id == null
-        && request.resource.data.get('paid_expense_ids', []).size() == 0
+        && request.resource.data.get('paid_expense_ids', []) == []
         && request.resource.data.paid_at == null
         && (!('paid_expense_id' in resource.data)
           || resource.data.paid_expense_id == null
@@ -386,6 +388,7 @@ service cloud.firestore {
         && request.resource.data.status == 'paid'
         && request.resource.data.paid_expense_ids is list
         && request.resource.data.paid_expense_ids.size() > 0
+        && request.resource.data.paid_expense_id is string
         && request.resource.data.paid_expense_id == request.resource.data.paid_expense_ids[0]
         && request.resource.data.paid_at is timestamp
         && request.time > resource.data.due_date - duration.value(10, 'd')
@@ -572,8 +575,14 @@ service cloud.firestore {
             && isPaidResumenOf(after.removeAll(before)[0], purchaseId))
           || (after.size() == before.size() - 1
             && before.hasAll(after)
-            && getAfter(/databases/$(database)/documents/pendientes/$(before.removeAll(after)[0])).data.status == 'pending')
+            && isUnpaidResumen(before.removeAll(after)[0]))
         );
+    }
+
+    // A Resumen deleted since (left with no purchase) must not keep the lock.
+    function isUnpaidResumen(resumenId) {
+      return !existsAfter(/databases/$(database)/documents/pendientes/$(resumenId))
+        || getAfter(/databases/$(database)/documents/pendientes/$(resumenId)).data.status == 'pending';
     }
 
     function isPaidResumenOf(resumenId, purchaseId) {

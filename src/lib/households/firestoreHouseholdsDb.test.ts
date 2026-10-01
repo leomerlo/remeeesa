@@ -907,7 +907,9 @@ describe('createCardPurchase purchase_date', () => {
 describe('firestore.rules paying a Resumen', () => {
   it('lets only a Resumen expense carry a subcategory or a negative price', () => {
     const fn = ruleFunction('isValidExpense')
-    expect(fn).toContain('(data.price > 0 || isCardResumenExpense(data))')
+    expect(fn).toContain(
+      '(data.price < 0 && data.price > -1000000000 && isCardResumenExpense(data))',
+    )
     expect(fn).toContain(
       '(data.subcategory is string && isCardResumenExpense(data))',
     )
@@ -940,7 +942,7 @@ describe('firestore.rules paying a Resumen', () => {
 
   it('clears paid_expense_ids when undoing', () => {
     expect(ruleFunction('isValidPendienteUnmarkPaid')).toContain(
-      "request.resource.data.get('paid_expense_ids', []).size() == 0",
+      "request.resource.data.get('paid_expense_ids', []) == []",
     )
   })
 
@@ -950,8 +952,9 @@ describe('firestore.rules paying a Resumen', () => {
     expect(fn).toContain(
       'isPaidResumenOf(after.removeAll(before)[0], purchaseId)',
     )
-    expect(fn).toContain(
-      "getAfter(/databases/$(database)/documents/pendientes/$(before.removeAll(after)[0])).data.status == 'pending'",
+    expect(fn).toContain('isUnpaidResumen(before.removeAll(after)[0])')
+    expect(ruleFunction('isUnpaidResumen')).toContain(
+      '!existsAfter(/databases/$(database)/documents/pendientes/$(resumenId))',
     )
     const paid = ruleFunction('isPaidResumenOf')
     expect(paid).toContain(".data.status == 'paid'")
