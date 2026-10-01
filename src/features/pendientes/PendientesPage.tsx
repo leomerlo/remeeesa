@@ -6,6 +6,7 @@ import { useHouseholdMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { PageHeader } from '@/components/PageHeader'
 import { AddPendienteSheet } from './AddPendienteSheet'
+import { CarryRecurrentesSheet } from './CarryRecurrentesSheet'
 import type { EditPendienteTarget } from './AddPendienteForm'
 import { MonthPager } from '@/features/expenses'
 import { SearchInput } from '@/components/ui/search-input'
@@ -105,11 +106,20 @@ export function PendientesPage({
           service's due date is in the future by definition, so next month's
           list is the whole point of the screen. */}
       {query.trim() === '' ? (
-        <MonthPager
-          viewedMonth={viewedMonth}
-          onViewedMonthChange={setViewedMonth}
-          maxMonthsAhead={Infinity}
-        />
+        <>
+          <MonthPager
+            viewedMonth={viewedMonth}
+            onViewedMonthChange={setViewedMonth}
+            maxMonthsAhead={Infinity}
+          />
+          {/* Next to the month it fills: bills do not carry over on their
+              own, a member picks which ones come into this month. */}
+          <CarryRecurrentesSheet
+            db={db}
+            householdId={membership.householdId}
+            monthStart={monthStart}
+          />
+        </>
       ) : null}
       <PendientesList
         db={db}
@@ -126,6 +136,11 @@ export function PendientesPage({
             expectedAmount: pendiente.expectedAmount,
             recurring: pendiente.recurring,
             autoDebit: pendiente.autoDebit,
+            // Without it a paid row opened as an editable pending one, and
+            // "Eliminar servicio" was refused and swallowed: the sheet
+            // closed and the bill stayed. Paid, the only action offered is
+            // "Deshacer pago" -- after which it can be deleted.
+            isPaid: pendiente.status === 'paid',
           })
         }}
         onMarkPaid={(pendiente, categoryName) => {

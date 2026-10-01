@@ -16,11 +16,6 @@ export type UseSettleAutoDebitsInput = {
   readonly authorDisplayName: string | undefined
 }
 
-// How many cycles one run will catch up on. A household that has not opened
-// the app in a year should not have a hundred Expenses appear at once; at
-// that point something is wrong enough to want a person looking at it.
-const MAX_CATCH_UP = 12
-
 // Settles the bills the bank has already taken money for.
 //
 // This app has no server: no Cloud Function, no cron, nothing that runs on a
@@ -57,41 +52,33 @@ export function useSettleAutoDebits({
 
     void (async () => {
       let settledAny = false
-      // Re-listing each pass rather than working from one snapshot: paying a
-      // recurring bill spawns its next cycle, and if that cycle's date has
-      // also passed (two months unopened, say) the bank took that one too.
-      for (let pass = 0; pass < MAX_CATCH_UP && !cancelled; pass += 1) {
-        let due
-        try {
-          due = autoDebitsToSettle(await listPendientes({ db, householdId }))
-        } catch {
+      let due
+      try {
+        due = autoDebitsToSettle(await listPendientes({ db, householdId }))
+      } catch {
+        return
+      }
+      for (const pendiente of due) {
+        if (cancelled) {
           return
         }
-        if (due.length === 0) {
-          break
-        }
-        for (const pendiente of due) {
-          if (cancelled) {
-            return
-          }
-          try {
-            await markPendientePaid({
-              db,
-              householdId,
-              pendienteId: pendiente.id,
-              memberId,
-              authorDisplayName,
-              // Non-null by construction: autoDebitsToSettle drops the ones
-              // with no amount, precisely because there is nothing to record.
-              finalAmount: pendiente.expectedAmount ?? 0,
-              paymentDate: pendiente.dueDate,
-            })
-            settledAny = true
-          } catch {
-            // Already paid by the other member's browser a moment ago, or
-            // refused by the rules. Either way there is nothing to retry and
-            // nothing worth interrupting the page for.
-          }
+        try {
+          await markPendientePaid({
+            db,
+            householdId,
+            pendienteId: pendiente.id,
+            memberId,
+            authorDisplayName,
+            // Non-null by construction: autoDebitsToSettle drops the ones
+            // with no amount, precisely because there is nothing to record.
+            finalAmount: pendiente.expectedAmount ?? 0,
+            paymentDate: pendiente.dueDate,
+          })
+          settledAny = true
+        } catch {
+          // Already paid by the other member's browser a moment ago, or
+          // refused by the rules. Either way there is nothing to retry and
+          // nothing worth interrupting the page for.
         }
       }
       if (settledAny && !cancelled) {

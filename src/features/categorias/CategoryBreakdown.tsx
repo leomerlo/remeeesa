@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
+import { Link } from 'react-router-dom'
 import { cssVars } from '@/lib/cssVars'
 import { cn } from '@/lib/utils'
 import { EmptyState } from '@/components/EmptyState'
@@ -20,10 +21,7 @@ import {
   listExpensesInMonth,
   summarizeByCategory,
 } from '@/lib/expenses'
-import {
-  listPendientes,
-  pendingForMonthWithProjections,
-} from '@/lib/pendientes'
+import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
 import { pendientesQueryKey } from '@/features/pendientes'
 import { getHousehold } from '@/lib/households'
 import type { CategoryBudgetRow } from '@/lib/expenses'
@@ -138,8 +136,9 @@ export function CategoryBreakdown({
   const byCategory = summarizeByCategory({
     expenses,
     categories,
-    pendientes: pendingForMonthWithProjections(pending, monthStart, monthEnd),
+    pendientes: pendientesDueInMonth(pending, monthStart, monthEnd),
   })
+  const monthParam = `${String(monthStart.getFullYear())}-${String(monthStart.getMonth() + 1).padStart(2, '0')}`
   const total = byCategory.reduce((sum, entry) => sum + entry.total, 0)
   const budgetRows = categoryBudgetRows({ categories, summaries: byCategory })
   const overspill = categoryBudgetsOverspill({
@@ -268,29 +267,31 @@ export function CategoryBreakdown({
               className="flex w-full min-w-0 flex-1 flex-col gap-2 text-sm"
             >
               {byCategory.map((entry) => (
-                <li
-                  key={entry.categoryId}
-                  className="flex items-center justify-between gap-2"
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span
-                      aria-hidden="true"
-                      data-testid="category-swatch"
-                      className="size-2.5 shrink-0 rounded-full bg-[var(--swatch-color)]"
-                      style={cssVars({ '--swatch-color': entry.color })}
-                    />
-                    <span className="text-foreground truncate">
-                      {entry.name}
+                <li key={entry.categoryId}>
+                  <Link
+                    to={`/historico?month=${monthParam}&category=${entry.categoryId}`}
+                    className="flex min-w-0 flex-1 items-center justify-between gap-2"
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span
+                        aria-hidden="true"
+                        data-testid="category-swatch"
+                        className="size-2.5 shrink-0 rounded-full bg-[var(--swatch-color)]"
+                        style={cssVars({ '--swatch-color': entry.color })}
+                      />
+                      <span className="text-foreground truncate">
+                        {entry.name}
+                      </span>
                     </span>
-                  </span>
-                  <span className="flex shrink-0 items-baseline gap-1.5">
-                    <span className="text-muted-foreground text-xs">
-                      {formatShare(entry.share)}
+                    <span className="flex shrink-0 items-baseline gap-1.5">
+                      <span className="text-muted-foreground text-xs">
+                        {formatShare(entry.share)}
+                      </span>
+                      <span className="text-foreground font-medium">
+                        {formatCurrency(entry.total)}
+                      </span>
                     </span>
-                    <span className="text-foreground font-medium">
-                      {formatCurrency(entry.total)}
-                    </span>
-                  </span>
+                  </Link>
                 </li>
               ))}
             </ul>

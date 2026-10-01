@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { AlertMessage } from '@/components/ui/alert-message'
 import { useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import { membersQueryKey } from '@/features/household'
@@ -207,9 +208,16 @@ export function ExpenseHistory({
   // rather than an endless cursor-walk behind "Cargar más". Per direct
   // feedback: a history is read a month at a time, and a month is also the
   // unit the total below is worth having.
-  const [viewedMonth, setViewedMonth] = useState(
-    () => currentMonthRange().monthStart,
-  )
+  // Categorías links here with ?month=YYYY-MM&category=<id>.
+  const [params] = useSearchParams()
+  const [viewedMonth, setViewedMonth] = useState(() => {
+    const match = /^(\d{4})-(\d{2})$/.exec(params.get('month') ?? '')
+    return match === null
+      ? currentMonthRange().monthStart
+      : currentMonthRange(new Date(Number(match[1]), Number(match[2]) - 1, 1))
+          .monthStart
+  })
+  const [categoryFilter, setCategoryFilter] = useState(params.get('category'))
   const { monthStart, monthEnd } = useMemo(
     () => currentMonthRange(viewedMonth),
     [viewedMonth],
@@ -278,6 +286,21 @@ export function ExpenseHistory({
           viewedMonth={viewedMonth}
           onViewedMonthChange={setViewedMonth}
         />
+      )}
+      {categoryFilter === null ? null : (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="self-start"
+          onClick={() => {
+            setCategoryFilter(null)
+          }}
+        >
+          {categoriesQuery.data?.find((c) => c.id === categoryFilter)?.name ??
+            'Categoría'}{' '}
+          ✕
+        </Button>
       )}
       {/* Per direct feedback: no way to separate what a household pays as a
           recurring bill (Servicio) from a one-off, in-the-moment purchase
@@ -383,6 +406,7 @@ export function ExpenseHistory({
   const filteredExpenses = searchable.filter(
     (expense) =>
       matchesFilter(expense, filter) &&
+      (categoryFilter === null || expense.categoryId === categoryFilter) &&
       (!isSearching ||
         matchesSearch(query, [
           expense.name,

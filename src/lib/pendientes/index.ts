@@ -1,13 +1,10 @@
 export type { Pendiente, PendienteStatus } from './types'
+export type { RecurrenteToCarry } from './pendientes'
 export { DUE_SOON_WINDOW_DAYS, pendientesDueSoon } from './dueSoon'
 export { pendientesDueInMonth } from './pendingForMonth'
-export {
-  pendingForMonthWithProjections,
-  projectRecurringCycles,
-} from './projectedCycles'
-export type { PendienteForMonth } from './projectedCycles'
 export { autoDebitsToSettle } from './autoDebit'
 export {
+  carryRecurrentes,
   createPendiente,
   PendienteAlreadyPaidError,
   PendienteNotFoundError,
@@ -16,6 +13,7 @@ export {
   getPendiente,
   listPendientes,
   listPendientesForMonth,
+  listRecurrentesToCarry,
   markPendientePaid,
   unmarkPendientePaid,
   updatePendiente,

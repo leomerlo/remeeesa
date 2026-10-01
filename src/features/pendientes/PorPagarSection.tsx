@@ -10,10 +10,7 @@ import { cssVars } from '@/lib/cssVars'
 import { CategoryBadge } from '@/components/CategoryBadge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  listPendientes,
-  pendingForMonthWithProjections,
-} from '@/lib/pendientes'
+import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import {
   currentMonthRange,
@@ -125,9 +122,8 @@ export function PorPagarSection({
   const { pendientes, categories } = pendientesQuery.data
 
   // Still unpaid *and* due this month -- the same narrowing the budget
-  // cards apply to the pending total they show, projections included, so
-  // the two never disagree about what the month owes.
-  const visiblePendientes = pendingForMonthWithProjections(
+  // cards apply to the pending total they show.
+  const visiblePendientes = pendientesDueInMonth(
     pendientes,
     monthStart,
     monthEnd,
@@ -217,14 +213,7 @@ export function PorPagarSection({
               key={pendiente.id}
               className="w-[calc((100%-0.75rem)/2)] shrink-0 snap-start sm:w-[calc((100%-1.5rem)/3)]"
             >
-              {/* A projected cycle has no record behind it yet, so there is
-                  nothing to mark paid -- it is here to say the month owes
-                  it. Paying the real, earlier cycle is what creates it. */}
-              {pendiente.projected ? (
-                <div className="bg-card flex aspect-square w-full flex-col gap-2 rounded-2xl border border-dashed border-border p-4 text-left">
-                  {cardContent}
-                </div>
-              ) : pendiente.cardId !== undefined ? (
+              {pendiente.cardId !== undefined ? (
                 // A card's Resumen opens to its cuotas, never the generic
                 // Pendiente edit form.
                 <button

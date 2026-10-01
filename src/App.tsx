@@ -6,6 +6,7 @@ import { JoinHouseholdPage } from '@/features/join'
 import { AppHeader, AppShell } from '@/features/navigation'
 import { HistoricoPage } from '@/features/historico'
 import { CategoriasPage } from '@/features/categorias'
+import { ProyeccionesPage } from '@/features/proyecciones'
 import { PendientesPage } from '@/features/pendientes'
 import { HouseholdDraftProvider } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
@@ -80,6 +81,15 @@ export function AppRoutes({
               path="/pendientes"
               element={
                 <PendientesPage
+                  currentUserId={currentUserId}
+                  householdsDb={householdsDb}
+                />
+              }
+            />
+            <Route
+              path="/proyecciones"
+              element={
+                <ProyeccionesPage
                   currentUserId={currentUserId}
                   householdsDb={householdsDb}
                 />
