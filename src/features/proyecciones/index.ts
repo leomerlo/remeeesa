@@ -1,0 +1,1 @@
+export { ProyeccionesPage } from './ProyeccionesPage'
