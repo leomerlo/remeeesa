@@ -15,6 +15,10 @@ import {
 export const DEMO_USER_ID = 'demo-user'
 export const DEMO_AUTHOR = 'Jlors'
 
+export type SeedUser = { readonly id: string; readonly displayName: string }
+
+const DEMO_USER: SeedUser = { id: DEMO_USER_ID, displayName: DEMO_AUTHOR }
+
 export type DemoScenario = 'nueva' | 'completa'
 
 export function scenarioFromSearch(search: string): DemoScenario {
@@ -37,25 +41,25 @@ function pastDayThisMonth(day: number): Date {
 // A household that has just signed up: a name, no budget, and nothing
 // logged. This is the default, and the whole point of the demo -- it is the
 // one state the real app can never be put back into once it has been used.
-async function seedNueva(db: HouseholdsDb): Promise<void> {
+async function seedNueva(db: HouseholdsDb, user: SeedUser): Promise<void> {
   await createHouseholdWithMembership({
     db,
-    userId: DEMO_USER_ID,
+    userId: user.id,
     name: 'Casa nueva',
     monthlyBudget: 0,
-    displayName: DEMO_AUTHOR,
+    displayName: user.displayName,
   })
 }
 
 // A household mid-month, for looking at anything the empty one cannot show:
 // the budget heat, the carousels, the category donut, paid vs pending.
-async function seedCompleta(db: HouseholdsDb): Promise<void> {
+async function seedCompleta(db: HouseholdsDb, user: SeedUser): Promise<void> {
   const household = await createHouseholdWithMembership({
     db,
-    userId: DEMO_USER_ID,
+    userId: user.id,
     name: 'Casa Merlo',
     monthlyBudget: 900000,
-    displayName: DEMO_AUTHOR,
+    displayName: user.displayName,
   })
   const householdId = household.id
 
@@ -100,8 +104,8 @@ async function seedCompleta(db: HouseholdsDb): Promise<void> {
       db,
       householdId,
       categoryId: gasto.categoryId,
-      memberId: DEMO_USER_ID,
-      authorDisplayName: DEMO_AUTHOR,
+      memberId: user.id,
+      authorDisplayName: user.displayName,
       name: gasto.name,
       price: gasto.price,
       comments: '',
@@ -137,8 +141,8 @@ async function seedCompleta(db: HouseholdsDb): Promise<void> {
         db,
         householdId,
         pendienteId: created.id,
-        memberId: DEMO_USER_ID,
-        authorDisplayName: DEMO_AUTHOR,
+        memberId: user.id,
+        authorDisplayName: user.displayName,
         finalAmount: bill.amount,
         paymentDate: pastDayThisMonth(bill.day),
       })
@@ -200,8 +204,8 @@ async function seedCompleta(db: HouseholdsDb): Promise<void> {
       householdId,
       cardId: compra.cardId,
       categoryId: compra.categoryId,
-      memberId: DEMO_USER_ID,
-      authorDisplayName: DEMO_AUTHOR,
+      memberId: user.id,
+      authorDisplayName: user.displayName,
       name: compra.name,
       total: compra.total,
       cuotas: compra.cuotas,
@@ -219,8 +223,8 @@ async function seedCompleta(db: HouseholdsDb): Promise<void> {
       db,
       householdId,
       resumenId: visaResumen.id,
-      memberId: DEMO_USER_ID,
-      authorDisplayName: DEMO_AUTHOR,
+      memberId: user.id,
+      authorDisplayName: user.displayName,
       // A little interest on top: the difference becomes the ajuste.
       amountPaid: visaResumen.expectedAmount + 1850,
       paymentDate: today,
@@ -231,8 +235,12 @@ async function seedCompleta(db: HouseholdsDb): Promise<void> {
 export async function seedDemoHousehold(input: {
   readonly db: HouseholdsDb
   readonly scenario: DemoScenario
+  // Who the household belongs to; the demo user unless seeding a real
+  // Firebase project (see seedFirebase.ts).
+  readonly user?: SeedUser
 }): Promise<void> {
+  const user = input.user ?? DEMO_USER
   return input.scenario === 'completa'
-    ? seedCompleta(input.db)
-    : seedNueva(input.db)
+    ? seedCompleta(input.db, user)
+    : seedNueva(input.db, user)
 }

@@ -62,6 +62,29 @@ describe('seedDemoHousehold', () => {
     ).not.toHaveLength(0)
   })
 
+  it('gives the household to the user passed in, as seeding Firebase does', async () => {
+    const db = createMemoryHouseholdsDb().asUser('real-uid')
+    await seedDemoHousehold({
+      db,
+      scenario: 'completa',
+      user: { id: 'real-uid', displayName: 'Seed' },
+    })
+
+    const membership = await getMembership({ db, userId: 'real-uid' })
+    expect(membership).not.toBeNull()
+    const { monthStart, monthEnd } = currentMonthRange()
+    const expenses = await listExpensesInMonth({
+      db,
+      householdId: membership?.householdId ?? '',
+      monthStart,
+      monthEnd,
+    })
+    expect(expenses).not.toHaveLength(0)
+    expect(expenses.every((expense) => expense.memberId === 'real-uid')).toBe(
+      true,
+    )
+  })
+
   // Its gastos and payments are dated by day of the month; on an early day
   // they used to land in the future and the whole seed threw.
   it('still seeds completa on the first day of the month', async () => {

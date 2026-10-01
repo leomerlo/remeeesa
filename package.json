@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "preview": "vite preview",
     "prepare": "husky",
-    "deploy:firestore": "firebase deploy --only firestore:rules,firestore:indexes"
+    "deploy:firestore": "firebase deploy --only firestore:rules,firestore:indexes",
+    "seed:dev": "node scripts/seed-dev.mjs"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
