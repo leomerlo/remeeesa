@@ -26,7 +26,7 @@ export async function createCard(input: {
   const name = parseCardName(input.name)
   // ponytail: client-side uniqueness check can race (two members adding the
   // same name at once); move to name-keyed doc ids if that ever matters.
-  await assertNameFree(input.db, input.householdId, name, null)
+  await assertNameFree(input.db, input.householdId, name)
   return input.db.createCard({ householdId: input.householdId, name })
 }
 
@@ -52,7 +52,7 @@ async function assertNameFree(
   db: HouseholdsDb,
   householdId: string,
   name: string,
-  exceptCardId: string | null,
+  exceptCardId?: string,
 ): Promise<void> {
   const existing = await db.listCards({ householdId })
   const lower = name.toLowerCase()

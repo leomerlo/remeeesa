@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { AlertMessage } from '@/components/ui/alert-message'
 import { Button } from '@/components/ui/button'
@@ -127,6 +127,15 @@ function CardRow({
   const [draft, setDraft] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const queryClient = useQueryClient()
+  // The form unmounts on save or cancel; focus goes back to "Renombrar"
+  // instead of dropping to <body>.
+  const returnFocus = useRef(false)
+
+  function close(): void {
+    returnFocus.current = true
+    setDraft(null)
+    setError(null)
+  }
 
   const mutation = useMutation({
     mutationFn: (name: string) =>
@@ -144,7 +153,7 @@ function CardRow({
           queryKey: pendientesQueryKey({ householdId }),
         }),
       ])
-      setDraft(null)
+      close()
     },
     onError: (caught: unknown) => {
       setError(
@@ -164,6 +173,12 @@ function CardRow({
           variant="ghost"
           size="sm"
           aria-label={`Renombrar ${card.name}`}
+          ref={(button) => {
+            if (button !== null && returnFocus.current) {
+              returnFocus.current = false
+              button.focus()
+            }
+          }}
           onClick={() => {
             setDraft(card.name)
           }}
@@ -181,6 +196,11 @@ function CardRow({
         className="flex flex-col gap-2"
         onSubmit={(event: FormEvent<HTMLFormElement>) => {
           event.preventDefault()
+          // Nothing changed: no batch over every Resumen of the card.
+          if (draft.trim() === card.name) {
+            close()
+            return
+          }
           mutation.mutate(draft)
         }}
       >
@@ -195,17 +215,19 @@ function CardRow({
               setDraft(event.target.value)
             }}
           />
-          <Button type="submit" disabled={mutation.isPending}>
+          <Button
+            type="submit"
+            disabled={mutation.isPending}
+            aria-label={`Guardar nombre de ${card.name}`}
+          >
             Guardar
           </Button>
           <Button
             type="button"
             variant="outline"
             disabled={mutation.isPending}
-            onClick={() => {
-              setDraft(null)
-              setError(null)
-            }}
+            aria-label={`Cancelar renombrar ${card.name}`}
+            onClick={close}
           >
             Cancelar
           </Button>

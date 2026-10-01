@@ -1,6 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { fireEvent, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+import { pendientesQueryKey } from '@/features/pendientes/queryKeys'
 import { createCard, listCards } from '@/lib/cards'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
@@ -167,7 +168,9 @@ describe('CardsSection', () => {
       fireEvent.change(screen.getByLabelText('Nuevo nombre de Visa'), {
         target: { value: name },
       })
-      fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Guardar nombre de Visa' }),
+      )
     }
 
     it('starts from the current name', async () => {
@@ -183,7 +186,7 @@ describe('CardsSection', () => {
 
       expect(
         await screen.findByRole('button', { name: 'Renombrar Visa Gold' }),
-      ).toBeInTheDocument()
+      ).toHaveFocus()
       expect(screen.getByRole('listitem')).toHaveTextContent('Visa Gold')
       expect((await listCards({ db, householdId })).map((c) => c.name)).toEqual(
         ['Visa Gold'],
@@ -192,7 +195,7 @@ describe('CardsSection', () => {
 
     it("refreshes the Resúmenes, which carry the card's name", async () => {
       const { householdId, queryClient } = await renderWithCard()
-      const pendientesKey = ['pendientes', householdId, 'all']
+      const pendientesKey = [...pendientesQueryKey({ householdId }), 'all']
       queryClient.setQueryData(pendientesKey, [])
 
       rename('Visa Gold')
@@ -226,17 +229,34 @@ describe('CardsSection', () => {
       )
     })
 
+    it('writes nothing when the name is unchanged', async () => {
+      const { db, householdId } = await renderWithCard()
+      const renameSpy = vi.spyOn(db, 'renameCard')
+
+      rename(' Visa ')
+
+      expect(
+        screen.getByRole('button', { name: 'Renombrar Visa' }),
+      ).toHaveFocus()
+      expect(renameSpy).not.toHaveBeenCalled()
+      expect((await listCards({ db, householdId })).map((c) => c.name)).toEqual(
+        ['Visa'],
+      )
+    })
+
     it('cancels without saving', async () => {
       const { db, householdId } = await renderWithCard()
       fireEvent.change(screen.getByLabelText('Nuevo nombre de Visa'), {
         target: { value: 'Otra' },
       })
 
-      fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Cancelar renombrar Visa' }),
+      )
 
       expect(
         screen.getByRole('button', { name: 'Renombrar Visa' }),
-      ).toBeInTheDocument()
+      ).toHaveFocus()
       expect((await listCards({ db, householdId })).map((c) => c.name)).toEqual(
         ['Visa'],
       )
