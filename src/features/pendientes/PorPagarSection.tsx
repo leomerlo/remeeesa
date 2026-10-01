@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -22,10 +22,14 @@ import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { formatDate } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
 import { pendientesQueryKey } from './queryKeys'
+import { ResumenSheet, resumenLabel } from './ResumenSheet'
 
 export type PorPagarSectionProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
+  // Who pays a Resumen opened from here.
+  readonly memberId: string
+  readonly authorDisplayName: string
   readonly onMarkPaid: (pendiente: Pendiente, categoryName: string) => void
   // Defaults to the current month. MonthNavigator's viewed month flows down
   // to this the same way it does to RecentExpensesList: the section shows
@@ -57,12 +61,15 @@ export type PorPagarSectionProps = {
 export function PorPagarSection({
   db,
   householdId,
+  memberId,
+  authorDisplayName,
   onMarkPaid,
   monthStart: monthStartProp,
   monthEnd: monthEndProp,
 }: PorPagarSectionProps): ReactElement | null {
   const scrollerRef = useRef<HTMLUListElement>(null)
   const carousel = useCarouselControls(scrollerRef)
+  const [openResumen, setOpenResumen] = useState<Pendiente | null>(null)
   const defaultRange = useMemo(() => currentMonthRange(), [])
   const monthStart = monthStartProp ?? defaultRange.monthStart
   const monthEnd = monthEndProp ?? defaultRange.monthEnd
@@ -211,16 +218,31 @@ export function PorPagarSection({
               key={pendiente.id}
               className="w-[calc((100%-0.75rem)/2)] shrink-0 snap-start sm:w-[calc((100%-1.5rem)/3)]"
             >
-              <button
-                type="button"
-                aria-label={`Marcar pagado ${pendiente.name}`}
-                className="bg-card flex aspect-square w-full flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
-                onClick={() => {
-                  onMarkPaid(pendiente, categoryName)
-                }}
-              >
-                {cardContent}
-              </button>
+              {pendiente.cardId !== undefined ? (
+                // A card's Resumen opens to its cuotas, never the generic
+                // Pendiente edit form.
+                <button
+                  type="button"
+                  aria-label={`Ver ${resumenLabel(pendiente)}`}
+                  className="bg-card flex aspect-square w-full flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
+                  onClick={() => {
+                    setOpenResumen(pendiente)
+                  }}
+                >
+                  {cardContent}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  aria-label={`Marcar pagado ${pendiente.name}`}
+                  className="bg-card flex aspect-square w-full flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
+                  onClick={() => {
+                    onMarkPaid(pendiente, categoryName)
+                  }}
+                >
+                  {cardContent}
+                </button>
+              )}
             </li>
           )
         })}
@@ -238,6 +260,16 @@ export function PorPagarSection({
           <Link to="/pendientes">Ver todas</Link>
         </Button>
       </div>
+      <ResumenSheet
+        db={db}
+        householdId={householdId}
+        memberId={memberId}
+        authorDisplayName={authorDisplayName}
+        resumen={openResumen}
+        onClose={() => {
+          setOpenResumen(null)
+        }}
+      />
     </section>
   )
 }

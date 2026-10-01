@@ -65,6 +65,9 @@ export function parsePendienteDocument(input: {
     paid_expense_id,
     paid_at,
     created_at,
+    card_id,
+    purchase_ids,
+    paid_expense_ids,
   } = input.data
   if (typeof name !== 'string') {
     throw new Error('Pendiente name must be a string')
@@ -90,7 +93,33 @@ export function parsePendienteDocument(input: {
     // field this session has widened with a legacy-doc fallback.
     paidAt: parseOptionalTimestamp(paid_at, 'paid_at'),
     createdAt: parseTimestamp(created_at, 'created_at'),
+    // Only a Resumen carries these; every other Pendiente leaves them out.
+    ...(card_id === undefined
+      ? {}
+      : {
+          cardId: parseRequiredString(card_id, 'card_id'),
+          purchaseIds: parseStringList(purchase_ids, 'purchase_ids'),
+          // Absent until the Resumen is first paid.
+          ...(paid_expense_ids === undefined
+            ? {}
+            : {
+                paidExpenseIds: parseStringList(
+                  paid_expense_ids,
+                  'paid_expense_ids',
+                ),
+              }),
+        }),
   }
+}
+
+export function parseStringList(value: unknown, field: string): readonly string[] {
+  if (
+    !Array.isArray(value) ||
+    !value.every((item): item is string => typeof item === 'string')
+  ) {
+    throw new Error(`${field} must be a list of strings`)
+  }
+  return value
 }
 
 export function pendienteToDocument(input: {

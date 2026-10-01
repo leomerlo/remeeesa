@@ -10,7 +10,79 @@ import { createHouseholdWithMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
+import { createCard, createCardPurchase } from '@/lib/cards'
 import { PorPagarSection } from './PorPagarSection'
+
+// A card purchase dated the 1st of this month (never in the future) lands
+// its single cuota in next month's Resumen.
+async function seedResumen(
+  db: HouseholdsDb,
+  householdId: string,
+  categoryId: string,
+) {
+  const now = new Date()
+  const card = await createCard({ db, householdId, name: 'Visa' })
+  await createCardPurchase({
+    db,
+    householdId,
+    cardId: card.id,
+    categoryId,
+    memberId: 'user-1',
+    authorDisplayName: 'Ada',
+    name: 'Zapatillas',
+    total: 120,
+    cuotas: 1,
+    purchaseDate: new Date(now.getFullYear(), now.getMonth(), 1),
+    comments: '',
+  })
+  return {
+    monthStart: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+    monthEnd: new Date(
+      now.getFullYear(),
+      now.getMonth() + 2,
+      0,
+      23,
+      59,
+      59,
+      999,
+    ),
+  }
+}
+
+// Next month's Resumen then holds cuota 1/1 of Zapatillas (seedResumen) and
+// cuota 2/3 of a Heladera bought on the 1st of last month.
+async function seedTwoCuotaResumen(
+  db: HouseholdsDb,
+  householdId: string,
+  categoryId: string,
+) {
+  const month = await seedResumen(db, householdId, categoryId)
+  const [card] = await db.listCards({ householdId })
+  if (card === undefined) {
+    throw new Error('expected the seeded card')
+  }
+  const now = new Date()
+  const heladeraDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  await createCardPurchase({
+    db,
+    householdId,
+    cardId: card.id,
+    categoryId,
+    memberId: 'user-1',
+    authorDisplayName: 'Ada',
+    name: 'Heladera',
+    total: 300,
+    cuotas: 3,
+    purchaseDate: heladeraDate,
+    comments: '',
+  })
+  return { month, heladeraDate }
+}
+
+function formatLongDate(date: Date): string {
+  const pad = (value: number): string => String(value).padStart(2, '0')
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${String(date.getFullYear())}`
+}
 
 function renderSection(ui: ReactElement, queryClient?: QueryClient) {
   return renderWithProviders(<MemoryRouter>{ui}</MemoryRouter>, {
@@ -41,9 +113,20 @@ async function seedHousehold() {
 const MONTH_START = new Date(2026, 10, 1)
 const MONTH_END = new Date(2026, 11, 0, 23, 59, 59, 999)
 
-function Section(props: ComponentProps<typeof PorPagarSection>): ReactElement {
+function Section(
+  props: Omit<
+    ComponentProps<typeof PorPagarSection>,
+    'memberId' | 'authorDisplayName'
+  >,
+): ReactElement {
   return (
-    <PorPagarSection monthStart={MONTH_START} monthEnd={MONTH_END} {...props} />
+    <PorPagarSection
+      memberId="user-1"
+      authorDisplayName="Ada"
+      monthStart={MONTH_START}
+      monthEnd={MONTH_END}
+      {...props}
+    />
   )
 }
 
@@ -492,5 +575,47 @@ describe('PorPagarSection', () => {
     )
 
     expect(await screen.findByText('Gas')).toBeInTheDocument()
+  })
+
+  it("opens a card's Resumen to its cuotas, never the Pendiente form", async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    const { month, heladeraDate } = await seedTwoCuotaResumen(
+      db,
+      householdId,
+      categoryId,
+    )
+    const onMarkPaid = vi.fn()
+
+    renderSection(
+      <Section
+        db={db}
+        householdId={householdId}
+        onMarkPaid={onMarkPaid}
+        {...month}
+      />,
+    )
+
+    const card = await screen.findByRole('button', {
+      name: /^Ver Resumen Visa de /,
+    })
+    expect(card).toHaveTextContent('220')
+    fireEvent.click(card)
+    expect(onMarkPaid).not.toHaveBeenCalled()
+
+    const cuotas = await screen.findByRole('list', {
+      name: 'Cuotas del resumen',
+    })
+    const rows = within(cuotas).getAllByRole('listitem')
+    expect(rows).toHaveLength(2)
+    const heladera = rows.find((row) => row.textContent.includes('Heladera'))
+    expect(heladera).toHaveTextContent('Comida')
+    expect(heladera).toHaveTextContent(formatLongDate(heladeraDate))
+    expect(heladera).toHaveTextContent('cuota 2/3')
+    expect(heladera).toHaveTextContent('$100')
+    const zapatillas = rows.find((row) =>
+      row.textContent.includes('Zapatillas'),
+    )
+    expect(zapatillas).toHaveTextContent('$120')
+    expect(zapatillas).not.toHaveTextContent('cuota')
   })
 })

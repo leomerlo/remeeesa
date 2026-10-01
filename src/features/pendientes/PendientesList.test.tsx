@@ -12,7 +12,74 @@ import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { AddPendienteSheet } from './AddPendienteSheet'
 import type { AddPendienteSheetProps } from './AddPendienteSheet'
+import { createCard, createCardPurchase } from '@/lib/cards'
 import { PendientesList } from './PendientesList'
+
+// A card purchase dated the 1st of this month (never in the future) lands
+// its single cuota in next month's Resumen.
+async function seedResumen(
+  db: HouseholdsDb,
+  householdId: string,
+  categoryId: string,
+) {
+  const now = new Date()
+  const card = await createCard({ db, householdId, name: 'Visa' })
+  await createCardPurchase({
+    db,
+    householdId,
+    cardId: card.id,
+    categoryId,
+    memberId: 'user-1',
+    authorDisplayName: 'Ada',
+    name: 'Zapatillas',
+    total: 120,
+    cuotas: 1,
+    purchaseDate: new Date(now.getFullYear(), now.getMonth(), 1),
+    comments: '',
+  })
+  return {
+    monthStart: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+    monthEnd: new Date(
+      now.getFullYear(),
+      now.getMonth() + 2,
+      0,
+      23,
+      59,
+      59,
+      999,
+    ),
+  }
+}
+
+// Next month's Resumen then holds cuota 1/1 of Zapatillas (seedResumen) and
+// cuota 2/3 of a Heladera bought on the 1st of last month.
+async function seedTwoCuotaResumen(
+  db: HouseholdsDb,
+  householdId: string,
+  categoryId: string,
+) {
+  const month = await seedResumen(db, householdId, categoryId)
+  const [card] = await db.listCards({ householdId })
+  if (card === undefined) {
+    throw new Error('expected the seeded card')
+  }
+  const now = new Date()
+  const heladeraDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  await createCardPurchase({
+    db,
+    householdId,
+    cardId: card.id,
+    categoryId,
+    memberId: 'user-1',
+    authorDisplayName: 'Ada',
+    name: 'Heladera',
+    total: 300,
+    cuotas: 3,
+    purchaseDate: heladeraDate,
+    comments: '',
+  })
+  return { month, heladeraDate }
+}
 
 function formatPendienteDueDate(date: Date): string {
   // "06/09/2026". Written long-hand here on purpose: asserting with the
@@ -52,9 +119,20 @@ async function findCategoryId(input: {
 const MONTH_START = new Date(2026, 8, 1)
 const MONTH_END = new Date(2026, 8, 30, 23, 59, 59, 999)
 
-function List(props: ComponentProps<typeof PendientesList>): ReactElement {
+function List(
+  props: Omit<
+    ComponentProps<typeof PendientesList>,
+    'memberId' | 'authorDisplayName'
+  >,
+): ReactElement {
   return (
-    <PendientesList monthStart={MONTH_START} monthEnd={MONTH_END} {...props} />
+    <PendientesList
+      memberId="user-1"
+      authorDisplayName="Ada"
+      monthStart={MONTH_START}
+      monthEnd={MONTH_END}
+      {...props}
+    />
   )
 }
 
@@ -139,6 +217,8 @@ describe('PendientesList', () => {
 
     renderWithProviders(
       <PendientesList
+        memberId="user-1"
+        authorDisplayName="Ada"
         monthStart={new Date(2026, 9, 1)}
         monthEnd={new Date(2026, 9, 31, 23, 59, 59, 999)}
         db={db}
@@ -748,5 +828,43 @@ describe('PendientesList', () => {
     await screen.findByText('Luz')
     const icon = screen.getByTestId('category-icon')
     expect(icon.querySelector('svg')).not.toBeNull()
+  })
+
+  it("offers neither Pagar nor Editar on a card's Resumen, only its cuotas", async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100000,
+    })
+    const categoryId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Comida',
+    })
+    const { month } = await seedTwoCuotaResumen(db, household.id, categoryId)
+
+    renderWithProviders(
+      <List
+        db={db}
+        householdId={household.id}
+        onMarkPaid={vi.fn()}
+        onEditPendiente={vi.fn()}
+        {...month}
+      />,
+    )
+
+    const row = (await screen.findByText('Visa')).closest('li') as HTMLElement
+    expect(within(row).getAllByRole('button')).toHaveLength(1)
+    fireEvent.click(
+      within(row).getByRole('button', { name: /^Ver Resumen Visa de / }),
+    )
+    const cuotas = await screen.findByRole('list', {
+      name: 'Cuotas del resumen',
+    })
+    expect(within(cuotas).getByText('Heladera')).toBeInTheDocument()
+    expect(within(cuotas).getByText('cuota 2/3')).toBeInTheDocument()
+    expect(within(cuotas).getByText('Zapatillas')).toBeInTheDocument()
   })
 })

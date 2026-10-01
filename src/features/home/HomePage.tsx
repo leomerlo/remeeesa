@@ -8,8 +8,10 @@ import {
   RecentExpensesList,
 } from '@/features/expenses'
 import type { EditExpenseTarget } from '@/features/expenses/AddExpenseForm'
+import type { EditPurchaseTarget } from '@/features/expenses/AddGastoForm'
 import {
   AddPendienteSheet,
+  CardsNextMonth,
   PendienteDueSoonBanner,
   PorPagarSection,
 } from '@/features/pendientes'
@@ -56,6 +58,9 @@ export function HomePage({
   const [homeEpoch, setHomeEpoch] = useState(0)
   const [editExpense, setEditExpense] = useState<EditExpenseTarget | null>(null)
   const [isAddGastoSheetOpen, setIsAddGastoSheetOpen] = useState(false)
+  const [editPurchase, setEditPurchase] = useState<EditPurchaseTarget | null>(
+    null,
+  )
   const [editPendiente, setEditPendiente] =
     useState<EditPendienteTarget | null>(null)
   // Owned here (not inside MonthNavigator) so every month-scoped section on
@@ -186,6 +191,10 @@ export function HomePage({
           {...(isFutureMonth ? { defaultDueDate: monthStart } : {})}
           open={isAddGastoSheetOpen}
           onOpenChange={setIsAddGastoSheetOpen}
+          editPurchase={editPurchase}
+          onEditFinished={() => {
+            setEditPurchase(null)
+          }}
           db={db}
           householdId={membership.householdId}
           memberId={currentUserId}
@@ -226,9 +235,14 @@ export function HomePage({
           category split is a reference panel beside them. */}
       <div className="flex w-full flex-col gap-8 lg:grid lg:grid-cols-3 lg:items-start">
         <div className="flex w-full flex-col gap-8 lg:col-span-2">
+          {/* Always next calendar month, not the viewed one: it is the card
+              bill coming up, said before it arrives. */}
+          <CardsNextMonth db={db} householdId={membership.householdId} />
           <PorPagarSection
             db={db}
             householdId={membership.householdId}
+            memberId={currentUserId}
+            authorDisplayName={authorDisplayName}
             monthStart={monthStart}
             monthEnd={monthEnd}
             onMarkPaid={(pendiente, categoryName) => {
@@ -271,6 +285,9 @@ export function HomePage({
                     pendienteId: expense.pendienteId,
                     isService: expense.isService,
                   })
+                }}
+                onEditPurchase={(purchase, categoryName) => {
+                  setEditPurchase({ purchase, categoryName })
                 }}
               />
             </div>

@@ -79,7 +79,7 @@ type PendienteFormFields = {
   readonly autoDebit: boolean
 }
 
-function localDateInputValue(date: Date): string {
+export function localDateInputValue(date: Date): string {
   const year = String(date.getFullYear()).padStart(4, '0')
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
@@ -138,7 +138,7 @@ function parseDateInput(value: string): Date {
 // Separate from parseDateInput above -- same malformed-string shape, but a
 // payment date needs "de pago" wording (and a past-or-today check a due
 // date deliberately skips; see the Fecha de vencimiento field below).
-function parsePaymentDateInput(value: string): Date {
+export function parsePaymentDateInput(value: string): Date {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
   if (match === null) {
     throw new Error('La fecha de pago no es válida')

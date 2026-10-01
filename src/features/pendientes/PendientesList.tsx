@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
 import { TintedBadge } from '@/components/CategoryBadge'
 import { MovementCard } from '@/components/MovementCard'
@@ -21,11 +21,15 @@ import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { dueDateLabel, isOverdue, paidDateLabel } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
 import { pendientesQueryKey } from './queryKeys'
+import { ResumenSheet, resumenLabel } from './ResumenSheet'
 import { AlertMessage } from '@/components/ui/alert-message'
 
 export type PendientesListProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
+  // Who pays a Resumen opened from here.
+  readonly memberId: string
+  readonly authorDisplayName: string
   // Defaults to the current month. PendientesPage passes whichever month its
   // MonthPager is on, so this screen reads one month at a time.
   readonly monthStart?: Date
@@ -44,6 +48,8 @@ export type PendientesListProps = {
 export function PendientesList({
   db,
   householdId,
+  memberId,
+  authorDisplayName,
   monthStart: monthStartProp,
   monthEnd: monthEndProp,
   query = '',
@@ -55,6 +61,7 @@ export function PendientesList({
   // states was the confusion -- a due date on its own does not say whether
   // it is behind you. Per direct feedback.
   const isSearching = query.trim() !== ''
+  const [openResumen, setOpenResumen] = useState<Pendiente | null>(null)
   const defaultRange = useMemo(() => currentMonthRange(), [])
   const monthStart = monthStartProp ?? defaultRange.monthStart
   const monthEnd = monthEndProp ?? defaultRange.monthEnd
@@ -173,10 +180,28 @@ export function PendientesList({
     // real button because it is what this screen exists for; Editar is a
     // pencil against the right edge, the same one Histórico and Categorías
     // use, so the three lists agree. Per direct feedback.
-    const canMarkPaid = onMarkPaid !== undefined && !isPaid
+    // A card's Resumen gets its own pay and view flow, never the generic
+    // Pendiente form both of these open -- so neither shows on one.
+    const isResumen = pendiente.cardId !== undefined
+    const canMarkPaid = onMarkPaid !== undefined && !isPaid && !isResumen
+    const canEdit = onEditPendiente !== undefined && !isResumen
     const actions =
-      !canMarkPaid && onEditPendiente === undefined ? null : (
+      !canMarkPaid && !canEdit && !isResumen ? null : (
         <>
+          {isResumen ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="px-5"
+              aria-label={`Ver ${resumenLabel(pendiente)}`}
+              onClick={() => {
+                setOpenResumen(pendiente)
+              }}
+            >
+              Ver
+            </Button>
+          ) : null}
           {canMarkPaid ? (
             <Button
               type="button"
@@ -190,14 +215,14 @@ export function PendientesList({
               Pagar
             </Button>
           ) : null}
-          {onEditPendiente !== undefined ? (
+          {canEdit ? (
             <Button
               type="button"
               variant="ghost"
               size="icon-mini"
               aria-label={`Editar ${pendiente.name}`}
               onClick={() => {
-                onEditPendiente(pendiente, category?.name ?? '')
+                onEditPendiente?.(pendiente, category?.name ?? '')
               }}
             >
               <Pencil aria-hidden="true" />
@@ -242,6 +267,16 @@ export function PendientesList({
 
   return (
     <div className="flex w-full flex-col gap-8 text-sm">
+      <ResumenSheet
+        db={db}
+        householdId={householdId}
+        memberId={memberId}
+        authorDisplayName={authorDisplayName}
+        resumen={openResumen}
+        onClose={() => {
+          setOpenResumen(null)
+        }}
+      />
       {/* Group labels, not titles. At the section size they were a third
           heading in a row of three -- page name, month, group -- all at
           much the same weight, so nothing said which was which. Smaller and

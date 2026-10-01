@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Sheet } from '@/components/ui/sheet'
 import type { HouseholdsDb } from '@/lib/households'
 import { AddGastoForm } from './AddGastoForm'
+import type { EditPurchaseTarget } from './AddGastoForm'
 
 export type AddGastoSheetProps = {
   readonly open: boolean
@@ -21,6 +22,10 @@ export type AddGastoSheetProps = {
   readonly showRecurringOptions?: boolean
   // Forwarded to AddGastoForm.
   readonly defaultDueDate?: Date
+  // Set by tapping a card purchase in the movements list: opens the sheet
+  // to edit it, like AddExpenseSheet's editExpense.
+  readonly editPurchase?: EditPurchaseTarget | null
+  readonly onEditFinished?: () => void
 }
 
 // Home's single "add" entry point -- replaces the old side-by-side
@@ -36,21 +41,25 @@ export function AddGastoSheet({
   authorDisplayName,
   showRecurringOptions = true,
   defaultDueDate,
+  editPurchase = null,
+  onEditFinished,
 }: AddGastoSheetProps): ReactElement {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const wasOpenRef = useRef(open)
+  const isEditing = editPurchase !== null
+  const sheetOpen = open || isEditing
+  const wasOpenRef = useRef(sheetOpen)
 
   // Radix restores focus to its own Dialog.Trigger on close, but the trigger
   // here unmounts entirely while the sheet is open (see below), so there's
   // no trigger ref for Radix to hand focus back to -- restore it manually
   // once the trigger has remounted.
   useEffect(() => {
-    if (wasOpenRef.current && !open) {
+    if (wasOpenRef.current && !sheetOpen) {
       triggerRef.current?.focus()
     }
-    wasOpenRef.current = open
-  }, [open])
+    wasOpenRef.current = sheetOpen
+  }, [sheetOpen])
 
   function handleOpenChange(next: boolean): void {
     // A submit already in flight must resolve inside the still-mounted
@@ -60,12 +69,18 @@ export function AddGastoSheet({
     if (!next && isSubmitting) {
       return
     }
+    if (isEditing) {
+      if (!next) {
+        onEditFinished?.()
+      }
+      return
+    }
     onOpenChange(next)
   }
 
   return (
     <>
-      {!open ? (
+      {!sheetOpen ? (
         <Button
           ref={triggerRef}
           className={`gap-1.5 ${triggerClassName}`}
@@ -77,8 +92,16 @@ export function AddGastoSheet({
           Agregar gasto
         </Button>
       ) : null}
-      <Sheet open={open} onOpenChange={handleOpenChange} title="Agregar gasto">
+      <Sheet
+        open={sheetOpen}
+        onOpenChange={handleOpenChange}
+        title={isEditing ? 'Editar compra' : 'Agregar gasto'}
+      >
         <AddGastoForm
+          // A fresh form per purchase, so its fields start from that one.
+          key={editPurchase?.purchase.id ?? 'new'}
+          editPurchase={editPurchase}
+          {...(onEditFinished === undefined ? {} : { onEditFinished })}
           db={db}
           householdId={householdId}
           memberId={memberId}

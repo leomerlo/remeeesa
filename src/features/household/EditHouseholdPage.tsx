@@ -8,6 +8,7 @@ import { InviteLinkPanel } from '@/features/invite'
 import { useFirebase } from '@/lib/firebaseContext'
 import { createFirestoreHouseholdsDb, getMembership } from '@/lib/households'
 import type { HouseholdMember, HouseholdsDb } from '@/lib/households'
+import { CardsSection } from './CardsSection'
 import { EditDisplayNameForm } from './EditDisplayNameForm'
 import { EditHouseholdForm } from './EditHouseholdForm'
 import { MemberList } from './MemberList'
@@ -134,6 +135,9 @@ export function EditHouseholdPage({
           currentUserId={currentUserId}
         />
         <InviteLinkPanel db={db} householdId={membership.householdId} />
+      </div>
+      <div className="bg-card flex w-full flex-col gap-6 rounded-3xl p-6">
+        <CardsSection db={db} householdId={membership.householdId} />
       </div>
       {usesLiveSession ? (
         <div className="flex w-full justify-center">

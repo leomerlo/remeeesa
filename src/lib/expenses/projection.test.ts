@@ -20,6 +20,7 @@ function expense(
     expenseDate: new Date(),
     pendienteId: null,
     isService,
+    subcategory: null,
     createdAt: new Date(),
   }
 }

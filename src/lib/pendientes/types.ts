@@ -20,4 +20,11 @@ export type Pendiente = {
   // month") without having to look up its linked Expense.
   readonly paidAt: Date | null
   readonly createdAt: Date
+  // Set only on a Resumen: the monthly bill of a card, whose amount is the
+  // sum of the cuotas in purchaseIds that land in its month.
+  readonly cardId?: string
+  readonly purchaseIds?: readonly string[]
+  // Every Expense paying a Resumen created (one per cuota, plus the ajuste);
+  // paidExpenseId is the first of them.
+  readonly paidExpenseIds?: readonly string[]
 }

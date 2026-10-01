@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { TintedBadge } from '@/components/CategoryBadge'
 import { MovementCard } from '@/components/MovementCard'
-import { Download, Pencil } from 'lucide-react'
+import { Download, Lock, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AlertMessage } from '@/components/ui/alert-message'
 import { useMemo, useState } from 'react'
@@ -26,12 +26,16 @@ import { downloadTextFile } from '@/lib/download'
 import type { Category, Expense } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
-import { paidDateLabel } from '@/lib/format'
+import { CARD_PURCHASE_LOCKED_MESSAGE, cardPurchaseMark } from '@/lib/cards'
+import type { CardPurchase } from '@/lib/cards'
+import { formatDate, paidDateLabel } from '@/lib/format'
 import { listHouseholdMembers } from '@/lib/households'
 import type { HouseholdMember, HouseholdsDb } from '@/lib/households'
 import { EmptyState } from '@/components/EmptyState'
 import { ILLUSTRATIONS } from '@/components/illustrations'
 import { MonthPager } from './MonthPager'
+import { newestFirst, useCardPurchasesInMonth } from './useCardPurchasesInMonth'
+import type { MovementRow } from './useCardPurchasesInMonth'
 import {
   allExpensesQueryKey,
   categoriesQueryKey,
@@ -42,6 +46,10 @@ export type ExpenseHistoryProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly onEditExpense?: (expense: Expense, categoryName: string) => void
+  readonly onEditPurchase?: (
+    purchase: CardPurchase,
+    categoryName: string,
+  ) => void
 }
 
 type HistoryFilter = 'all' | 'servicio' | 'gasto'
@@ -128,10 +136,93 @@ function ExpenseRow({
   )
 }
 
+// Listed in its purchase month so the household sees what it bought, but
+// never in the month's total: it counts through its Resúmenes.
+function CardPurchaseRow({
+  purchase,
+  cardName,
+  category,
+  authorDisplayName,
+  onEditPurchase,
+}: {
+  readonly purchase: CardPurchase
+  readonly cardName: string
+  readonly category: Category | undefined
+  readonly authorDisplayName: string
+  readonly onEditPurchase?: (
+    purchase: CardPurchase,
+    categoryName: string,
+  ) => void
+}): ReactElement {
+  const categoryName = category?.name ?? 'Categoría desconocida'
+  const categoryColor = category?.color ?? colorForCategoryName(categoryName)
+  const locked = purchase.paidResumenIds.length > 0
+  return (
+    <li>
+      <MovementCard
+        categoryName={categoryName}
+        categoryColor={categoryColor}
+        CategoryIcon={iconForCategoryName(categoryName)}
+        title={purchase.name}
+        when={`Comprado el ${formatDate(purchase.purchaseDate)}`}
+        meta={authorDisplayName}
+        amount={
+          <span className="font-display text-muted-foreground text-lg">
+            {formatCurrency(purchase.total)}
+          </span>
+        }
+        badge={
+          <>
+            <TintedBadge
+              label={cardPurchaseMark(cardName, purchase.cuotas)}
+              color="#4e4c56"
+            />
+            {locked ? (
+              <TintedBadge label="Resumen pagado" color="#4e4c56" />
+            ) : null}
+          </>
+        }
+        {...(locked
+          ? {
+              // Read-only once a cuota is in a paid Resumen: the lock says
+              // why instead of a pencil that would only be refused.
+              actions: (
+                <Lock
+                  role="img"
+                  aria-label={CARD_PURCHASE_LOCKED_MESSAGE}
+                  className="text-muted-foreground size-4"
+                >
+                  <title>{CARD_PURCHASE_LOCKED_MESSAGE}</title>
+                </Lock>
+              ),
+            }
+          : onEditPurchase === undefined
+            ? {}
+            : {
+                actions: (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-mini"
+                    aria-label={`Editar ${purchase.name}`}
+                    onClick={() => {
+                      onEditPurchase(purchase, category?.name ?? '')
+                    }}
+                  >
+                    <Pencil aria-hidden="true" />
+                  </Button>
+                ),
+              })}
+      />
+    </li>
+  )
+}
+
 export function ExpenseHistory({
   db,
   householdId,
   onEditExpense,
+  onEditPurchase,
 }: ExpenseHistoryProps): ReactElement {
   // One month at a time, paged by the same control Home and Servicios use,
   // rather than an endless cursor-walk behind "Cargar más". Per direct
@@ -172,6 +263,12 @@ export function ExpenseHistory({
   const membersQuery = useQuery({
     queryKey: membersQueryKey({ householdId }),
     queryFn: () => listHouseholdMembers({ db, householdId }),
+  })
+  const purchasesQuery = useCardPurchasesInMonth({
+    db,
+    householdId,
+    monthStart,
+    monthEnd,
   })
   const [filter, setFilter] = useState<HistoryFilter>('all')
   const [query, setQuery] = useState('')
@@ -266,7 +363,8 @@ export function ExpenseHistory({
   if (
     historyQuery.isPending ||
     membersQuery.isPending ||
-    categoriesQuery.isPending
+    categoriesQuery.isPending ||
+    purchasesQuery.isPending
   ) {
     return (
       <div className="flex w-full flex-col gap-6">
@@ -340,6 +438,24 @@ export function ExpenseHistory({
     (sum, expense) => sum + expense.price,
     0,
   )
+  // A card purchase is a gasto of its month, never a servicio. Searching
+  // covers Expenses only.
+  // ponytail: search skips card purchases; add a household-wide purchases
+  // read if people search for them.
+  const shownPurchases =
+    isSearching || filter === 'servicio' ? [] : purchasesQuery.purchases
+  const rows: readonly MovementRow[] = [
+    ...filteredExpenses.map((expense): MovementRow => ({
+      kind: 'expense',
+      expense,
+      date: expense.expenseDate,
+    })),
+    ...shownPurchases.map((purchase): MovementRow => ({
+      kind: 'purchase',
+      purchase,
+      date: purchase.purchaseDate,
+    })),
+  ].sort(newestFirst)
 
   return (
     <div className="flex w-full flex-col gap-6">
@@ -410,7 +526,7 @@ export function ExpenseHistory({
             </div>
           ))}
         </div>
-      ) : filteredExpenses.length === 0 ? (
+      ) : rows.length === 0 ? (
         isSearching ? (
           <EmptyState
             title="Sin resultados"
@@ -442,13 +558,31 @@ export function ExpenseHistory({
           }
           className="flex flex-col gap-3 text-sm"
         >
-          {filteredExpenses.map((expense) => {
-            const category = categoryById.get(expense.categoryId)
+          {rows.map((row) => {
+            if (row.kind === 'purchase') {
+              return (
+                <CardPurchaseRow
+                  key={`purchase-${row.purchase.id}`}
+                  purchase={row.purchase}
+                  cardName={
+                    purchasesQuery.cardNameById.get(row.purchase.cardId) ??
+                    'Tarjeta'
+                  }
+                  category={categoryById.get(row.purchase.categoryId)}
+                  authorDisplayName={
+                    memberById.get(row.purchase.memberId)?.displayName ??
+                    row.purchase.authorDisplayName
+                  }
+                  {...(onEditPurchase === undefined ? {} : { onEditPurchase })}
+                />
+              )
+            }
+            const { expense } = row
             return (
               <ExpenseRow
                 key={expense.id}
                 expense={expense}
-                category={category}
+                category={categoryById.get(expense.categoryId)}
                 authorDisplayName={
                   memberById.get(expense.memberId)?.displayName ??
                   expense.authorDisplayName

@@ -49,6 +49,36 @@ auto") — but the *amount* is expected to vary each cycle (inflation), so recur
 "auto-charge the same amount." A household member marks a Pendiente recurring manually; the
 household is expected to recognize what's recurring through use, not declare it all up front.
 
+**Tarjeta** (Card):
+A credit card the Household pays with, identified by a name unique within the Household (e.g.
+"Visa"). Also the name of the Category every card bill and card-paid Expense lives in.
+_Avoid_: Account, credit line
+
+**Compra con tarjeta** (code: `CardPurchase`):
+Something bought with a Tarjeta, in one or more Cuotas. *Not* an Expense: it shows in the
+movements of its purchase month but counts against no month's budget on its own. Once any of its
+Cuotas is in a paid Resumen it is locked: it can no longer be edited or deleted.
+_Avoid_: Card expense
+
+**Cuota**:
+One instalment of a Compra con tarjeta: the total ÷ N rounded down to cents, the last absorbing
+the remainder. Cuota *k* of a purchase dated in month M lands in the Tarjeta's Resumen of month
+M + *k*.
+_Avoid_: Instalment, payment
+
+**Resumen** (card bill):
+A Tarjeta's monthly bill: a Pendiente (due day 10) whose amount is the sum of the Cuotas landing
+in its month. Counts against its month's budget while unpaid, like any Pendiente. Paying it
+generates one Expense per Cuota (plus an *ajuste* for any difference between the amount paid and
+the total); undoing the payment deletes them all. Can't be paid before its month starts.
+_Avoid_: Statement, card Pendiente
+
+**Subcategoría** (code: `Expense.subcategory`):
+The category name a card-paid Expense keeps from its Compra con tarjeta, under the "Tarjeta"
+Category — a snapshot, so renaming the category later leaves it as it was. Only Cuota Expenses
+have one; every other Expense (and every Pendiente) has a single Category and no Subcategoría.
+_Avoid_: Tag, child category
+
 ## Relationships
 
 - A **Household** has one `monthlyBudget` and many **Members**.
@@ -62,7 +92,10 @@ household is expected to recognize what's recurring through use, not declare it 
   current month's **Expenses**.
 - A **Pendiente** belongs to exactly one **Household** and one **Category**. Paying a Pendiente
   generates exactly one **Expense**; an **Expense** may or may not have originated from a Pendiente
-  (a coffee bought on the spot is an Expense with no Pendiente behind it).
+  (a coffee bought on the spot is an Expense with no Pendiente behind it). The exception is a
+  **Resumen**: paying one generates one **Expense** per **Cuota**, plus an optional ajuste.
+- A **Compra con tarjeta** belongs to one **Tarjeta** and one **Category**, and has 1–24
+  **Cuotas**, each in a different **Resumen** of that **Tarjeta**.
 
 ## Example dialogue
 

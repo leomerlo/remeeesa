@@ -21,16 +21,24 @@ import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { formatDate } from '@/lib/format'
 import type { Expense } from '@/lib/expenses'
+import type { CardPurchase } from '@/lib/cards'
 import { listHouseholdMembers } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { EmptyState } from '@/components/EmptyState'
 import { ILLUSTRATIONS } from '@/components/illustrations'
+import { CARD_PURCHASE_LOCKED_MESSAGE, cardPurchaseMark } from '@/lib/cards'
 import { expensesInMonthQueryKey } from './queryKeys'
+import { newestFirst, useCardPurchasesInMonth } from './useCardPurchasesInMonth'
+import type { MovementRow as Row } from './useCardPurchasesInMonth'
 
 export type RecentExpensesListProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly onEditExpense?: (expense: Expense, categoryName: string) => void
+  readonly onEditPurchase?: (
+    purchase: CardPurchase,
+    categoryName: string,
+  ) => void
   // Defaults to the current month. MonthNavigator's viewed month flows down
   // to this (and every other Home section that reads a month of Expenses)
   // so paging back a month moves the whole page together, not just the two
@@ -71,6 +79,7 @@ export function RecentExpensesList({
   db,
   householdId,
   onEditExpense,
+  onEditPurchase,
   monthStart: monthStartProp,
   monthEnd: monthEndProp,
 }: RecentExpensesListProps): ReactElement {
@@ -103,11 +112,18 @@ export function RecentExpensesList({
     queryKey: membersQueryKey({ householdId }),
     queryFn: () => listHouseholdMembers({ db, householdId }),
   })
+  const purchasesQuery = useCardPurchasesInMonth({
+    db,
+    householdId,
+    monthStart,
+    monthEnd,
+  })
 
   if (
     expensesQuery.isPending ||
     categoriesQuery.isPending ||
-    membersQuery.isPending
+    membersQuery.isPending ||
+    purchasesQuery.isPending
   ) {
     return (
       <div
@@ -150,10 +166,25 @@ export function RecentExpensesList({
   const oneOffExpenses = expensesQuery.data.filter(
     (expense) => !isServicio(expense),
   )
-  const expenses = oneOffExpenses.slice(0, RECENT_EXPENSES_LIMIT_WIDE)
-  const hasOverflow = oneOffExpenses.length > RECENT_EXPENSES_LIMIT
+  // Card purchases sit among the gastos of their purchase month, marked, but
+  // count only through their Resúmenes -- this list has no total to keep
+  // them out of.
+  const rows: readonly Row[] = [
+    ...oneOffExpenses.map((expense): Row => ({
+      kind: 'expense',
+      expense,
+      date: expense.expenseDate,
+    })),
+    ...purchasesQuery.purchases.map((purchase): Row => ({
+      kind: 'purchase',
+      purchase,
+      date: purchase.purchaseDate,
+    })),
+  ].sort(newestFirst)
+  const visibleRows = rows.slice(0, RECENT_EXPENSES_LIMIT_WIDE)
+  const hasOverflow = rows.length > RECENT_EXPENSES_LIMIT
   const categories = categoriesQuery.data
-  if (expenses.length === 0) {
+  if (visibleRows.length === 0) {
     return (
       <EmptyState
         illustration={ILLUSTRATIONS.writing}
@@ -176,12 +207,30 @@ export function RecentExpensesList({
         aria-label="Últimos gastos del mes"
         className="flex w-full flex-col gap-3 text-sm"
       >
-        {expenses.map((expense, index) => {
-          const category = categoryById.get(expense.categoryId)
+        {visibleRows.map((row, index) => {
+          const categoryId =
+            row.kind === 'expense'
+              ? row.expense.categoryId
+              : row.purchase.categoryId
+          const category = categoryById.get(categoryId)
           const categoryName = category?.name ?? 'Categoría desconocida'
           const categoryColor =
             category?.color ?? colorForCategoryName(categoryName)
           const CategoryIcon = iconForCategoryName(categoryName)
+          const item = row.kind === 'expense' ? row.expense : row.purchase
+          const onEdit =
+            row.kind === 'expense'
+              ? onEditExpense &&
+                (() => {
+                  onEditExpense(row.expense, category?.name ?? '')
+                })
+              : // A purchase with a cuota in a paid Resumen is read-only.
+                row.purchase.paidResumenIds.length === 0
+                ? onEditPurchase &&
+                  (() => {
+                    onEditPurchase(row.purchase, category?.name ?? '')
+                  })
+                : undefined
 
           const rowContent = (
             <>
@@ -199,40 +248,66 @@ export function RecentExpensesList({
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="truncate text-foreground font-medium">
-                    {expense.name}
+                    {item.name}
                   </span>
-                  <span className="font-display text-lg text-foreground">
-                    {formatCurrency(expense.price)}
+                  <span
+                    className={cn(
+                      'font-display text-lg',
+                      row.kind === 'purchase'
+                        ? 'text-muted-foreground'
+                        : 'text-foreground',
+                    )}
+                  >
+                    {formatCurrency(
+                      row.kind === 'expense'
+                        ? row.expense.price
+                        : row.purchase.total,
+                    )}
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                   <CategoryBadge name={categoryName} color={categoryColor} />
-                  <span>{formatDate(expense.expenseDate)}</span>
+                  <span>{formatDate(row.date)}</span>
                   <span aria-hidden="true">·</span>
                   <span>
-                    {memberById.get(expense.memberId)?.displayName ??
-                      expense.authorDisplayName}
+                    {memberById.get(item.memberId)?.displayName ??
+                      item.authorDisplayName}
                   </span>
                 </div>
+                {row.kind === 'purchase' ? (
+                  <span className="text-xs text-muted-foreground">
+                    {cardPurchaseMark(
+                      purchasesQuery.cardNameById.get(row.purchase.cardId) ??
+                        'Tarjeta',
+                      row.purchase.cuotas,
+                    )}
+                  </span>
+                ) : null}
+                {row.kind === 'purchase' &&
+                row.purchase.paidResumenIds.length > 0 ? (
+                  <span className="text-xs text-muted-foreground">
+                    {CARD_PURCHASE_LOCKED_MESSAGE}
+                  </span>
+                ) : null}
               </div>
             </>
           )
 
           return (
             <li
-              key={expense.id}
+              key={`${row.kind}-${item.id}`}
               className={cn(
                 index >= RECENT_EXPENSES_LIMIT && 'hidden lg:block',
               )}
             >
-              {onEditExpense !== undefined ? (
+              {/* A card purchase edits in the add-gasto form, an expense in
+                  the expense form. */}
+              {onEdit !== undefined ? (
                 <button
                   type="button"
                   className="bg-card flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
-                  aria-label={`Editar ${expense.name}`}
-                  onClick={() => {
-                    onEditExpense(expense, category?.name ?? '')
-                  }}
+                  aria-label={`Editar ${item.name}`}
+                  onClick={onEdit}
                 >
                   {rowContent}
                 </button>

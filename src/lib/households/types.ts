@@ -1,3 +1,4 @@
+import type { Card, CardPurchase } from '@/lib/cards/types'
 import type { Pendiente } from '@/lib/pendientes/types'
 import type { Category, Expense } from '@/lib/expenses/types'
 import type { ExpenseHistoryCursor } from '@/lib/expenses/history'
@@ -221,10 +222,98 @@ export type HouseholdsDb = {
     pendiente: Pendiente
     expense: Expense
   }>
-  // Reverses markPendientePaid: restores status to 'pending' and deletes the
-  // Expense that payment created.
+  // Reverses markPendientePaid or markResumenPaid: restores status to
+  // 'pending' and deletes every Expense that payment created (a Resumen's
+  // also unlock its purchases).
   unmarkPendientePaid(input: {
     readonly householdId: string
     readonly pendienteId: string
   }): Promise<Pendiente>
+  // One transaction, all or nothing: writes one Expense per cuota of the
+  // Resumen in tarjetaCategoryId (subcategory = the purchase's category name)
+  // plus the ajuste when amountPaid differs from the total (see
+  // resumenPayment), marks the Resumen paid, and locks each of its purchases
+  // (CardPurchase.paidResumenIds). Rejects with PendienteNotFoundError,
+  // ResumenAlreadyPaidError or ResumenNotYetPayableError.
+  markResumenPaid(input: {
+    readonly householdId: string
+    readonly resumenId: string
+    readonly memberId: string
+    readonly authorDisplayName: string
+    readonly amountPaid: number
+    readonly paymentDate: Date
+    readonly tarjetaCategoryId: string
+  }): Promise<{
+    readonly pendiente: Pendiente
+    readonly expenses: readonly Expense[]
+  }>
+  listCards(input: { readonly householdId: string }): Promise<readonly Card[]>
+  createCard(input: {
+    readonly householdId: string
+    readonly name: string
+  }): Promise<Card>
+  // One batch: the card's name and the name of every Resumen of the card,
+  // whatever its status. Rejects with CardNotFoundError for a card outside
+  // the household.
+  renameCard(input: {
+    readonly householdId: string
+    readonly cardId: string
+    readonly name: string
+  }): Promise<Card>
+  // One transaction: writes the purchase and adds each of its cuotas to the
+  // card's Resumen of that month (a Pendiente with id resumenIdFor, created
+  // in resumenCategoryId if missing). Rejects -- writing nothing -- with
+  // ResumenAlreadyPaidError when any of those Resúmenes is already paid.
+  createCardPurchase(input: {
+    readonly householdId: string
+    readonly cardId: string
+    readonly categoryId: string
+    readonly resumenCategoryId: string
+    readonly memberId: string
+    readonly authorDisplayName: string
+    readonly name: string
+    readonly total: number
+    readonly cuotas: number
+    readonly purchaseDate: Date
+    readonly comments: string
+  }): Promise<CardPurchase>
+  // One transaction: rewrites the purchase and moves its cuotas between
+  // Resúmenes (see resumenChanges), creating a missing one in
+  // resumenCategoryId and deleting one left with no purchase. Rejects --
+  // writing nothing -- with CardPurchaseNotFoundError, CardNotFoundError, or
+  // ResumenAlreadyPaidError when any Resumen it is in before or after is paid.
+  // Firestore rules deny reading a purchase outside the caller's household,
+  // so there an outsider gets CardPurchaseNotFoundError rather than the
+  // memory adapter's HouseholdAccessDeniedError.
+  updateCardPurchase(input: {
+    readonly householdId: string
+    readonly purchaseId: string
+    readonly cardId: string
+    readonly categoryId: string
+    readonly resumenCategoryId: string
+    readonly name: string
+    readonly total: number
+    readonly cuotas: number
+    readonly purchaseDate: Date
+    readonly comments: string
+  }): Promise<CardPurchase>
+  // Same transaction and rejections as updateCardPurchase, with no cuotas
+  // after.
+  deleteCardPurchase(input: {
+    readonly householdId: string
+    readonly purchaseId: string
+  }): Promise<void>
+  listCardPurchasesInMonth(input: {
+    readonly householdId: string
+    readonly monthStart: Date
+    readonly monthEnd: Date
+  }): Promise<readonly CardPurchase[]>
+  // In purchaseIds order. An id with no purchase of this household behind it
+  // (missing, or another household's -- rules deny reading those) is
+  // skipped rather than failing the whole Resumen -- in Firestore that also
+  // means a caller outside the household gets an empty list.
+  getCardPurchases(input: {
+    readonly householdId: string
+    readonly purchaseIds: readonly string[]
+  }): Promise<readonly CardPurchase[]>
 }
