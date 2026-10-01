@@ -6,11 +6,15 @@ import { EmptyState } from '@/components/EmptyState'
 import { ILLUSTRATIONS } from '@/components/illustrations'
 import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
-import { expensesInMonthQueryKey } from '@/features/expenses'
+import {
+  categoriesQueryKey,
+  expensesInMonthQueryKey,
+} from '@/features/expenses'
 import {
   buildProjection,
   currentMonthRange,
   formatCurrency,
+  listCategories,
   listExpensesInMonth,
 } from '@/lib/expenses'
 import { useHouseholdMembership } from '@/lib/households'
@@ -55,6 +59,11 @@ export function ProyeccionesPage({
   })
   const currentQuery = useQuery(query(current))
   const previousQuery = useQuery(query(previous))
+  const categoriesQuery = useQuery({
+    queryKey: categoriesQueryKey({ householdId: householdId ?? '' }),
+    queryFn: () => listCategories({ db, householdId: householdId ?? '' }),
+    enabled: householdId !== undefined,
+  })
   // Edited amounts by row key, as the raw string the input holds; rows not in
   // here show their own price. Not persisted: a projection is a scratchpad.
   const [overrides, setOverrides] = useState<Readonly<Record<string, string>>>(
@@ -76,7 +85,11 @@ export function ProyeccionesPage({
     )
   }
 
-  if (currentQuery.data === undefined || previousQuery.data === undefined) {
+  if (
+    currentQuery.data === undefined ||
+    previousQuery.data === undefined ||
+    categoriesQuery.data === undefined
+  ) {
     return (
       <div className="flex w-full flex-col gap-8">
         {header}
@@ -85,6 +98,7 @@ export function ProyeccionesPage({
     )
   }
 
+  const names = new Map(categoriesQuery.data.map((c) => [c.id, c.name]))
   const rows = buildProjection(previousQuery.data, currentQuery.data)
   const amountOf = (key: string, price: number): number => {
     const raw = overrides[key]
@@ -92,13 +106,16 @@ export function ProyeccionesPage({
     const parsed = Number(raw)
     return Number.isFinite(parsed) ? parsed : 0
   }
-  const total = rows.reduce((sum, row) => sum + amountOf(row.key, row.price), 0)
+  const total = rows.reduce(
+    (sum, row) => sum + amountOf(row.categoryId, row.price),
+    0,
+  )
 
   return (
     <div className="flex w-full flex-col gap-8">
       <PageHeader title="Proyecciones" trailing={formatCurrency(total)} />
       <p className="text-muted-foreground text-sm">
-        Lo que ya cargaste este mes, más lo del mes pasado que todavía no
+        Lo gastado este mes por categoría, más lo del mes pasado que todavía no
         apareció. Editá cualquier monto para ver el total final.
       </p>
       {rows.length === 0 ? (
@@ -108,24 +125,26 @@ export function ProyeccionesPage({
           description="Cargá gastos este mes o el anterior y van a aparecer acá."
         />
       ) : (
-        <ul aria-label="Gastos proyectados" className="flex flex-col gap-3">
+        <ul aria-label="Categorías proyectadas" className="flex flex-col gap-3">
           {rows.map((row) => (
             <li
-              key={row.key}
+              key={row.categoryId}
               className="flex items-center justify-between gap-3"
             >
               <div className="min-w-0">
-                <p className="truncate font-medium">{row.name}</p>
+                <p className="truncate font-medium">
+                  {names.get(row.categoryId) ?? 'Sin categoría'}
+                </p>
                 <p className="text-muted-foreground text-xs">
-                  {row.source === 'actual' ? 'Ya cargado' : 'Del mes pasado'}
+                  {row.source === 'actual' ? 'Este mes' : 'Del mes pasado'}
                 </p>
               </div>
               <FormattedAmountInput
-                aria-label={`Monto de ${row.name}`}
+                aria-label={`Monto de ${names.get(row.categoryId) ?? 'Sin categoría'}`}
                 className="w-32 text-right"
-                value={overrides[row.key] ?? String(row.price)}
+                value={overrides[row.categoryId] ?? String(row.price)}
                 onChange={(raw) => {
-                  setOverrides((prev) => ({ ...prev, [row.key]: raw }))
+                  setOverrides((prev) => ({ ...prev, [row.categoryId]: raw }))
                 }}
               />
             </li>

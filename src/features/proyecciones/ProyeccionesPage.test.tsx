@@ -16,14 +16,23 @@ describe('ProyeccionesPage', () => {
       name: 'Casa',
       monthlyBudget: 1000,
     })
-    const [category] = await listCategories({ db, householdId: household.id })
-    if (category === undefined) throw new Error('expected a category')
+    const [category, other] = await listCategories({
+      db,
+      householdId: household.id,
+    })
+    if (category === undefined || other === undefined)
+      throw new Error('expected a category')
     const now = new Date()
-    const add = (name: string, price: number, date: Date) =>
+    const add = (
+      name: string,
+      price: number,
+      date: Date,
+      categoryId = category.id,
+    ) =>
       createExpense({
         db,
         householdId: household.id,
-        categoryId: category.id,
+        categoryId,
         memberId: 'user-1',
         authorDisplayName: 'Ada',
         name,
@@ -33,7 +42,7 @@ describe('ProyeccionesPage', () => {
       })
     const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 15)
     await add('Alquiler', 100, lastMonth)
-    await add('Luz', 20, lastMonth)
+    await add('Luz', 20, lastMonth, other.id)
     await add('Alquiler', 110, now)
 
     renderWithProviders(
@@ -43,10 +52,10 @@ describe('ProyeccionesPage', () => {
     )
 
     expect(await screen.findByText('Del mes pasado')).toBeInTheDocument()
-    expect(screen.getByText('Ya cargado')).toBeInTheDocument()
+    expect(screen.getByText('Este mes')).toBeInTheDocument()
     expect(screen.getByText('$130')).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('Monto de Luz'), {
+    fireEvent.change(screen.getByLabelText(`Monto de ${other.name}`), {
       target: { value: '50' },
     })
     expect(screen.getByText('$160')).toBeInTheDocument()
