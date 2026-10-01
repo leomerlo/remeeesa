@@ -1066,10 +1066,10 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
           resumenMonthStart(resumen),
         )
       }
-      const purchases = (resumen.purchaseIds ?? []).flatMap((id) => {
-        const purchase = state.cardPurchases.get(id)
-        return purchase === undefined ? [] : [purchase]
-      })
+      // Like the real adapter's tx.get: a missing purchase fails the payment.
+      const purchases = (resumen.purchaseIds ?? []).map((id) =>
+        ownPurchase(state, input.householdId, id),
+      )
       const payment = resumenPayment({
         resumen,
         purchases,
