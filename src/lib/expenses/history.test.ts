@@ -58,6 +58,7 @@ function fixtureExpenses(count: number) {
     expenseDate: new Date(base - index * 1000),
     pendienteId: null,
     isService: false,
+    subcategory: null,
     createdAt: new Date(base - index * 1000),
   }))
 }

@@ -27,6 +27,9 @@ import { AlertMessage } from '@/components/ui/alert-message'
 export type PendientesListProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
+  // Who pays a Resumen opened from here.
+  readonly memberId: string
+  readonly authorDisplayName: string
   // Defaults to the current month. PendientesPage passes whichever month its
   // MonthPager is on, so this screen reads one month at a time.
   readonly monthStart?: Date
@@ -45,6 +48,8 @@ export type PendientesListProps = {
 export function PendientesList({
   db,
   householdId,
+  memberId,
+  authorDisplayName,
   monthStart: monthStartProp,
   monthEnd: monthEndProp,
   query = '',
@@ -265,6 +270,8 @@ export function PendientesList({
       <ResumenSheet
         db={db}
         householdId={householdId}
+        memberId={memberId}
+        authorDisplayName={authorDisplayName}
         resumen={openResumen}
         onClose={() => {
           setOpenResumen(null)

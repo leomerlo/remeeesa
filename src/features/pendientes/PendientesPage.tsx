@@ -123,6 +123,8 @@ export function PendientesPage({
       ) : null}
       <PendientesList
         db={db}
+        memberId={currentUserId}
+        authorDisplayName={authorDisplayName}
         query={query}
         monthStart={monthStart}
         monthEnd={monthEnd}

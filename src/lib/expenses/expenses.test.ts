@@ -338,6 +338,7 @@ describe('createExpense', () => {
       expenseDate,
       pendienteId: null,
       isService: false,
+      subcategory: null,
       createdAt: expect.any(Date),
     })
     expect(expense.id.length).toBeGreaterThan(0)

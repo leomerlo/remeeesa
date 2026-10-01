@@ -34,5 +34,8 @@ export type Expense = {
   // through Pendientes) without a real Pendiente to link it to. An Expense
   // reads as a servicio in Histórico when either this or pendienteId says so.
   readonly isService: boolean
+  // Set only on the Expense paying a card cuota: a snapshot of its purchase's
+  // category name, under the "Tarjeta" category. Null everywhere else.
+  readonly subcategory: string | null
   readonly createdAt: Date
 }

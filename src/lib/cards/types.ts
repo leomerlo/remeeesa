@@ -20,4 +20,7 @@ export type CardPurchase = {
   readonly purchaseDate: Date
   readonly comments: string
   readonly createdAt: Date
+  // The paid Resúmenes holding one of its cuotas. Non-empty locks the
+  // purchase: it can no longer be edited or deleted (rules enforce it too).
+  readonly paidResumenIds: readonly string[]
 }

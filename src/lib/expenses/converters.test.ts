@@ -183,8 +183,30 @@ describe('parseExpenseDocument', () => {
       expenseDate: new Date('2026-08-15T00:00:00.000Z'),
       pendienteId: null,
       isService: false,
+      subcategory: null,
       createdAt: new Date('2026-08-16T12:00:00.000Z'),
     })
+  })
+
+  it("reads a card cuota expense's subcategory and a negative ajuste price", () => {
+    const expense = parseExpenseDocument({
+      id: 'e1',
+      data: {
+        household_id: 'h1',
+        category_id: 'tarjeta',
+        member_id: 'user-1',
+        author_display_name: 'Ada',
+        name: 'Visa — ajuste',
+        price: -10.5,
+        comments: '',
+        expense_date: new Date('2026-08-15T00:00:00.000Z'),
+        pendiente_id: 'card-1_2026-08',
+        subcategory: 'Comida',
+        created_at: new Date('2026-08-16T12:00:00.000Z'),
+      },
+    })
+    expect(expense.price).toBe(-10.5)
+    expect(expense.subcategory).toBe('Comida')
   })
 
   it('defaults pendienteId to null when pendiente_id is missing, e.g. an Expense doc written before the field existed', () => {
@@ -280,6 +302,7 @@ describe('toDocument converters', () => {
         expenseDate,
         pendienteId: null,
         isService: false,
+        subcategory: null,
         createdAt,
       }),
     ).toEqual({
@@ -293,6 +316,7 @@ describe('toDocument converters', () => {
       expense_date: expenseDate,
       pendiente_id: null,
       is_service: false,
+      subcategory: null,
       created_at: createdAt,
     })
   })

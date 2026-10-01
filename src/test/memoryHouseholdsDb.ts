@@ -13,9 +13,12 @@ import {
 } from '@/lib/cards/cuotas'
 import {
   CardNotFoundError,
+  CardPurchaseLockedError,
   CardPurchaseNotFoundError,
   RESUMEN_DUE_DAY,
   ResumenAlreadyPaidError,
+  resumenMonthStart,
+  resumenPayment,
 } from '@/lib/cards/purchases'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import {
@@ -157,6 +160,20 @@ function ownPurchase(
   const purchase = state.cardPurchases.get(purchaseId)
   if (purchase?.householdId !== householdId) {
     throw new CardPurchaseNotFoundError()
+  }
+  return purchase
+}
+
+// Only edit and delete go through here: a purchase with a cuota in a paid
+// Resumen is frozen.
+function ownUnlockedPurchase(
+  state: MemoryState,
+  householdId: string,
+  purchaseId: string,
+): CardPurchase {
+  const purchase = ownPurchase(state, householdId, purchaseId)
+  if (purchase.paidResumenIds.length > 0) {
+    throw new CardPurchaseLockedError()
   }
   return purchase
 }
@@ -510,6 +527,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         expenseDate: input.expenseDate,
         pendienteId: null,
         isService: false,
+        subcategory: null,
         createdAt: new Date(),
       }
       state.expenses.set(expense.id, expense)
@@ -718,6 +736,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         purchaseDate: input.purchaseDate,
         comments: input.comments,
         createdAt,
+        paidResumenIds: [],
       }
       // Every Resumen is built before any write, mirroring the real
       // adapter's all-or-nothing transaction.
@@ -766,7 +785,11 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
     },
     async updateCardPurchase(input) {
       assertMemberOf(state, userId, input.householdId)
-      const before = ownPurchase(state, input.householdId, input.purchaseId)
+      const before = ownUnlockedPurchase(
+        state,
+        input.householdId,
+        input.purchaseId,
+      )
       const card = state.cards.get(input.cardId)
       if (card === undefined || card.householdId !== input.householdId) {
         throw new CardNotFoundError()
@@ -813,7 +836,11 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
     },
     async deleteCardPurchase(input) {
       assertMemberOf(state, userId, input.householdId)
-      const before = ownPurchase(state, input.householdId, input.purchaseId)
+      const before = ownUnlockedPurchase(
+        state,
+        input.householdId,
+        input.purchaseId,
+      )
       moveCuotas(state, before, null, () => {
         throw new Error('deleting a purchase creates no Resumen')
       })
@@ -980,6 +1007,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         // merely one that passed through Pendientes on its way to being
         // paid.
         isService: existing.recurring,
+        subcategory: null,
         createdAt,
       }
       const updated: Pendiente = {
@@ -996,6 +1024,75 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       state.pendientes.set(input.pendienteId, updated)
       return { pendiente: updated, expense }
     },
+    async markResumenPaid(input) {
+      assertMemberOf(state, userId, input.householdId)
+      if (input.memberId !== userId) {
+        throw new HouseholdAccessDeniedError()
+      }
+      const resumen = state.pendientes.get(input.resumenId)
+      if (
+        resumen?.householdId !== input.householdId ||
+        resumen.cardId === undefined
+      ) {
+        throw new PendienteNotFoundError()
+      }
+      if (resumen.status !== 'pending') {
+        throw new ResumenAlreadyPaidError(
+          resumen.name,
+          resumenMonthStart(resumen),
+        )
+      }
+      // Like the real adapter's tx.get: a missing purchase fails the payment.
+      const purchases = (resumen.purchaseIds ?? []).map((id) =>
+        ownPurchase(state, input.householdId, id),
+      )
+      const payment = resumenPayment({
+        resumen,
+        purchases,
+        categoryNameById: new Map(
+          [...state.categories.values()]
+            .filter((category) => category.householdId === input.householdId)
+            .map((category) => [category.id, category.name]),
+        ),
+        amountPaid: input.amountPaid,
+        paymentDate: input.paymentDate,
+      })
+      const createdAt = new Date()
+      const expenses = payment.expenses.map((line): Expense => ({
+        id: crypto.randomUUID(),
+        householdId: input.householdId,
+        categoryId: input.tarjetaCategoryId,
+        memberId: input.memberId,
+        authorDisplayName: input.authorDisplayName,
+        name: line.name,
+        price: line.price,
+        comments: '',
+        expenseDate: payment.expenseDate,
+        pendienteId: resumen.id,
+        isService: false,
+        subcategory: line.subcategory,
+        createdAt,
+      }))
+      const paidExpenseIds = expenses.map((expense) => expense.id)
+      const updated: Pendiente = {
+        ...resumen,
+        status: 'paid',
+        paidExpenseId: paidExpenseIds[0] ?? null,
+        paidExpenseIds,
+        paidAt: input.paymentDate,
+      }
+      for (const expense of expenses) {
+        state.expenses.set(expense.id, expense)
+      }
+      state.pendientes.set(resumen.id, updated)
+      for (const purchase of purchases) {
+        state.cardPurchases.set(purchase.id, {
+          ...purchase,
+          paidResumenIds: [...purchase.paidResumenIds, resumen.id],
+        })
+      }
+      return { pendiente: updated, expenses }
+    },
     async unmarkPendientePaid(input) {
       assertMemberOf(state, userId, input.householdId)
       const existing = state.pendientes.get(input.pendienteId)
@@ -1008,18 +1105,31 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       if (existing.status !== 'paid') {
         throw new PendienteNotPaidError()
       }
-      // Mirrors the real adapter: the Expense that payment created is
+      // Mirrors the real adapter: every Expense that payment created is
       // deleted outright, not just unlinked.
-      if (existing.paidExpenseId !== null) {
-        state.expenses.delete(existing.paidExpenseId)
+      for (const expenseId of existing.paidExpenseIds ??
+        (existing.paidExpenseId === null ? [] : [existing.paidExpenseId])) {
+        state.expenses.delete(expenseId)
       }
       const updated: Pendiente = {
         ...existing,
         status: 'pending',
         paidExpenseId: null,
         paidAt: null,
+        ...(existing.cardId === undefined ? {} : { paidExpenseIds: [] }),
       }
       state.pendientes.set(input.pendienteId, updated)
+      for (const purchaseId of existing.purchaseIds ?? []) {
+        const purchase = state.cardPurchases.get(purchaseId)
+        if (purchase !== undefined) {
+          state.cardPurchases.set(purchaseId, {
+            ...purchase,
+            paidResumenIds: purchase.paidResumenIds.filter(
+              (id) => id !== existing.id,
+            ),
+          })
+        }
+      }
       return updated
     },
   }

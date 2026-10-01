@@ -222,12 +222,31 @@ export type HouseholdsDb = {
     pendiente: Pendiente
     expense: Expense
   }>
-  // Reverses markPendientePaid: restores status to 'pending' and deletes the
-  // Expense that payment created.
+  // Reverses markPendientePaid or markResumenPaid: restores status to
+  // 'pending' and deletes every Expense that payment created (a Resumen's
+  // also unlock its purchases).
   unmarkPendientePaid(input: {
     readonly householdId: string
     readonly pendienteId: string
   }): Promise<Pendiente>
+  // One transaction, all or nothing: writes one Expense per cuota of the
+  // Resumen in tarjetaCategoryId (subcategory = the purchase's category name)
+  // plus the ajuste when amountPaid differs from the total (see
+  // resumenPayment), marks the Resumen paid, and locks each of its purchases
+  // (CardPurchase.paidResumenIds). Rejects with PendienteNotFoundError,
+  // ResumenAlreadyPaidError or ResumenNotYetPayableError.
+  markResumenPaid(input: {
+    readonly householdId: string
+    readonly resumenId: string
+    readonly memberId: string
+    readonly authorDisplayName: string
+    readonly amountPaid: number
+    readonly paymentDate: Date
+    readonly tarjetaCategoryId: string
+  }): Promise<{
+    readonly pendiente: Pendiente
+    readonly expenses: readonly Expense[]
+  }>
   listCards(input: { readonly householdId: string }): Promise<readonly Card[]>
   createCard(input: {
     readonly householdId: string

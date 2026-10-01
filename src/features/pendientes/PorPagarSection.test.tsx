@@ -113,9 +113,20 @@ async function seedHousehold() {
 const MONTH_START = new Date(2026, 10, 1)
 const MONTH_END = new Date(2026, 11, 0, 23, 59, 59, 999)
 
-function Section(props: ComponentProps<typeof PorPagarSection>): ReactElement {
+function Section(
+  props: Omit<
+    ComponentProps<typeof PorPagarSection>,
+    'memberId' | 'authorDisplayName'
+  >,
+): ReactElement {
   return (
-    <PorPagarSection monthStart={MONTH_START} monthEnd={MONTH_END} {...props} />
+    <PorPagarSection
+      memberId="user-1"
+      authorDisplayName="Ada"
+      monthStart={MONTH_START}
+      monthEnd={MONTH_END}
+      {...props}
+    />
   )
 }
 

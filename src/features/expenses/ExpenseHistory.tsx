@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { TintedBadge } from '@/components/CategoryBadge'
 import { MovementCard } from '@/components/MovementCard'
-import { Download, Pencil } from 'lucide-react'
+import { Download, Lock, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AlertMessage } from '@/components/ui/alert-message'
 import { useMemo, useState } from 'react'
@@ -26,7 +26,7 @@ import { downloadTextFile } from '@/lib/download'
 import type { Category, Expense } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
-import { cardPurchaseMark } from '@/lib/cards'
+import { CARD_PURCHASE_LOCKED_MESSAGE, cardPurchaseMark } from '@/lib/cards'
 import type { CardPurchase } from '@/lib/cards'
 import { formatDate, paidDateLabel } from '@/lib/format'
 import { listHouseholdMembers } from '@/lib/households'
@@ -156,6 +156,7 @@ function CardPurchaseRow({
 }): ReactElement {
   const categoryName = category?.name ?? 'Categoría desconocida'
   const categoryColor = category?.color ?? colorForCategoryName(categoryName)
+  const locked = purchase.paidResumenIds.length > 0
   return (
     <li>
       <MovementCard
@@ -171,28 +172,47 @@ function CardPurchaseRow({
           </span>
         }
         badge={
-          <TintedBadge
-            label={cardPurchaseMark(cardName, purchase.cuotas)}
-            color="#4e4c56"
-          />
+          <>
+            <TintedBadge
+              label={cardPurchaseMark(cardName, purchase.cuotas)}
+              color="#4e4c56"
+            />
+            {locked ? (
+              <TintedBadge label="Resumen pagado" color="#4e4c56" />
+            ) : null}
+          </>
         }
-        {...(onEditPurchase === undefined
-          ? {}
-          : {
+        {...(locked
+          ? {
+              // Read-only once a cuota is in a paid Resumen: the lock says
+              // why instead of a pencil that would only be refused.
               actions: (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-mini"
-                  aria-label={`Editar ${purchase.name}`}
-                  onClick={() => {
-                    onEditPurchase(purchase, category?.name ?? '')
-                  }}
+                <Lock
+                  role="img"
+                  aria-label={CARD_PURCHASE_LOCKED_MESSAGE}
+                  className="text-muted-foreground size-4"
                 >
-                  <Pencil aria-hidden="true" />
-                </Button>
+                  <title>{CARD_PURCHASE_LOCKED_MESSAGE}</title>
+                </Lock>
               ),
-            })}
+            }
+          : onEditPurchase === undefined
+            ? {}
+            : {
+                actions: (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-mini"
+                    aria-label={`Editar ${purchase.name}`}
+                    onClick={() => {
+                      onEditPurchase(purchase, category?.name ?? '')
+                    }}
+                  >
+                    <Pencil aria-hidden="true" />
+                  </Button>
+                ),
+              })}
       />
     </li>
   )

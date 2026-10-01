@@ -2,6 +2,9 @@ export type { Card, CardPurchase } from './types'
 export type { ResumenCuota } from './purchases'
 export { CardNameTakenError, createCard, listCards } from './cards'
 export {
+  CARD_PURCHASE_LOCKED_MESSAGE,
+  canPayResumen,
+  CardPurchaseLockedError,
   CardPurchaseNotFoundError,
   cardPurchaseMark,
   cardsDueNextMonthTotal,
@@ -9,8 +12,11 @@ export {
   deleteCardPurchase,
   listCardPurchasesInMonth,
   listResumenCuotas,
+  markResumenPaid,
   MAX_CUOTAS,
   parseCuotas,
   ResumenAlreadyPaidError,
+  ResumenNotYetPayableError,
+  resumenMonthStart,
   updateCardPurchase,
 } from './purchases'

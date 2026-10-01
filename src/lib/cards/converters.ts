@@ -3,6 +3,7 @@ import {
   parseRequiredString,
   parseTimestamp,
 } from '@/lib/firestore/documentParsing'
+import { parseStringList } from '@/lib/pendientes/converters'
 import type { Card, CardPurchase } from './types'
 
 export function parseCardDocument(input: {
@@ -54,5 +55,10 @@ export function parseCardPurchaseDocument(input: {
     purchaseDate: parseTimestamp(d.purchase_date, 'purchase_date'),
     comments: typeof d.comments === 'string' ? d.comments : '',
     createdAt: parseTimestamp(d.created_at, 'created_at'),
+    // Absent until one of its Resúmenes is paid.
+    paidResumenIds:
+      d.paid_resumen_ids === undefined
+        ? []
+        : parseStringList(d.paid_resumen_ids, 'paid_resumen_ids'),
   }
 }

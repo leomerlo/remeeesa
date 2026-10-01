@@ -199,6 +199,10 @@ function ExpenseFormBody({
   // wording below says so rather than promising a plain delete.
   const isFromPendiente =
     editExpense !== null && editExpense.pendienteId !== null
+  // A card Resumen's ajuste is negative when less was paid than its total,
+  // which no saved expense may be: the only way to change it is undoing the
+  // payment.
+  const isNegativeAjuste = editExpense !== null && editExpense.price < 0
 
   // Only fetched for reassigning an existing Expense's author -- adding one
   // always attributes it to whoever is signed in, same as before this
@@ -512,6 +516,12 @@ function ExpenseFormBody({
           </div>
         ) : null}
 
+        {isNegativeAjuste ? (
+          <p className="text-muted-foreground text-xs">
+            Es el ajuste de un resumen pagado: para cambiarlo, deshacé el pago.
+          </p>
+        ) : null}
+
         {alertMessage !== null ? (
           <AlertMessage>{alertMessage}</AlertMessage>
         ) : null}
@@ -526,7 +536,7 @@ function ExpenseFormBody({
           >
             <p id="delete-expense-title" className="text-sm font-medium">
               {isFromPendiente
-                ? '¿Deshacer el pago? El servicio vuelve a quedar impago.'
+                ? '¿Deshacer el pago? Se borra lo que generó el pago y vuelve a quedar impago.'
                 : '¿Eliminar el gasto?'}
             </p>
             <div className="flex w-full gap-2">
@@ -558,7 +568,7 @@ function ExpenseFormBody({
           <div className="flex w-full flex-col items-center gap-2">
             <Button
               type="submit"
-              disabled={mutation.isPending}
+              disabled={mutation.isPending || isNegativeAjuste}
               className="w-full"
             >
               {isEditing ? 'Guardar cambios' : 'Agregar gasto'}

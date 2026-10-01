@@ -4,22 +4,34 @@ import {
   computeRemainingBudget,
   listCategories,
   listExpensesInMonth,
+  updateExpense,
 } from '@/lib/expenses'
 import {
   createHouseholdWithMembership,
   HouseholdAccessDeniedError,
 } from '@/lib/households'
-import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
+import {
+  createPendiente,
+  listPendientes,
+  listPendientesForMonth,
+  PendienteNotFoundError,
+  pendientesDueInMonth,
+  unmarkPendientePaid,
+} from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { createCard } from './cards'
 import {
+  canPayResumen,
+  CardPurchaseLockedError,
   cardsDueNextMonthTotal,
   createCardPurchase,
   deleteCardPurchase,
   listCardPurchasesInMonth,
   listResumenCuotas,
+  markResumenPaid,
   ResumenAlreadyPaidError,
+  ResumenNotYetPayableError,
   updateCardPurchase,
 } from './purchases'
 
@@ -873,5 +885,392 @@ describe('cardsDueNextMonthTotal', () => {
         new Date(2026, 11, 31),
       ),
     ).toBe(5)
+  })
+})
+
+describe('markResumenPaid', () => {
+  // Paid Resúmenes drop out of listPendientes, so look them up by month.
+  async function resumenOf(s: Setup, year: number, month: number) {
+    const all = await listPendientesForMonth({
+      db: s.db,
+      householdId: s.householdId,
+      ...monthRange(year, month),
+    })
+    const found = all.find(
+      (p) =>
+        p.cardId === s.visa.id &&
+        p.dueDate.getFullYear() === year &&
+        p.dueDate.getMonth() === month,
+    )
+    if (found === undefined) {
+      throw new Error('expected a Resumen')
+    }
+    return found
+  }
+
+  function pay(
+    s: Setup,
+    resumenId: string,
+    amountPaid: number,
+    paymentDate: Date,
+  ) {
+    return markResumenPaid({
+      db: s.db,
+      householdId: s.householdId,
+      resumenId,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      amountPaid,
+      paymentDate,
+    })
+  }
+
+  async function expensesIn(s: Setup, year: number, month: number) {
+    return listExpensesInMonth({
+      db: s.db,
+      householdId: s.householdId,
+      ...monthRange(year, month),
+    })
+  }
+
+  async function setupWithPurchases() {
+    const s = await setup()
+    const categories = await listCategories({
+      db: s.db,
+      householdId: s.householdId,
+    })
+    const salud = categories.find((category) => category.name === 'Salud')
+    if (salud === undefined) {
+      throw new Error('expected a seeded Salud category')
+    }
+    const zapatillas = await purchase(s, { total: 300, cuotas: 3 })
+    const remedios = await purchase(s, {
+      name: 'Remedios',
+      categoryId: salud.id,
+      total: 50,
+      cuotas: 1,
+    })
+    return { ...s, zapatillas, remedios }
+  }
+
+  it("can't be paid before its month starts", async () => {
+    const s = await setupWithPurchases()
+    const october = await resumenOf(s, 2026, 9)
+
+    expect(canPayResumen(october, new Date(2026, 8, 30, 23))).toBe(false)
+    expect(canPayResumen(october, new Date(2026, 9, 1))).toBe(true)
+    await expect(pay(s, october.id, 150, TODAY)).rejects.toThrow(
+      new ResumenNotYetPayableError('Visa', new Date(2026, 9, 1)),
+    )
+    expect((await resumenOf(s, 2026, 9)).status).toBe('pending')
+  })
+
+  it('writes one expense per cuota in "Tarjeta", subcategorised by the purchase\'s category', async () => {
+    const s = await setupWithPurchases()
+    vi.setSystemTime(new Date(2026, 9, 15, 12))
+    const october = await resumenOf(s, 2026, 9)
+
+    const { pendiente, expenses } = await pay(
+      s,
+      october.id,
+      150,
+      new Date(2026, 9, 15),
+    )
+
+    const categories = await listCategories({
+      db: s.db,
+      householdId: s.householdId,
+    })
+    const tarjeta = categories.find((category) => category.name === 'Tarjeta')
+    expect(
+      expenses.map((e) => [e.name, e.price, e.subcategory, e.categoryId]),
+    ).toEqual([
+      ['Zapatillas', 100, 'Comida', tarjeta?.id],
+      ['Remedios', 50, 'Salud', tarjeta?.id],
+    ])
+    expect(expenses.every((e) => e.pendienteId === october.id)).toBe(true)
+    expect(expenses.every((e) => !e.isService)).toBe(true)
+    expect(expenses.map((e) => e.expenseDate.toDateString())).toEqual([
+      new Date(2026, 9, 15).toDateString(),
+      new Date(2026, 9, 15).toDateString(),
+    ])
+    expect(pendiente.status).toBe('paid')
+    expect(pendiente.paidExpenseIds).toEqual(expenses.map((e) => e.id))
+    expect(await expensesIn(s, 2026, 9)).toHaveLength(2)
+  })
+
+  it("dates the expenses on the month's last day when paid after it (October paid 12 Nov → 31 Oct)", async () => {
+    const s = await setupWithPurchases()
+    vi.setSystemTime(new Date(2026, 10, 12, 12))
+    const october = await resumenOf(s, 2026, 9)
+
+    const { expenses } = await pay(s, october.id, 150, new Date(2026, 10, 12))
+
+    expect(expenses.map((e) => e.expenseDate.toDateString())).toEqual([
+      new Date(2026, 9, 31).toDateString(),
+      new Date(2026, 9, 31).toDateString(),
+    ])
+    expect(await expensesIn(s, 2026, 10)).toEqual([])
+  })
+
+  it('records the difference as a "<card> — ajuste" with no subcategory, negative when less was paid', async () => {
+    const s = await setupWithPurchases()
+    vi.setSystemTime(new Date(2026, 10, 12, 12))
+    const october = await resumenOf(s, 2026, 9)
+    const november = await resumenOf(s, 2026, 10)
+
+    const over = await pay(s, october.id, 160.5, new Date(2026, 10, 12))
+    const under = await pay(s, november.id, 90, new Date(2026, 10, 12))
+
+    expect(over.expenses.at(-1)).toEqual(
+      expect.objectContaining({
+        name: 'Visa — ajuste',
+        price: 10.5,
+        subcategory: null,
+        expenseDate: new Date(2026, 9, 31),
+      }),
+    )
+    expect(under.expenses.map((e) => [e.name, e.price])).toEqual([
+      ['Zapatillas', 100],
+      ['Visa — ajuste', -10],
+    ])
+  })
+
+  it('writes no ajuste when the total is paid exactly', async () => {
+    const s = await setupWithPurchases()
+    vi.setSystemTime(new Date(2026, 9, 15, 12))
+    const october = await resumenOf(s, 2026, 9)
+
+    const { expenses } = await pay(s, october.id, 150, new Date(2026, 9, 15))
+
+    expect(expenses.map((e) => e.name)).not.toContain('Visa — ajuste')
+  })
+
+  it("keeps a cuota expense's subcategory when the expense is edited", async () => {
+    const s = await setupWithPurchases()
+    vi.setSystemTime(new Date(2026, 9, 15, 12))
+    const october = await resumenOf(s, 2026, 9)
+    const { expenses } = await pay(s, october.id, 150, new Date(2026, 9, 15))
+    const [first] = expenses
+    if (first === undefined) {
+      throw new Error('expected a cuota expense')
+    }
+
+    const edited = await updateExpense({
+      db: s.db,
+      householdId: s.householdId,
+      expenseId: first.id,
+      name: 'Botines',
+    })
+
+    expect(edited.subcategory).toBe('Comida')
+    expect(
+      (await expensesIn(s, 2026, 9)).find((e) => e.id === first.id)
+        ?.subcategory,
+    ).toBe('Comida')
+  })
+
+  it('requires a positive amount', async () => {
+    const s = await setupWithPurchases()
+    vi.setSystemTime(new Date(2026, 9, 15, 12))
+    const october = await resumenOf(s, 2026, 9)
+
+    for (const amount of [0, -5]) {
+      await expect(
+        pay(s, october.id, amount, new Date(2026, 9, 15)),
+      ).rejects.toThrow('El precio del gasto debe ser un número positivo')
+    }
+    expect((await resumenOf(s, 2026, 9)).status).toBe('pending')
+  })
+
+  it('rejects paying an already-paid Resumen, writing nothing more', async () => {
+    const s = await setupWithPurchases()
+    vi.setSystemTime(new Date(2026, 9, 15, 12))
+    const october = await resumenOf(s, 2026, 9)
+    await pay(s, october.id, 150, new Date(2026, 9, 15))
+
+    await expect(
+      pay(s, october.id, 150, new Date(2026, 9, 15)),
+    ).rejects.toThrow('El resumen de Visa de octubre de 2026 ya está pagado.')
+    expect(await expensesIn(s, 2026, 9)).toHaveLength(2)
+  })
+
+  it('counts each cuota exactly once in every month the purchase touches, before and after paying', async () => {
+    const s = await setup()
+    await purchase(s, { total: 300, cuotas: 3 })
+    const remainingByMonth = async () =>
+      Promise.all([8, 9, 10, 11].map((month) => remainingIn(s, 2026, month)))
+    expect(await remainingByMonth()).toEqual([1000, 900, 900, 900])
+
+    vi.setSystemTime(new Date(2026, 10, 12, 12))
+    await pay(s, (await resumenOf(s, 2026, 9)).id, 100, new Date(2026, 10, 12))
+    expect(await remainingByMonth()).toEqual([1000, 900, 900, 900])
+
+    await pay(s, (await resumenOf(s, 2026, 10)).id, 100, new Date(2026, 10, 12))
+    expect(await remainingByMonth()).toEqual([1000, 900, 900, 900])
+  })
+
+  it('locks a purchase with a paid cuota against editing and deleting', async () => {
+    const s = await setupWithPurchases()
+    vi.setSystemTime(new Date(2026, 9, 15, 12))
+    const october = await resumenOf(s, 2026, 9)
+    await pay(s, october.id, 150, new Date(2026, 9, 15))
+
+    const purchases = await listCardPurchasesInMonth({
+      db: s.db,
+      householdId: s.householdId,
+      ...monthRange(2026, 8),
+    })
+    expect(purchases.map((p) => p.paidResumenIds)).toEqual([
+      [october.id],
+      [october.id],
+    ])
+    await expect(
+      edit(s, s.zapatillas.id, { name: 'Botines', total: 300, cuotas: 3 }),
+    ).rejects.toBeInstanceOf(CardPurchaseLockedError)
+    await expect(
+      deleteCardPurchase({
+        db: s.db,
+        householdId: s.householdId,
+        purchaseId: s.zapatillas.id,
+      }),
+    ).rejects.toThrow(
+      'Tiene cuotas en un resumen ya pagado: no se puede editar ni borrar.',
+    )
+  })
+
+  it('rejects logging or editing a purchase into a paid Resumen', async () => {
+    const s = await setupWithPurchases()
+    vi.setSystemTime(new Date(2026, 9, 15, 12))
+    const other = await purchase(s, {
+      name: 'Libro',
+      total: 20,
+      cuotas: 1,
+      purchaseDate: new Date(2026, 9, 1),
+    })
+    await pay(s, (await resumenOf(s, 2026, 9)).id, 150, new Date(2026, 9, 15))
+
+    await expect(
+      purchase(s, { total: 10, cuotas: 1, purchaseDate: new Date(2026, 8, 2) }),
+    ).rejects.toThrow('El resumen de Visa de octubre de 2026 ya está pagado.')
+    await expect(
+      edit(s, other.id, {
+        total: 20,
+        cuotas: 1,
+        purchaseDate: new Date(2026, 8, 2),
+      }),
+    ).rejects.toThrow('El resumen de Visa de octubre de 2026 ya está pagado.')
+  })
+
+  it('undoing deletes its cuota expenses and ajuste, returns it to pending and unlocks its purchases', async () => {
+    const s = await setupWithPurchases()
+    vi.setSystemTime(new Date(2026, 9, 15, 12))
+    const october = await resumenOf(s, 2026, 9)
+    await pay(s, october.id, 200, new Date(2026, 9, 15))
+    expect(await expensesIn(s, 2026, 9)).toHaveLength(3)
+
+    const undone = await unmarkPendientePaid({
+      db: s.db,
+      householdId: s.householdId,
+      pendienteId: october.id,
+    })
+
+    expect(undone.status).toBe('pending')
+    expect(await expensesIn(s, 2026, 9)).toEqual([])
+    expect(await remainingIn(s, 2026, 9)).toBe(850)
+    await expect(
+      edit(s, s.remedios.id, { name: 'Vitaminas', total: 50, cuotas: 1 }),
+    ).resolves.toEqual(expect.objectContaining({ paidResumenIds: [] }))
+  })
+
+  it('keeps a purchase locked while another of its Resúmenes is still paid', async () => {
+    const s = await setupWithPurchases()
+    vi.setSystemTime(new Date(2026, 10, 12, 12))
+    const october = await resumenOf(s, 2026, 9)
+    const november = await resumenOf(s, 2026, 10)
+    await pay(s, october.id, 150, new Date(2026, 10, 12))
+    await pay(s, november.id, 100, new Date(2026, 10, 12))
+
+    await unmarkPendientePaid({
+      db: s.db,
+      householdId: s.householdId,
+      pendienteId: october.id,
+    })
+
+    await expect(
+      edit(s, s.zapatillas.id, { name: 'Botines', total: 300, cuotas: 3 }),
+    ).rejects.toBeInstanceOf(CardPurchaseLockedError)
+    await expect(
+      edit(s, s.remedios.id, { name: 'Vitaminas', total: 50, cuotas: 1 }),
+    ).resolves.toBeDefined()
+  })
+  it("dates the expenses on the payment day when paid on the month's last day, and on that last day from the 1st of the next", async () => {
+    const s = await setupWithPurchases()
+    vi.setSystemTime(new Date(2026, 10, 1, 12))
+    const october = await resumenOf(s, 2026, 9)
+    const november = await resumenOf(s, 2026, 10)
+
+    const lastDay = await pay(s, october.id, 150, new Date(2026, 9, 31, 23, 30))
+    // November's Resumen paid on 1 Nov counts in November itself.
+    const firstOfNext = await pay(s, november.id, 100, new Date(2026, 10, 1))
+
+    expect(lastDay.expenses[0]?.expenseDate).toEqual(
+      new Date(2026, 9, 31, 23, 30),
+    )
+    expect(firstOfNext.expenses[0]?.expenseDate).toEqual(new Date(2026, 10, 1))
+    expect(await expensesIn(s, 2026, 9)).toHaveLength(2)
+    expect(await expensesIn(s, 2026, 10)).toHaveLength(1)
+  })
+
+  it("pays one Resumen's cuota at a time, the last absorbing the cents, dating December's paid in January on 31 Dec", async () => {
+    const s = await setup()
+    // 100 / 3 → 33.33, 33.33, 33.34 in October, November and December.
+    await purchase(s, { total: 100, cuotas: 3 })
+    vi.setSystemTime(new Date(2027, 0, 4, 12))
+    const december = await resumenOf(s, 2026, 11)
+
+    const { expenses } = await pay(s, december.id, 33.34, new Date(2027, 0, 4))
+
+    expect(expenses.map((e) => [e.name, e.price, e.expenseDate])).toEqual([
+      ['Zapatillas', 33.34, new Date(2026, 11, 31)],
+    ])
+    expect(await expensesIn(s, 2026, 11)).toHaveLength(1)
+    expect(await expensesIn(s, 2027, 0)).toEqual([])
+    expect((await resumenOf(s, 2026, 9)).status).toBe('pending')
+    expect((await resumenOf(s, 2026, 10)).status).toBe('pending')
+  })
+
+  it('writes no ajuste when cuotas only differ from the amount paid by float noise (0.1 + 0.2 paid as 0.3)', async () => {
+    const s = await setup()
+    await purchase(s, { name: 'Chicle', total: 0.1, cuotas: 1 })
+    await purchase(s, { name: 'Caramelo', total: 0.2, cuotas: 1 })
+    vi.setSystemTime(new Date(2026, 9, 15, 12))
+    const october = await resumenOf(s, 2026, 9)
+
+    const exact = await pay(s, october.id, 0.3, new Date(2026, 9, 15))
+
+    expect(exact.expenses.map((e) => e.name)).toEqual(['Chicle', 'Caramelo'])
+  })
+
+  it('rejects paying a Pendiente that is not a Resumen, leaving it pending', async () => {
+    const s = await setup()
+    const alquiler = await createPendiente({
+      db: s.db,
+      householdId: s.householdId,
+      categoryId: s.comidaId,
+      name: 'Alquiler',
+      dueDate: new Date(2026, 8, 25),
+      expectedAmount: 500,
+    })
+
+    await expect(pay(s, alquiler.id, 500, TODAY)).rejects.toBeInstanceOf(
+      PendienteNotFoundError,
+    )
+    expect(await expensesIn(s, 2026, 8)).toEqual([])
+    expect(
+      (await listPendientes({ db: s.db, householdId: s.householdId })).find(
+        (p) => p.id === alquiler.id,
+      )?.status,
+    ).toBe('pending')
   })
 })

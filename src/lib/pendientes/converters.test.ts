@@ -55,6 +55,29 @@ describe('parsePendienteDocument', () => {
 
     expect(resumen.cardId).toBe('card-1')
     expect(resumen.purchaseIds).toEqual(['p1', 'p2'])
+    expect(resumen.paidExpenseIds).toBeUndefined()
+  })
+
+  it("reads a paid Resumen's paid_expense_ids", () => {
+    const resumen = parsePendienteDocument({
+      id: 'card-1_2026-10',
+      data: {
+        household_id: 'h1',
+        category_id: 'c1',
+        name: 'Visa',
+        due_date: new Date(2026, 9, 10),
+        expected_amount: 100,
+        recurring: false,
+        status: 'paid',
+        paid_expense_id: 'e1',
+        paid_expense_ids: ['e1', 'e2'],
+        created_at: new Date(2026, 8, 1),
+        card_id: 'card-1',
+        purchase_ids: ['p1', 'p2'],
+      },
+    })
+
+    expect(resumen.paidExpenseIds).toEqual(['e1', 'e2'])
   })
 
   it('rejects a Resumen whose purchase_ids is not a list of strings', () => {
