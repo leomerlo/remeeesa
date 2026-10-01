@@ -7,6 +7,7 @@ import { ILLUSTRATIONS } from '@/components/illustrations'
 import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import {
+  MonthPager,
   categoriesQueryKey,
   expensesInMonthQueryKey,
 } from '@/features/expenses'
@@ -36,7 +37,10 @@ export function ProyeccionesPage({
     ...(householdsDb === undefined ? {} : { householdsDb }),
   })
   const householdId = membership?.householdId
-  const current = useMemo(() => currentMonthRange(), [])
+  const [viewedMonth, setViewedMonth] = useState(
+    () => currentMonthRange().monthStart,
+  )
+  const current = useMemo(() => currentMonthRange(viewedMonth), [viewedMonth])
   const previous = useMemo(
     () =>
       currentMonthRange(
@@ -64,12 +68,14 @@ export function ProyeccionesPage({
     queryFn: () => listCategories({ db, householdId: householdId ?? '' }),
     enabled: householdId !== undefined,
   })
-  // Edited amounts by row key, as the raw string the input holds; rows not in
+  // Edited amounts by month and category, as the raw string the input holds; rows not in
   // here show their own price. Not persisted: a projection is a scratchpad.
   const [overrides, setOverrides] = useState<Readonly<Record<string, string>>>(
     {},
   )
 
+  const monthKey = (categoryId: string): string =>
+    `${String(current.monthStart.getTime())}-${categoryId}`
   const header = <PageHeader title="Proyecciones" />
 
   if (currentUserId === null || membership === null) {
@@ -101,7 +107,7 @@ export function ProyeccionesPage({
   const names = new Map(categoriesQuery.data.map((c) => [c.id, c.name]))
   const rows = buildProjection(previousQuery.data, currentQuery.data)
   const amountOf = (key: string, price: number): number => {
-    const raw = overrides[key]
+    const raw = overrides[monthKey(key)]
     if (raw === undefined) return price
     const parsed = Number(raw)
     return Number.isFinite(parsed) ? parsed : 0
@@ -114,9 +120,14 @@ export function ProyeccionesPage({
   return (
     <div className="flex w-full flex-col gap-8">
       <PageHeader title="Proyecciones" trailing={formatCurrency(total)} />
+      <MonthPager
+        viewedMonth={viewedMonth}
+        onViewedMonthChange={setViewedMonth}
+        maxMonthsAhead={1}
+      />
       <p className="text-muted-foreground text-sm">
-        Lo gastado este mes por categoría, más lo del mes pasado que todavía no
-        apareció. Editá cualquier monto para ver el total final.
+        Lo gastado en el mes por categoría, más lo del mes anterior que todavía
+        no apareció. Editá cualquier monto para ver el total final.
       </p>
       {rows.length === 0 ? (
         <EmptyState
@@ -136,15 +147,18 @@ export function ProyeccionesPage({
                   {names.get(row.categoryId) ?? 'Sin categoría'}
                 </p>
                 <p className="text-muted-foreground text-xs">
-                  {row.source === 'actual' ? 'Este mes' : 'Del mes pasado'}
+                  {row.source === 'actual' ? 'Cargado' : 'Del mes anterior'}
                 </p>
               </div>
               <FormattedAmountInput
                 aria-label={`Monto de ${names.get(row.categoryId) ?? 'Sin categoría'}`}
                 className="w-32 text-right"
-                value={overrides[row.categoryId] ?? String(row.price)}
+                value={overrides[monthKey(row.categoryId)] ?? String(row.price)}
                 onChange={(raw) => {
-                  setOverrides((prev) => ({ ...prev, [row.categoryId]: raw }))
+                  setOverrides((prev) => ({
+                    ...prev,
+                    [monthKey(row.categoryId)]: raw,
+                  }))
                 }}
               />
             </li>

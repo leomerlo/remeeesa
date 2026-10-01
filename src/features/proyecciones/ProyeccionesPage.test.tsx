@@ -51,13 +51,22 @@ describe('ProyeccionesPage', () => {
       </MemoryRouter>,
     )
 
-    expect(await screen.findByText('Del mes pasado')).toBeInTheDocument()
-    expect(screen.getByText('Este mes')).toBeInTheDocument()
+    expect(await screen.findByText('Del mes anterior')).toBeInTheDocument()
+    expect(screen.getByText('Cargado')).toBeInTheDocument()
     expect(screen.getByText('$130')).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText(`Monto de ${other.name}`), {
       target: { value: '50' },
     })
     expect(screen.getByText('$160')).toBeInTheDocument()
+
+    // Next month has nothing yet, so it carries over this month's categories.
+    fireEvent.click(screen.getByRole('button', { name: 'Mes siguiente' }))
+    expect(await screen.findByText('$110')).toBeInTheDocument()
+    expect(screen.queryByText('Cargado')).not.toBeInTheDocument()
+
+    // Edits made on the first month are still there when paging back.
+    fireEvent.click(screen.getByRole('button', { name: 'Mes anterior' }))
+    expect(await screen.findByText('$160')).toBeInTheDocument()
   })
 })
