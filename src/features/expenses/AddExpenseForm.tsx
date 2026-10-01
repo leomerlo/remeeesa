@@ -536,7 +536,7 @@ function ExpenseFormBody({
           >
             <p id="delete-expense-title" className="text-sm font-medium">
               {isFromPendiente
-                ? '¿Deshacer el pago? Se borran los gastos que generó y vuelve a quedar impago.'
+                ? '¿Deshacer el pago? Se borra lo que generó el pago y vuelve a quedar impago.'
                 : '¿Eliminar el gasto?'}
             </p>
             <div className="flex w-full gap-2">

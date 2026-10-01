@@ -20,7 +20,8 @@ month it was budgeted for.
 Consequences:
 
 - An Expense may now have a negative price, but only as a Resumen's ajuste (the Firestore rules
-  allow it only when `pendiente_id` points to a Resumen).
+  allow it only when `pendiente_id` points to a Resumen, in the commit that pays it). The edit
+  form can't save a negative ajuste; undoing the payment is the way to change it.
 - A Pendiente's payment is a list: `paid_expense_ids` holds every generated Expense
   (`paid_expense_id` stays the first, for older readers). Undoing a payment — from the Resumen or
   by deleting any one of its Expenses — deletes them all.
