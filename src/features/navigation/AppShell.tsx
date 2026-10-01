@@ -1,7 +1,14 @@
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { History, Home, LayoutGrid, Receipt, Settings } from 'lucide-react'
+import {
+  History,
+  Home,
+  LayoutGrid,
+  Receipt,
+  Settings,
+  TrendingUp,
+} from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Logo } from '@/components/Logo'
 import { useSettleAutoDebits } from '@/features/pendientes'
@@ -32,6 +39,7 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: '/historico', label: 'Histórico', icon: History, end: false },
   { to: '/pendientes', label: 'Servicios', icon: Receipt, end: false },
   { to: '/categorias', label: 'Categorías', icon: LayoutGrid, end: false },
+  { to: '/proyecciones', label: 'Proyecciones', icon: TrendingUp, end: false },
   { to: '/household', label: 'Ajustes', icon: Settings, end: false },
 ]
 

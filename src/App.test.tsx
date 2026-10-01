@@ -96,7 +96,7 @@ describe('App', () => {
     )
 
     const nav = await screen.findByRole('navigation')
-    expect(within(nav).getAllByRole('link')).toHaveLength(5)
+    expect(within(nav).getAllByRole('link')).toHaveLength(6)
     expect(within(nav).getByRole('link', { name: /inicio/i })).toHaveAttribute(
       'aria-current',
       'page',

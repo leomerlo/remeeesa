@@ -94,7 +94,7 @@ describe('AppShell', () => {
     expect(
       within(nav).getByRole('link', { name: /ajustes/i }),
     ).toBeInTheDocument()
-    expect(within(nav).getAllByRole('link')).toHaveLength(5)
+    expect(within(nav).getAllByRole('link')).toHaveLength(6)
   })
 
   // Per direct feedback: Servicios is a top-level destination at every
@@ -122,6 +122,7 @@ describe('AppShell', () => {
       'Histórico',
       'Servicios',
       'Categorías',
+      'Proyecciones',
       'Ajustes',
     ])
     for (const link of within(nav).getAllByRole('link')) {
