@@ -4,6 +4,7 @@ import {
   computeRemainingBudget,
   listCategories,
   listExpensesInMonth,
+  updateExpense,
 } from '@/lib/expenses'
 import {
   createHouseholdWithMembership,
@@ -1043,6 +1044,30 @@ describe('markResumenPaid', () => {
     const { expenses } = await pay(s, october.id, 150, new Date(2026, 9, 15))
 
     expect(expenses.map((e) => e.name)).not.toContain('Visa — ajuste')
+  })
+
+  it("keeps a cuota expense's subcategory when the expense is edited", async () => {
+    const s = await setupWithPurchases()
+    vi.setSystemTime(new Date(2026, 9, 15, 12))
+    const october = await resumenOf(s, 2026, 9)
+    const { expenses } = await pay(s, october.id, 150, new Date(2026, 9, 15))
+    const [first] = expenses
+    if (first === undefined) {
+      throw new Error('expected a cuota expense')
+    }
+
+    const edited = await updateExpense({
+      db: s.db,
+      householdId: s.householdId,
+      expenseId: first.id,
+      name: 'Botines',
+    })
+
+    expect(edited.subcategory).toBe('Comida')
+    expect(
+      (await expensesIn(s, 2026, 9)).find((e) => e.id === first.id)
+        ?.subcategory,
+    ).toBe('Comida')
   })
 
   it('requires a positive amount', async () => {

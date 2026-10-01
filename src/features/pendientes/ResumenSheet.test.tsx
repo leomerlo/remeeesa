@@ -200,6 +200,39 @@ describe('ResumenSheet paying', () => {
     )
   })
 
+  it('says so when someone else already paid it', async () => {
+    const { db, householdId, resumen } = await setupResumen()
+    vi.setSystemTime(new Date(2026, 9, 15, 12))
+    await markResumenPaid({
+      db,
+      householdId,
+      resumenId: resumen.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      amountPaid: 120,
+      paymentDate: new Date(2026, 9, 15),
+    })
+
+    renderWithProviders(
+      <ResumenSheet
+        memberId="user-1"
+        authorDisplayName="Ada"
+        db={db}
+        householdId={householdId}
+        resumen={resumen}
+        onClose={() => {}}
+      />,
+    )
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Pagar resumen' }),
+    )
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'El resumen de Visa de octubre de 2026 ya está pagado.',
+    )
+    expect(await octoberExpenses(db, householdId)).toHaveLength(1)
+  })
+
   it('undoes a payment, deleting its expenses', async () => {
     const { db, householdId, resumen } = await setupResumen()
     vi.setSystemTime(new Date(2026, 9, 15, 12))

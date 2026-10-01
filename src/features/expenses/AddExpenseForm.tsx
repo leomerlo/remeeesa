@@ -202,7 +202,7 @@ function ExpenseFormBody({
   // A card Resumen's ajuste is negative when less was paid than its total,
   // which no saved expense may be: the only way to change it is undoing the
   // payment.
-  const isAjuste = editExpense !== null && editExpense.price < 0
+  const isNegativeAjuste = editExpense !== null && editExpense.price < 0
 
   // Only fetched for reassigning an existing Expense's author -- adding one
   // always attributes it to whoever is signed in, same as before this
@@ -516,7 +516,7 @@ function ExpenseFormBody({
           </div>
         ) : null}
 
-        {isAjuste ? (
+        {isNegativeAjuste ? (
           <p className="text-muted-foreground text-xs">
             Es el ajuste de un resumen pagado: para cambiarlo, deshacé el pago.
           </p>
@@ -568,7 +568,7 @@ function ExpenseFormBody({
           <div className="flex w-full flex-col items-center gap-2">
             <Button
               type="submit"
-              disabled={mutation.isPending || isAjuste}
+              disabled={mutation.isPending || isNegativeAjuste}
               className="w-full"
             >
               {isEditing ? 'Guardar cambios' : 'Agregar gasto'}

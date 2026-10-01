@@ -112,7 +112,7 @@ export function parsePendienteDocument(input: {
   }
 }
 
-function parseStringList(value: unknown, field: string): readonly string[] {
+export function parseStringList(value: unknown, field: string): readonly string[] {
   if (
     !Array.isArray(value) ||
     !value.every((item): item is string => typeof item === 'string')

@@ -661,7 +661,6 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         memberId: input.memberId,
         authorDisplayName: input.authorDisplayName,
         isService: input.isService,
-        subcategory: null,
       }
       state.expenses.set(input.expenseId, updated)
       return updated

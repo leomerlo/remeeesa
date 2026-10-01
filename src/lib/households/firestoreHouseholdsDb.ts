@@ -994,7 +994,6 @@ export function createFirestoreHouseholdsDb(
             memberId: input.memberId,
             authorDisplayName: input.authorDisplayName,
             isService: input.isService,
-            subcategory: null,
           }
         },
         {

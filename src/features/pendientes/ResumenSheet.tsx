@@ -9,11 +9,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Sheet } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
-import { expensesQueryKey } from '@/features/expenses/queryKeys'
+import {
+  categoriesQueryKey,
+  expensesQueryKey,
+} from '@/features/expenses/queryKeys'
 import {
   canPayResumen,
   listResumenCuotas,
   markResumenPaid,
+  ResumenAlreadyPaidError,
   resumenMonthStart,
 } from '@/lib/cards'
 import {
@@ -24,7 +28,11 @@ import {
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { formatDate, formatMonthLabel } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
-import { unmarkPendientePaid } from '@/lib/pendientes'
+import {
+  PendienteNotFoundError,
+  PendienteNotPaidError,
+  unmarkPendientePaid,
+} from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import { localDateInputValue, parsePaymentDateInput } from './AddPendienteForm'
 import { pendientesQueryKey } from './queryKeys'
@@ -210,6 +218,10 @@ function ResumenPayment({
     await queryClient.invalidateQueries({
       queryKey: expensesQueryKey({ householdId }),
     })
+    // Paying find-or-creates "Tarjeta".
+    await queryClient.invalidateQueries({
+      queryKey: categoriesQueryKey({ householdId }),
+    })
   }
 
   const mutation = useMutation({
@@ -236,7 +248,16 @@ function ResumenPayment({
       onDone()
       await onSettled()
     },
-    onError: (caught, action) => {
+    onError: async (caught, action) => {
+      // Someone else already paid, undid or removed it: this sheet is stale,
+      // so refresh the lists behind it and say why.
+      if (
+        caught instanceof ResumenAlreadyPaidError ||
+        caught instanceof PendienteNotPaidError ||
+        caught instanceof PendienteNotFoundError
+      ) {
+        await onSettled()
+      }
       setError(
         caught instanceof Error
           ? caught.message
@@ -310,6 +331,7 @@ function ResumenPayment({
           name="resumen-payment-date"
           type="date"
           value={paymentDate}
+          min={localDateInputValue(resumenMonthStart(resumen))}
           max={today}
           onChange={(event) => {
             setPaymentDate(event.target.value)
@@ -317,7 +339,10 @@ function ResumenPayment({
         />
       </div>
       {payable ? null : (
-        <p className="text-muted-foreground text-xs">
+        <p
+          id="resumen-not-yet-payable"
+          className="text-muted-foreground text-xs"
+        >
           {`Se puede pagar desde el ${formatDate(resumenMonthStart(resumen))}.`}
         </p>
       )}
@@ -326,6 +351,7 @@ function ResumenPayment({
         type="submit"
         className="w-full"
         disabled={!payable || mutation.isPending}
+        {...(payable ? {} : { 'aria-describedby': 'resumen-not-yet-payable' })}
       >
         Pagar resumen
       </Button>

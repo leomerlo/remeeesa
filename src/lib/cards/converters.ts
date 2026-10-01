@@ -3,6 +3,7 @@ import {
   parseRequiredString,
   parseTimestamp,
 } from '@/lib/firestore/documentParsing'
+import { parseStringList } from '@/lib/pendientes/converters'
 import type { Card, CardPurchase } from './types'
 
 export function parseCardDocument(input: {
@@ -55,19 +56,9 @@ export function parseCardPurchaseDocument(input: {
     comments: typeof d.comments === 'string' ? d.comments : '',
     createdAt: parseTimestamp(d.created_at, 'created_at'),
     // Absent until one of its Resúmenes is paid.
-    paidResumenIds: parseIdList(d.paid_resumen_ids, 'paid_resumen_ids'),
+    paidResumenIds:
+      d.paid_resumen_ids === undefined
+        ? []
+        : parseStringList(d.paid_resumen_ids, 'paid_resumen_ids'),
   }
-}
-
-function parseIdList(value: unknown, field: string): readonly string[] {
-  if (value === undefined) {
-    return []
-  }
-  if (
-    !Array.isArray(value) ||
-    !value.every((item): item is string => typeof item === 'string')
-  ) {
-    throw new Error(`${field} must be a list of strings`)
-  }
-  return value
 }
