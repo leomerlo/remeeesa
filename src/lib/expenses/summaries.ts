@@ -95,6 +95,8 @@ export type TarjetaLine = {
 // (Expense.subcategory), largest first, then the ajuste (subcategory null)
 // and the month's still-unpaid Resúmenes, each on a line of its own. Lines
 // add up to the slice's total in summarizeByCategory, given the same input.
+// Per the design, every null subcategory is "Ajuste": a gasto logged by hand
+// under Tarjeta lands there too, an accepted mislabel.
 export function summarizeTarjeta(input: {
   readonly categoryId: string
   readonly expenses: readonly Expense[]

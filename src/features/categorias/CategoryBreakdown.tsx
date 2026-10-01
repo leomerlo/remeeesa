@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { ChevronDown } from 'lucide-react'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
@@ -278,7 +279,7 @@ export function CategoryBreakdown({
               className="flex w-full min-w-0 flex-1 flex-col gap-2 text-sm"
             >
               {byCategory.map((entry) => {
-                const row = (
+                const row = (marker?: ReactElement) => (
                   <>
                     <span className="flex min-w-0 items-center gap-2">
                       <span
@@ -298,6 +299,7 @@ export function CategoryBreakdown({
                       <span className="text-foreground font-medium">
                         {formatCurrency(entry.total)}
                       </span>
+                      {marker}
                     </span>
                   </>
                 )
@@ -308,16 +310,21 @@ export function CategoryBreakdown({
                         to={`/historico?month=${monthParam}&category=${entry.categoryId}`}
                         className="flex min-w-0 flex-1 items-center justify-between gap-2"
                       >
-                        {row}
+                        {row()}
                       </Link>
                     </li>
                   )
                 }
                 return (
                   <li key={entry.categoryId}>
-                    <details>
+                    <details className="group">
                       <summary className="flex min-w-0 flex-1 cursor-pointer list-none items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
-                        {row}
+                        {row(
+                          <ChevronDown
+                            aria-hidden="true"
+                            className="text-muted-foreground size-4 self-center transition-transform group-open:rotate-180"
+                          />,
+                        )}
                       </summary>
                       <ul
                         aria-label={`${entry.name} por categoría`}
