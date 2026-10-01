@@ -83,6 +83,7 @@ export const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
   markResumenPaid: 'pagar el resumen',
   listCards: 'cargar las tarjetas',
   createCard: 'guardar la tarjeta',
+  renameCard: 'renombrar la tarjeta',
   createCardPurchase: 'guardar la compra con tarjeta',
   updateCardPurchase: 'guardar los cambios de la compra',
   deleteCardPurchase: 'eliminar la compra',

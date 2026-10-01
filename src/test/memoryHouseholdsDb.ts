@@ -689,6 +689,21 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       state.cards.set(card.id, card)
       return card
     },
+    async renameCard(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const card = state.cards.get(input.cardId)
+      if (card === undefined || card.householdId !== input.householdId) {
+        throw new CardNotFoundError()
+      }
+      const renamed = { ...card, name: input.name }
+      state.cards.set(card.id, renamed)
+      for (const pendiente of state.pendientes.values()) {
+        if (pendiente.cardId === card.id) {
+          state.pendientes.set(pendiente.id, { ...pendiente, name: input.name })
+        }
+      }
+      return renamed
+    },
     async listCardPurchasesInMonth(input) {
       assertMemberOf(state, userId, input.householdId)
       return [...state.cardPurchases.values()].filter(

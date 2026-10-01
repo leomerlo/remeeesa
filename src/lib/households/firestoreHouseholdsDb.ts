@@ -1524,6 +1524,43 @@ export function createFirestoreHouseholdsDb(
         { householdId: input.householdId },
       )
     },
+    async renameCard(input) {
+      return withHouseholdAccess(
+        'renameCard',
+        async () => {
+          const cardRef = doc(firestore, 'cards', input.cardId)
+          const cardSnap = await getDoc(cardRef)
+          if (
+            !cardSnap.exists() ||
+            cardSnap.data().household_id !== input.householdId
+          ) {
+            throw new CardNotFoundError()
+          }
+          const resumenes = await getDocs(
+            query(
+              collection(firestore, 'pendientes'),
+              where('household_id', '==', input.householdId),
+              where('card_id', '==', input.cardId),
+            ),
+          )
+          // ponytail: one batch caps at 500 writes, i.e. ~41 years of
+          // monthly Resúmenes for one card. A Resumen created between the
+          // query and the commit keeps the old name; a transaction can't
+          // query, so retry the rename if that ever bites.
+          const batch = writeBatch(firestore)
+          batch.update(cardRef, { name: input.name })
+          for (const resumen of resumenes.docs) {
+            batch.update(resumen.ref, { name: input.name })
+          }
+          await batch.commit()
+          return {
+            ...parseCardDocument({ id: cardSnap.id, data: cardSnap.data() }),
+            name: input.name,
+          }
+        },
+        { householdId: input.householdId },
+      )
+    },
     async createCardPurchase(input) {
       return withHouseholdAccess(
         'createCardPurchase',

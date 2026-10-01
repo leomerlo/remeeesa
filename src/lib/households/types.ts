@@ -252,6 +252,14 @@ export type HouseholdsDb = {
     readonly householdId: string
     readonly name: string
   }): Promise<Card>
+  // One batch: the card's name and the name of every Resumen of the card,
+  // whatever its status. Rejects with CardNotFoundError for a card outside
+  // the household.
+  renameCard(input: {
+    readonly householdId: string
+    readonly cardId: string
+    readonly name: string
+  }): Promise<Card>
   // One transaction: writes the purchase and adds each of its cuotas to the
   // card's Resumen of that month (a Pendiente with id resumenIdFor, created
   // in resumenCategoryId if missing). Rejects -- writing nothing -- with

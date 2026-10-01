@@ -251,7 +251,7 @@ describe('firestore.rules pendiente category repoint', () => {
     expect(rules).toContain('function isPendienteCategoryRepoint()')
     expect(rules).toContain("hasOnly(['category_id'])")
     expect(rules).toContain(
-      '&& (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenMarkPaid());',
+      '&& (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenMarkPaid() || isResumenRename());',
     )
   })
 
@@ -405,7 +405,7 @@ describe('firestore.rules pendientes', () => {
       /function isValidPendienteUpdate\(\) \{[\s\S]*?!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'status', 'paid_expense_id', 'paid_at', 'created_at'\]\)/,
     )
     expect(rules).toMatch(
-      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\) \|\| isValidResumenMarkPaid\(\)\);/,
+      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\) \|\| isValidResumenMarkPaid\(\) \|\| isResumenRename\(\)\);/,
     )
   })
 
@@ -477,7 +477,7 @@ describe('firestore.rules pendientes mark-paid', () => {
 
   it('ORs isValidPendienteMarkPaid into the pendiente update rule alongside isValidPendienteUpdate', () => {
     expect(rules).toMatch(
-      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\) \|\| isValidResumenMarkPaid\(\)\);/,
+      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\) \|\| isValidResumenMarkPaid\(\) \|\| isResumenRename\(\)\);/,
     )
   })
 })
@@ -646,9 +646,10 @@ describe('updatePendiente/deletePendiente adapter', () => {
 })
 
 describe('firestore.rules cards', () => {
-  it('lets only household members read and create cards', () => {
-    expect(rules).toMatch(
-      /match \/cards\/\{cardId\} \{\s*\n\s*allow read: if isMemberOf\(resource\.data\.household_id\);\s*\n\s*allow create: if isMemberOf\(request\.resource\.data\.household_id\)\s*\n\s*&& isValidCard\(request\.resource\.data\);\s*\n\s*\}/,
+  it('lets household members read, create and rename cards, never delete', () => {
+    const block = rules.slice(rules.indexOf('match /cards/{cardId} {'))
+    expect(block.slice(0, block.indexOf('\n    }\n'))).toMatch(
+      /allow read: if isMemberOf\(resource\.data\.household_id\);\s*\n\s*allow create: if isMemberOf\(request\.resource\.data\.household_id\)\s*\n\s*&& isValidCard\(request\.resource\.data\);\s*\n\s*allow update: if isMemberOf\(resource\.data\.household_id\)\s*\n\s*&& request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\.hasOnly\(\['name'\]\)\s*\n\s*&& isValidCard\(request\.resource\.data\);\s*$/,
     )
   })
 
@@ -668,6 +669,23 @@ function ruleFunction(name: string): string {
   const body = rules.slice(rules.indexOf(`function ${name}(`))
   return body.slice(0, body.indexOf('\n    }\n'))
 }
+
+describe('firestore.rules renaming a card', () => {
+  it("lets a Resumen in any status change only its name, to its card's new name", () => {
+    const fn = ruleFunction('isResumenRename')
+    expect(fn).toContain("('card_id' in resource.data)")
+    expect(fn).not.toContain('status')
+    expect(fn).toContain(
+      "request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])",
+    )
+    expect(fn).toContain(
+      'request.resource.data.name == getAfter(/databases/$(database)/documents/cards/$(resource.data.card_id)).data.name',
+    )
+    expect(rules).toMatch(
+      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: [^;]*\|\| isResumenRename\(\)\);/,
+    )
+  })
+})
 
 describe('firestore.rules card purchases', () => {
   it('lets only household members read and create card purchases, as themselves and unlocked', () => {
@@ -741,7 +759,7 @@ describe('firestore.rules Resúmenes', () => {
       'request.resource.data.purchase_ids.hasAll(resource.data.purchase_ids)',
     )
     expect(rules).toContain(
-      '|| isValidResumenUpdate() || isValidResumenMarkPaid());',
+      '|| isValidResumenUpdate() || isValidResumenMarkPaid() || isResumenRename());',
     )
   })
 
