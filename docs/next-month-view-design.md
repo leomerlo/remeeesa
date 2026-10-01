@@ -15,23 +15,20 @@ story file.
 
 ## Decisions
 
-1. **Recurring services are unchanged.** A recurring Pendiente's next cycle is
-   still created when the current one is paid (`markPendientePaid`). The
-   feature is used at the end of the month, when most of this month's bills
-   are paid and next month's already exist.
-   *This limit is now closed* (see `src/lib/pendientes/projectedCycles.ts`).
-   An unpaid recurring bill's next cycles are projected in memory for the
-   month being viewed, so it appears in every month it is due for and
-   "Presupuesto restante" is no longer optimistic. The duplicate this note
-   worried about cannot happen: a projection is only ever made from a bill
-   that is still *pending*, and paying one is exactly what turns it into a
-   record, so the source of the projection stops being a source at the same
-   moment the real cycle appears. Projections carry no record, so they
-   cannot be paid or edited -- they are marked "Previsto" and are inert.
+1. **Recurring services are carried over by hand.** Paying a recurring
+   Pendiente no longer creates next month's cycle: on Servicios, "Pasar
+   recurrentes" lists the previous month's recurring bills as a checklist
+   and creates the ticked ones in the viewed month (ones already there are
+   listed but locked). Creating cycles on payment left a bill twice in a
+   month whenever a payment was undone and redone.
+   *Known limit:* next month shows nothing recurring until someone carries
+   the bills over, so its "Presupuesto restante" is optimistic until then.
+   Projecting cycles in memory ("Previsto") was tried and dropped in favour
+   of the explicit step.
 2. **Home pages forward one month only.** `MonthPager`'s `allowFuture`
    boolean becomes `maxMonthsAhead` (0 by default, 1 on Home, unbounded on
    Servicios). Two months ahead would be empty, since services are only
-   generated one cycle at a time. Categorías keeps its current-month cap.
+   carried one month at a time. Categorías keeps its current-month cap.
 3. **"Agregar gasto" adapts to a future month.** While Home shows a future
    month the form opens with "Ya lo pagué" unchecked and the date on the 1st
    of that month. Checking "Ya lo pagué" pulls a future date back to today,

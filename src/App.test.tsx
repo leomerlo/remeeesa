@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { listCategories, listExpensesInMonth } from '@/lib/expenses'
@@ -96,7 +96,7 @@ describe('App', () => {
     )
 
     const nav = await screen.findByRole('navigation')
-    expect(within(nav).getAllByRole('link')).toHaveLength(5)
+    expect(within(nav).getAllByRole('link')).toHaveLength(6)
     expect(within(nav).getByRole('link', { name: /inicio/i })).toHaveAttribute(
       'aria-current',
       'page',
@@ -274,8 +274,12 @@ describe('App', () => {
       return { db, householdId: household.id }
     }
 
-    // Yesterday, so it is past due whatever day the suite runs on.
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    // Yesterday on the pinned clock (see vitest.setup.ts), so it is past due.
+    // Read per test: at module load the clock is not pinned yet.
+    let yesterday = new Date()
+    beforeEach(() => {
+      yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    })
 
     it('settles one whose date has passed, dated the day it was due', async () => {
       const { db, householdId } = await seedAutoDebit({
@@ -290,14 +294,11 @@ describe('App', () => {
         </MemoryRouter>,
       )
 
+      // Settled, and nothing spawned in its place: next month's copy is
+      // carried over by hand ("Pasar recurrentes").
       await waitFor(async () => {
-        expect(await listPendientes({ db, householdId })).toHaveLength(1)
+        expect(await listPendientes({ db, householdId })).toHaveLength(0)
       })
-      // The cycle just settled is gone from the pending list; what is left is
-      // the next one it spawned, a month out.
-      const [next] = await listPendientes({ db, householdId })
-      expect(next?.dueDate.getTime()).toBeGreaterThan(yesterday.getTime())
-      expect(next?.autoDebit).toBe(true)
 
       const { monthStart, monthEnd } = currentMonthRange()
       const expenses = await listExpensesInMonth({

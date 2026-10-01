@@ -23,8 +23,10 @@ import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { HistoricoPage } from './HistoricoPage'
 
-function renderPage(ui: ReactElement) {
-  return renderWithProviders(<MemoryRouter>{ui}</MemoryRouter>)
+function renderPage(ui: ReactElement, url = '/') {
+  return renderWithProviders(
+    <MemoryRouter initialEntries={[url]}>{ui}</MemoryRouter>,
+  )
 }
 
 async function seedHousehold() {
@@ -640,6 +642,44 @@ describe('HistoricoPage', () => {
         screen.getByRole('button', { name: 'Mes anterior' }),
       ).toBeInTheDocument()
     })
+  })
+
+  it('opens on the month and category given in the URL', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    const other = (await listCategories({ db, householdId }))[1]
+    if (other === undefined) {
+      throw new Error('expected a second seeded category')
+    }
+    await seed({
+      db,
+      householdId,
+      categoryId,
+      name: 'Alquiler',
+      date: new Date(2026, 7, 3),
+    })
+    await seed({
+      db,
+      householdId,
+      categoryId: other.id,
+      name: 'Cine',
+      date: new Date(2026, 7, 4),
+    })
+    await seed({
+      db,
+      householdId,
+      categoryId,
+      name: 'Otro mes',
+      date: new Date(2026, 6, 4),
+    })
+
+    renderPage(
+      <HistoricoPage currentUserId="user-1" householdsDb={db} />,
+      `/historico?month=2026-08&category=${categoryId}`,
+    )
+
+    expect(await screen.findByText('Alquiler')).toBeInTheDocument()
+    expect(screen.queryByText('Cine')).not.toBeInTheDocument()
+    expect(screen.queryByText('Otro mes')).not.toBeInTheDocument()
   })
 })
 

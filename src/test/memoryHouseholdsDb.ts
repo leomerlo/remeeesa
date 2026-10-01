@@ -3,7 +3,6 @@ import {
   PendienteNotFoundError,
   PendienteNotPaidError,
 } from '@/lib/pendientes/pendientes'
-import { nextCycleDueDate } from '@/lib/pendientes/recurrence'
 import type { Pendiente } from '@/lib/pendientes/types'
 import type { Card, CardPurchase } from '@/lib/cards/types'
 import {
@@ -1017,35 +1016,13 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         paidExpenseId: expense.id,
         paidAt: input.paymentDate,
       }
-      // A recurring pendiente spawns its next cycle with the amount just
-      // paid pre-filled -- most recurring bills cost the same next cycle
-      // too, so this is an editable pre-fill, not a stale carried-over value.
-      const nextPendiente: Pendiente | null = existing.recurring
-        ? {
-            id: crypto.randomUUID(),
-            householdId: existing.householdId,
-            categoryId: existing.categoryId,
-            name: existing.name,
-            dueDate: nextCycleDueDate(existing.dueDate),
-            expectedAmount: input.finalAmount,
-            recurring: true,
-            autoDebit: existing.autoDebit,
-            status: 'pending',
-            paidExpenseId: null,
-            paidAt: null,
-            createdAt,
-          }
-        : null
       // Every record is built above before any store mutation below, so a
       // throw (e.g. from id generation) can never leave a partial write --
       // mirroring the all-or-nothing guarantee of the real adapter's
       // Firestore transaction.
       state.expenses.set(expense.id, expense)
       state.pendientes.set(input.pendienteId, updated)
-      if (nextPendiente !== null) {
-        state.pendientes.set(nextPendiente.id, nextPendiente)
-      }
-      return { pendiente: updated, expense, nextPendiente }
+      return { pendiente: updated, expense }
     },
     async markResumenPaid(input) {
       assertMemberOf(state, userId, input.householdId)

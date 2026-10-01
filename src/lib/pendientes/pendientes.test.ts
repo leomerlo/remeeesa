@@ -19,6 +19,8 @@ import {
   getPendiente,
   listPendientes,
   listPendientesForMonth,
+  carryRecurrentes,
+  listRecurrentesToCarry,
   markPendientePaid,
   updatePendiente,
 } from './pendientes'
@@ -1562,62 +1564,6 @@ describe('markPendientePaid', () => {
     expect(expenses).toHaveLength(0)
   })
 
-  // The recurring path builds three records (expense, paid pendiente, next
-  // cycle) and must still commit all-or-nothing. The failure is planted on
-  // the *second* id generation, so it lands after the expense id already
-  // exists but before any store mutation -- the worst spot for a partial
-  // write, and the one a naive "set as you go" implementation would leak
-  // both a paid original and a dangling next cycle from.
-  it('leaves no orphaned state -- not even a dangling next cycle -- when a recurring mark-paid fails midway', async () => {
-    const { db, household, pendiente } = await seedPendingPendiente({
-      recurring: true,
-      autoDebit: false,
-    })
-    const randomUUIDSpy = vi
-      .spyOn(crypto, 'randomUUID')
-      .mockImplementationOnce(() => '00000000-0000-4000-8000-000000000001')
-      .mockImplementationOnce(() => {
-        throw new Error('boom')
-      })
-
-    try {
-      await expect(
-        markPendientePaid({
-          db,
-          householdId: household.id,
-          pendienteId: pendiente.id,
-          memberId: 'user-1',
-          authorDisplayName: 'Ada',
-          finalAmount: 480,
-          paymentDate: new Date(2026, 7, 28),
-        }),
-      ).rejects.toThrow('boom')
-    } finally {
-      // Restored even if the assertion above fails, so a leftover armed
-      // mockImplementationOnce can't bleed into the next test's setup.
-      randomUUIDSpy.mockRestore()
-    }
-
-    const stillPending = await getPendiente({
-      db,
-      householdId: household.id,
-      pendienteId: pendiente.id,
-    })
-    expect(stillPending?.status).toBe('pending')
-    expect(stillPending?.paidExpenseId).toBeNull()
-
-    const expenses = await listRecentExpenses({
-      db,
-      householdId: household.id,
-      limit: 10,
-    })
-    expect(expenses).toHaveLength(0)
-
-    const pending = await listPendientes({ db, householdId: household.id })
-    expect(pending).toHaveLength(1)
-    expect(pending[0]?.id).toBe(pendiente.id)
-  })
-
   it('throws PendienteNotFoundError for a missing pendiente id', async () => {
     const { db, household } = await seedPendingPendiente()
 
@@ -1771,13 +1717,16 @@ describe('markPendientePaid', () => {
     expect(expense.price).toBe(480.46)
   })
 
-  it('spawns the next cycle for a recurring pendiente: same name and category, still recurring, pending, one month later, with a fresh id', async () => {
-    const { db, household, comida, pendiente } = await seedPendingPendiente({
+  // Next month's copy is carried over by hand ("Pasar recurrentes"), never
+  // spawned by paying -- spawning on pay doubled a bill whenever a payment
+  // was undone and paid again.
+  it('does not spawn a next cycle when a recurring pendiente is paid', async () => {
+    const { db, household, pendiente } = await seedPendingPendiente({
       recurring: true,
       autoDebit: false,
     })
 
-    const { nextPendiente } = await markPendientePaid({
+    await markPendientePaid({
       db,
       householdId: household.id,
       pendienteId: pendiente.id,
@@ -1787,212 +1736,19 @@ describe('markPendientePaid', () => {
       paymentDate: new Date(2026, 7, 28),
     })
 
-    expect(nextPendiente).not.toBeNull()
-    expect(nextPendiente?.id).not.toBe(pendiente.id)
-    expect(nextPendiente?.householdId).toBe(household.id)
-    expect(nextPendiente?.categoryId).toBe(comida.id)
-    expect(nextPendiente?.name).toBe('Alquiler')
-    expect(nextPendiente?.recurring).toBe(true)
-    expect(nextPendiente?.status).toBe('pending')
-    expect(nextPendiente?.paidExpenseId).toBeNull()
-    expect(nextPendiente?.dueDate).toEqual(new Date(2026, 9, 10))
+    expect(await listPendientes({ db, householdId: household.id })).toEqual([])
   })
 
-  it('leaves the next cycle unpaid, with paidAt still null', async () => {
+  // A double submit (or two members hitting Pagar at once) must record the
+  // payment once. memoryHouseholdsDb's markPendientePaid has no internal
+  // await, so these run sequentially rather than truly interleaved; the
+  // concurrent-write guarantee itself comes from the Firestore transaction.
+  it('records one Expense when a recurring pendiente is marked paid twice back-to-back', async () => {
     const { db, household, pendiente } = await seedPendingPendiente({
       recurring: true,
       autoDebit: false,
     })
-
-    const { nextPendiente } = await markPendientePaid({
-      db,
-      householdId: household.id,
-      pendienteId: pendiente.id,
-      memberId: 'user-1',
-      authorDisplayName: 'Ada',
-      finalAmount: 480,
-      paymentDate: new Date(2026, 7, 28),
-    })
-
-    expect(nextPendiente?.paidAt).toBeNull()
-  })
-
-  it('pre-fills the next cycle expected amount with the amount just paid, not the earlier estimate', async () => {
-    const { db, household, pendiente } = await seedPendingPendiente({
-      recurring: true,
-      autoDebit: false,
-      expectedAmount: 480,
-    })
-    expect(pendiente.expectedAmount).toBe(480)
-
-    const { nextPendiente } = await markPendientePaid({
-      db,
-      householdId: household.id,
-      pendienteId: pendiente.id,
-      memberId: 'user-1',
-      authorDisplayName: 'Ada',
-      // Paid a different amount than originally expected -- the next
-      // cycle should carry the real, just-paid figure, not the stale 480
-      // estimate from before.
-      finalAmount: 500,
-      paymentDate: new Date(2026, 7, 28),
-    })
-
-    expect(nextPendiente?.expectedAmount).toBe(500)
-  })
-
-  it('leaves the next cycle as the only pending pendiente right after a recurring mark-paid', async () => {
-    const { db, household, pendiente } = await seedPendingPendiente({
-      recurring: true,
-      autoDebit: false,
-    })
-
-    const { nextPendiente } = await markPendientePaid({
-      db,
-      householdId: household.id,
-      pendienteId: pendiente.id,
-      memberId: 'user-1',
-      authorDisplayName: 'Ada',
-      finalAmount: 480,
-      paymentDate: new Date(2026, 7, 28),
-    })
-
-    const pending = await listPendientes({ db, householdId: household.id })
-    expect(pending).toHaveLength(1)
-    expect(pending[0]?.id).toBe(nextPendiente?.id)
-  })
-
-  // The single strongest guarantee that recurrence actually recurs: the
-  // auto-created cycle has to be marked paid successfully and spawn a third
-  // cycle of its own. A next cycle written with recurring: false would pass
-  // every other test here and only fail this one.
-  it('keeps the series going: the auto-created cycle can itself be marked paid and spawns a third cycle', async () => {
-    const { db, household, pendiente } = await seedPendingPendiente({
-      recurring: true,
-      autoDebit: false,
-    })
-
-    const { nextPendiente: second } = await markPendientePaid({
-      db,
-      householdId: household.id,
-      pendienteId: pendiente.id,
-      memberId: 'user-1',
-      authorDisplayName: 'Ada',
-      finalAmount: 480,
-      paymentDate: new Date(2026, 7, 28),
-    })
-    if (second === null) {
-      throw new Error('expected a second cycle')
-    }
-
-    const { nextPendiente: third } = await markPendientePaid({
-      db,
-      householdId: household.id,
-      pendienteId: second.id,
-      memberId: 'user-1',
-      authorDisplayName: 'Ada',
-      finalAmount: 500,
-      paymentDate: new Date(2026, 7, 29),
-    })
-
-    expect(third?.dueDate).toEqual(new Date(2026, 10, 10))
-    expect(third?.recurring).toBe(true)
-    const pending = await listPendientes({ db, householdId: household.id })
-    expect(pending).toHaveLength(1)
-    expect(pending[0]?.id).toBe(third?.id)
-  })
-
-  // The next cycle is derived from the stored due date, not the payment date,
-  // so paying a long-overdue bill lands the member on the next *missed*
-  // cycle rather than skipping ahead to a future one -- they mark each stale
-  // cycle paid to catch up. Pinned here so the choice is deliberate.
-  it('derives the next due date from the stored due date, not the payment date, for an overdue pendiente', async () => {
-    const { db, household, comida } = await seedPendingPendiente()
-    const overdue = await createPendiente({
-      db,
-      householdId: household.id,
-      categoryId: comida.id,
-      name: 'Luz',
-      dueDate: new Date(2026, 1, 10),
-      expectedAmount: null,
-      recurring: true,
-      autoDebit: false,
-    })
-
-    const { nextPendiente } = await markPendientePaid({
-      db,
-      householdId: household.id,
-      pendienteId: overdue.id,
-      memberId: 'user-1',
-      authorDisplayName: 'Ada',
-      finalAmount: 480,
-      paymentDate: new Date(2026, 7, 28),
-    })
-
-    expect(nextPendiente?.dueDate).toEqual(new Date(2026, 2, 10))
-  })
-
-  it('clamps the next due date to the last day of a shorter target month', async () => {
-    const { db, household, comida } = await seedPendingPendiente()
-    const recurring = await createPendiente({
-      db,
-      householdId: household.id,
-      categoryId: comida.id,
-      name: 'Internet',
-      dueDate: new Date(2026, 0, 31),
-      expectedAmount: null,
-      recurring: true,
-      autoDebit: false,
-    })
-
-    const { nextPendiente } = await markPendientePaid({
-      db,
-      householdId: household.id,
-      pendienteId: recurring.id,
-      memberId: 'user-1',
-      authorDisplayName: 'Ada',
-      finalAmount: 480,
-      paymentDate: new Date(2026, 7, 28),
-    })
-
-    expect(nextPendiente?.dueDate).toEqual(new Date(2026, 1, 28))
-  })
-
-  it('creates no next cycle for a non-recurring pendiente', async () => {
-    const { db, household, pendiente } = await seedPendingPendiente({
-      recurring: false,
-      autoDebit: false,
-    })
-
-    const { nextPendiente } = await markPendientePaid({
-      db,
-      householdId: household.id,
-      pendienteId: pendiente.id,
-      memberId: 'user-1',
-      authorDisplayName: 'Ada',
-      finalAmount: 480,
-      paymentDate: new Date(2026, 7, 28),
-    })
-
-    expect(nextPendiente).toBeNull()
-    const pending = await listPendientes({ db, householdId: household.id })
-    expect(pending).toHaveLength(0)
-  })
-
-  // The recurring counterpart of the "exactly one Expense" idempotency test
-  // above: a double submit (or two members hitting Pagar at once) must not
-  // leave the household with two next cycles for the same bill, which would
-  // duplicate every following cycle too. Same caveat as that test --
-  // memoryHouseholdsDb's markPendientePaid has no internal await, so these run
-  // sequentially rather than truly interleaved; the concurrent-write
-  // guarantee itself comes from the Firestore transaction.
-  it('spawns exactly one next cycle when a recurring pendiente is marked paid twice back-to-back', async () => {
-    const { db, household, pendiente } = await seedPendingPendiente({
-      recurring: true,
-      autoDebit: false,
-    })
-
-    const outcomes = await Promise.allSettled([
+    const pay = () =>
       markPendientePaid({
         db,
         householdId: household.id,
@@ -2001,17 +1757,9 @@ describe('markPendientePaid', () => {
         authorDisplayName: 'Ada',
         finalAmount: 480,
         paymentDate: new Date(2026, 7, 28),
-      }),
-      markPendientePaid({
-        db,
-        householdId: household.id,
-        pendienteId: pendiente.id,
-        memberId: 'user-1',
-        authorDisplayName: 'Ada',
-        finalAmount: 480,
-        paymentDate: new Date(2026, 7, 28),
-      }),
-    ])
+      })
+
+    const outcomes = await Promise.allSettled([pay(), pay()])
 
     const rejected = outcomes.filter(
       (outcome): outcome is PromiseRejectedResult =>
@@ -2019,18 +1767,6 @@ describe('markPendientePaid', () => {
     )
     expect(rejected).toHaveLength(1)
     expect(rejected[0]?.reason).toBeInstanceOf(PendienteAlreadyPaidError)
-
-    const pending = await listPendientes({ db, householdId: household.id })
-    expect(pending).toHaveLength(1)
-    expect(pending[0]?.id).not.toBe(pendiente.id)
-    expect(pending[0]?.dueDate).toEqual(new Date(2026, 9, 10))
-
-    // Also assert the Expense count on this path specifically. The
-    // "exactly one Expense" idempotency test above seeds a non-recurring
-    // pendiente (seedPendingPendiente defaults recurring: false), so without this
-    // the recurring path -- the one this ticket actually changed, and the
-    // one that now performs three writes instead of two -- would have no
-    // coverage against double-counting a real household expense.
     const expenses = await listRecentExpenses({
       db,
       householdId: household.id,
@@ -2172,5 +1908,124 @@ describe('memoryHouseholdsDb markPendientePaid (bypassing the domain wrapper)', 
         paymentDate: new Date(2026, 7, 28),
       }),
     ).rejects.toThrow(PendienteAlreadyPaidError)
+  })
+})
+
+describe('listRecurrentesToCarry / carryRecurrentes', () => {
+  // Viewing August 2026: the candidates are July's recurring bills.
+  const august = new Date(2026, 7, 1)
+
+  async function seed() {
+    const { db, household, comida } = await seedPendingPendiente()
+    const householdId = household.id
+    const add = (name: string, dueDate: Date, recurring = true) =>
+      createPendiente({
+        db,
+        householdId,
+        categoryId: comida.id,
+        name,
+        dueDate,
+        expectedAmount: 100,
+        recurring,
+        autoDebit: recurring,
+      })
+    const pay = (pendienteId: string, paymentDate: Date) =>
+      markPendientePaid({
+        db,
+        householdId,
+        pendienteId,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        finalAmount: 100,
+        paymentDate,
+      })
+    return { db, householdId, add, pay }
+  }
+
+  it("lists last month's recurring bills, paid or not, soonest first", async () => {
+    const { db, householdId, add, pay } = await seed()
+    await add('Luz', new Date(2026, 6, 20))
+    const internet = await add('Internet', new Date(2026, 6, 5))
+    await pay(internet.id, new Date(2026, 6, 5))
+    // Paid late, in August: still July's bill.
+    const gas = await add('Gas', new Date(2026, 6, 25))
+    await pay(gas.id, new Date(2026, 7, 2))
+    await add('Osde', new Date(2026, 6, 15), false)
+    await add('Agua', new Date(2026, 5, 10))
+
+    const rows = await listRecurrentesToCarry({
+      db,
+      householdId,
+      monthStart: august,
+    })
+
+    expect(rows.map((row) => row.pendiente.name)).toEqual([
+      'Internet',
+      'Luz',
+      'Gas',
+    ])
+    expect(rows.every((row) => !row.alreadyThere)).toBe(true)
+  })
+
+  it('keeps one already in the viewed month on the list, flagged', async () => {
+    const { db, householdId, add } = await seed()
+    await add('Alquiler', new Date(2026, 6, 10))
+    await add('Alquiler', new Date(2026, 7, 10))
+
+    const rows = await listRecurrentesToCarry({
+      db,
+      householdId,
+      monthStart: august,
+    })
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.alreadyThere).toBe(true)
+  })
+
+  it('shows a bill logged twice last month once', async () => {
+    const { db, householdId, add } = await seed()
+    await add('Seguro de vivienda', new Date(2026, 6, 12))
+    await add('Seguro de vivienda', new Date(2026, 6, 12))
+
+    const rows = await listRecurrentesToCarry({
+      db,
+      householdId,
+      monthStart: august,
+    })
+
+    expect(rows.map((row) => row.pendiente.name)).toEqual([
+      'Seguro de vivienda',
+    ])
+  })
+
+  it('carries the picked ones a month on, and then lists them as already there', async () => {
+    const { db, householdId, add } = await seed()
+    const luz = await add('Luz', new Date(2026, 6, 20))
+    await add('Internet', new Date(2026, 6, 5))
+
+    const [carried] = await carryRecurrentes({
+      db,
+      householdId,
+      pendientes: [luz],
+    })
+
+    expect(carried).toMatchObject({
+      name: 'Luz',
+      categoryId: luz.categoryId,
+      dueDate: new Date(2026, 7, 20),
+      expectedAmount: 100,
+      recurring: true,
+      autoDebit: true,
+      status: 'pending',
+    })
+    const rows = await listRecurrentesToCarry({
+      db,
+      householdId,
+      monthStart: august,
+    })
+    expect(rows.map((row) => [row.pendiente.name, row.alreadyThere])).toEqual([
+      ['Internet', false],
+      ['Luz', true],
+    ])
   })
 })

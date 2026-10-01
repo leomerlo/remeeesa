@@ -218,20 +218,13 @@ export type HouseholdsDb = {
     readonly authorDisplayName: string
     readonly finalAmount: number
     readonly paymentDate: Date
-    // nextPendiente is the auto-created next cycle for a recurring Pendiente,
-    // written in the same transaction; null for a non-recurring one. Declared
-    // as `Pendiente | null` rather than an optional property so every adapter has
-    // to state the non-recurring case explicitly instead of omitting it.
   }): Promise<{
     pendiente: Pendiente
     expense: Expense
-    nextPendiente: Pendiente | null
   }>
   // Reverses markPendientePaid or markResumenPaid: restores status to
   // 'pending' and deletes every Expense that payment created (a Resumen's
-  // also unlock its purchases). Leaves any next-cycle Pendiente a
-  // recurring payment spawned untouched -- see unmarkPendientePaid's own
-  // comment for why.
+  // also unlock its purchases).
   unmarkPendientePaid(input: {
     readonly householdId: string
     readonly pendienteId: string
