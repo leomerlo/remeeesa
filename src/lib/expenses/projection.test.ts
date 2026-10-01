@@ -2,19 +2,24 @@ import { describe, expect, it } from 'vitest'
 import { buildProjection } from './projection'
 import type { Expense } from './types'
 
-function expense(categoryId: string, price: number): Expense {
+function expense(
+  categoryId: string,
+  price: number,
+  name = 'x',
+  isService = false,
+): Expense {
   return {
     id: `${categoryId}-${String(price)}`,
     householdId: 'h',
     categoryId,
     memberId: 'm',
     authorDisplayName: 'A',
-    name: 'x',
+    name,
     price,
     comments: '',
     expenseDate: new Date(),
     pendienteId: null,
-    isService: false,
+    isService,
     createdAt: new Date(),
   }
 }
@@ -29,5 +34,14 @@ describe('buildProjection', () => {
       { categoryId: 'a', price: 110, source: 'actual' },
       { categoryId: 'b', price: 50, source: 'projected' },
     ])
+  })
+
+  it('counts a recurring servicio once, from the active month', () => {
+    const rows = buildProjection(
+      [expense('b', 20), expense('b', 40, 'Internet', true)],
+      [],
+      [' internet '],
+    )
+    expect(rows).toEqual([{ categoryId: 'b', price: 20, source: 'projected' }])
   })
 })

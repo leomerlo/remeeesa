@@ -1,3 +1,4 @@
+import { isServicio } from './servicio'
 import type { Expense } from './types'
 
 export type ProjectionRow = {
@@ -19,14 +20,25 @@ function totalsByCategory(expenses: readonly Expense[]): Map<string, number> {
   return totals
 }
 
+const normalize = (name: string): string => name.trim().toLowerCase()
+
 // Per category: this month's total when it has any expense, otherwise last
-// month's total.
+// month's total. A servicio of last month that also exists in the active month
+// (`activeServicioNames`: its own pending bill or a paid one) is left out of
+// the carry-over, so a recurring bill counts once, at this month's amount.
 export function buildProjection(
   previous: readonly Expense[],
   current: readonly Expense[],
+  activeServicioNames: readonly string[] = [],
 ): readonly ProjectionRow[] {
+  const active = new Set([
+    ...activeServicioNames.map(normalize),
+    ...current.filter(isServicio).map((e) => normalize(e.name)),
+  ])
   const now = totalsByCategory(current)
-  const before = totalsByCategory(previous)
+  const before = totalsByCategory(
+    previous.filter((e) => !(isServicio(e) && active.has(normalize(e.name)))),
+  )
   const rows: ProjectionRow[] = [...now].map(([categoryId, price]) => ({
     categoryId,
     price,

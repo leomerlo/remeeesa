@@ -123,23 +123,28 @@ export function ProyeccionesPage({
   }
 
   const names = new Map(categoriesQuery.data.map((c) => [c.id, c.name]))
+  const servicios = pendientesDueInMonth(
+    pendingQuery.data,
+    current.monthStart,
+    current.monthEnd,
+  )
   const rows: readonly {
     key: string
     label: string
     caption: string
     price: number
   }[] = [
-    ...buildProjection(previousQuery.data, currentQuery.data).map((row) => ({
+    ...buildProjection(
+      previousQuery.data,
+      currentQuery.data,
+      servicios.map((s) => s.name),
+    ).map((row) => ({
       key: row.categoryId,
       label: names.get(row.categoryId) ?? 'Sin categoría',
       caption: row.source === 'actual' ? 'Cargado' : 'Del mes anterior',
       price: row.price,
     })),
-    ...pendientesDueInMonth(
-      pendingQuery.data,
-      current.monthStart,
-      current.monthEnd,
-    ).map((pendiente) => ({
+    ...servicios.map((pendiente) => ({
       key: `servicio-${pendiente.id}`,
       label: pendiente.name,
       caption: 'Servicio pendiente',
