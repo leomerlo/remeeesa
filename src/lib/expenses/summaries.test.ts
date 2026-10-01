@@ -324,4 +324,41 @@ describe('summarizeTarjeta', () => {
       }),
     ).toEqual([{ name: 'Ropa', total: 10 }])
   })
+
+  it('adds up to the Tarjeta slice of summarizeByCategory given the same input', () => {
+    const expenses = [
+      makeExpense({
+        categoryId: 'cat-tarjeta',
+        subcategory: 'Ropa',
+        price: 30,
+      }),
+      makeExpense({
+        categoryId: 'cat-tarjeta',
+        subcategory: null,
+        price: -4.5,
+      }),
+      makeExpense({ categoryId: 'cat-comida', price: 99 }),
+    ]
+    const pendientes = [
+      { categoryId: 'cat-tarjeta', expectedAmount: 12.25 },
+      { categoryId: 'cat-tarjeta', expectedAmount: null },
+      { categoryId: 'cat-comida', expectedAmount: 7 },
+    ]
+
+    const slice = summarizeByCategory({
+      expenses,
+      categories: [
+        makeCategory({ id: 'cat-tarjeta', name: 'Tarjeta' }),
+        makeCategory({ id: 'cat-comida', name: 'Comida' }),
+      ],
+      pendientes,
+    }).find((entry) => entry.categoryId === 'cat-tarjeta')
+    const lines = summarizeTarjeta({
+      categoryId: 'cat-tarjeta',
+      expenses,
+      pendientes,
+    })
+
+    expect(lines.reduce((sum, line) => sum + line.total, 0)).toBe(slice?.total)
+  })
 })

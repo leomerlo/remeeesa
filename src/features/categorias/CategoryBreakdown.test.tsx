@@ -573,5 +573,40 @@ describe('CategoryBreakdown', () => {
         expect.stringMatching(/^Sin pagar.*\$50/),
       ])
     })
+
+    it('shows a Tarjeta made only of an unpaid Resumen, opening to just Sin pagar', async () => {
+      const s = await seedHousehold()
+      const comida = s.byName.get('Comida')
+      if (comida === undefined) {
+        throw new Error('expected seeded categories')
+      }
+      const now = new Date()
+      const visa = await createCard({ ...s, name: 'Visa' })
+      await createCardPurchase({
+        db: s.db,
+        householdId: s.householdId,
+        cardId: visa.id,
+        categoryId: comida.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        name: 'Super grande',
+        total: 300,
+        cuotas: 1,
+        purchaseDate: new Date(now.getFullYear(), now.getMonth() - 1, 15),
+        comments: '',
+      })
+
+      renderInRouter(
+        <CategoryBreakdown db={s.db} householdId={s.householdId} />,
+      )
+
+      fireEvent.click(await screen.findByText('Tarjeta'))
+      const rows = within(
+        screen.getByRole('list', { name: 'Tarjeta por categoría' }),
+      ).getAllByRole('listitem')
+      expect(rows.map((row) => row.textContent)).toEqual([
+        expect.stringMatching(/^Sin pagar.*\$300/),
+      ])
+    })
   })
 })

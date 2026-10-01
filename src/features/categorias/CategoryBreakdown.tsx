@@ -327,9 +327,11 @@ export function CategoryBreakdown({
                           categoryId: entry.categoryId,
                           expenses,
                           pendientes: pendingInMonth,
-                        }).map((line) => (
+                        }).map((line, index) => (
+                          // Index, not name: a purchase category may itself
+                          // be called "Ajuste" or "Sin pagar".
                           <li
-                            key={line.name}
+                            key={index}
                             className="flex items-baseline justify-between gap-2"
                           >
                             <span className="text-muted-foreground truncate">
