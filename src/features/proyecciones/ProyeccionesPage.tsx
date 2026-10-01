@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/PageHeader'
 import { EmptyState } from '@/components/EmptyState'
 import { ILLUSTRATIONS } from '@/components/illustrations'
 import { LoadingIndicator } from '@/components/ui/loading-indicator'
+import { Switch } from '@/components/ui/switch'
 import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import {
   MonthPager,
@@ -18,6 +19,9 @@ import {
   listCategories,
   listExpensesInMonth,
 } from '@/lib/expenses'
+import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
+import { pendientesQueryKey } from '@/features/pendientes'
+import { cn } from '@/lib/utils'
 import { useHouseholdMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 
@@ -68,7 +72,20 @@ export function ProyeccionesPage({
     queryFn: () => listCategories({ db, householdId: householdId ?? '' }),
     enabled: householdId !== undefined,
   })
-  // Edited amounts by month and category, as the raw string the input holds; rows not in
+  // Still-unpaid servicios due in the viewed month; once paid they are
+  // already inside their category's total. Same key as the budget cards.
+  const pendingQuery = useQuery({
+    queryKey: [
+      ...pendientesQueryKey({ householdId: householdId ?? '' }),
+      'committed',
+    ],
+    queryFn: () => listPendientes({ db, householdId: householdId ?? '' }),
+    enabled: householdId !== undefined,
+  })
+  // Rows switched off, by month-scoped key: left out of the total so a
+  // scenario can be weighed without deleting anything.
+  const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set())
+  // Edited amounts by month and row, as the raw string the input holds; rows not in
   // here show their own price. Not persisted: a projection is a scratchpad.
   const [overrides, setOverrides] = useState<Readonly<Record<string, string>>>(
     {},
@@ -94,7 +111,8 @@ export function ProyeccionesPage({
   if (
     currentQuery.data === undefined ||
     previousQuery.data === undefined ||
-    categoriesQuery.data === undefined
+    categoriesQuery.data === undefined ||
+    pendingQuery.data === undefined
   ) {
     return (
       <div className="flex w-full flex-col gap-8">
@@ -105,7 +123,29 @@ export function ProyeccionesPage({
   }
 
   const names = new Map(categoriesQuery.data.map((c) => [c.id, c.name]))
-  const rows = buildProjection(previousQuery.data, currentQuery.data)
+  const rows: readonly {
+    key: string
+    label: string
+    caption: string
+    price: number
+  }[] = [
+    ...buildProjection(previousQuery.data, currentQuery.data).map((row) => ({
+      key: row.categoryId,
+      label: names.get(row.categoryId) ?? 'Sin categoría',
+      caption: row.source === 'actual' ? 'Cargado' : 'Del mes anterior',
+      price: row.price,
+    })),
+    ...pendientesDueInMonth(
+      pendingQuery.data,
+      current.monthStart,
+      current.monthEnd,
+    ).map((pendiente) => ({
+      key: `servicio-${pendiente.id}`,
+      label: pendiente.name,
+      caption: 'Servicio pendiente',
+      price: pendiente.expectedAmount ?? 0,
+    })),
+  ]
   const amountOf = (key: string, price: number): number => {
     const raw = overrides[monthKey(key)]
     if (raw === undefined) return price
@@ -113,7 +153,10 @@ export function ProyeccionesPage({
     return Number.isFinite(parsed) ? parsed : 0
   }
   const total = rows.reduce(
-    (sum, row) => sum + amountOf(row.categoryId, row.price),
+    (sum, row) =>
+      excluded.has(monthKey(row.key))
+        ? sum
+        : sum + amountOf(row.key, row.price),
     0,
   )
 
@@ -126,8 +169,9 @@ export function ProyeccionesPage({
         maxMonthsAhead={1}
       />
       <p className="text-muted-foreground text-sm">
-        Lo gastado en el mes por categoría, más lo del mes anterior que todavía
-        no apareció. Editá cualquier monto para ver el total final.
+        Lo gastado en el mes por categoría, lo del mes anterior que todavía no
+        apareció y los servicios pendientes. Editá un monto o apagá una fila
+        para ver el total final.
       </p>
       {rows.length === 0 ? (
         <EmptyState
@@ -137,32 +181,45 @@ export function ProyeccionesPage({
         />
       ) : (
         <ul aria-label="Categorías proyectadas" className="flex flex-col gap-3">
-          {rows.map((row) => (
-            <li
-              key={row.categoryId}
-              className="flex items-center justify-between gap-3"
-            >
-              <div className="min-w-0">
-                <p className="truncate font-medium">
-                  {names.get(row.categoryId) ?? 'Sin categoría'}
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  {row.source === 'actual' ? 'Cargado' : 'Del mes anterior'}
-                </p>
-              </div>
-              <FormattedAmountInput
-                aria-label={`Monto de ${names.get(row.categoryId) ?? 'Sin categoría'}`}
-                className="w-32 text-right"
-                value={overrides[monthKey(row.categoryId)] ?? String(row.price)}
-                onChange={(raw) => {
-                  setOverrides((prev) => ({
-                    ...prev,
-                    [monthKey(row.categoryId)]: raw,
-                  }))
-                }}
-              />
-            </li>
-          ))}
+          {rows.map((row) => {
+            const included = !excluded.has(monthKey(row.key))
+            return (
+              <li
+                key={row.key}
+                className="flex items-center justify-between gap-3"
+              >
+                <Switch
+                  aria-label={`Incluir ${row.label}`}
+                  checked={included}
+                  onCheckedChange={(checked) => {
+                    setExcluded((prev) => {
+                      const next = new Set(prev)
+                      if (checked) next.delete(monthKey(row.key))
+                      else next.add(monthKey(row.key))
+                      return next
+                    })
+                  }}
+                />
+                <div
+                  className={cn('min-w-0 flex-1', !included && 'opacity-50')}
+                >
+                  <p className="truncate font-medium">{row.label}</p>
+                  <p className="text-muted-foreground text-xs">{row.caption}</p>
+                </div>
+                <FormattedAmountInput
+                  aria-label={`Monto de ${row.label}`}
+                  className={cn('w-32 text-right', !included && 'opacity-50')}
+                  value={overrides[monthKey(row.key)] ?? String(row.price)}
+                  onChange={(raw) => {
+                    setOverrides((prev) => ({
+                      ...prev,
+                      [monthKey(row.key)]: raw,
+                    }))
+                  }}
+                />
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>
