@@ -18,7 +18,10 @@ function AddGastoSheetHarness(
 }
 
 async function renderForm(
-  options: { readonly showRecurringOptions?: boolean } = {},
+  options: {
+    readonly showRecurringOptions?: boolean
+    readonly defaultDueDate?: Date
+  } = {},
 ) {
   const db = createMemoryHouseholdsDb().asUser('user-1')
   const household = await createHouseholdWithMembership({
@@ -36,6 +39,9 @@ async function renderForm(
       {...(options.showRecurringOptions === undefined
         ? {}
         : { showRecurringOptions: options.showRecurringOptions })}
+      {...(options.defaultDueDate === undefined
+        ? {}
+        : { defaultDueDate: options.defaultDueDate })}
     />,
   )
   fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
@@ -161,16 +167,9 @@ describe('AddGastoSheet (unified add flow)', () => {
       expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
 
-    // Paid immediately, so nothing shows up as still pending under its
-    // original name -- only the next cycle (a fresh id, one month later).
-    const pendientes = await listPendientes({ db, householdId })
-    expect(pendientes).toHaveLength(1)
-    expect(pendientes[0]).toMatchObject({
-      name: 'Gimnasio',
-      recurring: true,
-      status: 'pending',
-      expectedAmount: 8000,
-    })
+    // Paid immediately, so nothing is left pending -- next month's copy is
+    // carried over by hand ("Pasar recurrentes"), not spawned by paying.
+    expect(await listPendientes({ db, householdId })).toEqual([])
     const expenses = await listExpensesInMonth({
       db,
       householdId,
@@ -294,5 +293,45 @@ describe('AddGastoSheet (unified add flow)', () => {
       expect.objectContaining({ name: 'Café', price: 2500, pendienteId: null }),
     ])
     expect(await listPendientes({ db, householdId })).toEqual([])
+  })
+
+  it('opens as a bill due on defaultDueDate when one is given', async () => {
+    const now = new Date()
+    const { db, householdId } = await renderForm({
+      defaultDueDate: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+    })
+
+    expect(screen.getByLabelText('Ya lo pagué')).not.toBeChecked()
+    const nextMonthFirst = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    expect(screen.getByLabelText('Fecha de vencimiento')).toHaveValue(
+      `${String(nextMonthFirst.getFullYear())}-${String(nextMonthFirst.getMonth() + 1).padStart(2, '0')}-01`,
+    )
+
+    fillCommon({ name: 'Colegio', category: 'Educación' })
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar servicio' }))
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
+    })
+    expect(await listPendientes({ db, householdId })).toEqual([
+      expect.objectContaining({
+        name: 'Colegio',
+        dueDate: nextMonthFirst,
+        status: 'pending',
+      }),
+    ])
+  })
+
+  it('pulls a future date back to today when "Ya lo pagué" is checked', async () => {
+    const now = new Date()
+    await renderForm({
+      defaultDueDate: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+    })
+
+    fireEvent.click(screen.getByLabelText('Ya lo pagué'))
+
+    expect(screen.getByLabelText('Fecha')).toHaveValue(
+      `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
+    )
   })
 })

@@ -65,6 +65,9 @@ export function HomePage({
     () => currentMonthRange().monthStart,
   )
   const { monthStart, monthEnd } = currentMonthRange(viewedMonth)
+  // Home reaches one month ahead, to plan it before it starts -- see
+  // docs/next-month-view-design.md.
+  const isFutureMonth = monthStart > currentMonthRange().monthStart
 
   useEffect(() => {
     if (currentUserIdProp !== undefined) {
@@ -177,8 +180,10 @@ export function HomePage({
           householdId={membership.householdId}
           viewedMonth={viewedMonth}
           onViewedMonthChange={setViewedMonth}
+          maxMonthsAhead={1}
         />
         <AddGastoSheet
+          {...(isFutureMonth ? { defaultDueDate: monthStart } : {})}
           open={isAddGastoSheetOpen}
           onOpenChange={setIsAddGastoSheetOpen}
           db={db}
@@ -242,30 +247,34 @@ export function HomePage({
               })
             }}
           />
-          <div className="flex w-full flex-col gap-3">
-            <h2 className="text-title font-semibold self-start">
-              Últimos gastos del mes
-            </h2>
-            <RecentExpensesList
-              db={db}
-              householdId={membership.householdId}
-              monthStart={monthStart}
-              monthEnd={monthEnd}
-              onEditExpense={(expense, categoryName) => {
-                setEditExpense({
-                  expenseId: expense.id,
-                  name: expense.name,
-                  price: expense.price,
-                  categoryName,
-                  comments: expense.comments,
-                  expenseDate: expense.expenseDate,
-                  memberId: expense.memberId,
-                  pendienteId: expense.pendienteId,
-                  isService: expense.isService,
-                })
-              }}
-            />
-          </div>
+          {/* Hidden in a future month: a paid gasto cannot be dated in the
+              future, so the list could only ever be empty there. */}
+          {isFutureMonth ? null : (
+            <div className="flex w-full flex-col gap-3">
+              <h2 className="text-title font-semibold self-start">
+                Últimos gastos del mes
+              </h2>
+              <RecentExpensesList
+                db={db}
+                householdId={membership.householdId}
+                monthStart={monthStart}
+                monthEnd={monthEnd}
+                onEditExpense={(expense, categoryName) => {
+                  setEditExpense({
+                    expenseId: expense.id,
+                    name: expense.name,
+                    price: expense.price,
+                    categoryName,
+                    comments: expense.comments,
+                    expenseDate: expense.expenseDate,
+                    memberId: expense.memberId,
+                    pendienteId: expense.pendienteId,
+                    isService: expense.isService,
+                  })
+                }}
+              />
+            </div>
+          )}
         </div>
         <CategoryMiniSummary
           db={db}

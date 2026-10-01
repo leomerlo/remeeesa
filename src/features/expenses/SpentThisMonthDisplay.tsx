@@ -106,11 +106,11 @@ export function SpentThisMonthDisplay({
           viewed now; repeating it on every card it renders was three
           copies of the same sentence. */}
       <span className="text-foreground text-body font-medium">
-        Gastos de este mes
+        Gastos del mes
       </span>
       <p
         role="status"
-        aria-label={`Gastos de este mes ${formattedSpent}`}
+        aria-label={`Gastos del mes ${formattedSpent}`}
         className="text-foreground font-display text-display tracking-tight"
       >
         {formattedSpent}

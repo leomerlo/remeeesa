@@ -81,6 +81,14 @@ export type HouseholdsDb = {
     readonly categoryId: string
     readonly color: string
   }): Promise<Category>
+  // The category's own ceiling inside the monthly budget. Zero clears it.
+  // A plain field update for the same reason color is: the doc id is
+  // derived from the name, and this does not touch the name.
+  updateCategoryBudget(input: {
+    readonly householdId: string
+    readonly categoryId: string
+    readonly monthlyBudget: number
+  }): Promise<Category>
   // Creates a doc at the new name's id (carrying over color and createdAt),
   // repoints every referencing Expense and Pendiente, then deletes the old doc.
   // Rejects -- writing nothing -- when the new name already belongs to another
@@ -183,7 +191,7 @@ export type HouseholdsDb = {
   // only ever returns status == 'pending'. This is the one place a paid
   // Pendiente can still be found, scoped by when it was paid (paidAt) rather
   // than its due date, since paying it doesn't change when it was due.
-  listPendientesPaidInMonth(input: {
+  listPaidPendientesDueInMonth(input: {
     readonly householdId: string
     readonly monthStart: Date
     readonly monthEnd: Date
@@ -209,19 +217,12 @@ export type HouseholdsDb = {
     readonly authorDisplayName: string
     readonly finalAmount: number
     readonly paymentDate: Date
-    // nextPendiente is the auto-created next cycle for a recurring Pendiente,
-    // written in the same transaction; null for a non-recurring one. Declared
-    // as `Pendiente | null` rather than an optional property so every adapter has
-    // to state the non-recurring case explicitly instead of omitting it.
   }): Promise<{
     pendiente: Pendiente
     expense: Expense
-    nextPendiente: Pendiente | null
   }>
   // Reverses markPendientePaid: restores status to 'pending' and deletes the
-  // Expense that payment created. Leaves any next-cycle Pendiente a
-  // recurring payment spawned untouched -- see unmarkPendientePaid's own
-  // comment for why.
+  // Expense that payment created.
   unmarkPendientePaid(input: {
     readonly householdId: string
     readonly pendienteId: string

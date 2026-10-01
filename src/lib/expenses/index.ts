@@ -17,6 +17,7 @@ export {
   deleteCategory,
   mergeCategories,
   renameCategory,
+  updateCategoryBudget,
   updateCategoryColor,
 } from './categoryManagement'
 export { CATEGORY_COLOR_PALETTE } from './categoryColor'
@@ -34,6 +35,12 @@ export { BUDGET_CALM, BUDGET_SPENT, budgetColor } from './budgetHeat'
 export { lastNMonthRanges, MONTHLY_TOTALS_MONTH_COUNT } from './monthlyTotals'
 export type { MonthRange } from './monthlyTotals'
 export { summarizeByCategory } from './summaries'
+export {
+  categoryBudgetRows,
+  categoryBudgetsOverspill,
+  totalCategoryBudgets,
+} from './categoryBudgets'
+export type { CategoryBudgetRow } from './categoryBudgets'
 export type { CategorySummary } from './summaries'
 export { isServicio } from './servicio'
 export {

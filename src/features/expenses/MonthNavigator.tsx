@@ -14,6 +14,8 @@ export type MonthNavigatorProps = {
   // month here also moves every other month-scoped section on the page.
   readonly viewedMonth?: Date
   readonly onViewedMonthChange?: (month: Date) => void
+  // Forwarded to MonthPager.
+  readonly maxMonthsAhead?: number
 }
 
 // Owns which month Home's two budget cards are showing, and pages both of
@@ -25,6 +27,7 @@ export function MonthNavigator({
   householdId,
   viewedMonth: viewedMonthProp,
   onViewedMonthChange,
+  maxMonthsAhead,
 }: MonthNavigatorProps): ReactElement {
   const [internalViewedMonth, setInternalViewedMonth] = useState(
     () => currentMonthRange().monthStart,
@@ -38,6 +41,7 @@ export function MonthNavigator({
       <MonthPager
         viewedMonth={viewedMonth}
         onViewedMonthChange={setViewedMonth}
+        {...(maxMonthsAhead === undefined ? {} : { maxMonthsAhead })}
       />
       {/* Peers -- one counts up, the other counts down -- so on a wide
           window they sit next to each other and can be read in one glance

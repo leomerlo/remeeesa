@@ -1,7 +1,11 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { createPendiente } from '@/lib/pendientes/pendientes'
-import { createExpense, listCategories } from '@/lib/expenses'
+import {
+  createExpense,
+  listCategories,
+  updateCategoryBudget,
+} from '@/lib/expenses'
 import { CATEGORY_COLOR_PALETTE } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
@@ -83,6 +87,83 @@ describe('CategoryManager', () => {
     const after = await listCategories({ db, householdId })
     const renamed = after.find((c) => c.name === 'Comida y bebida')
     expect(renamed?.color).toBe(comida.color)
+  })
+
+  it('sets a ceiling on a category, and leaves it blank for one with none', async () => {
+    const { db, householdId } = await seedHousehold()
+
+    renderWithProviders(<CategoryManager db={db} householdId={householdId} />)
+    await openEditorFor('Comida')
+
+    // A category is born with no ceiling, so the field opens empty rather
+    // than showing a zero nobody typed.
+    expect(screen.getByLabelText('Presupuesto del mes')).toHaveValue('')
+
+    fireEvent.change(screen.getByLabelText('Presupuesto del mes'), {
+      target: { value: '30000' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    await screen.findByRole('button', { name: 'Editar Comida' })
+    const after = await listCategories({ db, householdId })
+    expect(after.find((c) => c.name === 'Comida')?.monthlyBudget).toBe(30000)
+  })
+
+  it('clears a ceiling when the field is emptied', async () => {
+    const { db, householdId, byName } = await seedHousehold()
+    const comida = byName.get('Comida')
+    if (comida === undefined) {
+      throw new Error('expected the seeded Comida category')
+    }
+    await updateCategoryBudget({
+      db,
+      householdId,
+      categoryId: comida.id,
+      monthlyBudget: 30000,
+    })
+
+    renderWithProviders(<CategoryManager db={db} householdId={householdId} />)
+    await openEditorFor('Comida')
+
+    expect(screen.getByLabelText('Presupuesto del mes')).toHaveValue('30.000')
+    fireEvent.change(screen.getByLabelText('Presupuesto del mes'), {
+      target: { value: '' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    await screen.findByRole('button', { name: 'Editar Comida' })
+    const after = await listCategories({ db, householdId })
+    expect(after.find((c) => c.name === 'Comida')?.monthlyBudget).toBe(0)
+  })
+
+  // A rename is a create-repoint-delete, so anything the old document
+  // carried has to be copied across or it is silently lost.
+  it('keeps the ceiling through a rename', async () => {
+    const { db, householdId, byName } = await seedHousehold()
+    const comida = byName.get('Comida')
+    if (comida === undefined) {
+      throw new Error('expected the seeded Comida category')
+    }
+    await updateCategoryBudget({
+      db,
+      householdId,
+      categoryId: comida.id,
+      monthlyBudget: 30000,
+    })
+
+    renderWithProviders(<CategoryManager db={db} householdId={householdId} />)
+    await openEditorFor('Comida')
+
+    fireEvent.change(screen.getByLabelText('Nombre'), {
+      target: { value: 'Comida y bebida' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    await screen.findByRole('button', { name: 'Editar Comida y bebida' })
+    const after = await listCategories({ db, householdId })
+    expect(after.find((c) => c.name === 'Comida y bebida')?.monthlyBudget).toBe(
+      30000,
+    )
   })
 
   it('shows the collision message pointing at merge, inline', async () => {

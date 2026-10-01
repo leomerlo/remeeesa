@@ -294,14 +294,11 @@ describe('App', () => {
         </MemoryRouter>,
       )
 
+      // Settled, and nothing spawned in its place: next month's copy is
+      // carried over by hand ("Pasar recurrentes").
       await waitFor(async () => {
-        expect(await listPendientes({ db, householdId })).toHaveLength(1)
+        expect(await listPendientes({ db, householdId })).toHaveLength(0)
       })
-      // The cycle just settled is gone from the pending list; what is left is
-      // the next one it spawned, a month out.
-      const [next] = await listPendientes({ db, householdId })
-      expect(next?.dueDate.getTime()).toBeGreaterThan(yesterday.getTime())
-      expect(next?.autoDebit).toBe(true)
 
       const { monthStart, monthEnd } = currentMonthRange()
       const expenses = await listExpensesInMonth({

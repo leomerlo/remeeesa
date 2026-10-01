@@ -19,6 +19,8 @@ export type AddGastoSheetProps = {
   // Forwarded to AddGastoForm -- see there for why Histórico shows fewer
   // toggles than Home.
   readonly showRecurringOptions?: boolean
+  // Forwarded to AddGastoForm.
+  readonly defaultDueDate?: Date
 }
 
 // Home's single "add" entry point -- replaces the old side-by-side
@@ -33,6 +35,7 @@ export function AddGastoSheet({
   memberId,
   authorDisplayName,
   showRecurringOptions = true,
+  defaultDueDate,
 }: AddGastoSheetProps): ReactElement {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -81,6 +84,7 @@ export function AddGastoSheet({
           memberId={memberId}
           authorDisplayName={authorDisplayName}
           showRecurringOptions={showRecurringOptions}
+          {...(defaultDueDate === undefined ? {} : { defaultDueDate })}
           onAdded={() => {
             onOpenChange(false)
           }}

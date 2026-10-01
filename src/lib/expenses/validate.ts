@@ -62,3 +62,12 @@ export function parseExpenseDate(expenseDate: Date, now = new Date()): Date {
   }
   return expenseDate
 }
+
+// Zero is "sin tope", and is the value almost every category carries. Only
+// a negative or unparseable ceiling is an error -- see Category.monthlyBudget.
+export function parseCategoryBudget(monthlyBudget: number): number {
+  if (!Number.isFinite(monthlyBudget) || monthlyBudget < 0) {
+    throw new Error('El presupuesto de la categoría no puede ser negativo')
+  }
+  return monthlyBudget
+}

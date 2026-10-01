@@ -3,7 +3,6 @@ import {
   PendienteNotFoundError,
   PendienteNotPaidError,
 } from '@/lib/pendientes/pendientes'
-import { nextCycleDueDate } from '@/lib/pendientes/recurrence'
 import type { Pendiente } from '@/lib/pendientes/types'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import {
@@ -12,7 +11,11 @@ import {
   CategoryNotFoundError,
 } from '@/lib/expenses/categoryManagement'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
-import { parseCategoryColor, parseCategoryName } from '@/lib/expenses/validate'
+import {
+  parseCategoryBudget,
+  parseCategoryColor,
+  parseCategoryName,
+} from '@/lib/expenses/validate'
 import { ExpenseNotFoundError } from '@/lib/expenses/expenses'
 import { buildExpenseHistoryPage } from '@/lib/expenses/history'
 import type { Category, Expense } from '@/lib/expenses/types'
@@ -345,6 +348,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         householdId: input.householdId,
         name: input.name,
         color: colorForCategoryName(input.name),
+        monthlyBudget: 0,
         createdAt: new Date(),
       }
       state.categories.set(id, category)
@@ -356,6 +360,16 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       const updated: Category = {
         ...existing,
         color: parseCategoryColor(input.color),
+      }
+      state.categories.set(existing.id, updated)
+      return updated
+    },
+    async updateCategoryBudget(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const existing = ownCategory(state, input)
+      const updated: Category = {
+        ...existing,
+        monthlyBudget: parseCategoryBudget(input.monthlyBudget),
       }
       state.categories.set(existing.id, updated)
       return updated
@@ -624,23 +638,21 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       )
       return pendientes
     },
-    async listPendientesPaidInMonth(input) {
+    async listPaidPendientesDueInMonth(input) {
       assertMemberOf(state, userId, input.householdId)
       const pendientes: Pendiente[] = []
       for (const pendiente of state.pendientes.values()) {
         if (
           pendiente.householdId === input.householdId &&
           pendiente.status === 'paid' &&
-          pendiente.paidAt !== null &&
-          pendiente.paidAt >= input.monthStart &&
-          pendiente.paidAt <= input.monthEnd
+          pendiente.dueDate >= input.monthStart &&
+          pendiente.dueDate <= input.monthEnd
         ) {
           pendientes.push(pendiente)
         }
       }
       pendientes.sort(
-        (left, right) =>
-          (right.paidAt?.getTime() ?? 0) - (left.paidAt?.getTime() ?? 0),
+        (left, right) => left.dueDate.getTime() - right.dueDate.getTime(),
       )
       return pendientes
     },
@@ -742,35 +754,13 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         paidExpenseId: expense.id,
         paidAt: input.paymentDate,
       }
-      // A recurring pendiente spawns its next cycle with the amount just
-      // paid pre-filled -- most recurring bills cost the same next cycle
-      // too, so this is an editable pre-fill, not a stale carried-over value.
-      const nextPendiente: Pendiente | null = existing.recurring
-        ? {
-            id: crypto.randomUUID(),
-            householdId: existing.householdId,
-            categoryId: existing.categoryId,
-            name: existing.name,
-            dueDate: nextCycleDueDate(existing.dueDate),
-            expectedAmount: input.finalAmount,
-            recurring: true,
-            autoDebit: existing.autoDebit,
-            status: 'pending',
-            paidExpenseId: null,
-            paidAt: null,
-            createdAt,
-          }
-        : null
       // Every record is built above before any store mutation below, so a
       // throw (e.g. from id generation) can never leave a partial write --
       // mirroring the all-or-nothing guarantee of the real adapter's
       // Firestore transaction.
       state.expenses.set(expense.id, expense)
       state.pendientes.set(input.pendienteId, updated)
-      if (nextPendiente !== null) {
-        state.pendientes.set(nextPendiente.id, nextPendiente)
-      }
-      return { pendiente: updated, expense, nextPendiente }
+      return { pendiente: updated, expense }
     },
     async unmarkPendientePaid(input) {
       assertMemberOf(state, userId, input.householdId)

@@ -43,6 +43,10 @@ export type AddGastoFormProps = {
   // of gastos, and a gasto added from there is by definition something
   // already spent, so it gets "Ya lo pagué" alone. Per direct feedback.
   readonly showRecurringOptions?: boolean
+  // Set while Home is showing a future month: the form opens as a bill due
+  // then ("Ya lo pagué" off, date on this day) rather than as a gasto paid
+  // today, since planning that month is why the person is looking at it.
+  readonly defaultDueDate?: Date
 }
 
 type GastoFormFields = {
@@ -61,11 +65,11 @@ function localDateInputValue(date: Date): string {
   return `${year}-${month}-${day}`
 }
 
-function emptyFormFields(): GastoFormFields {
+function emptyFormFields(defaultDueDate?: Date): GastoFormFields {
   return {
     name: '',
     category: '',
-    date: localDateInputValue(new Date()),
+    date: localDateInputValue(defaultDueDate ?? new Date()),
     amount: '',
     recurring: false,
     autoDebit: false,
@@ -171,6 +175,7 @@ export function AddGastoForm({
   onAdded,
   onPendingChange,
   showRecurringOptions = true,
+  defaultDueDate,
 }: AddGastoFormProps): ReactElement {
   const queryClient = useQueryClient()
   const categoriesKey = categoriesQueryKey({ householdId })
@@ -181,7 +186,7 @@ export function AddGastoForm({
     queryFn: () => listCategories({ db, householdId }),
   })
 
-  const initialFields = emptyFormFields()
+  const initialFields = emptyFormFields(defaultDueDate)
   const [name, setName] = useState(initialFields.name)
   const [category, setCategory] = useState(initialFields.category)
   const [date, setDate] = useState(initialFields.date)
@@ -190,7 +195,7 @@ export function AddGastoForm({
   const [autoDebit, setAutoDebit] = useState(initialFields.autoDebit)
   // Checked by default: adding a gasto usually means logging something that
   // already happened, not setting up a future bill -- per direct feedback.
-  const [markPaid, setMarkPaid] = useState(true)
+  const [markPaid, setMarkPaid] = useState(defaultDueDate === undefined)
   const [error, setError] = useState<string | null>(null)
   const today = localDateInputValue(new Date())
 
@@ -247,14 +252,14 @@ export function AddGastoForm({
       }
     },
     onSuccess: async () => {
-      const reset = emptyFormFields()
+      const reset = emptyFormFields(defaultDueDate)
       setName(reset.name)
       setCategory(reset.category)
       setDate(reset.date)
       setAmount(reset.amount)
       setRecurring(reset.recurring)
       setAutoDebit(reset.autoDebit)
-      setMarkPaid(true)
+      setMarkPaid(defaultDueDate === undefined)
       setError(null)
       onAdded?.()
       await invalidateGastoViews()
@@ -296,6 +301,16 @@ export function AddGastoForm({
     setRecurring(next)
     if (!next) {
       setAutoDebit(false)
+    }
+  }
+
+  // A paid gasto cannot be dated in the future, so checking "Ya lo pagué"
+  // over a future due date pulls it back to today instead of leaving a date
+  // the submit would reject. ISO dates compare correctly as strings.
+  function onMarkPaidChange(next: boolean): void {
+    setMarkPaid(next)
+    if (next && date > today) {
+      setDate(today)
     }
   }
 
@@ -426,7 +441,7 @@ export function AddGastoForm({
             <Switch
               id="gasto-mark-paid"
               checked={markPaid}
-              onCheckedChange={setMarkPaid}
+              onCheckedChange={onMarkPaidChange}
             />
             <Label htmlFor="gasto-mark-paid">Ya lo pagué</Label>
           </div>

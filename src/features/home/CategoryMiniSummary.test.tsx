@@ -213,7 +213,7 @@ describe('CategoryMiniSummary', () => {
   })
 
   // Per direct feedback: this has to show the category's whole cost for the
-  // month, paid or not -- otherwise it disagrees with "Gastos de este mes",
+  // month, paid or not -- otherwise it disagrees with "Gastos del mes",
   // which already counts still-unpaid bills.
   it("adds a pending bill due this month to its category's total", async () => {
     const { db, household, categories } = await seedHousehold()

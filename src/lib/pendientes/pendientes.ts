@@ -1,10 +1,12 @@
 import type { HouseholdsDb } from '@/lib/households/types'
 import {
+  currentMonthRange,
   parseAuthorDisplayName,
   parseExpenseDate,
   parseExpensePrice,
 } from '@/lib/expenses'
 import type { Expense } from '@/lib/expenses/types'
+import { nextCycleDueDate } from './recurrence'
 import type { Pendiente } from './types'
 import {
   parsePendienteDueDate,
@@ -65,10 +67,18 @@ export async function listPendientes(input: {
 
 // Every pending Pendiente (regardless of due date -- an overdue bill from
 // three months ago stays actionable until it's paid, not just during the
-// month it fell due) plus whichever ones were paid within the given month.
-// Pending first (soonest due date first, from listPendientes), then paid
-// ones (most recently paid first) -- so the still-actionable half of the
-// list never gets pushed down by completed history.
+// month it fell due) plus the settled ones *due* in the given month.
+//
+// Due date, not payment date. A servicio belongs to the month it was due
+// for: scoping the settled half by when it was paid put next month's bill
+// into this month's list the moment it was paid early -- listed under a
+// September payment date while its own form said October -- and took it out
+// of next month, where it belonged, so a recurring service could vanish
+// from the month it was for entirely. Per direct feedback.
+//
+// Pending first (soonest due date first, from listPendientes), then the
+// settled ones -- so the still-actionable half of the list never gets
+// pushed down by completed history.
 export async function listPendientesForMonth(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
@@ -77,7 +87,7 @@ export async function listPendientesForMonth(input: {
 }): Promise<readonly Pendiente[]> {
   const [pending, paidThisMonth] = await Promise.all([
     input.db.listPendientes({ householdId: input.householdId }),
-    input.db.listPendientesPaidInMonth({
+    input.db.listPaidPendientesDueInMonth({
       householdId: input.householdId,
       monthStart: input.monthStart,
       monthEnd: input.monthEnd,
@@ -160,7 +170,6 @@ export async function markPendientePaid(input: {
 }): Promise<{
   pendiente: Pendiente
   expense: Expense
-  nextPendiente: Pendiente | null
 }> {
   return input.db.markPendientePaid({
     householdId: input.householdId,
@@ -175,10 +184,7 @@ export async function markPendientePaid(input: {
 // Undoes a mistaken markPendientePaid: restores the Pendiente to pending and
 // deletes the Expense that payment created. Per direct feedback -- there was
 // no way to correct "I marked it paid, but it wasn't" once a paid card was
-// display-only. Doesn't touch any next-cycle Pendiente a recurring payment
-// may have spawned -- that's a separate document with its own edit/delete,
-// left for the member to remove themselves if it's now redundant, rather
-// than this guessing at a name/date match that could delete the wrong one.
+// display-only.
 export async function unmarkPendientePaid(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
@@ -215,4 +221,92 @@ export async function deletePendiente(input: {
     householdId: input.householdId,
     pendienteId: input.pendienteId,
   })
+}
+
+export type RecurrenteToCarry = {
+  readonly pendiente: Pendiente
+  // The viewed month already has a bill of this name: still listed, so the
+  // member sees the whole set, but there is nothing left to carry.
+  readonly alreadyThere: boolean
+}
+
+// "Pasar recurrentes": last month's recurring bills, for a member to pick
+// which ones come into the viewed month. Nothing carries over on its own --
+// per direct feedback, after paying, undoing and paying again left one bill
+// twice in the following month.
+export async function listRecurrentesToCarry(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly monthStart: Date
+}): Promise<readonly RecurrenteToCarry[]> {
+  const viewed = currentMonthRange(input.monthStart)
+  const previous = currentMonthRange(
+    new Date(
+      input.monthStart.getFullYear(),
+      input.monthStart.getMonth() - 1,
+      1,
+    ),
+  )
+  const [pending, paidPrevious, paidViewed] = await Promise.all([
+    input.db.listPendientes({ householdId: input.householdId }),
+    input.db.listPaidPendientesDueInMonth({
+      householdId: input.householdId,
+      ...previous,
+    }),
+    input.db.listPaidPendientesDueInMonth({
+      householdId: input.householdId,
+      ...viewed,
+    }),
+  ])
+  const all = [...pending, ...paidPrevious, ...paidViewed]
+  const isDueIn = (
+    pendiente: Pendiente,
+    range: { monthStart: Date; monthEnd: Date },
+  ): boolean =>
+    pendiente.dueDate >= range.monthStart && pendiente.dueDate <= range.monthEnd
+  const namesAlreadyThere = new Set(
+    all.filter((pendiente) => isDueIn(pendiente, viewed)).map((p) => p.name),
+  )
+  // One row per bill: the same name twice last month is still one bill.
+  const byName = new Map<string, Pendiente>()
+  for (const pendiente of all) {
+    if (
+      pendiente.recurring &&
+      isDueIn(pendiente, previous) &&
+      !byName.has(pendiente.name)
+    ) {
+      byName.set(pendiente.name, pendiente)
+    }
+  }
+  return [...byName.values()]
+    .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
+    .map((pendiente) => ({
+      pendiente,
+      alreadyThere: namesAlreadyThere.has(pendiente.name),
+    }))
+}
+
+// Creates each picked bill one month on: same name, category, amount and
+// débito automático, due the same day of the month (see nextCycleDueDate).
+// Not atomic -- if one write fails the others still land, and reopening the
+// list shows those as already there.
+export async function carryRecurrentes(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly pendientes: readonly Pendiente[]
+}): Promise<readonly Pendiente[]> {
+  return Promise.all(
+    input.pendientes.map((pendiente) =>
+      createPendiente({
+        db: input.db,
+        householdId: input.householdId,
+        categoryId: pendiente.categoryId,
+        name: pendiente.name,
+        dueDate: nextCycleDueDate(pendiente.dueDate),
+        expectedAmount: pendiente.expectedAmount,
+        recurring: true,
+        autoDebit: pendiente.autoDebit,
+      }),
+    ),
+  )
 }
