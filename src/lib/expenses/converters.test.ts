@@ -28,8 +28,65 @@ describe('parseCategoryDocument', () => {
       // No stored ceiling: every category written before they existed reads
       // as "sin tope" rather than failing to parse.
       monthlyBudget: 0,
+      // No per-month budgets either: an empty map, not a parse failure.
+      budgets: {},
       createdAt: new Date('2026-01-15T12:00:00.000Z'),
     })
+  })
+
+  it('reads per-month budgets, including a cleared month', () => {
+    expect(
+      parseCategoryDocument({
+        id: 'c1',
+        data: {
+          household_id: 'h1',
+          name: 'Comida',
+          color: '#7b5cfa',
+          budgets: { '2026-03': 300, '2026-04': null },
+          created_at: new Date('2026-01-15T12:00:00.000Z'),
+        },
+      }).budgets,
+    ).toEqual({ '2026-03': 300, '2026-04': null })
+  })
+
+  // One bad entry must not make the category unreadable -- the same
+  // leniency the household's monthly_budgets gets.
+  it('drops per-month budget entries that are not a month or not a budget', () => {
+    expect(
+      parseCategoryDocument({
+        id: 'c1',
+        data: {
+          household_id: 'h1',
+          name: 'Comida',
+          color: '#7b5cfa',
+          budgets: {
+            '2026-03': 300,
+            '2026-13': 100,
+            abril: 100,
+            '2026-05': 0,
+            '2026-06': -5,
+            '2026-07': 'mucho',
+            '2026-08': Number.NaN,
+          },
+          created_at: new Date('2026-01-15T12:00:00.000Z'),
+        },
+      }).budgets,
+    ).toEqual({ '2026-03': 300 })
+  })
+
+  it('reads budgets that are not a map as none', () => {
+    expect(
+      parseCategoryDocument({
+        id: 'c1',
+        data: {
+          household_id: 'h1',
+          name: 'Comida',
+          color: '#7b5cfa',
+          budgets: 'nope',
+          created_at: new Date('2026-01-15T12:00:00.000Z'),
+        },
+      }).budgets,
+    ).toEqual({})
   })
 
   it('reads a stored category ceiling', () => {
@@ -276,6 +333,7 @@ describe('toDocument converters', () => {
         name: 'Comida',
         color: '#7b5cfa',
         monthlyBudget: 40000,
+        budgets: { '2026-03': 300, '2026-04': null },
         createdAt,
       }),
     ).toEqual({
@@ -283,8 +341,24 @@ describe('toDocument converters', () => {
       name: 'Comida',
       color: '#7b5cfa',
       monthly_budget: 40000,
+      budgets: { '2026-03': 300, '2026-04': null },
       created_at: createdAt,
     })
+  })
+
+  it('round-trips per-month budgets through the document', () => {
+    const createdAt = new Date('2026-01-15T12:00:00.000Z')
+    const budgets = { '2026-03': 300, '2026-04': null }
+    const data = categoryToDocument({
+      householdId: 'h1',
+      name: 'Comida',
+      color: '#7b5cfa',
+      monthlyBudget: 0,
+      budgets,
+      createdAt,
+    })
+
+    expect(parseCategoryDocument({ id: 'c1', data }).budgets).toEqual(budgets)
   })
 
   it('maps an Expense to snake_case Firestore fields', () => {

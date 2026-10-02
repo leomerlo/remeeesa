@@ -9,6 +9,10 @@ export function monthKey(date: Date): string {
   return `${year}-${month}`
 }
 
+// The shape monthKey produces. Shared with every stored map keyed by month,
+// so a key written by one reads back through the others.
+export const MONTH_KEY_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/
+
 // The budget a month was actually run on.
 //
 // A household's budget is not one number that applies to all of history: it

@@ -1,3 +1,5 @@
+import { MONTH_KEY_PATTERN } from '@/lib/households/monthlyBudget'
+import { parseMonthlyBudget } from '@/lib/households/validate'
 import type { CategorySummary } from './summaries'
 import type { Category } from './types'
 
@@ -71,4 +73,57 @@ export function categoryBudgetsOverspill(input: {
   }
   const assigned = totalCategoryBudgets(input.categories)
   return assigned > input.monthlyBudget ? assigned - input.monthlyBudget : 0
+}
+
+// Per-month category budgets, keyed "2026-04" like the household's own
+// monthly_budgets. A month with no key inherits the latest key before it; a
+// key holding null means "no budget from this month on", which is why
+// clearing is a value of its own and not zero. A month before every key has
+// no budget: unlike the household's, a category's budget is optional, so
+// there is nothing earlier to fall back on.
+export type CategoryMonthBudgets = Readonly<Record<string, number | null>>
+
+export function resolveCategoryBudget(
+  budgets: CategoryMonthBudgets,
+  month: string,
+): number | null {
+  let inForce: string | undefined
+  for (const key of Object.keys(budgets)) {
+    if (key <= month && (inForce === undefined || key > inForce)) {
+      inForce = key
+    }
+  }
+  return inForce === undefined ? null : (budgets[inForce] ?? null)
+}
+
+export function parseBudgetMonth(month: string): string {
+  if (!MONTH_KEY_PATTERN.test(month)) {
+    throw new Error('El mes del presupuesto no es válido')
+  }
+  return month
+}
+
+// Null clears; an amount has to be a real budget. Zero is refused rather
+// than read as "clear" so the two can never be confused in storage.
+export function parseCategoryMonthBudget(amount: number | null): number | null {
+  if (amount === null) {
+    return null
+  }
+  if (parseMonthlyBudget(amount) <= 0) {
+    throw new Error('El presupuesto de la categoría tiene que ser mayor a 0')
+  }
+  return amount
+}
+
+// A new map with only `month` changed: earlier months keep the figure they
+// were run on, and later months keep any figure set for them explicitly.
+export function setBudget(
+  budgets: CategoryMonthBudgets,
+  month: string,
+  amount: number | null,
+): CategoryMonthBudgets {
+  return {
+    ...budgets,
+    [parseBudgetMonth(month)]: parseCategoryMonthBudget(amount),
+  }
 }

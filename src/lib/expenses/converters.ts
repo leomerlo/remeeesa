@@ -4,6 +4,7 @@ import {
   parseRequiredString,
   parseTimestamp,
 } from '@/lib/firestore/documentParsing'
+import { MONTH_KEY_PATTERN } from '@/lib/households/monthlyBudget'
 import { colorForCategoryName } from './categoryColor'
 import type { Category, Expense } from './types'
 import {
@@ -50,7 +51,8 @@ export function parseCategoryDocument(input: {
     throw new Error('Category document must be an object')
   }
 
-  const { household_id, name, color, monthly_budget, created_at } = input.data
+  const { household_id, name, color, monthly_budget, budgets, created_at } =
+    input.data
   if (typeof name !== 'string') {
     throw new Error('Category name must be a string')
   }
@@ -77,8 +79,35 @@ export function parseCategoryDocument(input: {
       typeof monthly_budget === 'number'
         ? parseCategoryBudget(monthly_budget)
         : 0,
+    budgets: parseCategoryMonthBudgets(budgets),
     createdAt: parseTimestamp(created_at, 'created_at'),
   }
+}
+
+// Absent on every category written before per-month budgets existed, which
+// reads as none set. An entry whose key is not a month, or whose value is
+// neither a positive amount nor null (a cleared month), is dropped rather
+// than failing the read: Firestore rules cannot check map entries, so this
+// is where a bad one is caught.
+function parseCategoryMonthBudgets(
+  value: unknown,
+): Readonly<Record<string, number | null>> {
+  if (!isRecord(value)) {
+    return {}
+  }
+  const parsed: Record<string, number | null> = {}
+  for (const [key, amount] of Object.entries(value)) {
+    if (!MONTH_KEY_PATTERN.test(key)) {
+      continue
+    }
+    if (
+      amount === null ||
+      (typeof amount === 'number' && Number.isFinite(amount) && amount > 0)
+    ) {
+      parsed[key] = amount
+    }
+  }
+  return parsed
 }
 
 export function categoryToDocument(input: {
@@ -86,12 +115,14 @@ export function categoryToDocument(input: {
   readonly name: string
   readonly color: string
   readonly monthlyBudget: number
+  readonly budgets: Readonly<Record<string, number | null>>
   readonly createdAt: Date
 }): {
   readonly household_id: string
   readonly name: string
   readonly color: string
   readonly monthly_budget: number
+  readonly budgets: Readonly<Record<string, number | null>>
   readonly created_at: Date
 } {
   return {
@@ -99,6 +130,7 @@ export function categoryToDocument(input: {
     name: input.name,
     color: input.color,
     monthly_budget: input.monthlyBudget,
+    budgets: input.budgets,
     created_at: input.createdAt,
   }
 }

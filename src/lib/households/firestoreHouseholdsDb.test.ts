@@ -151,6 +151,27 @@ describe('the adapter persists per-month budgets', () => {
   })
 })
 
+// Same reasoning as above: a whole-map write would let two members saving
+// different months at once overwrite each other, and nothing but the
+// adapter's source shows which one it does.
+describe('the adapter writes one month of a category budget', () => {
+  it('updates only the edited month’s key', () => {
+    const body = adapterSource.slice(
+      adapterSource.indexOf('async setCategoryBudget'),
+      adapterSource.indexOf('async renameCategory'),
+    )
+    expect(body).toContain("new FieldPath('budgets', input.month)")
+  })
+
+  it('carries the per-month budgets across a rename', () => {
+    const body = adapterSource.slice(
+      adapterSource.indexOf('async renameCategory'),
+      adapterSource.indexOf('async deleteCategory'),
+    )
+    expect(body).toContain('budgets: existing.budgets')
+  })
+})
+
 describe('firestore.rules invite join', () => {
   it('lets any signed-in user get an invite by token', () => {
     expect(rules).toMatch(
@@ -205,13 +226,19 @@ describe('firestore.rules categories', () => {
   it('lets members create categories and founders seed them with the household', () => {
     expect(rules).toContain('function isValidCategory(data)')
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'name', 'color', 'monthly_budget', 'created_at'])",
+      "data.keys().hasOnly(['household_id', 'name', 'color', 'monthly_budget', 'budgets', 'created_at'])",
     )
     expect(rules).toContain("data.color.matches('^#[0-9a-fA-F]{6}$')")
     // The category ceiling is optional -- every category written before it
     // existed has no such key -- and can never be negative.
     expect(rules).toContain(
       "(!('monthly_budget' in data) || (data.monthly_budget is number && data.monthly_budget >= 0))",
+    )
+    // Per-month budgets are optional too. Rules cannot check each entry, so
+    // they insist on a map of bounded size and the converter drops any bad
+    // entry on read.
+    expect(rules).toContain(
+      "(!('budgets' in data) || (data.budgets is map && data.budgets.size() <= 240))",
     )
     expect(rules).toContain('function canWriteCategoryFor(householdId)')
     expect(rules).toContain(
@@ -224,7 +251,9 @@ describe('firestore.rules categories', () => {
 
   it('lets a member change only a category’s color, name or ceiling, never its household or createdAt', () => {
     expect(rules).toContain('function isValidCategoryUpdate()')
-    expect(rules).toContain("hasOnly(['color', 'name', 'monthly_budget'])")
+    expect(rules).toContain(
+      "hasOnly(['color', 'name', 'monthly_budget', 'budgets'])",
+    )
     expect(rules).toContain(
       'request.resource.data.household_id == resource.data.household_id\n        && request.resource.data.created_at == resource.data.created_at',
     )

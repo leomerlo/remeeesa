@@ -62,6 +62,7 @@ export const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
   findOrCreateCategory: 'guardar la categoría',
   updateCategoryColor: 'guardar el color de la categoría',
   updateCategoryBudget: 'guardar el presupuesto de la categoría',
+  setCategoryBudget: 'guardar el presupuesto de la categoría',
   renameCategory: 'renombrar la categoría',
   deleteCategory: 'borrar la categoría',
   mergeCategories: 'unir las categorías',

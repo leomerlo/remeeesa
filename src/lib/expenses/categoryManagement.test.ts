@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { createHouseholdWithMembership } from '@/lib/households'
+import {
+  createHouseholdWithMembership,
+  HouseholdAccessDeniedError,
+} from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import type { Category } from './types'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
@@ -10,8 +13,10 @@ import {
   deleteCategory,
   mergeCategories,
   renameCategory,
+  setCategoryBudget,
   updateCategoryColor,
 } from './categoryManagement'
+import { resolveCategoryBudget } from './categoryBudgets'
 import { createPendiente } from '@/lib/pendientes/pendientes'
 import { createExpense, listCategories } from './expenses'
 import { createCard, createCardPurchase } from '@/lib/cards'
@@ -127,6 +132,103 @@ describe('updateCategoryColor', () => {
   })
 })
 
+describe('setCategoryBudget', () => {
+  it('stores a month’s budget so later months inherit it', async () => {
+    const { db, householdId, byName } = await seedHousehold()
+    const comida = categoryOrThrow(byName, 'Comida')
+
+    await setCategoryBudget({
+      db,
+      householdId,
+      categoryId: comida.id,
+      month: '2026-03',
+      amount: 300,
+    })
+    await setCategoryBudget({
+      db,
+      householdId,
+      categoryId: comida.id,
+      month: '2026-04',
+      amount: 400,
+    })
+
+    const reread = categoryOrThrow(
+      new Map(
+        (await listCategories({ db, householdId })).map((c) => [c.name, c]),
+      ),
+      'Comida',
+    )
+    expect(resolveCategoryBudget(reread.budgets, '2026-03')).toBe(300)
+    expect(resolveCategoryBudget(reread.budgets, '2026-05')).toBe(400)
+  })
+
+  it('clears a month with null', async () => {
+    const { db, householdId, byName } = await seedHousehold()
+    const comida = categoryOrThrow(byName, 'Comida')
+    await setCategoryBudget({
+      db,
+      householdId,
+      categoryId: comida.id,
+      month: '2026-03',
+      amount: 300,
+    })
+
+    const after = await setCategoryBudget({
+      db,
+      householdId,
+      categoryId: comida.id,
+      month: '2026-04',
+      amount: null,
+    })
+
+    expect(resolveCategoryBudget(after.budgets, '2026-03')).toBe(300)
+    expect(resolveCategoryBudget(after.budgets, '2026-05')).toBeNull()
+  })
+
+  it('writes nothing for an amount that is not a budget', async () => {
+    const { db, householdId, byName } = await seedHousehold()
+    const comida = categoryOrThrow(byName, 'Comida')
+
+    await expect(
+      setCategoryBudget({
+        db,
+        householdId,
+        categoryId: comida.id,
+        month: '2026-04',
+        amount: 0,
+      }),
+    ).rejects.toThrow('mayor a 0')
+
+    const reread = await listCategories({ db, householdId })
+    expect(reread.find((c) => c.id === comida.id)?.budgets).toEqual({})
+  })
+
+  it('refuses someone outside the household', async () => {
+    const memory = createMemoryHouseholdsDb()
+    const db = memory.asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 1000,
+    })
+    const [category] = await listCategories({ db, householdId: household.id })
+
+    await expect(
+      setCategoryBudget({
+        db: memory.asUser('intruder'),
+        householdId: household.id,
+        categoryId: category?.id ?? '',
+        month: '2026-04',
+        amount: 300,
+      }),
+    ).rejects.toThrow(HouseholdAccessDeniedError)
+
+    const reread = await listCategories({ db, householdId: household.id })
+    expect(reread.find((c) => c.id === category?.id)?.budgets).toEqual({})
+  })
+})
+
 describe('renameCategory', () => {
   it('keeps the color and carries existing expenses to the new name', async () => {
     const { db, householdId, byName } = await seedHousehold()
@@ -153,6 +255,30 @@ describe('renameCategory', () => {
 
     const moved = await db.getExpense({ householdId, expenseId: expense.id })
     expect(moved?.categoryId).toBe(renamed.id)
+  })
+
+  it('keeps the per-month budgets under the new name', async () => {
+    const { db, householdId, byName } = await seedHousehold()
+    const comida = categoryOrThrow(byName, 'Comida')
+    await setCategoryBudget({
+      db,
+      householdId,
+      categoryId: comida.id,
+      month: '2026-03',
+      amount: 300,
+    })
+
+    const renamed = await renameCategory({
+      db,
+      householdId,
+      categoryId: comida.id,
+      name: 'Comida y bebida',
+    })
+
+    const reread = await listCategories({ db, householdId })
+    expect(reread.find((c) => c.id === renamed.id)?.budgets).toEqual({
+      '2026-03': 300,
+    })
   })
 
   it('repoints Pendientes as well as Expenses', async () => {

@@ -13,6 +13,7 @@ import {
   setDoc,
   startAfter,
   Timestamp,
+  FieldPath,
   updateDoc,
   where,
 } from 'firebase/firestore'
@@ -54,6 +55,7 @@ import {
   PendienteNotPaidError,
 } from '@/lib/pendientes/pendientes'
 import { chunkForWriteBatch } from '@/lib/expenses/batching'
+import { setBudget } from '@/lib/expenses/categoryBudgets'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import {
   categoryToDocument,
@@ -408,6 +410,7 @@ export function createFirestoreHouseholdsDb(
                 name: category.name,
                 color: category.color,
                 monthlyBudget: category.monthlyBudget,
+                budgets: category.budgets,
                 createdAt: category.createdAt,
               }),
               created_at: now,
@@ -663,6 +666,7 @@ export function createFirestoreHouseholdsDb(
                 // A category is born with no ceiling; one is set later, from
                 // Categorías, only on the ones the household cares about.
                 monthlyBudget: 0,
+                budgets: {},
                 createdAt,
               }),
               created_at: now,
@@ -687,6 +691,7 @@ export function createFirestoreHouseholdsDb(
             name,
             color,
             monthlyBudget: 0,
+            budgets: {},
             createdAt,
           }
         },
@@ -717,6 +722,29 @@ export function createFirestoreHouseholdsDb(
           return { ...existing, monthlyBudget }
         },
         { householdId: input.householdId, categoryId: input.categoryId },
+      )
+    },
+    async setCategoryBudget(input) {
+      return withHouseholdAccess(
+        'setCategoryBudget',
+        async () => {
+          const existing = await readOwnCategory(firestore, input)
+          // Validated before the write; the result is what the doc now holds.
+          const budgets = setBudget(existing.budgets, input.month, input.amount)
+          // Only this month's key, never the whole map: another member
+          // saving a different month at the same time keeps their edit.
+          await updateDoc(
+            doc(firestore, 'categories', existing.id),
+            new FieldPath('budgets', input.month),
+            budgets[input.month] ?? null,
+          )
+          return { ...existing, budgets }
+        },
+        {
+          householdId: input.householdId,
+          categoryId: input.categoryId,
+          month: input.month,
+        },
       )
     },
     async renameCategory(input) {
@@ -754,6 +782,7 @@ export function createFirestoreHouseholdsDb(
               // doc carried has to be copied across or it is lost -- the
               // ceiling included.
               monthlyBudget: existing.monthlyBudget,
+              budgets: existing.budgets,
               createdAt: existing.createdAt,
             }),
             created_at: Timestamp.fromDate(existing.createdAt),

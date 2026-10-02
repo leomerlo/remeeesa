@@ -10,6 +10,7 @@ function category(name: string, color: string): Category {
     name,
     color,
     monthlyBudget: 0,
+    budgets: {},
     createdAt: new Date('2026-09-01T00:00:00Z'),
   }
 }

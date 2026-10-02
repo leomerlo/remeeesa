@@ -29,6 +29,7 @@ function makeCategory(overrides: Partial<Category> = {}): Category {
     name: 'Comida',
     color: '#7b5cfa',
     monthlyBudget: 0,
+    budgets: {},
     createdAt: new Date(2026, 0, 1),
     ...overrides,
   }
@@ -280,6 +281,49 @@ describe('summarizeByCategory share', () => {
 
     expect(summary).toEqual([])
     expect(summary.some((entry) => Number.isNaN(entry.share))).toBe(false)
+  })
+})
+
+// A category's budget measures money actually spent: a bill counts once it
+// is paid, which is when it becomes an Expense, and not before.
+describe('summarizeByCategory paid-only', () => {
+  it('leaves out a still-unpaid bill', () => {
+    const servicios = makeCategory({ id: 'cat-servicios', name: 'Servicios' })
+
+    const summaries = summarizeByCategory({
+      expenses: [
+        makeExpense({ id: 'e1', categoryId: 'cat-servicios', price: 200 }),
+      ],
+      categories: [servicios],
+      pendientes: [{ categoryId: 'cat-servicios', expectedAmount: 500 }],
+      paidOnly: true,
+    })
+
+    expect(summaries.map((s) => [s.categoryId, s.total])).toEqual([
+      ['cat-servicios', 200],
+    ])
+  })
+
+  it('counts a bill once paid, through the Expense paying it', () => {
+    const servicios = makeCategory({ id: 'cat-servicios', name: 'Servicios' })
+
+    const summaries = summarizeByCategory({
+      expenses: [
+        makeExpense({
+          id: 'e1',
+          categoryId: 'cat-servicios',
+          price: 500,
+          pendienteId: 'p1',
+        }),
+      ],
+      categories: [servicios],
+      pendientes: [],
+      paidOnly: true,
+    })
+
+    expect(summaries.map((s) => [s.categoryId, s.total])).toEqual([
+      ['cat-servicios', 500],
+    ])
   })
 })
 
