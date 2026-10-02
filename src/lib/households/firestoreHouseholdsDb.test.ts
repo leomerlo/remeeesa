@@ -121,6 +121,36 @@ describe('firestore.rules household updates', () => {
   })
 })
 
+// The in-memory database used by every other test persists monthly_budgets
+// on its own, so a Firestore adapter that quietly dropped the field looked
+// green everywhere -- and in production each save wrote only the flat
+// monthly_budget, leaving every month reading the same number while the
+// form reported success. These read the adapter's source for the same
+// reason the rules above are read as text: there is no emulator in CI.
+describe('the adapter persists per-month budgets', () => {
+  it('writes monthly_budgets when the budget alone is updated', () => {
+    const body = adapterSource.slice(
+      adapterSource.indexOf('async updateMonthlyBudget'),
+      adapterSource.indexOf('async updateHousehold'),
+    )
+    expect(body).toContain('monthly_budgets: input.monthlyBudgets')
+  })
+
+  it('writes monthly_budgets when the name and budget are updated together', () => {
+    const body = adapterSource.slice(
+      adapterSource.indexOf('async updateHousehold'),
+      adapterSource.indexOf('async getOrCreateInvite'),
+    )
+    expect(body).toContain('monthly_budgets: input.monthlyBudgets')
+  })
+
+  it('gives a brand-new household the snapshot for the month it was created in', () => {
+    expect(adapterSource).toContain(
+      'monthlyBudgets: { [monthKey(now.toDate())]: input.monthlyBudget }',
+    )
+  })
+})
+
 describe('firestore.rules invite join', () => {
   it('lets any signed-in user get an invite by token', () => {
     expect(rules).toMatch(

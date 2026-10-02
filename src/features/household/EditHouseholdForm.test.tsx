@@ -195,6 +195,73 @@ describe('EditHouseholdForm', () => {
     })
   })
 
+  // The save that silently did nothing in production is why this exists:
+  // the form's only feedback was the "Actual:" line, which does not move
+  // when the write never lands.
+  it('says what was saved, and for which month', async () => {
+    await renderEditHouseholdForm({ monthlyBudget: 100 })
+
+    expect(await screen.findByRole('status')).toHaveTextContent('100')
+    await submitBudget('900000')
+
+    expect(
+      await screen.findByText(/Guardado: \$900\.000 para/),
+    ).toBeInTheDocument()
+  })
+
+  it('says so when a month is left with no budget', async () => {
+    await renderEditHouseholdForm({ monthlyBudget: 100 })
+
+    await screen.findByRole('status')
+    await submitBudget('')
+
+    expect(await screen.findByText(/queda sin presupuesto/)).toBeInTheDocument()
+  })
+
+  it('drops the confirmation as soon as another month is picked', async () => {
+    await renderEditHouseholdForm({ monthlyBudget: 100 })
+    const now = new Date()
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+
+    await screen.findByRole('status')
+    await submitBudget('900000')
+    await screen.findByText(/Guardado:/)
+
+    fireEvent.change(screen.getByLabelText('Mes del presupuesto'), {
+      target: { value: monthKey(nextMonth) },
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Guardado:/)).not.toBeInTheDocument()
+    })
+  })
+
+  it('reports a refused save instead of failing in silence', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const refusing: HouseholdsDb = {
+      ...db,
+      updateHousehold: () => Promise.reject(new Error('Permiso denegado')),
+    }
+
+    renderWithProviders(
+      <EditHouseholdForm db={refusing} householdId={household.id} />,
+    )
+
+    await screen.findByRole('status')
+    await submitBudget('900000')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Permiso denegado',
+    )
+    expect(screen.queryByText(/Guardado:/)).not.toBeInTheDocument()
+  })
+
   it('clears the budget when zero is submitted, and says so', async () => {
     const { householdId, db } = await renderEditHouseholdForm({
       monthlyBudget: 100,

@@ -36,6 +36,11 @@ export function EditHouseholdForm({
   const [nameDraft, setNameDraft] = useState<string | null>(null)
   const [budgetDraft, setBudgetDraft] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // What the last save actually did, named out loud. Without it a save the
+  // database refused looked identical to one that worked: the only feedback
+  // was the "Actual:" line, which does not move when nothing was written.
+  // Per direct feedback.
+  const [saved, setSaved] = useState<string | null>(null)
   const household = householdQuery.data
   const name = nameDraft ?? (household !== undefined ? household.name : '')
   // A budget belongs to the month it was decided for -- see
@@ -67,11 +72,27 @@ export function EditHouseholdForm({
         name: input.name,
         monthlyBudget: input.monthlyBudget,
       }),
-    onSuccess: async (updated) => {
+    onSuccess: async (updated, variables) => {
       queryClient.setQueryData(queryKey, updated)
       setNameDraft(null)
       setBudgetDraft(null)
+      setError(null)
+      setSaved(
+        variables.monthlyBudget === 0
+          ? `Guardado: ${formatMonthLabel(selectedMonth)} queda sin presupuesto.`
+          : `Guardado: ${formatCurrency(variables.monthlyBudget)} para ${formatMonthLabel(selectedMonth)}.`,
+      )
       await queryClient.invalidateQueries({ queryKey })
+    },
+    // There was no onError at all, so anything the database refused failed
+    // in silence -- the form simply did nothing and said nothing.
+    onError: (caught: unknown) => {
+      setSaved(null)
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'No se pudo guardar. Volvé a intentar.',
+      )
     },
   })
 
@@ -81,10 +102,12 @@ export function EditHouseholdForm({
       const nextName = parseHouseholdName(name)
       const monthlyBudget = parseMonthlyBudget(Number(amount.trim()))
       setError(null)
+      setSaved(null)
       mutation.mutate({ name: nextName, monthlyBudget })
     } catch (caught) {
       const message =
         caught instanceof Error ? caught.message : 'No se pudo guardar el hogar'
+      setSaved(null)
       setError(message)
     }
   }
@@ -135,6 +158,7 @@ export function EditHouseholdForm({
               // The draft belonged to the month being left; the field has
               // to show what the newly picked month actually holds.
               setBudgetDraft(null)
+              setSaved(null)
               setError(null)
             }}
             className="border-input bg-background h-11 w-full rounded-lg border px-3 text-sm"
@@ -181,9 +205,25 @@ export function EditHouseholdForm({
       </div>
 
       {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
+      {saved !== null && error === null ? (
+        // aria-live rather than role="status": the "Actual:" line above is
+        // already this form's one status node, and a second would make
+        // "the status" ambiguous to anything looking for it. This still
+        // announces.
+        <p
+          aria-live="polite"
+          className="bg-success-surface text-success rounded-2xl px-4 py-3 text-sm"
+        >
+          {saved}
+        </p>
+      ) : null}
 
-      <Button type="submit" className="w-full lg:w-auto lg:self-end lg:px-8">
-        Guardar
+      <Button
+        type="submit"
+        disabled={mutation.isPending}
+        className="w-full lg:w-auto lg:self-end lg:px-8"
+      >
+        {mutation.isPending ? 'Guardando…' : 'Guardar'}
       </Button>
     </form>
   )
