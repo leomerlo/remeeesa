@@ -17,7 +17,7 @@ import {
 } from '@/lib/expenses'
 import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
 import { pendientesQueryKey } from '@/features/pendientes'
-import { getHousehold } from '@/lib/households'
+import { getHousehold, monthlyBudgetFor } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { PiggyBankIllustration } from './PiggyBankIllustration'
 import { expensesInMonthQueryKey } from './queryKeys'
@@ -103,7 +103,9 @@ export function RemainingBudgetDisplay({
   // budget of nothing, or a progress bar that is full from the first gasto.
   // Light, not the dark filled one: that card's whole job is showing heat,
   // and with no budget there is no heat to show.
-  if (household.monthlyBudget === 0) {
+  const monthlyBudget = monthlyBudgetFor(household, monthStart)
+
+  if (monthlyBudget === 0) {
     return (
       // The whole card is the link, and it carries no button of its own: the
       // onboarding checklist directly above this one cannot be finished
@@ -129,7 +131,7 @@ export function RemainingBudgetDisplay({
     pendientesDueInMonth(pending, monthStart, monthEnd),
   )
   const remaining = computeRemainingBudget(
-    household.monthlyBudget,
+    monthlyBudget,
     expenses,
     pendingCommitted,
   )
@@ -138,9 +140,9 @@ export function RemainingBudgetDisplay({
   // remainder rather than re-summed, so the two figures on this card can
   // never disagree. Overspending is allowed to read as more than the
   // budget ("$950.000 de $900.000") -- that is the situation.
-  const used = household.monthlyBudget - remaining
+  const used = monthlyBudget - remaining
   const percentUsed = computePercentUsed(
-    household.monthlyBudget,
+    monthlyBudget,
     expenses,
     pendingCommitted,
   )
@@ -203,7 +205,7 @@ export function RemainingBudgetDisplay({
             feedback. */}
         <div className="text-primary-foreground flex w-full items-baseline justify-between gap-2 text-xs font-medium">
           <span>
-            {formatCurrency(used)} de {formatCurrency(household.monthlyBudget)}
+            {formatCurrency(used)} de {formatCurrency(monthlyBudget)}
           </span>
           <span className="shrink-0">{percentUsed}% usado</span>
         </div>

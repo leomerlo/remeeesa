@@ -27,6 +27,7 @@ import {
   CategoryNotFoundError,
 } from '@/lib/expenses/categoryManagement'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
+import { monthKey } from '@/lib/households/monthlyBudget'
 import {
   parseCategoryBudget,
   parseCategoryColor,
@@ -50,6 +51,7 @@ import type {
 type HouseholdRecord = {
   name: string
   monthlyBudget: number
+  monthlyBudgets: Readonly<Record<string, number>>
   createdAt: Date
 }
 
@@ -80,6 +82,7 @@ function toHousehold(id: string, record: HouseholdRecord): Household {
     id,
     name: record.name,
     monthlyBudget: record.monthlyBudget,
+    monthlyBudgets: record.monthlyBudgets,
     createdAt: record.createdAt,
   }
 }
@@ -225,6 +228,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         id: householdId,
         name: input.name,
         monthlyBudget: input.monthlyBudget,
+        monthlyBudgets: { [monthKey(createdAt)]: input.monthlyBudget },
         createdAt,
       }
       const member: HouseholdMember = {
@@ -236,6 +240,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       state.households.set(householdId, {
         name: household.name,
         monthlyBudget: household.monthlyBudget,
+        monthlyBudgets: household.monthlyBudgets,
         createdAt: household.createdAt,
       })
       state.members.set(input.userId, {
@@ -299,11 +304,13 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         id: input.householdId,
         name: record.name,
         monthlyBudget: input.monthlyBudget,
+        monthlyBudgets: input.monthlyBudgets,
         createdAt: record.createdAt,
       }
       state.households.set(input.householdId, {
         name: updated.name,
         monthlyBudget: updated.monthlyBudget,
+        monthlyBudgets: updated.monthlyBudgets,
         createdAt: updated.createdAt,
       })
       return updated
@@ -318,11 +325,13 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         id: input.householdId,
         name: input.name,
         monthlyBudget: input.monthlyBudget,
+        monthlyBudgets: input.monthlyBudgets,
         createdAt: record.createdAt,
       }
       state.households.set(input.householdId, {
         name: updated.name,
         monthlyBudget: updated.monthlyBudget,
+        monthlyBudgets: updated.monthlyBudgets,
         createdAt: updated.createdAt,
       })
       return updated

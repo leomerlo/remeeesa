@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
+import { monthKey } from './monthlyBudget'
 import {
   AlreadyInHouseholdError,
   createHouseholdWithMembership,
@@ -30,6 +31,9 @@ describe('createHouseholdWithMembership', () => {
       id: expect.any(String),
       name: 'Casa Verde',
       monthlyBudget: 1500.5,
+      // The month it is created in is the first one it ever runs on, so it
+      // gets a snapshot immediately rather than relying on the bare field.
+      monthlyBudgets: { [monthKey(new Date())]: 1500.5 },
       createdAt: expect.any(Date),
     })
     expect(household.id.length).toBeGreaterThan(0)
@@ -171,9 +175,12 @@ describe('updateHouseholdBudget', () => {
       monthlyBudget: 250.75,
     })
 
+    // Editing writes the figure for the month it is edited in; the
+    // household was created this month, so that entry is replaced.
     expect(updated).toEqual({
       ...household,
       monthlyBudget: 250.75,
+      monthlyBudgets: { [monthKey(new Date())]: 250.75 },
     })
     await expect(
       getHousehold({ db, householdId: household.id }),
@@ -220,6 +227,7 @@ describe('updateHousehold', () => {
       ...household,
       name: 'Casa Azul',
       monthlyBudget: 250.75,
+      monthlyBudgets: { [monthKey(new Date())]: 250.75 },
     })
     await expect(
       getHousehold({ db, householdId: household.id }),
@@ -943,7 +951,11 @@ describe('leaveHousehold', () => {
         householdId: household.id,
         monthlyBudget: 300,
       }),
-    ).resolves.toEqual({ ...household, monthlyBudget: 300 })
+    ).resolves.toEqual({
+      ...household,
+      monthlyBudget: 300,
+      monthlyBudgets: { [monthKey(new Date())]: 300 },
+    })
 
     await expect(
       getHousehold({ db: leaverDb, householdId: household.id }),

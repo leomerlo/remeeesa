@@ -3,7 +3,10 @@ import { screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { createExpense, listCategories } from '@/lib/expenses'
-import { createHouseholdWithMembership } from '@/lib/households'
+import {
+  createHouseholdWithMembership,
+  updateHouseholdBudget,
+} from '@/lib/households'
 import { createPendiente } from '@/lib/pendientes'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
@@ -27,6 +30,77 @@ async function seedHousehold(monthlyBudget: number) {
 }
 
 describe('RemainingBudgetDisplay', () => {
+  // The budget is what the household decided it could spend *that* month.
+  // Raising it in October must not rewrite what September was measured
+  // against. Per direct feedback.
+  describe('per-month budgets', () => {
+    it('shows each month the figure that month was run on', async () => {
+      const { db, household } = await seedHousehold(1000)
+      await updateHouseholdBudget({
+        db,
+        householdId: household.id,
+        monthlyBudget: 5355000,
+        month: new Date(2026, 8, 1),
+      })
+      await updateHouseholdBudget({
+        db,
+        householdId: household.id,
+        monthlyBudget: 900000,
+        month: new Date(2026, 9, 1),
+      })
+
+      const { unmount } = renderWithProviders(
+        <MemoryRouter>
+          <RemainingBudgetDisplay
+            db={db}
+            householdId={household.id}
+            monthStart={new Date(2026, 8, 1)}
+            monthEnd={new Date(2026, 8, 30, 23, 59, 59, 999)}
+          />
+        </MemoryRouter>,
+      )
+      expect(await screen.findByText('$0 de $5.355.000')).toBeInTheDocument()
+      unmount()
+
+      renderWithProviders(
+        <MemoryRouter>
+          <RemainingBudgetDisplay
+            db={db}
+            householdId={household.id}
+            monthStart={new Date(2026, 9, 1)}
+            monthEnd={new Date(2026, 9, 31, 23, 59, 59, 999)}
+          />
+        </MemoryRouter>,
+      )
+      expect(await screen.findByText('$0 de $900.000')).toBeInTheDocument()
+    })
+
+    // Leaving the budget alone means "same as last month", which is the
+    // common case -- most months are never touched.
+    it('carries the last figure forward into a month that never set one', async () => {
+      const { db, household } = await seedHousehold(1000)
+      await updateHouseholdBudget({
+        db,
+        householdId: household.id,
+        monthlyBudget: 900000,
+        month: new Date(2026, 9, 1),
+      })
+
+      renderWithProviders(
+        <MemoryRouter>
+          <RemainingBudgetDisplay
+            db={db}
+            householdId={household.id}
+            monthStart={new Date(2026, 10, 1)}
+            monthEnd={new Date(2026, 10, 30, 23, 59, 59, 999)}
+          />
+        </MemoryRouter>,
+      )
+
+      expect(await screen.findByText('$0 de $900.000')).toBeInTheDocument()
+    })
+  })
+
   it('states the budget the remainder is measured against, and what has gone', async () => {
     const { db, household, comida } = await seedHousehold(1000)
     await createExpense({

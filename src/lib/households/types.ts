@@ -11,7 +11,15 @@ export type HouseholdDraft = {
 export type Household = {
   readonly id: string
   readonly name: string
+  // The figure in force now, and the fallback for a household that has no
+  // snapshots yet. Read a *month's* budget with monthlyBudgetFor, never
+  // this field directly -- see lib/households/monthlyBudget.
   readonly monthlyBudget: number
+  // What the budget was in each month it was set, keyed "2026-09". A month
+  // with no entry inherits the last one set before it, so leaving the
+  // budget alone carries it forward and changing it never rewrites a month
+  // that has already been lived.
+  readonly monthlyBudgets: Readonly<Record<string, number>>
   readonly createdAt: Date
 }
 
@@ -43,14 +51,20 @@ export type HouseholdsDb = {
   getHousehold(householdId: string): Promise<Household>
   listMembers(householdId: string): Promise<readonly HouseholdMember[]>
   getMembership(userId: string): Promise<HouseholdMember | null>
+  // monthlyBudgets is the whole map, recomputed by the caller with the
+  // edited month written in -- see withMonthlyBudgetFor. Sent wholesale
+  // because it lives on the household document; the edited month is never
+  // merged in by the adapter.
   updateMonthlyBudget(input: {
     readonly householdId: string
     readonly monthlyBudget: number
+    readonly monthlyBudgets: Readonly<Record<string, number>>
   }): Promise<Household>
   updateHousehold(input: {
     readonly householdId: string
     readonly name: string
     readonly monthlyBudget: number
+    readonly monthlyBudgets: Readonly<Record<string, number>>
   }): Promise<Household>
   getOrCreateInvite(input: {
     readonly householdId: string

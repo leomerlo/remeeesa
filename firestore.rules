@@ -18,12 +18,18 @@ service cloud.firestore {
     }
 
     function isValidHousehold(data) {
-      return data.keys().hasOnly(['name', 'monthly_budget', 'created_at'])
+      return data.keys().hasOnly(['name', 'monthly_budget', 'monthly_budgets', 'created_at'])
         && data.name is string
         && data.name.size() > 0
         && data.name.matches('.*\\S.*')
         && data.monthly_budget is number
         && data.monthly_budget >= 0
+        // Per-month snapshots, keyed "2026-09". Absent on every household
+        // written before they existed. Rules cannot walk a map's entries,
+        // so the shape of each one is enforced on read instead -- see
+        // parseHouseholdDocument, which drops any entry that is not a
+        // month mapped to a usable amount.
+        && (!('monthly_budgets' in data) || data.monthly_budgets is map)
         && data.created_at is timestamp;
     }
 
@@ -414,7 +420,7 @@ service cloud.firestore {
         && getAfter(membershipPath()).data.household_id == householdId
         && isValidHousehold(request.resource.data);
       allow update: if isMemberOf(householdId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['monthly_budget', 'name'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['monthly_budget', 'monthly_budgets', 'name'])
         && request.resource.data.monthly_budget is number
         && request.resource.data.monthly_budget >= 0
         && request.resource.data.name is string

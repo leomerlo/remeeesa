@@ -8,7 +8,7 @@ import { allExpensesQueryKey } from '@/features/expenses'
 import { householdQueryKey } from '@/features/household'
 import { pendientesQueryKey } from '@/features/pendientes'
 import { formatCurrency, listAllExpenses } from '@/lib/expenses'
-import { getHousehold } from '@/lib/households'
+import { getHousehold, monthlyBudgetFor } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { listPendientes } from '@/lib/pendientes'
 import { cn } from '@/lib/utils'
@@ -104,7 +104,11 @@ export function OnboardingChecklist({
     pendientes !== undefined &&
     expenses !== undefined
 
-  const hasBudget = household !== undefined && household.monthlyBudget > 0
+  // This month's figure: a household whose budget was only ever set for a
+  // past month has not set one for now.
+  const budgetThisMonth =
+    household === undefined ? 0 : monthlyBudgetFor(household, new Date())
+  const hasBudget = budgetThisMonth > 0
   const hasServicio = pendientes !== undefined && pendientes.length > 0
   const hasGasto = expenses !== undefined && expenses.length > 0
   const allDone = isLoaded && hasBudget && hasServicio && hasGasto
@@ -129,7 +133,7 @@ export function OnboardingChecklist({
       id: 'budget',
       title: 'Definí el presupuesto del mes',
       detail: hasBudget
-        ? `${formatCurrency(household.monthlyBudget)} por mes. Todo lo que carguen se descuenta de ahí.`
+        ? `${formatCurrency(budgetThisMonth)} por mes. Todo lo que carguen se descuenta de ahí.`
         : 'Cuánto manejan por mes. Es el techo del que van bajando.',
       done: hasBudget,
       action: hasBudget ? null : (
