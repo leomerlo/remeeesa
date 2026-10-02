@@ -90,8 +90,11 @@ export function AppShell({
       <div
         className={cn(
           'w-full',
+          // Matches the bar's own height (8 + 44 + 12) plus clearance. It
+          // used to reserve 6rem for a 76px bar, leaving a band of dead
+          // space above it.
           showNav &&
-            'pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-64',
+            'pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-64',
         )}
       >
         <div
@@ -120,24 +123,50 @@ export function AppShell({
               there is a natural home for it at the top of the column, and
               AppHeader steps aside at the same breakpoint. */}
           <Logo className="mb-8 hidden h-5 lg:block" />
+          {/* On a phone only the current destination is named; the rest are
+              their icon alone. Six labels stacked under six icons wanted
+              458px of a 374px bar -- "Ajustes" was pushed off the screen
+              entirely and could not be tapped, and "Proyecciones" was cut
+              against the edge. Labels cannot simply be made smaller either:
+              14px is this app's floor and tokens.test.ts enforces it.
+              Dropping to the icon alone, with the active one unfurling into
+              a pill beside its label, fits all six and takes the bar from
+              76px to 64px. The sidebar from `lg` up is unchanged -- it has
+              the room, and always names everything. */}
           <ul className="flex items-stretch justify-around lg:flex-col lg:justify-start lg:gap-1">
             {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
-              <li key={to}>
+              <li key={to} className={cn('min-w-0', 'lg:w-full')}>
                 <NavLink
                   to={to}
                   end={end}
                   className={({ isActive }) =>
                     cn(
-                      'flex min-h-11 min-w-11 flex-col items-center justify-center gap-1 rounded-2xl px-2 py-1.5 text-xs font-medium transition-colors sm:px-3',
-                      'lg:w-full lg:flex-row lg:justify-start lg:gap-3 lg:px-4 lg:py-3 lg:text-sm',
+                      'flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-2xl px-2 text-xs font-medium transition-colors',
+                      'lg:w-full lg:justify-start lg:gap-3 lg:px-4 lg:py-3 lg:text-sm',
                       isActive
                         ? 'text-primary bg-primary-subtle'
                         : 'text-muted-foreground lg:hover:bg-muted lg:hover:text-foreground',
                     )
                   }
                 >
-                  <Icon className="size-5" aria-hidden="true" />
-                  <span>{label}</span>
+                  {({ isActive }) => (
+                    <>
+                      <Icon className="size-5 shrink-0" aria-hidden="true" />
+                      {/* sr-only rather than hidden: an unlabelled icon is
+                          still a named destination to a screen reader. The
+                          active label truncates rather than pushing a
+                          sibling off the bar on a narrow phone. */}
+                      <span
+                        className={cn(
+                          'truncate',
+                          isActive ? '' : 'sr-only',
+                          'lg:not-sr-only',
+                        )}
+                      >
+                        {label}
+                      </span>
+                    </>
+                  )}
                 </NavLink>
               </li>
             ))}
