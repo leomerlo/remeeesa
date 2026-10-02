@@ -9,6 +9,7 @@ import {
   parseMemberDisplayName,
   parseMonthlyBudget,
 } from './validate'
+import { withMonthlyBudgetFor } from './monthlyBudget'
 
 // Matches parseHouseholdMemberDocument's own fallback for a membership doc
 // with no display_name at all -- keeps "no name given" meaning the same
@@ -149,15 +150,26 @@ export async function createHouseholdWithMembership(input: {
   return household
 }
 
+// Editing the budget writes it for one month -- `month`, defaulting to the
+// month it is being edited in. Every other month keeps the figure it was
+// run on, which is the point: the budget is what the household decided it
+// could spend *that* month. See lib/households/monthlyBudget.
 export async function updateHouseholdBudget(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly monthlyBudget: number
+  readonly month?: Date
 }): Promise<Household> {
   const monthlyBudget = parseMonthlyBudget(input.monthlyBudget)
+  const household = await input.db.getHousehold(input.householdId)
   return input.db.updateMonthlyBudget({
     householdId: input.householdId,
     monthlyBudget,
+    monthlyBudgets: withMonthlyBudgetFor({
+      household,
+      month: input.month ?? new Date(),
+      monthlyBudget,
+    }),
   })
 }
 
@@ -166,13 +178,20 @@ export async function updateHousehold(input: {
   readonly householdId: string
   readonly name: string
   readonly monthlyBudget: number
+  readonly month?: Date
 }): Promise<Household> {
   const name = parseHouseholdName(input.name)
   const monthlyBudget = parseMonthlyBudget(input.monthlyBudget)
+  const household = await input.db.getHousehold(input.householdId)
   return input.db.updateHousehold({
     householdId: input.householdId,
     name,
     monthlyBudget,
+    monthlyBudgets: withMonthlyBudgetFor({
+      household,
+      month: input.month ?? new Date(),
+      monthlyBudget,
+    }),
   })
 }
 

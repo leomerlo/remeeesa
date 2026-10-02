@@ -73,6 +73,7 @@ import {
   EXPENSE_HISTORY_PAGE_SIZE,
 } from '@/lib/expenses/history'
 import { categoryDocumentId, defaultCategoryRecords } from '@/lib/expenses/seed'
+import { monthKey } from './monthlyBudget'
 import {
   parseCategoryBudget,
   parseCategoryColor,
@@ -381,6 +382,10 @@ export function createFirestoreHouseholdsDb(
             ...householdToDocument({
               name: input.name,
               monthlyBudget: input.monthlyBudget,
+              // The month the household is created in is the first one it
+              // ever ran on, so it gets a snapshot right away rather than
+              // falling through to the bare monthly_budget field.
+              monthlyBudgets: { [monthKey(now.toDate())]: input.monthlyBudget },
               createdAt: now.toDate(),
             }),
             created_at: now,
@@ -414,6 +419,7 @@ export function createFirestoreHouseholdsDb(
           id: householdRef.id,
           name: input.name,
           monthlyBudget: input.monthlyBudget,
+          monthlyBudgets: { [monthKey(now.toDate())]: input.monthlyBudget },
           createdAt: now.toDate(),
         }
         return {

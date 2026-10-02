@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertMessage } from '@/components/ui/alert-message'
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
 import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { formatMonthLabel } from '@/lib/format'
+import { monthlyBudgetFor } from '@/lib/households'
 import { formatCurrency } from '@/lib/expenses'
 import {
   getHousehold,
@@ -36,11 +38,14 @@ export function EditHouseholdForm({
   const [error, setError] = useState<string | null>(null)
   const household = householdQuery.data
   const name = nameDraft ?? (household !== undefined ? household.name : '')
-  const amount =
-    budgetDraft ??
-    (household !== undefined && household.monthlyBudget > 0
-      ? String(household.monthlyBudget)
-      : '')
+  // This month's figure, and what a save writes. A budget belongs to the
+  // month it was decided for -- see lib/households/monthlyBudget -- so this
+  // field is always about the month it is being edited in, never about the
+  // ones already lived.
+  const thisMonth = useMemo(() => new Date(), [])
+  const currentBudget =
+    household === undefined ? 0 : monthlyBudgetFor(household, thisMonth)
+  const amount = budgetDraft ?? (currentBudget > 0 ? String(currentBudget) : '')
 
   const mutation = useMutation({
     mutationFn: (input: {
@@ -103,9 +108,9 @@ export function EditHouseholdForm({
               the only confirmation that a save landed. */}
           {household !== undefined ? (
             <p role="status" className="text-muted-foreground text-xs">
-              {household.monthlyBudget === 0
+              {currentBudget === 0
                 ? 'Actual: sin presupuesto'
-                : `Actual: ${formatCurrency(household.monthlyBudget)}`}
+                : `Actual: ${formatCurrency(currentBudget)}`}
             </p>
           ) : null}
         </div>
@@ -131,6 +136,15 @@ export function EditHouseholdForm({
             autoComplete="off"
           />
         </div>
+        {/* The budget is a decision about one month, not a setting that
+            applies to all of history: what September was measured against
+            has to stay what September was measured against. Saying which
+            month this writes to is the only place the app can explain
+            that. See lib/households/monthlyBudget. */}
+        <p className="text-muted-foreground text-xs">
+          Se guarda para {formatMonthLabel(thisMonth)}. Los meses anteriores
+          quedan con el presupuesto que tenían.
+        </p>
       </div>
 
       {error !== null ? <AlertMessage>{error}</AlertMessage> : null}

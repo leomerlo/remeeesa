@@ -27,7 +27,7 @@ import {
 import { RESUMEN_CATEGORY_NAME } from '@/lib/cards'
 import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
 import { pendientesQueryKey } from '@/features/pendientes'
-import { getHousehold } from '@/lib/households'
+import { getHousehold, monthlyBudgetFor } from '@/lib/households'
 import type { CategoryBudgetRow } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
 import { householdQueryKey } from '@/features/household'
@@ -155,7 +155,10 @@ export function CategoryBreakdown({
   const budgetRows = categoryBudgetRows({ categories, summaries: byCategory })
   const overspill = categoryBudgetsOverspill({
     categories,
-    monthlyBudget: householdQuery.data?.monthlyBudget ?? 0,
+    monthlyBudget:
+      householdQuery.data === undefined
+        ? 0
+        : monthlyBudgetFor(householdQuery.data, monthStart),
   })
 
   // An empty month gets the illustration and a sentence, never a donut with
