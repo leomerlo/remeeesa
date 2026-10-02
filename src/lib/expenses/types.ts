@@ -11,6 +11,11 @@ export type Category = {
   // budget: per direct feedback you cap the few that matter and leave the
   // rest alone, and going over the total is a warning, not a refusal.
   readonly monthlyBudget: number
+  // Per-month budgets, keyed "2026-04": a month with no key inherits the
+  // latest earlier one, and null clears from that month on. Read a month's
+  // figure with resolveCategoryBudget, never by indexing this directly.
+  // Replaces monthlyBudget once the Categorías screen moves over to it.
+  readonly budgets: Readonly<Record<string, number | null>>
   readonly createdAt: Date
 }
 

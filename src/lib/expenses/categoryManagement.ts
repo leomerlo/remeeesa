@@ -1,4 +1,5 @@
 import type { HouseholdsDb } from '@/lib/households/types'
+import { parseBudgetMonth, parseCategoryMonthBudget } from './categoryBudgets'
 import type { Category } from './types'
 import {
   parseCategoryBudget,
@@ -66,6 +67,23 @@ export async function updateCategoryBudget(input: {
     householdId: input.householdId,
     categoryId: input.categoryId,
     monthlyBudget: parseCategoryBudget(input.monthlyBudget),
+  })
+}
+
+// One month of the category's per-month budgets; null clears from that
+// month on. See resolveCategoryBudget for how months inherit.
+export async function setCategoryBudget(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly categoryId: string
+  readonly month: string
+  readonly amount: number | null
+}): Promise<Category> {
+  return input.db.setCategoryBudget({
+    householdId: input.householdId,
+    categoryId: input.categoryId,
+    month: parseBudgetMonth(input.month),
+    amount: parseCategoryMonthBudget(input.amount),
   })
 }
 

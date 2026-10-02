@@ -104,6 +104,15 @@ export type HouseholdsDb = {
     readonly categoryId: string
     readonly monthlyBudget: number
   }): Promise<Category>
+  // One month of the category's per-month budgets; null clears from that
+  // month on. Only that month's key is written (not the whole map), so two
+  // members editing different months at once cannot overwrite each other.
+  setCategoryBudget(input: {
+    readonly householdId: string
+    readonly categoryId: string
+    readonly month: string
+    readonly amount: number | null
+  }): Promise<Category>
   // Creates a doc at the new name's id (carrying over color and createdAt),
   // repoints every referencing Expense and Pendiente, then deletes the old doc.
   // Rejects -- writing nothing -- when the new name already belongs to another

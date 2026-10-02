@@ -32,6 +32,10 @@ const UNKNOWN_CATEGORY_NAME = 'Categoría desconocida'
 // amount yet contributes nothing, since there's no number to add. Typed
 // structurally rather than as Pendiente to keep lib/expenses from importing
 // lib/pendientes, which already imports this module.
+//
+// `paidOnly` leaves the unpaid bills out: what a category budget measures is
+// money actually spent, and paying a Pendiente already creates the Expense
+// that counts it.
 export function summarizeByCategory(input: {
   readonly expenses: readonly Expense[]
   readonly categories: readonly Category[]
@@ -39,6 +43,7 @@ export function summarizeByCategory(input: {
     readonly categoryId: string
     readonly expectedAmount: number | null
   }[]
+  readonly paidOnly?: boolean
 }): readonly CategorySummary[] {
   const categoryById = new Map(
     input.categories.map((category) => [category.id, category]),
@@ -63,7 +68,8 @@ export function summarizeByCategory(input: {
   for (const expense of input.expenses) {
     add(expense.categoryId, expense.price)
   }
-  for (const pendiente of input.pendientes ?? []) {
+  const unpaid = input.paidOnly === true ? [] : (input.pendientes ?? [])
+  for (const pendiente of unpaid) {
     if (pendiente.expectedAmount !== null) {
       add(pendiente.categoryId, pendiente.expectedAmount)
     }

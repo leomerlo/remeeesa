@@ -27,6 +27,7 @@ export function defaultCategoryRecords(input: {
     name,
     color: colorForCategoryName(name),
     monthlyBudget: 0,
+    budgets: {},
     createdAt: input.createdAt,
   }))
 }

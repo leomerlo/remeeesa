@@ -3,6 +3,7 @@ import {
   parseRequiredString,
   parseTimestamp,
 } from '@/lib/firestore/documentParsing'
+import { MONTH_KEY_PATTERN } from './monthlyBudget'
 import type { Household, HouseholdInvite, HouseholdMember } from './types'
 import { parseHouseholdName, parseMonthlyBudget } from './validate'
 
@@ -39,8 +40,6 @@ export function parseHouseholdDocument(input: {
 // key is not a month, or whose value is not a usable budget, is dropped
 // rather than failing the whole read: one bad key must not make the
 // household unopenable.
-const MONTH_KEY = /^\d{4}-(0[1-9]|1[0-2])$/
-
 function parseMonthlyBudgets(value: unknown): Readonly<Record<string, number>> {
   if (!isRecord(value)) {
     return {}
@@ -48,7 +47,7 @@ function parseMonthlyBudgets(value: unknown): Readonly<Record<string, number>> {
   const parsed: Record<string, number> = {}
   for (const [key, amount] of Object.entries(value)) {
     if (
-      MONTH_KEY.test(key) &&
+      MONTH_KEY_PATTERN.test(key) &&
       typeof amount === 'number' &&
       Number.isFinite(amount) &&
       amount >= 0

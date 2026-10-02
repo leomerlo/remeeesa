@@ -17,6 +17,7 @@ export {
   deleteCategory,
   mergeCategories,
   renameCategory,
+  setCategoryBudget,
   updateCategoryBudget,
   updateCategoryColor,
 } from './categoryManagement'
@@ -38,9 +39,11 @@ export { summarizeByCategory, summarizeTarjeta } from './summaries'
 export {
   categoryBudgetRows,
   categoryBudgetsOverspill,
+  resolveCategoryBudget,
+  setBudget,
   totalCategoryBudgets,
 } from './categoryBudgets'
-export type { CategoryBudgetRow } from './categoryBudgets'
+export type { CategoryBudgetRow, CategoryMonthBudgets } from './categoryBudgets'
 export type { CategorySummary, TarjetaLine } from './summaries'
 export { isServicio } from './servicio'
 export {

@@ -82,7 +82,7 @@ service cloud.firestore {
     }
 
     function isValidCategory(data) {
-      return data.keys().hasOnly(['household_id', 'name', 'color', 'monthly_budget', 'created_at'])
+      return data.keys().hasOnly(['household_id', 'name', 'color', 'monthly_budget', 'budgets', 'created_at'])
         && data.household_id is string
         && data.household_id.size() > 0
         && data.name is string
@@ -91,12 +91,16 @@ service cloud.firestore {
         && data.color is string
         && data.color.matches('^#[0-9a-fA-F]{6}$')
         && (!('monthly_budget' in data) || (data.monthly_budget is number && data.monthly_budget >= 0))
+        // Per-month budgets, keyed "YYYY-MM". Rules cannot check each entry,
+        // so this only insists on a map of bounded size (20 years of months);
+        // the client drops any entry that is not a month or a budget on read.
+        && (!('budgets' in data) || (data.budgets is map && data.budgets.size() <= 240))
         && data.created_at is timestamp;
     }
 
     function isValidCategoryUpdate() {
       return request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['color', 'name', 'monthly_budget'])
+          .hasOnly(['color', 'name', 'monthly_budget', 'budgets'])
         && request.resource.data.household_id == resource.data.household_id
         && request.resource.data.created_at == resource.data.created_at
         && isValidCategory(request.resource.data);

@@ -21,6 +21,7 @@ import {
   resumenPayment,
 } from '@/lib/cards/purchases'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
+import { setBudget } from '@/lib/expenses/categoryBudgets'
 import {
   CategoryInUseError,
   CategoryNameTakenError,
@@ -444,6 +445,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         name: input.name,
         color: colorForCategoryName(input.name),
         monthlyBudget: 0,
+        budgets: {},
         createdAt: new Date(),
       }
       state.categories.set(id, category)
@@ -465,6 +467,16 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       const updated: Category = {
         ...existing,
         monthlyBudget: parseCategoryBudget(input.monthlyBudget),
+      }
+      state.categories.set(existing.id, updated)
+      return updated
+    },
+    async setCategoryBudget(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const existing = ownCategory(state, input)
+      const updated: Category = {
+        ...existing,
+        budgets: setBudget(existing.budgets, input.month, input.amount),
       }
       state.categories.set(existing.id, updated)
       return updated
