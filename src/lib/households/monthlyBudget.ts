@@ -57,3 +57,45 @@ export function withMonthlyBudgetFor(input: {
     [monthKey(input.month)]: input.monthlyBudget,
   }
 }
+
+// Every month the household could sensibly have a budget for: from the one
+// it was created in through next month, newest first. Next month is
+// included so the budget can be set before the month starts -- which is
+// when a household that plans actually sets it.
+export function budgetableMonths(input: {
+  readonly household: Household
+  readonly now?: Date
+}): readonly Date[] {
+  const now = input.now ?? new Date()
+  const last = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+  // A snapshot older than the household's own createdAt should still be
+  // reachable: it is a month someone deliberately set.
+  const earliestKey = Object.keys(input.household.monthlyBudgets).sort()[0]
+  const createdMonth = new Date(
+    input.household.createdAt.getFullYear(),
+    input.household.createdAt.getMonth(),
+    1,
+  )
+  const first =
+    earliestKey === undefined
+      ? createdMonth
+      : new Date(
+          Math.min(
+            createdMonth.getTime(),
+            new Date(
+              Number(earliestKey.slice(0, 4)),
+              Number(earliestKey.slice(5, 7)) - 1,
+              1,
+            ).getTime(),
+          ),
+        )
+
+  const months: Date[] = []
+  const cursor = new Date(first.getFullYear(), first.getMonth(), 1)
+  // Guarded: a corrupt createdAt must not spin here.
+  while (cursor <= last && months.length < 240) {
+    months.push(new Date(cursor.getFullYear(), cursor.getMonth(), 1))
+    cursor.setMonth(cursor.getMonth() + 1)
+  }
+  return months.reverse()
+}
