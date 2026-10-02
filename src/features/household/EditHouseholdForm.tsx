@@ -7,7 +7,7 @@ import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { formatMonthLabel } from '@/lib/format'
-import { monthlyBudgetFor } from '@/lib/households'
+import { budgetableMonths, monthKey, monthlyBudgetFor } from '@/lib/households'
 import { formatCurrency } from '@/lib/expenses'
 import {
   getHousehold,
@@ -38,13 +38,21 @@ export function EditHouseholdForm({
   const [error, setError] = useState<string | null>(null)
   const household = householdQuery.data
   const name = nameDraft ?? (household !== undefined ? household.name : '')
-  // This month's figure, and what a save writes. A budget belongs to the
-  // month it was decided for -- see lib/households/monthlyBudget -- so this
-  // field is always about the month it is being edited in, never about the
-  // ones already lived.
+  // A budget belongs to the month it was decided for -- see
+  // lib/households/monthlyBudget -- so this field is always about one
+  // month. It defaults to the current one, which is what setting a budget
+  // almost always means; any other month is reachable so one left unset, or
+  // set wrong, can be corrected without editing the database by hand.
   const thisMonth = useMemo(() => new Date(), [])
+  const [selectedKey, setSelectedKey] = useState<string | null>(null)
+  const months = useMemo(
+    () => (household === undefined ? [] : budgetableMonths({ household })),
+    [household],
+  )
+  const selectedMonth =
+    months.find((month) => monthKey(month) === selectedKey) ?? thisMonth
   const currentBudget =
-    household === undefined ? 0 : monthlyBudgetFor(household, thisMonth)
+    household === undefined ? 0 : monthlyBudgetFor(household, selectedMonth)
   const amount = budgetDraft ?? (currentBudget > 0 ? String(currentBudget) : '')
 
   const mutation = useMutation({
@@ -54,6 +62,7 @@ export function EditHouseholdForm({
     }) =>
       updateHousehold({
         db,
+        month: selectedMonth,
         householdId,
         name: input.name,
         monthlyBudget: input.monthlyBudget,
@@ -114,6 +123,30 @@ export function EditHouseholdForm({
             </p>
           ) : null}
         </div>
+        {/* Its own line rather than squeezed beside the label: at phone
+            width the three of them turned "Presupuesto mensual" into two
+            wrapped lines with the amount beside it. */}
+        {months.length > 1 ? (
+          <select
+            aria-label="Mes del presupuesto"
+            value={monthKey(selectedMonth)}
+            onChange={(event) => {
+              setSelectedKey(event.target.value)
+              // The draft belonged to the month being left; the field has
+              // to show what the newly picked month actually holds.
+              setBudgetDraft(null)
+              setError(null)
+            }}
+            className="border-input bg-background h-11 w-full rounded-lg border px-3 text-sm"
+          >
+            {months.map((month) => (
+              <option key={monthKey(month)} value={monthKey(month)}>
+                {formatMonthLabel(month)}
+              </option>
+            ))}
+          </select>
+        ) : null}
+
         {/* The peso sign lives beside the field rather than inside its value:
             the raw number stays parseable, but the input stops reading as a
             bare "500000" next to amounts formatted everywhere else.
@@ -142,7 +175,7 @@ export function EditHouseholdForm({
             month this writes to is the only place the app can explain
             that. See lib/households/monthlyBudget. */}
         <p className="text-muted-foreground text-xs">
-          Se guarda para {formatMonthLabel(thisMonth)}. Los meses anteriores
+          Se guarda para {formatMonthLabel(selectedMonth)}. Los demás meses
           quedan con el presupuesto que tenían.
         </p>
       </div>

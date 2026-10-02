@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  budgetableMonths,
   monthKey,
   monthlyBudgetFor,
   withMonthlyBudgetFor,
@@ -120,5 +121,67 @@ describe('withMonthlyBudgetFor', () => {
         monthlyBudget: 6000000,
       }),
     ).toEqual({ '2026-09': 6000000 })
+  })
+})
+
+describe('budgetableMonths', () => {
+  function since(createdAt: Date, snapshots = {}): Household {
+    return { ...household(snapshots), createdAt }
+  }
+
+  it('runs from the month the household was created to the one after now', () => {
+    const months = budgetableMonths({
+      household: since(new Date(2026, 8, 12)),
+      now: new Date(2026, 9, 2),
+    })
+
+    expect(months.map(monthKey)).toEqual(['2026-11', '2026-10', '2026-09'])
+  })
+
+  // Newest first: the month you are most likely to be setting is the one
+  // the list opens on.
+  it('puts the most recent month first', () => {
+    const [first] = budgetableMonths({
+      household: since(new Date(2026, 8, 12)),
+      now: new Date(2026, 9, 2),
+    })
+
+    expect(first === undefined ? null : monthKey(first)).toBe('2026-11')
+  })
+
+  // Next month is offered so a household that plans can set the budget
+  // before the month starts.
+  it('always reaches one month past now', () => {
+    const months = budgetableMonths({
+      household: since(new Date(2026, 9, 1)),
+      now: new Date(2026, 9, 2),
+    })
+
+    expect(months.map(monthKey)).toEqual(['2026-11', '2026-10'])
+  })
+
+  // A snapshot older than the household itself is still a month someone
+  // deliberately set, so it has to stay reachable.
+  it('reaches back to a snapshot older than the household', () => {
+    const months = budgetableMonths({
+      household: since(new Date(2026, 9, 1), { '2026-08': 500 }),
+      now: new Date(2026, 9, 2),
+    })
+
+    expect(months.map(monthKey)).toEqual([
+      '2026-11',
+      '2026-10',
+      '2026-09',
+      '2026-08',
+    ])
+  })
+
+  it('crosses a year boundary', () => {
+    const months = budgetableMonths({
+      household: since(new Date(2026, 11, 3)),
+      now: new Date(2027, 0, 5),
+    })
+
+    expect(months.map(monthKey)).toEqual(['2027-02', '2027-01', '2026-12'])
   })
 })

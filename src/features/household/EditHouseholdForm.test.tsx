@@ -2,7 +2,12 @@ import { useQuery } from '@tanstack/react-query'
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
-import { createHouseholdWithMembership, getHousehold } from '@/lib/households'
+import {
+  createHouseholdWithMembership,
+  getHousehold,
+  monthKey,
+  monthlyBudgetFor,
+} from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
@@ -134,6 +139,62 @@ describe('EditHouseholdForm', () => {
 
   // Clearing the budget is how a household goes back to having none -- the
   // app supports that state, so zero saves rather than being rejected.
+  // A budget belongs to one month. Writing next month's must not disturb
+  // this month's -- the whole point of the change.
+  it('writes the budget for the month picked, leaving the others alone', async () => {
+    const { householdId, db } = await renderEditHouseholdForm({
+      monthlyBudget: 100,
+    })
+    const now = new Date()
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+
+    expect(await screen.findByRole('status')).toHaveTextContent('100')
+    await submitBudget('900000')
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('$900.000')
+    })
+
+    fireEvent.change(screen.getByLabelText('Mes del presupuesto'), {
+      target: { value: monthKey(nextMonth) },
+    })
+    await submitBudget('5355000')
+
+    await waitFor(async () => {
+      const stored = await getHousehold({ db, householdId })
+      expect(monthlyBudgetFor(stored, nextMonth)).toBe(5355000)
+    })
+    const stored = await getHousehold({ db, householdId })
+    expect(monthlyBudgetFor(stored, now)).toBe(900000)
+  })
+
+  it("shows each month's own figure as the selector moves between them", async () => {
+    await renderEditHouseholdForm({ monthlyBudget: 100 })
+    const now = new Date()
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+
+    expect(await screen.findByRole('status')).toHaveTextContent('100')
+    fireEvent.change(screen.getByLabelText('Mes del presupuesto'), {
+      target: { value: monthKey(nextMonth) },
+    })
+    await submitBudget('5355000')
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('$5.355.000')
+    })
+    expect(
+      screen.getByText(/Se guarda para .* Los demás meses/),
+    ).toBeInTheDocument()
+
+    // Back to this month: its own figure, untouched by what was just
+    // written to the next one.
+    fireEvent.change(screen.getByLabelText('Mes del presupuesto'), {
+      target: { value: monthKey(now) },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('100')
+    })
+  })
+
   it('clears the budget when zero is submitted, and says so', async () => {
     const { householdId, db } = await renderEditHouseholdForm({
       monthlyBudget: 100,

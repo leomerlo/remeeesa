@@ -36,6 +36,7 @@ export { parseHouseholdName, parseMonthlyBudget } from './validate'
 export { useHouseholdMembership } from './useHouseholdMembership'
 export type { UseHouseholdMembershipResult } from './useHouseholdMembership'
 export {
+  budgetableMonths,
   monthKey,
   monthlyBudgetFor,
   withMonthlyBudgetFor,
