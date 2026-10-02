@@ -1,5 +1,4 @@
 import { MONTH_KEY_PATTERN } from '@/lib/households/monthlyBudget'
-import { parseMonthlyBudget } from '@/lib/households/validate'
 import type { CategorySummary } from './summaries'
 import type { Category } from './types'
 
@@ -103,13 +102,15 @@ export function parseBudgetMonth(month: string): string {
   return month
 }
 
-// Null clears; an amount has to be a real budget. Zero is refused rather
-// than read as "clear" so the two can never be confused in storage.
+// Null clears; an amount has to be a real budget. The household budget's
+// rule (a finite, non-negative number) plus one more: zero is refused rather
+// than read as "clear", so the two can never be confused in storage. Its own
+// message, since the household's talks about the monthly budget.
 export function parseCategoryMonthBudget(amount: number | null): number | null {
   if (amount === null) {
     return null
   }
-  if (parseMonthlyBudget(amount) <= 0) {
+  if (!Number.isFinite(amount) || amount <= 0) {
     throw new Error('El presupuesto de la categoría tiene que ser mayor a 0')
   }
   return amount

@@ -738,6 +738,8 @@ export function createFirestoreHouseholdsDb(
             new FieldPath('budgets', input.month),
             budgets[input.month] ?? null,
           )
+          // Other months are as of the read above; a month another member
+          // saved meanwhile is in the doc and shows up on the next fetch.
           return { ...existing, budgets }
         },
         {

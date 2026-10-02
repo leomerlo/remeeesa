@@ -202,14 +202,18 @@ describe('setBudget', () => {
   it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY])(
     'refuses %s as an amount',
     (amount) => {
-      expect(() => setBudget({}, '2026-04', amount)).toThrow()
+      expect(() => setBudget({}, '2026-04', amount)).toThrow(
+        'El presupuesto de la categoría tiene que ser mayor a 0',
+      )
     },
   )
 
   it.each(['2026-13', '2026-4', 'abril', ''])(
     'refuses %j as a month',
     (month) => {
-      expect(() => setBudget({}, month, 300)).toThrow()
+      expect(() => setBudget({}, month, 300)).toThrow(
+        'El mes del presupuesto no es válido',
+      )
     },
   )
 })

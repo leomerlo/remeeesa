@@ -10,6 +10,7 @@ import { CATEGORY_COLOR_PALETTE } from './categoryColor'
 import {
   CategoryInUseError,
   CategoryNameTakenError,
+  CategoryNotFoundError,
   deleteCategory,
   mergeCategories,
   renameCategory,
@@ -201,6 +202,38 @@ describe('setCategoryBudget', () => {
 
     const reread = await listCategories({ db, householdId })
     expect(reread.find((c) => c.id === comida.id)?.budgets).toEqual({})
+  })
+
+  it('writes nothing for a month that is not a "YYYY-MM" key', async () => {
+    const { db, householdId, byName } = await seedHousehold()
+    const comida = categoryOrThrow(byName, 'Comida')
+
+    await expect(
+      setCategoryBudget({
+        db,
+        householdId,
+        categoryId: comida.id,
+        month: '2026-13',
+        amount: 300,
+      }),
+    ).rejects.toThrow('mes')
+
+    const reread = await listCategories({ db, householdId })
+    expect(reread.find((c) => c.id === comida.id)?.budgets).toEqual({})
+  })
+
+  it('refuses a category that does not exist', async () => {
+    const { db, householdId } = await seedHousehold()
+
+    await expect(
+      setCategoryBudget({
+        db,
+        householdId,
+        categoryId: `${householdId}_nope`,
+        month: '2026-04',
+        amount: 300,
+      }),
+    ).rejects.toThrow(CategoryNotFoundError)
   })
 
   it('refuses someone outside the household', async () => {
