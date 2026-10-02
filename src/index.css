@@ -378,6 +378,7 @@
   --color-dot-pending: var(--dot-pending);
   --color-due-soon: var(--surface-due-soon);
   --color-success: var(--text-success);
+  --color-success-surface: var(--surface-success);
   --color-error: var(--text-error);
   --color-error-surface: var(--surface-error);
   --color-error-surface-hover: var(--surface-error-hover);

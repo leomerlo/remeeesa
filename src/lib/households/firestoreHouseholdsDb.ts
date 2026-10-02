@@ -480,8 +480,19 @@ export function createFirestoreHouseholdsDb(
           id: snap.id,
           data: snap.data(),
         })
-        await updateDoc(householdRef, { monthly_budget: input.monthlyBudget })
-        return { ...current, monthlyBudget: input.monthlyBudget }
+        // monthly_budgets as well as monthly_budget: the snapshots are
+        // where a month's own figure lives, and writing only the flat field
+        // means the save appears to work while every month keeps reading
+        // the same number. See lib/households/monthlyBudget.
+        await updateDoc(householdRef, {
+          monthly_budget: input.monthlyBudget,
+          monthly_budgets: input.monthlyBudgets,
+        })
+        return {
+          ...current,
+          monthlyBudget: input.monthlyBudget,
+          monthlyBudgets: input.monthlyBudgets,
+        }
       })
     },
     async updateHousehold(input) {
@@ -498,11 +509,13 @@ export function createFirestoreHouseholdsDb(
         await updateDoc(householdRef, {
           name: input.name,
           monthly_budget: input.monthlyBudget,
+          monthly_budgets: input.monthlyBudgets,
         })
         return {
           ...current,
           name: input.name,
           monthlyBudget: input.monthlyBudget,
+          monthlyBudgets: input.monthlyBudgets,
         }
       })
     },
