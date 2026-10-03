@@ -184,6 +184,7 @@ describe('parseExpenseDocument', () => {
       pendienteId: null,
       isService: false,
       subcategory: null,
+      currency: 'ARS',
       createdAt: new Date('2026-08-16T12:00:00.000Z'),
     })
   })
@@ -317,6 +318,7 @@ describe('toDocument converters', () => {
       pendiente_id: null,
       is_service: false,
       subcategory: null,
+      currency: 'ARS',
       created_at: createdAt,
     })
   })

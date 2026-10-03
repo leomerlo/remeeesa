@@ -339,6 +339,8 @@ describe('createExpense', () => {
       pendienteId: null,
       isService: false,
       subcategory: null,
+      // Pesos unless the caller says otherwise, which almost nothing does.
+      currency: 'ARS',
       createdAt: expect.any(Date),
     })
     expect(expense.id.length).toBeGreaterThan(0)

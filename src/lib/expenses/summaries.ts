@@ -1,3 +1,4 @@
+import { countedByBudget } from '@/lib/money'
 import { colorForCategoryName } from './categoryColor'
 import type { Category, Expense } from './types'
 
@@ -60,7 +61,7 @@ export function summarizeByCategory(input: {
     }
   }
 
-  for (const expense of input.expenses) {
+  for (const expense of countedByBudget(input.expenses)) {
     add(expense.categoryId, expense.price)
   }
   for (const pendiente of input.pendientes ?? []) {
@@ -107,7 +108,7 @@ export function summarizeTarjeta(input: {
 }): readonly TarjetaLine[] {
   const bySubcategory = new Map<string, number>()
   let ajuste: number | null = null
-  for (const expense of input.expenses) {
+  for (const expense of countedByBudget(input.expenses)) {
     if (expense.categoryId !== input.categoryId) continue
     if (expense.subcategory === null) {
       ajuste = (ajuste ?? 0) + expense.price

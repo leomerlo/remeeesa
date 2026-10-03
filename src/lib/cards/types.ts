@@ -1,7 +1,12 @@
+import type { Currency } from '@/lib/money'
 export type Card = {
   readonly id: string
   readonly householdId: string
   readonly name: string
+  // The whole card is in one currency: its purchases, its Resúmenes, and
+  // the expenses paying a Resumen creates. A dollar card's money is
+  // recorded but never counted toward the budget -- see lib/money/currency.
+  readonly currency: Currency
   readonly createdAt: Date
 }
 

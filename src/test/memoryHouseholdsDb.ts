@@ -1,3 +1,4 @@
+import { DEFAULT_CURRENCY } from '@/lib/money'
 import {
   PendienteAlreadyPaidError,
   PendienteNotFoundError,
@@ -537,6 +538,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         pendienteId: null,
         isService: false,
         subcategory: null,
+        currency: input.currency ?? DEFAULT_CURRENCY,
         createdAt: new Date(),
       }
       state.expenses.set(expense.id, expense)
@@ -693,6 +695,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         id: crypto.randomUUID(),
         householdId: input.householdId,
         name: input.name,
+        currency: input.currency,
         createdAt: new Date(),
       }
       state.cards.set(card.id, card)
@@ -1032,6 +1035,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         // paid.
         isService: existing.recurring,
         subcategory: null,
+        currency: DEFAULT_CURRENCY,
         createdAt,
       }
       const updated: Pendiente = {
@@ -1083,6 +1087,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       })
       const createdAt = new Date()
       const expenses = payment.expenses.map((line): Expense => ({
+        currency: input.currency,
         id: crypto.randomUUID(),
         householdId: input.householdId,
         categoryId: input.tarjetaCategoryId,

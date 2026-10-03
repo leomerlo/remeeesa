@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { createCard, listCards, renameCard } from '@/lib/cards'
+import { DEFAULT_CURRENCY } from '@/lib/money'
+import type { Currency } from '@/lib/money'
 import type { Card } from '@/lib/cards'
 import type { HouseholdsDb } from '@/lib/households'
 import { pendientesQueryKey } from '@/features/pendientes/queryKeys'
@@ -22,6 +24,10 @@ export function CardsSection({
   householdId,
 }: CardsSectionProps): ReactElement {
   const [name, setName] = useState('')
+  // Fixed when the card is created and never edited afterwards: its past
+  // Resúmenes are already denominated, so changing it would rewrite what
+  // they meant.
+  const [currency, setCurrency] = useState<Currency>(DEFAULT_CURRENCY)
   const [error, setError] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const queryKey = cardsQueryKey({ householdId })
@@ -33,13 +39,14 @@ export function CardsSection({
 
   const mutation = useMutation({
     mutationFn: (cardName: string) =>
-      createCard({ db, householdId, name: cardName }),
+      createCard({ db, householdId, name: cardName, currency }),
     onMutate: () => {
       setError(null)
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey })
       setName('')
+      setCurrency(DEFAULT_CURRENCY)
     },
     onError: (caught: unknown) => {
       setError(
@@ -99,6 +106,18 @@ export function CardsSection({
       <form onSubmit={handleSubmit} className="flex flex-col gap-2">
         <Label htmlFor="new-card-name">Nombre de la tarjeta</Label>
         <div className="flex items-center gap-2">
+          <select
+            aria-label="Moneda de la tarjeta"
+            value={currency}
+            disabled={mutation.isPending}
+            onChange={(event) => {
+              setCurrency(event.target.value === 'USD' ? 'USD' : 'ARS')
+            }}
+            className="border-input bg-background h-12 shrink-0 rounded-lg border px-2 text-sm"
+          >
+            <option value="ARS">$</option>
+            <option value="USD">US$</option>
+          </select>
           <Input
             id="new-card-name"
             value={name}
@@ -167,7 +186,18 @@ function CardRow({
   if (draft === null) {
     return (
       <li className="flex items-center justify-between gap-2">
-        <span className="text-foreground text-sm font-medium">{card.name}</span>
+        <span className="flex min-w-0 items-center gap-2">
+          <span className="text-foreground truncate text-sm font-medium">
+            {card.name}
+          </span>
+          {/* Only the dollar ones are marked: pesos are the default and
+              labelling every card would say nothing. */}
+          {card.currency === 'USD' ? (
+            <span className="bg-muted text-muted-foreground shrink-0 rounded-full px-2 py-0.5 text-xs font-medium">
+              US$
+            </span>
+          ) : null}
+        </span>
         <Button
           type="button"
           variant="ghost"

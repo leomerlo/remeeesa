@@ -151,6 +151,15 @@ describe('the adapter persists per-month budgets', () => {
   })
 })
 
+describe('firestore.rules currencies', () => {
+  it('accepts a currency on an expense, and only the two the app knows', () => {
+    expect(rules).toContain("'subcategory', 'currency', 'created_at'")
+    expect(rules).toContain(
+      "(!('currency' in data) || data.currency in ['ARS', 'USD'])",
+    )
+  })
+})
+
 describe('firestore.rules invite join', () => {
   it('lets any signed-in user get an invite by token', () => {
     expect(rules).toMatch(
@@ -312,7 +321,7 @@ describe('firestore.rules expenses', () => {
   it('lets members create expenses attributed to themselves with price and date checks', () => {
     expect(rules).toContain('function isValidExpense(data)')
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'category_id', 'member_id', 'name', 'price', 'comments', 'expense_date', 'pendiente_id', 'is_service', 'subcategory', 'created_at', 'author_display_name'])",
+      "data.keys().hasOnly(['household_id', 'category_id', 'member_id', 'name', 'price', 'comments', 'expense_date', 'pendiente_id', 'is_service', 'subcategory', 'currency', 'created_at', 'author_display_name'])",
     )
     expect(rules).toContain('data.price is number')
     expect(rules).toContain('data.price > 0')
@@ -686,7 +695,12 @@ describe('firestore.rules cards', () => {
   it('restricts card fields and requires a non-blank name', () => {
     expect(rules).toContain('function isValidCard(data)')
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'name', 'created_at'])",
+      "data.keys().hasOnly(['household_id', 'name', 'currency', 'created_at'])",
+    )
+    // Optional, because every card written before currencies existed has
+    // no such key, and only ever one of the two the app knows.
+    expect(rules).toContain(
+      "(!('currency' in data) || data.currency in ['ARS', 'USD'])",
     )
     const body = rules.slice(rules.indexOf('function isValidCard(data)'))
     const fn = body.slice(0, body.indexOf('}'))

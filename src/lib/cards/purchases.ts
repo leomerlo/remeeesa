@@ -1,3 +1,4 @@
+import { DEFAULT_CURRENCY } from '@/lib/money'
 import type { Expense } from '@/lib/expenses/types'
 import {
   parseAuthorDisplayName,
@@ -318,7 +319,19 @@ export async function markResumenPaid(input: {
     householdId: input.householdId,
     name: RESUMEN_CATEGORY_NAME,
   })
+  // Which card's Resumen this is decides the currency of the expenses the
+  // payment writes. Read before the transaction: the transaction re-checks
+  // the Resumen's own state, and the card's currency cannot change.
+  const resumen = await input.db.getPendiente({
+    householdId: input.householdId,
+    pendienteId: input.resumenId,
+  })
+  const cards = await input.db.listCards({ householdId: input.householdId })
+  const currency =
+    cards.find((card) => card.id === resumen?.cardId)?.currency ??
+    DEFAULT_CURRENCY
   return input.db.markResumenPaid({
+    currency,
     householdId: input.householdId,
     resumenId: input.resumenId,
     memberId: input.memberId,

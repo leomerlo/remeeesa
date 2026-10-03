@@ -25,6 +25,9 @@ export function TintedBadge({
     <span
       className={cn(
         'inline-block max-w-full truncate rounded bg-[var(--badge-bg)] px-1.5 py-0.5 text-xs font-medium text-[var(--badge-fg)]',
+        // A caller may opt out of truncating (see Histórico's currency
+        // badge, whose whole value is the sentence).
+
         className,
       )}
       style={cssVars({ '--badge-bg': background, '--badge-fg': foreground })}

@@ -4,6 +4,7 @@ import {
   parseTimestamp,
 } from '@/lib/firestore/documentParsing'
 import { parseStringList } from '@/lib/pendientes/converters'
+import { parseCurrency } from '@/lib/money'
 import type { Card, CardPurchase } from './types'
 
 export function parseCardDocument(input: {
@@ -16,11 +17,13 @@ export function parseCardDocument(input: {
   if (!isRecord(input.data)) {
     throw new Error('Card document must be an object')
   }
-  const { household_id, name, created_at } = input.data
+  const { household_id, name, currency, created_at } = input.data
   return {
     id: input.id,
     householdId: parseRequiredString(household_id, 'household_id'),
     name: parseRequiredString(name, 'name').trim(),
+    // Every card written before currencies existed is in pesos.
+    currency: parseCurrency(currency),
     createdAt: parseTimestamp(created_at, 'created_at'),
   }
 }
