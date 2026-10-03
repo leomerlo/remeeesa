@@ -1,3 +1,4 @@
+import type { Currency } from '@/lib/money'
 import type { HouseholdsDb } from '@/lib/households/types'
 import type { ExpenseHistoryCursor, ExpenseHistoryPage } from './history'
 import type { Category, Expense } from './types'
@@ -46,8 +47,12 @@ export async function createExpense(input: {
   readonly price: number
   readonly comments: string
   readonly expenseDate: Date
+  // Pesos when omitted. A dollar gasto is recorded and shown but never
+  // counted -- see lib/money/currency.
+  readonly currency?: Currency
 }): Promise<Expense> {
   return input.db.createExpense({
+    ...(input.currency === undefined ? {} : { currency: input.currency }),
     householdId: input.householdId,
     categoryId: input.categoryId,
     memberId: input.memberId,

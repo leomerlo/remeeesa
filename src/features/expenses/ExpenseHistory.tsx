@@ -14,6 +14,7 @@ import {
   csvFileNameForMonth,
   currentMonthRange,
   expensesToCsv,
+  formatAmount,
   formatCurrency,
   isServicio,
   listCategories,
@@ -106,15 +107,30 @@ function ExpenseRow({
         meta={authorDisplayName}
         amount={
           <span className="font-display text-foreground text-lg">
-            {formatCurrency(expense.price)}
+            {formatAmount(expense.price, expense.currency)}
           </span>
         }
-        // "Servicio" marks an Expense created by paying a Pendiente (a
-        // bill), or one manually tagged as such (isService), so it reads
-        // apart from a plain Gasto logged directly.
-        {...(isServicio(expense)
-          ? { badge: <TintedBadge label="Servicio" color="#4e4c56" /> }
-          : {})}
+        // A dollar row says so where the badge goes, and says why it is not
+        // in the month's total -- otherwise the total underneath looks
+        // wrong by exactly this row. It wins over "Servicio": a reader who
+        // sees one badge should see the one that changes what the number
+        // means.
+        {...(expense.currency === 'USD'
+          ? {
+              badge: (
+                // Allowed to wrap rather than truncate: this badge is the
+                // reason the month's total does not include the row, and
+                // "En dólares · no afecta el pre…" explains nothing.
+                <TintedBadge
+                  label="En dólares · no afecta el presupuesto"
+                  color="#4e4c56"
+                  className="whitespace-normal text-balance"
+                />
+              ),
+            }
+          : isServicio(expense)
+            ? { badge: <TintedBadge label="Servicio" color="#4e4c56" /> }
+            : {})}
         {...(onEditExpense === undefined
           ? {}
           : {

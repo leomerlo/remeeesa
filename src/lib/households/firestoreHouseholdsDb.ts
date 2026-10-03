@@ -1459,9 +1459,7 @@ export function createFirestoreHouseholdsDb(
             // Minted per attempt: only the committed attempt's ids are
             // written, and those are the ones returned.
             const expenses = payment.expenses.map((line): Expense => ({
-              // Paying a card's Resumen is a peso payment today; a dollar card's
-              // Resumen carries its own currency (see markResumenPaid).
-              currency: DEFAULT_CURRENCY,
+              currency: input.currency,
               id: doc(collection(firestore, 'expenses')).id,
               householdId: input.householdId,
               categoryId: input.tarjetaCategoryId,
@@ -1539,12 +1537,14 @@ export function createFirestoreHouseholdsDb(
           await setDoc(cardRef, {
             household_id: input.householdId,
             name: input.name,
+            currency: input.currency,
             created_at: now,
           })
           return {
             id: cardRef.id,
             householdId: input.householdId,
             name: input.name,
+            currency: input.currency,
             createdAt: now.toDate(),
           }
         },

@@ -238,6 +238,62 @@ describe('AddGastoSheet (unified add flow)', () => {
     expect(sheetContent?.contains(listbox)).toBe(true)
   })
 
+  // Dollars are recorded but never counted; the form says so where the
+  // amount is typed, so the figure is never a surprise later.
+  it('records a gasto in dollars and warns it will not touch the budget', async () => {
+    const { db, householdId } = await renderForm()
+
+    fillCommon({ name: 'Hosting', category: 'Servicios' })
+    fireEvent.change(screen.getByLabelText('Moneda'), {
+      target: { value: 'USD' },
+    })
+    expect(
+      screen.getByText(
+        'Los gastos en dólares se registran pero no se descuentan del presupuesto del mes.',
+      ),
+    ).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Precio'), {
+      target: { value: '20' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
+    })
+
+    const expenses = await listExpensesInMonth({
+      db,
+      householdId,
+      ...currentMonthRange(),
+    })
+    expect(expenses).toEqual([
+      expect.objectContaining({ name: 'Hosting', price: 20, currency: 'USD' }),
+    ])
+  })
+
+  it('records a gasto in pesos without saying anything about currency', async () => {
+    const { db, householdId } = await renderForm()
+
+    fillCommon({ name: 'Café', category: 'Comida' })
+    fireEvent.change(screen.getByLabelText('Precio'), {
+      target: { value: '2500' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
+    })
+
+    const expenses = await listExpensesInMonth({
+      db,
+      householdId,
+      ...currentMonthRange(),
+    })
+    expect(expenses).toEqual([
+      expect.objectContaining({ name: 'Café', currency: 'ARS' }),
+    ])
+  })
+
   it('enables Débito automático only while Recurrente is on, and clears it when Recurrente is switched off', async () => {
     await renderForm()
 

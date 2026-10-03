@@ -8,6 +8,8 @@ import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { DEFAULT_CURRENCY } from '@/lib/money'
+import type { Currency } from '@/lib/money'
 import { CategoryCombobox } from './CategoryCombobox'
 import {
   createExpense,
@@ -228,6 +230,9 @@ export function AddGastoForm({
   const [category, setCategory] = useState(initialFields.category)
   const [date, setDate] = useState(initialFields.date)
   const [amount, setAmount] = useState(initialFields.amount)
+  // Pesos by default: a dollar gasto is the exception, and the budget only
+  // ever counts pesos -- see lib/money/currency.
+  const [currency, setCurrency] = useState<Currency>(DEFAULT_CURRENCY)
   const [recurring, setRecurring] = useState(initialFields.recurring)
   const [autoDebit, setAutoDebit] = useState(initialFields.autoDebit)
   // Checked by default: adding a gasto usually means logging something that
@@ -248,6 +253,13 @@ export function AddGastoForm({
   })
   const cards = cardsQuery.data ?? []
   const isCard = cardId !== ''
+  // Paying with a card makes this a CardPurchase, and the card's own
+  // currency governs it -- picking a different one here would be a choice
+  // the purchase cannot honour. Off a card, the choice is the user's.
+  const cardCurrency = cards.find((card) => card.id === cardId)?.currency
+  const effectiveCurrency: Currency = isCard
+    ? (cardCurrency ?? DEFAULT_CURRENCY)
+    : currency
 
   async function invalidateGastoViews(): Promise<void> {
     await queryClient.invalidateQueries({ queryKey: categoriesKey })
@@ -308,6 +320,7 @@ export function AddGastoForm({
           price: fields.amount ?? 0,
           comments: '',
           expenseDate: fields.date,
+          currency: effectiveCurrency,
         })
         return
       }
@@ -344,6 +357,7 @@ export function AddGastoForm({
       setCategory(reset.category)
       setDate(reset.date)
       setAmount(reset.amount)
+      setCurrency(DEFAULT_CURRENCY)
       setRecurring(reset.recurring)
       setAutoDebit(reset.autoDebit)
       setMarkPaid(defaultDueDate === undefined)
@@ -505,22 +519,47 @@ export function AddGastoForm({
           <Label htmlFor="gasto-amount">
             {isPlainGasto ? 'Precio' : 'Monto esperado'}
           </Label>
-          <div className="relative">
-            <span
-              aria-hidden="true"
-              className="text-muted-foreground pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
-            >
-              $
-            </span>
-            <FormattedAmountInput
-              id="gasto-amount"
-              name="gasto-amount"
-              className="pl-8"
-              value={amount}
-              onChange={setAmount}
-              autoComplete="off"
-            />
+          <div className="flex w-full items-center gap-2">
+            {/* The currency sits with the amount because that is what it
+                qualifies. Pesos is the default and the usual case. With a
+                card chosen it stops being a choice: the card's own currency
+                is shown instead. */}
+            {isCard ? (
+              <span
+                aria-hidden="true"
+                className="border-input bg-muted text-muted-foreground flex h-12 shrink-0 items-center rounded-lg border px-3 text-sm"
+              >
+                {effectiveCurrency === 'USD' ? 'US$' : '$'}
+              </span>
+            ) : (
+              <select
+                aria-label="Moneda"
+                value={currency}
+                onChange={(event) => {
+                  setCurrency(event.target.value === 'USD' ? 'USD' : 'ARS')
+                }}
+                className="border-input bg-background h-12 shrink-0 rounded-lg border px-2 text-sm"
+              >
+                <option value="ARS">$</option>
+                <option value="USD">US$</option>
+              </select>
+            )}
+            <div className="relative min-w-0 flex-1">
+              <FormattedAmountInput
+                id="gasto-amount"
+                name="gasto-amount"
+                value={amount}
+                onChange={setAmount}
+                autoComplete="off"
+              />
+            </div>
           </div>
+          {effectiveCurrency === 'USD' ? (
+            <p className="text-muted-foreground text-xs">
+              Los gastos en dólares se registran pero no se descuentan del
+              presupuesto del mes.
+            </p>
+          ) : null}
         </div>
 
         <div className="flex w-full flex-col gap-2">

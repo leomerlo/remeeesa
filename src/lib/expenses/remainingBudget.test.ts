@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  formatAmount,
   computePendingCommitted,
   computePercentUsed,
   computeRemainingBudget,
@@ -263,5 +264,21 @@ describe('currentMonthRange', () => {
 
     expect(monthStart).toEqual(new Date(2026, 11, 1))
     expect(monthEnd).toEqual(new Date(2026, 11, 31, 23, 59, 59, 999))
+  })
+})
+
+describe('formatAmount', () => {
+  it('leaves a peso amount as the bare "$" the whole app uses', () => {
+    expect(formatAmount(1234.5, 'ARS')).toBe('$1.234,50')
+  })
+
+  // "$" alone always means pesos here, so a dollar figure has to say so.
+  it('marks a dollar amount as US$', () => {
+    expect(formatAmount(1234.5, 'USD')).toBe('US$1.234,50')
+  })
+
+  it('keeps the round-amount rule in both currencies', () => {
+    expect(formatAmount(1000, 'ARS')).toBe('$1.000')
+    expect(formatAmount(1000, 'USD')).toBe('US$1.000')
   })
 })

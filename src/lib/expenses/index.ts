@@ -28,6 +28,7 @@ export {
   computeSpentThisMonth,
   currentMonthRange,
   formatBudgetAmount,
+  formatAmount,
   formatCurrency,
   isDateInCurrentMonth,
 } from './remainingBudget'

@@ -695,6 +695,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         id: crypto.randomUUID(),
         householdId: input.householdId,
         name: input.name,
+        currency: input.currency,
         createdAt: new Date(),
       }
       state.cards.set(card.id, card)
@@ -1086,9 +1087,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       })
       const createdAt = new Date()
       const expenses = payment.expenses.map((line): Expense => ({
-        // Paying a card's Resumen is a peso payment today; a dollar card's
-        // Resumen carries its own currency (see markResumenPaid).
-        currency: DEFAULT_CURRENCY,
+        currency: input.currency,
         id: crypto.randomUUID(),
         householdId: input.householdId,
         categoryId: input.tarjetaCategoryId,

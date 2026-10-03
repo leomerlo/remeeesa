@@ -261,6 +261,10 @@ export type HouseholdsDb = {
     readonly amountPaid: number
     readonly paymentDate: Date
     readonly tarjetaCategoryId: string
+    // The card's own currency, stamped on every Expense the payment
+    // creates. A dollar card's Resumen settles in dollars, and those
+    // expenses are recorded without ever reaching the budget.
+    readonly currency: Currency
   }): Promise<{
     readonly pendiente: Pendiente
     readonly expenses: readonly Expense[]
@@ -269,6 +273,7 @@ export type HouseholdsDb = {
   createCard(input: {
     readonly householdId: string
     readonly name: string
+    readonly currency: Currency
   }): Promise<Card>
   // One batch: the card's name and the name of every Resumen of the card,
   // whatever its status. Rejects with CardNotFoundError for a card outside

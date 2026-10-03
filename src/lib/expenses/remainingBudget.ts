@@ -28,6 +28,15 @@ export function formatCurrency(amount: number): string {
   return `$${format.format(magnitude)}`
 }
 
+// The same figure, said in its own currency. Pesos keep the bare "$" the
+// whole app uses; dollars get "US$", which is how an Argentine reads the
+// difference at a glance -- "$" alone always means pesos here.
+export function formatAmount(amount: number, currency: Currency): string {
+  return currency === 'USD'
+    ? `US${formatCurrency(amount)}`
+    : formatCurrency(amount)
+}
+
 export function formatBudgetAmount(amount: number): string {
   return amount < 0 ? `-${formatCurrency(amount)}` : formatCurrency(amount)
 }

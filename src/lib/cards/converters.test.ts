@@ -10,7 +10,29 @@ describe('parseCardDocument', () => {
         id: 'card-1',
         data: { household_id: 'h-1', name: 'Visa', created_at: createdAt },
       }),
-    ).toEqual({ id: 'card-1', householdId: 'h-1', name: 'Visa', createdAt })
+    ).toEqual({
+      id: 'card-1',
+      householdId: 'h-1',
+      name: 'Visa',
+      // No stored currency: every card written before they existed is in
+      // pesos, since there was no way to record anything else.
+      currency: 'ARS',
+      createdAt,
+    })
+  })
+
+  it('reads a card stored in dollars', () => {
+    expect(
+      parseCardDocument({
+        id: 'card-1',
+        data: {
+          household_id: 'h-1',
+          name: 'Amex',
+          currency: 'USD',
+          created_at: createdAt,
+        },
+      }).currency,
+    ).toBe('USD')
   })
 
   it('rejects a blank name', () => {
