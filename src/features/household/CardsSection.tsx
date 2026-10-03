@@ -5,6 +5,7 @@ import { AlertMessage } from '@/components/ui/alert-message'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { createCard, listCards, renameCard } from '@/lib/cards'
 import { DEFAULT_CURRENCY } from '@/lib/money'
@@ -106,18 +107,18 @@ export function CardsSection({
       <form onSubmit={handleSubmit} className="flex flex-col gap-2">
         <Label htmlFor="new-card-name">Nombre de la tarjeta</Label>
         <div className="flex items-center gap-2">
-          <select
+          <Select
             aria-label="Moneda de la tarjeta"
             value={currency}
             disabled={mutation.isPending}
             onChange={(event) => {
               setCurrency(event.target.value === 'USD' ? 'USD' : 'ARS')
             }}
-            className="border-input bg-background h-12 shrink-0 rounded-lg border px-2 text-sm"
+            className="w-auto shrink-0 pl-3 text-sm"
           >
             <option value="ARS">$</option>
             <option value="USD">US$</option>
-          </select>
+          </Select>
           <Input
             id="new-card-name"
             value={name}

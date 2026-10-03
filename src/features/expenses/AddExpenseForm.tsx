@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { CategoryCombobox } from './CategoryCombobox'
 import {
@@ -481,21 +482,21 @@ function ExpenseFormBody({
         {isEditing && members.length > 0 ? (
           <div className="flex w-full flex-col gap-2">
             <Label htmlFor="expense-author">Autor</Label>
-            <select
+            <Select
               id="expense-author"
               name="expense-author"
               value={authorMemberId}
               onChange={(event) => {
                 setAuthorMemberId(event.target.value)
               }}
-              className="border-input bg-background h-12 rounded-lg border px-3 text-sm"
+              className="text-sm"
             >
               {members.map((member) => (
                 <option key={member.userId} value={member.userId}>
                   {member.displayName}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         ) : null}
 

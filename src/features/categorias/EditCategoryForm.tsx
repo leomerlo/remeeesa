@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select } from '@/components/ui/select'
 import { categoriesQueryKey, expensesQueryKey } from '@/features/expenses'
 import {
   deleteCategory,
@@ -213,14 +214,14 @@ export function EditCategoryForm({
           {/* Merge is the escape hatch from both a name collision and a
               category that cannot be deleted, so it sits next to Guardar
               rather than behind a separate screen. */}
-          <select
+          <Select
             id="merge-target"
             value={survivorId}
             disabled={pending}
             onChange={(event) => {
               setSurvivorId(event.target.value)
             }}
-            className="border-border bg-background h-12 rounded-lg border px-3 text-sm"
+            className="text-sm"
           >
             <option value="">Elegí una categoría</option>
             {otherCategories.map((other) => (
@@ -228,7 +229,7 @@ export function EditCategoryForm({
                 {other.name}
               </option>
             ))}
-          </select>
+          </Select>
           <p className="text-muted-foreground text-xs">
             Los gastos y pendientes de «{category.name}» pasan a la categoría
             que elijas, y «{category.name}» se borra.

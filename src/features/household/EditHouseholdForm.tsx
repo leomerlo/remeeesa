@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select } from '@/components/ui/select'
 import { formatMonthLabel } from '@/lib/format'
 import { budgetableMonths, monthKey, monthlyBudgetFor } from '@/lib/households'
 import { formatCurrency } from '@/lib/expenses'
@@ -150,7 +151,7 @@ export function EditHouseholdForm({
             width the three of them turned "Presupuesto mensual" into two
             wrapped lines with the amount beside it. */}
         {months.length > 1 ? (
-          <select
+          <Select
             aria-label="Mes del presupuesto"
             value={monthKey(selectedMonth)}
             onChange={(event) => {
@@ -161,14 +162,14 @@ export function EditHouseholdForm({
               setSaved(null)
               setError(null)
             }}
-            className="border-input bg-background h-11 w-full rounded-lg border px-3 text-sm"
+            className="text-sm"
           >
             {months.map((month) => (
               <option key={monthKey(month)} value={monthKey(month)}>
                 {formatMonthLabel(month)}
               </option>
             ))}
-          </select>
+          </Select>
         ) : null}
 
         {/* The peso sign lives beside the field rather than inside its value:
