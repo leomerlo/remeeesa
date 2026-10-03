@@ -114,7 +114,7 @@ export function CardsSection({
             onChange={(event) => {
               setCurrency(event.target.value === 'USD' ? 'USD' : 'ARS')
             }}
-            className="w-auto shrink-0 pl-3 text-sm"
+            className="w-auto shrink-0 text-sm"
           >
             <option value="ARS">$</option>
             <option value="USD">US$</option>
