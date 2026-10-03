@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { DEFAULT_CURRENCY } from '@/lib/money'
 import type { Currency } from '@/lib/money'
@@ -532,17 +533,17 @@ export function AddGastoForm({
                 {effectiveCurrency === 'USD' ? 'US$' : '$'}
               </span>
             ) : (
-              <select
+              <Select
                 aria-label="Moneda"
                 value={currency}
                 onChange={(event) => {
                   setCurrency(event.target.value === 'USD' ? 'USD' : 'ARS')
                 }}
-                className="border-input bg-background h-12 shrink-0 rounded-lg border px-2 text-sm"
+                className="w-auto shrink-0 pl-3 text-sm"
               >
                 <option value="ARS">$</option>
                 <option value="USD">US$</option>
-              </select>
+              </Select>
             )}
             <div className="relative min-w-0 flex-1">
               <FormattedAmountInput
@@ -594,14 +595,13 @@ export function AddGastoForm({
 
         <div className="flex w-full flex-col gap-2">
           <Label htmlFor="gasto-paid-with">Pagó con</Label>
-          <select
+          <Select
             id="gasto-paid-with"
             name="gasto-paid-with"
             value={cardId}
             onChange={(event) => {
               onCardChange(event.target.value)
             }}
-            className="border-input focus-visible:border-ring focus-visible:ring-ring/50 h-12 w-full min-w-0 rounded-lg border bg-transparent px-4 text-base outline-none focus-visible:ring-3 md:text-sm"
           >
             {/* A purchase being edited stays a card purchase: turning it
                 into a gasto is deleting it and adding one. */}
@@ -611,7 +611,7 @@ export function AddGastoForm({
                 {card.name}
               </option>
             ))}
-          </select>
+          </Select>
           {cardsQuery.isSuccess && cards.length === 0 ? (
             <Link
               to="/household"
