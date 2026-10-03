@@ -21,6 +21,7 @@ function expense(
     pendienteId: null,
     isService,
     subcategory: null,
+    currency: 'ARS' as const,
     createdAt: new Date(),
   }
 }

@@ -1,3 +1,4 @@
+import { DEFAULT_CURRENCY } from '@/lib/money'
 import {
   arrayRemove,
   collection,
@@ -836,6 +837,7 @@ export function createFirestoreHouseholdsDb(
               pendienteId: null,
               isService: false,
               subcategory: null,
+              currency: input.currency ?? DEFAULT_CURRENCY,
               createdAt,
             }),
             expense_date: toFirestoreExpenseDate(input.expenseDate),
@@ -854,6 +856,7 @@ export function createFirestoreHouseholdsDb(
             pendienteId: null,
             isService: false,
             subcategory: null,
+            currency: input.currency ?? DEFAULT_CURRENCY,
             createdAt,
           }
         },
@@ -1255,6 +1258,7 @@ export function createFirestoreHouseholdsDb(
                 // feedback.
                 isService: current.recurring,
                 subcategory: null,
+                currency: DEFAULT_CURRENCY,
                 createdAt,
               }),
               expense_date: toFirestoreExpenseDate(input.paymentDate),
@@ -1297,6 +1301,7 @@ export function createFirestoreHouseholdsDb(
                 // feedback.
                 isService: current.recurring,
                 subcategory: null,
+                currency: DEFAULT_CURRENCY,
                 createdAt,
               },
             }
@@ -1454,6 +1459,9 @@ export function createFirestoreHouseholdsDb(
             // Minted per attempt: only the committed attempt's ids are
             // written, and those are the ones returned.
             const expenses = payment.expenses.map((line): Expense => ({
+              // Paying a card's Resumen is a peso payment today; a dollar card's
+              // Resumen carries its own currency (see markResumenPaid).
+              currency: DEFAULT_CURRENCY,
               id: doc(collection(firestore, 'expenses')).id,
               householdId: input.householdId,
               categoryId: input.tarjetaCategoryId,

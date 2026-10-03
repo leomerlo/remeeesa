@@ -1,3 +1,4 @@
+import type { Currency } from '@/lib/money'
 import type { Card, CardPurchase } from '@/lib/cards/types'
 import type { Pendiente } from '@/lib/pendientes/types'
 import type { Category, Expense } from '@/lib/expenses/types'
@@ -135,6 +136,9 @@ export type HouseholdsDb = {
     readonly price: number
     readonly comments: string
     readonly expenseDate: Date
+    // Pesos when omitted. A dollar amount is recorded but never counted --
+    // see lib/money/currency.
+    readonly currency?: Currency
   }): Promise<Expense>
   listExpensesInMonth(input: {
     readonly householdId: string

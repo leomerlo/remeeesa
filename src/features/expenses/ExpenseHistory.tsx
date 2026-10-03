@@ -33,6 +33,7 @@ import { listHouseholdMembers } from '@/lib/households'
 import type { HouseholdMember, HouseholdsDb } from '@/lib/households'
 import { EmptyState } from '@/components/EmptyState'
 import { ILLUSTRATIONS } from '@/components/illustrations'
+import { countedByBudget } from '@/lib/money'
 import { MonthPager } from './MonthPager'
 import { newestFirst, useCardPurchasesInMonth } from './useCardPurchasesInMonth'
 import type { MovementRow } from './useCardPurchasesInMonth'
@@ -434,7 +435,9 @@ export function ExpenseHistory({
           expense.comments,
         ])),
   )
-  const total = filteredExpenses.reduce(
+  // Dollar movements are listed but not added in: the total under a month
+  // is a peso figure, and mixing the two would make it a number of nothing.
+  const total = countedByBudget(filteredExpenses).reduce(
     (sum, expense) => sum + expense.price,
     0,
   )

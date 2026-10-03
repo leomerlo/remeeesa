@@ -1,3 +1,5 @@
+import type { Currency } from '@/lib/money'
+
 export type Category = {
   readonly id: string
   readonly householdId: string
@@ -37,5 +39,8 @@ export type Expense = {
   // Set only on the Expense paying a card cuota: a snapshot of its purchase's
   // category name, under the "Tarjeta" category. Null everywhere else.
   readonly subcategory: string | null
+  // Pesos unless it says otherwise. A dollar amount is recorded and shown
+  // but never counted: see lib/money/currency for why no rate is applied.
+  readonly currency: Currency
   readonly createdAt: Date
 }

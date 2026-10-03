@@ -4,6 +4,8 @@ import {
   parseRequiredString,
   parseTimestamp,
 } from '@/lib/firestore/documentParsing'
+import { DEFAULT_CURRENCY, parseCurrency } from '@/lib/money'
+import type { Currency } from '@/lib/money'
 import { colorForCategoryName } from './categoryColor'
 import type { Category, Expense } from './types'
 import {
@@ -126,6 +128,7 @@ export function parseExpenseDocument(input: {
     pendiente_id,
     is_service,
     subcategory,
+    currency,
     created_at,
   } = input.data
   if (typeof name !== 'string') {
@@ -161,6 +164,7 @@ export function parseExpenseDocument(input: {
     pendienteId: parseNullableString(pendiente_id, 'pendiente_id'),
     isService: parseOptionalBoolean(is_service, 'is_service', false),
     subcategory: parseNullableString(subcategory, 'subcategory'),
+    currency: parseCurrency(currency),
     createdAt: parseTimestamp(created_at, 'created_at'),
   }
 }
@@ -192,6 +196,9 @@ export function expenseToDocument(input: {
   readonly pendienteId: string | null
   readonly isService: boolean
   readonly subcategory: string | null
+  // Optional at the door: almost every Expense written is in pesos, and a
+  // required field here would mean restating that at a dozen call sites.
+  readonly currency?: Currency
   readonly createdAt: Date
 }): {
   readonly household_id: string
@@ -205,6 +212,7 @@ export function expenseToDocument(input: {
   readonly pendiente_id: string | null
   readonly is_service: boolean
   readonly subcategory: string | null
+  readonly currency: Currency
   readonly created_at: Date
 } {
   return {
@@ -219,6 +227,7 @@ export function expenseToDocument(input: {
     pendiente_id: input.pendienteId,
     is_service: input.isService,
     subcategory: input.subcategory,
+    currency: input.currency ?? DEFAULT_CURRENCY,
     created_at: input.createdAt,
   }
 }

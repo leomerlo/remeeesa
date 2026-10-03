@@ -1,3 +1,4 @@
+import { countedByBudget } from '@/lib/money'
 import { isServicio } from './servicio'
 import type { Expense } from './types'
 
@@ -9,9 +10,11 @@ export type ProjectionRow = {
   readonly source: 'actual' | 'projected'
 }
 
+// Dollars are left out here too: a projection is a forecast of the peso
+// budget. See lib/money/currency.
 function totalsByCategory(expenses: readonly Expense[]): Map<string, number> {
   const totals = new Map<string, number>()
-  for (const expense of expenses) {
+  for (const expense of countedByBudget(expenses)) {
     totals.set(
       expense.categoryId,
       (totals.get(expense.categoryId) ?? 0) + expense.price,

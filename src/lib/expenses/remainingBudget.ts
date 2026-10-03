@@ -1,3 +1,5 @@
+import { countedByBudget } from '@/lib/money'
+import type { Currency } from '@/lib/money'
 // Argentine peso formatting: thousands separator "." and decimal "," (e.g.
 // $224.300,50) -- no built-in Intl currency style here, since 'ARS' inserts
 // a "$ " with a space that doesn't match how the app's own reference and
@@ -35,11 +37,14 @@ export function formatBudgetAmount(amount: number): string {
 // per figure so "spent" always means the same sum everywhere it appears --
 // the ascending "Gastado" card, the descending "Presupuesto restante" card,
 // and the progress bar's percentage all read from this same number.
+// Dollar amounts are left out, here and in every other figure the budget
+// drives: the budget is a number of pesos, and adding a dollar to it would
+// mean picking an exchange rate. See lib/money/currency.
 export function computeSpentThisMonth(
-  expenses: readonly { price: number }[],
+  expenses: readonly { price: number; currency: Currency }[],
 ): number {
   let sum = 0
-  for (const expense of expenses) {
+  for (const expense of countedByBudget(expenses)) {
     sum += expense.price
   }
   return sum
@@ -67,7 +72,7 @@ export function computePendingCommitted(
 
 export function computeRemainingBudget(
   monthlyBudget: number,
-  expenses: readonly { price: number }[],
+  expenses: readonly { price: number; currency: Currency }[],
   // Per direct feedback: the budget is meant to cover every expense, paid
   // or not, so a Pendiente still owed has to count against what's "left"
   // the same as a paid one already does -- not just once it's paid.
@@ -85,7 +90,7 @@ export function computeRemainingBudget(
 // exact over-budget amount as a negative remaining).
 export function computePercentUsed(
   monthlyBudget: number,
-  expenses: readonly { price: number }[],
+  expenses: readonly { price: number; currency: Currency }[],
   pendingCommitted = 0,
 ): number {
   const spent = computeSpentThisMonth(expenses) + pendingCommitted
