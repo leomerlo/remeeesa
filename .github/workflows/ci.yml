@@ -23,3 +23,16 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
+      # The rules, actually executed against the Firestore emulator -- the
+      # one thing the suite above cannot do, since it runs entirely against
+      # the in-memory adapter, which has no rules. A rule that forbids what
+      # the app really writes passes every other test and fails only in
+      # production; that happened twice in one day before this existed.
+      #
+      # The emulator is a Java process, which is why this is a CI step: the
+      # runner has a JDK, not every machine does.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm run test:rules
