@@ -1551,6 +1551,27 @@ export function createFirestoreHouseholdsDb(
         { householdId: input.householdId },
       )
     },
+    async updateCardCurrency(input) {
+      return withHouseholdAccess(
+        'updateCardCurrency',
+        async () => {
+          const cardRef = doc(firestore, 'cards', input.cardId)
+          const snap = await getDoc(cardRef)
+          if (
+            !snap.exists() ||
+            snap.data().household_id !== input.householdId
+          ) {
+            throw new CardNotFoundError()
+          }
+          await updateDoc(cardRef, { currency: input.currency })
+          return {
+            ...parseCardDocument({ id: snap.id, data: snap.data() }),
+            currency: input.currency,
+          }
+        },
+        { householdId: input.householdId, cardId: input.cardId },
+      )
+    },
     async renameCard(input) {
       return withHouseholdAccess(
         'renameCard',

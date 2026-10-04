@@ -283,6 +283,14 @@ export type HouseholdsDb = {
     readonly cardId: string
     readonly name: string
   }): Promise<Card>
+  // Only the card itself: expenses a past Resumen already wrote keep the
+  // currency stamped on them, so this changes what the card means from here
+  // on and never rewrites what was already settled.
+  updateCardCurrency(input: {
+    readonly householdId: string
+    readonly cardId: string
+    readonly currency: Currency
+  }): Promise<Card>
   // One transaction: writes the purchase and adds each of its cuotas to the
   // card's Resumen of that month (a Pendiente with id resumenIdFor, created
   // in resumenCategoryId if missing). Rejects -- writing nothing -- with

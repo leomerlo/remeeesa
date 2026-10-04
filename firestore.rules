@@ -630,7 +630,7 @@ service cloud.firestore {
       allow create: if isMemberOf(request.resource.data.household_id)
         && isValidCard(request.resource.data);
       allow update: if isMemberOf(resource.data.household_id)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'currency'])
         && isValidCard(request.resource.data);
     }
   }

@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { fireEvent, screen } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { pendientesQueryKey } from '@/features/pendientes/queryKeys'
 import { createCard, listCards } from '@/lib/cards'
@@ -145,6 +145,61 @@ describe('CardsSection', () => {
     )
 
     expect(await screen.findByText('Visa')).toBeInTheDocument()
+  })
+
+  // Every card that existed before currencies did reads as pesos, which is
+  // right for most of them and wrong for the dollar one. Fixing it at
+  // creation left no way to correct that, and the gasto form takes the
+  // card's currency as given -- so a dollar card could not be used at all.
+  describe('currency', () => {
+    async function renderWithCard() {
+      const seeded = await seedHousehold()
+      await createCard({ ...seeded, name: 'Visa' })
+      renderWithProviders(
+        <CardsSection db={seeded.db} householdId={seeded.householdId} />,
+      )
+      await screen.findByRole('button', { name: 'Renombrar Visa' })
+      return seeded
+    }
+
+    it('opens on pesos for a card that never recorded one', async () => {
+      await renderWithCard()
+
+      expect(screen.getByLabelText('Moneda de Visa')).toHaveValue('ARS')
+    })
+
+    it('switches an existing card to dollars', async () => {
+      const { db, householdId } = await renderWithCard()
+
+      fireEvent.change(screen.getByLabelText('Moneda de Visa'), {
+        target: { value: 'USD' },
+      })
+
+      await waitFor(async () => {
+        const [card] = await listCards({ db, householdId })
+        expect(card?.currency).toBe('USD')
+      })
+    })
+
+    it('switches back', async () => {
+      const { db, householdId } = await renderWithCard()
+
+      fireEvent.change(screen.getByLabelText('Moneda de Visa'), {
+        target: { value: 'USD' },
+      })
+      await waitFor(async () => {
+        const [card] = await listCards({ db, householdId })
+        expect(card?.currency).toBe('USD')
+      })
+
+      fireEvent.change(screen.getByLabelText('Moneda de Visa'), {
+        target: { value: 'ARS' },
+      })
+      await waitFor(async () => {
+        const [card] = await listCards({ db, householdId })
+        expect(card?.currency).toBe('ARS')
+      })
+    })
   })
 
   describe('renaming', () => {

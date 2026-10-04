@@ -39,6 +39,24 @@ export async function createCard(input: {
   })
 }
 
+// A card created before currencies existed reads as pesos, which is right
+// for most of them and wrong for the dollar one -- so this is editable
+// rather than fixed at creation. It only changes the card: the expenses a
+// paid Resumen already wrote keep the currency stamped on them, so past
+// months are not re-denominated behind anyone's back. Per direct feedback.
+export async function updateCardCurrency(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly cardId: string
+  readonly currency: Currency
+}): Promise<Card> {
+  return input.db.updateCardCurrency({
+    householdId: input.householdId,
+    cardId: input.cardId,
+    currency: input.currency,
+  })
+}
+
 // Same rules as createCard; the card's own name doesn't count as taken, so a
 // change in case alone is allowed. Every Resumen of the card is renamed with
 // it, paid ones too; expenses a payment already saved keep their name.
