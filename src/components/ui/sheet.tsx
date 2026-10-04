@@ -1,6 +1,6 @@
 import { createContext, useContext, useState } from 'react'
 import type { ReactNode } from 'react'
-import { Dialog, VisuallyHidden } from 'radix-ui'
+import { Dialog } from 'radix-ui'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -81,21 +81,25 @@ function Sheet({
               : 'top-1/2 left-1/2 max-h-[85vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-3xl border pt-8 data-[state=open]:slide-in-from-bottom-2 data-[state=closed]:slide-out-to-bottom-2',
           )}
         >
-          <VisuallyHidden.Root asChild>
-            <Dialog.Title>{title}</Dialog.Title>
-          </VisuallyHidden.Root>
-          <Dialog.Close
-            data-slot="sheet-close"
-            className={cn(
-              'hover:bg-muted focus-visible:border-ring focus-visible:ring-ring/50 absolute right-3 flex size-[46px] items-center justify-center rounded-full outline-none focus-visible:ring-3 lg:top-3 lg:size-9',
-              variant === 'panel'
-                ? 'top-[max(0.75rem,env(safe-area-inset-top))]'
-                : 'top-3',
-            )}
+          {/* A real header row, not a floating X over the content: the
+              title and the way out belong to the same band, and a line
+              under it is what makes the body below read as the part that
+              scrolls. Per direct feedback. */}
+          <div
+            data-slot="sheet-header"
+            className="border-border-subtle flex shrink-0 items-center justify-between gap-3 border-b pb-4"
           >
-            <X className="size-5" aria-hidden="true" />
-            <span className="sr-only">Cerrar</span>
-          </Dialog.Close>
+            <Dialog.Title className="text-title truncate font-semibold">
+              {title}
+            </Dialog.Title>
+            <Dialog.Close
+              data-slot="sheet-close"
+              className="hover:bg-muted focus-visible:border-ring focus-visible:ring-ring/50 flex size-[46px] shrink-0 items-center justify-center rounded-full outline-none focus-visible:ring-3 lg:size-11"
+            >
+              <X className="size-6" aria-hidden="true" />
+              <span className="sr-only">Cerrar</span>
+            </Dialog.Close>
+          </div>
           {/* This fills the remaining height inside Dialog.Content's
               max-h-[96vh] cap; the close button above stays pinned in the
               non-scrolling part of Dialog.Content so it never scrolls out
@@ -110,7 +114,10 @@ function Sheet({
               over by the close button's row, which is what puts each
               form's own footer at the bottom of the screen rather than
               directly under its last field. */}
-          <div data-slot="sheet-body" className="flex min-h-0 flex-1 flex-col">
+          <div
+            data-slot="sheet-body"
+            className="flex min-h-0 flex-1 flex-col pt-4"
+          >
             <SheetContainerContext.Provider value={contentElement}>
               {children}
             </SheetContainerContext.Provider>

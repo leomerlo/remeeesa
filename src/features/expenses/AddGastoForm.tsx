@@ -508,12 +508,6 @@ export function AddGastoForm({
           the bottom of the sheet regardless of how tall the field list
           gets. */}
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto overscroll-contain">
-        {/* The Sheet's own title is visually hidden (it exists only for the
-            dialog's accessible name). */}
-        <h2 className="text-title font-semibold">
-          {isEditing ? 'Editar compra' : 'Agregar gasto'}
-        </h2>
-
         <div className="flex w-full flex-col gap-2">
           <Label htmlFor="gasto-name">Nombre</Label>
           <Input
@@ -679,49 +673,58 @@ export function AddGastoForm({
             had nowhere to go but a second line at phone width, where it
             clipped. Débito automático means the household does not pay this
             one: the bank takes it on the due date. */}
-        {/* A card purchase is neither a bill for later nor recurring: it
-            already happened, and its Resúmenes are what gets paid. */}
-        {isCredito ? null : (
-          <div className="flex w-full flex-col gap-4">
-            {showRecurringOptions ? (
-              <>
-                <div className="flex min-h-[46px] w-full items-center gap-3 lg:min-h-0">
-                  <Switch
-                    id="gasto-recurring"
-                    checked={recurring}
-                    onCheckedChange={onRecurringChange}
-                  />
-                  <Label htmlFor="gasto-recurring">Recurrente</Label>
-                </div>
-                <div className="flex min-h-[46px] w-full items-center gap-3 lg:min-h-0">
-                  <Switch
-                    id="gasto-auto-debit"
-                    checked={autoDebit}
-                    disabled={!recurring}
-                    onCheckedChange={setAutoDebit}
-                  />
-                  <Label htmlFor="gasto-auto-debit">Débito automático</Label>
-                </div>
-              </>
-            ) : null}
+        {/* Always, whatever the method is paying for it. These three are
+            about the *gasto* -- does it repeat, does the bank take it on
+            its own, has it happened yet -- and a household pays a recurring
+            bill with cash, with debit and with a credit card alike. They
+            used to disappear the moment a credit card was picked, on the
+            theory that a consumo has already happened. Per direct feedback,
+            that is the gasto's business and not the card's.
 
-            <div className="flex min-h-[46px] w-full items-center gap-3 lg:min-h-0">
-              <Switch
-                id="gasto-mark-paid"
-                checked={markPaid}
-                onCheckedChange={onMarkPaidChange}
-              />
-              <Label htmlFor="gasto-mark-paid">Ya lo pagué</Label>
-            </div>
+            Tighter than the fields above: three one-line switches are one
+            group, and at the form's own spacing they read as three
+            unrelated questions. Per direct feedback. */}
+        <div className="flex w-full flex-col gap-1">
+          {showRecurringOptions ? (
+            <>
+              <div className="flex min-h-[46px] w-full items-center gap-3 lg:min-h-0">
+                <Switch
+                  id="gasto-recurring"
+                  checked={recurring}
+                  onCheckedChange={onRecurringChange}
+                />
+                <Label htmlFor="gasto-recurring">Recurrente</Label>
+              </div>
+              <div className="flex min-h-[46px] w-full items-center gap-3 lg:min-h-0">
+                <Switch
+                  id="gasto-auto-debit"
+                  checked={autoDebit}
+                  disabled={!recurring}
+                  onCheckedChange={setAutoDebit}
+                />
+                <Label htmlFor="gasto-auto-debit">Débito automático</Label>
+              </div>
+            </>
+          ) : null}
+
+          <div className="flex min-h-[46px] w-full items-center gap-3 lg:min-h-0">
+            <Switch
+              id="gasto-mark-paid"
+              checked={markPaid}
+              onCheckedChange={onMarkPaidChange}
+            />
+            <Label htmlFor="gasto-mark-paid">
+              {isCredito ? 'Ya lo compré' : 'Ya lo pagué'}
+            </Label>
           </div>
-        )}
+        </div>
 
         {alertMessage !== null ? (
           <AlertMessage>{alertMessage}</AlertMessage>
         ) : null}
       </div>
 
-      <div className="shrink-0 pt-6">
+      <div className="border-border-subtle shrink-0 border-t pt-4">
         {confirmingDelete ? (
           <div
             role="alertdialog"

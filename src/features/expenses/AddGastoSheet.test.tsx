@@ -470,8 +470,12 @@ describe('AddGastoSheet (unified add flow)', () => {
 
       expect(screen.getByLabelText('Cuotas')).toHaveValue(1)
       expect(screen.getByLabelText('Precio')).toBeInTheDocument()
-      expect(screen.queryByLabelText('Ya lo pagué')).not.toBeInTheDocument()
-      expect(screen.queryByLabelText('Recurrente')).not.toBeInTheDocument()
+      // The toggles stay: they are about the gasto, not about the card. A
+      // household pays a recurring bill with a credit card as readily as
+      // with cash. Per direct feedback. On a card "Ya lo pagué" reads as
+      // "Ya lo compré", because that is what happened.
+      expect(screen.getByLabelText('Ya lo compré')).toBeInTheDocument()
+      expect(screen.getByLabelText('Recurrente')).toBeInTheDocument()
       expect(
         screen.getByRole('button', { name: 'Agregar compra' }),
       ).toBeInTheDocument()

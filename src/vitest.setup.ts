@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup, configure } from '@testing-library/react'
-import { afterEach, beforeAll, beforeEach, vi } from 'vitest'
+import { afterEach, beforeEach, vi } from 'vitest'
 
 // Testing Library's default 1s budget for waitFor/findBy is fine for a
 // single file but too tight for the whole suite: several screens chain two
@@ -53,7 +53,14 @@ class ResizeObserverStub {
   disconnect(): void {}
 }
 
-beforeAll(() => {
+// Per test, not once per file. A test that stubs a global of its own and
+// tidies up with vi.unstubAllGlobals() takes these with it, and everything
+// after it in that file then runs without localStorage, without fetch and
+// without ResizeObserver -- which shows up as "ResizeObserver is not
+// defined" the first time a later test happens to render a Switch, nowhere
+// near the test that actually caused it. Re-applying them before each test
+// makes that impossible.
+beforeEach(() => {
   vi.stubGlobal('localStorage', localStorageMock)
   vi.stubGlobal('ResizeObserver', ResizeObserverStub)
   // No test may reach the network; the dólar blue lookup fails gracefully.

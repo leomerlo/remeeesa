@@ -731,7 +731,7 @@ function PendienteFormBody({
         ) : null}
       </div>
 
-      <div className="shrink-0 pt-6">
+      <div className="border-border-subtle shrink-0 border-t pt-4">
         {confirmingDelete ? (
           <div
             role="alertdialog"

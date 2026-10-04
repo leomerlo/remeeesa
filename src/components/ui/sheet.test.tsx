@@ -68,8 +68,10 @@ describe('Sheet', () => {
     )
 
     const closeButton = screen.getByRole('button', { name: 'Cerrar' })
-    // 46px on a phone, 36px from `lg` -- the same floor as Button's.
-    expect(closeButton).toHaveClass('size-[46px]', 'lg:size-9')
+    // 46px on a phone and 44 on a monitor: bigger than an ordinary icon
+    // button, because it is the way out of a screen-filling form. Per
+    // direct feedback.
+    expect(closeButton).toHaveClass('size-[46px]', 'lg:size-11')
   })
 
   it('calls onOpenChange(false) exactly once when the close control is clicked', () => {
