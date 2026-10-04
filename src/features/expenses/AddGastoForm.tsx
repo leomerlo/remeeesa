@@ -33,6 +33,7 @@ import {
   deleteCardPurchase,
   listCards,
   MAX_CUOTAS,
+  PAYMENT_METHOD_KINDS,
   parseCuotas,
   updateCardPurchase,
 } from '@/lib/cards'
@@ -256,17 +257,19 @@ export function AddGastoForm({
     queryFn: () => listCards({ db, householdId }),
   })
   const cards = cardsQuery.data ?? []
-  const isCard = cardId !== ''
-  // Paying with a card narrows the choice to what the card holds. A card
-  // billed in one currency decides for you -- picking the other would be a
-  // choice the purchase cannot honour -- but a card billed in both leaves
-  // the choice open, the same as off a card. Per direct feedback.
-  const cardCurrency = cards.find((card) => card.id === cardId)?.currency
-  // Off a card both are on offer, as they always were.
-  const offered = isCard
-    ? currenciesOf(cardCurrency ?? DEFAULT_CURRENCY)
-    : currenciesOf('BOTH')
-  // A card that holds one currency overrides whatever the picker last had.
+  // The method picked, or undefined for cash -- the one every household has
+  // without writing it down, which is why it is the empty value and the
+  // default. Per direct feedback: efectivo siempre aparece.
+  const method = cards.find((card) => card.id === cardId)
+  // Only credit books a purchase whose cuotas land in a later Resumen.
+  // Cash, a balance and debit are money that has already gone, so they make
+  // an ordinary gasto of this month -- the method is recorded on it, but it
+  // is the month's spending either way. Per direct feedback.
+  const isCredito = method !== undefined && method.kind === 'credito'
+  // The method decides the currency, which is the whole reason it is picked
+  // before the amount: the field's prefix is whatever this method is in.
+  // Only a credit card billed in both leaves it an actual choice.
+  const offered = currenciesOf(method?.currency ?? DEFAULT_CURRENCY)
   const narrowedTo = offered.length === 1 ? offered[0] : undefined
   const effectiveCurrency: Currency = narrowedTo ?? currency
   const picksCurrency = narrowedTo === undefined
@@ -300,7 +303,7 @@ export function AddGastoForm({
         })
         return
       }
-      if (cardId !== '') {
+      if (isCredito) {
         await createCardPurchase({
           db,
           householdId,
@@ -333,6 +336,9 @@ export function AddGastoForm({
           comments: '',
           expenseDate: fields.date,
           currency: effectiveCurrency,
+          // Null for cash: the method every household has without adding
+          // it, and the one this field has always meant by "nothing".
+          paymentMethodId: cardId === '' ? null : cardId,
         })
         return
       }
@@ -419,16 +425,16 @@ export function AddGastoForm({
           category,
           date,
           amount,
-          recurring: !isCard && recurring,
+          recurring: !isCredito && recurring,
           autoDebit,
         },
-        isCard || markPaid,
+        isCredito || markPaid,
       )
-      if ((isCard || markPaid) && fields.amount === null) {
+      if ((isCredito || markPaid) && fields.amount === null) {
         throw new Error('Ingresá un monto')
       }
       // Before mutate: a rejected purchase must not leave a new category.
-      if (isCard) {
+      if (isCredito) {
         parseCuotas(Number(cuotas), fields.amount ?? 0)
       }
       setError(null)
@@ -479,10 +485,10 @@ export function AddGastoForm({
     }
   }
 
-  const isPlainGasto = isCard || (!recurring && markPaid)
+  const isPlainGasto = isCredito || (!recurring && markPaid)
   const submitLabel = isEditing
     ? 'Guardar cambios'
-    : isCard
+    : isCredito
       ? 'Agregar compra'
       : markPaid
         ? recurring
@@ -519,6 +525,47 @@ export function AddGastoForm({
             }}
             autoComplete="off"
           />
+        </div>
+
+        {/* Before the amount, per direct feedback: the method decides what
+            currency the amount is in, so the field's prefix is already
+            right by the time you type into it. */}
+        <div className="flex w-full flex-col gap-2">
+          <Label htmlFor="gasto-paid-with">Método de pago</Label>
+          <Select
+            id="gasto-paid-with"
+            name="gasto-paid-with"
+            value={cardId}
+            onChange={(event) => {
+              onCardChange(event.target.value)
+            }}
+          >
+            {/* A purchase being edited stays a card purchase: turning it
+                into a gasto is deleting it and adding one. */}
+            {isEditing ? null : <option value="">Efectivo</option>}
+            {cards.map((card) => (
+              <option key={card.id} value={card.id}>
+                {card.name}
+              </option>
+            ))}
+          </Select>
+          {/* What this method does with the money, said where it is
+              picked: crédito is the one that does not touch this month. */}
+          <p className="text-muted-foreground text-xs">
+            {method === undefined
+              ? 'Plata en mano, en pesos. Agregá otros en Ajustes.'
+              : (PAYMENT_METHOD_KINDS.find(
+                  (option) => option.value === method.kind,
+                )?.detail ?? '')}
+          </p>
+          {cardsQuery.isSuccess && cards.length === 0 ? (
+            <Link
+              to="/household"
+              className="text-primary self-start text-sm font-medium underline-offset-4 hover:underline"
+            >
+              Agregar un método de pago en Ajustes
+            </Link>
+          ) : null}
         </div>
 
         {/* Required once "Ya lo pagué" is checked (the common case, on by
@@ -590,7 +637,7 @@ export function AddGastoForm({
 
         <div className="flex w-full flex-col gap-2">
           <Label htmlFor="gasto-date">
-            {isCard || markPaid ? 'Fecha' : 'Fecha de vencimiento'}
+            {isCredito || markPaid ? 'Fecha' : 'Fecha de vencimiento'}
           </Label>
           {/* Restricted to today or earlier only while markPaid is checked
               -- a due date (not yet paid) is explicitly allowed to be in the
@@ -600,43 +647,14 @@ export function AddGastoForm({
             name="gasto-date"
             type="date"
             value={date}
-            max={isCard || markPaid ? today : undefined}
+            max={isCredito || markPaid ? today : undefined}
             onChange={(event) => {
               setDate(event.target.value)
             }}
           />
         </div>
 
-        <div className="flex w-full flex-col gap-2">
-          <Label htmlFor="gasto-paid-with">Pagó con</Label>
-          <Select
-            id="gasto-paid-with"
-            name="gasto-paid-with"
-            value={cardId}
-            onChange={(event) => {
-              onCardChange(event.target.value)
-            }}
-          >
-            {/* A purchase being edited stays a card purchase: turning it
-                into a gasto is deleting it and adding one. */}
-            {isEditing ? null : <option value="">Efectivo / débito</option>}
-            {cards.map((card) => (
-              <option key={card.id} value={card.id}>
-                {card.name}
-              </option>
-            ))}
-          </Select>
-          {cardsQuery.isSuccess && cards.length === 0 ? (
-            <Link
-              to="/household"
-              className="text-primary self-start text-sm font-medium underline-offset-4 hover:underline"
-            >
-              Crear una tarjeta en Ajustes
-            </Link>
-          ) : null}
-        </div>
-
-        {isCard ? (
+        {isCredito ? (
           <div className="flex w-full flex-col gap-2">
             <Label htmlFor="gasto-cuotas">Cuotas</Label>
             <Input
@@ -663,7 +681,7 @@ export function AddGastoForm({
             one: the bank takes it on the due date. */}
         {/* A card purchase is neither a bill for later nor recurring: it
             already happened, and its Resúmenes are what gets paid. */}
-        {isCard ? null : (
+        {isCredito ? null : (
           <div className="flex w-full flex-col gap-4">
             {showRecurringOptions ? (
               <>

@@ -800,16 +800,16 @@ describe('HistoricoPage card purchases', () => {
       })
       expect(within(dialog).getByLabelText('Nombre')).toHaveValue('Zapatillas')
       expect(within(dialog).getByLabelText('Fecha')).toHaveValue('2026-09-05')
-      expect(within(dialog).getByLabelText('Pagó con')).toHaveDisplayValue(
-        'Visa',
-      )
+      expect(
+        within(dialog).getByLabelText('Método de pago'),
+      ).toHaveDisplayValue('Visa')
       expect(within(dialog).getByLabelText('Cuotas')).toHaveValue(3)
       // It stays a card purchase.
       expect(
-        within(dialog).queryByRole('option', { name: 'Efectivo / débito' }),
+        within(dialog).queryByRole('option', { name: 'Efectivo' }),
       ).not.toBeInTheDocument()
 
-      fireEvent.change(within(dialog).getByLabelText('Pagó con'), {
+      fireEvent.change(within(dialog).getByLabelText('Método de pago'), {
         target: { value: master.id },
       })
       fireEvent.change(within(dialog).getByLabelText('Cuotas'), {

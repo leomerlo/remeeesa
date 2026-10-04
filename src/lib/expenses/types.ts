@@ -42,5 +42,12 @@ export type Expense = {
   // Pesos unless it says otherwise. A dollar amount is recorded and shown
   // but never counted: see lib/money/currency for why no rate is applied.
   readonly currency: Currency
+  // Which of the household's payment methods this was paid with, when it
+  // was one of the ones they have written down. Null for cash -- the
+  // built-in method every household has without creating it -- and for
+  // every Expense logged before methods existed. A credit method never
+  // appears here: paying with credit books a CardPurchase instead, and the
+  // Expense only arrives when its Resumen is paid.
+  readonly paymentMethodId: string | null
   readonly createdAt: Date
 }

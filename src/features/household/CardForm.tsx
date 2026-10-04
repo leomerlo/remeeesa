@@ -5,8 +5,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
-import { CARD_BRANDS, parseCardBrand } from '@/lib/cards'
-import type { Card, CardBrand } from '@/lib/cards'
+import {
+  CARD_BRANDS,
+  PAYMENT_METHOD_KINDS,
+  parseCardBrand,
+  parsePaymentMethodKind,
+} from '@/lib/cards'
+import type { Card, CardBrand, PaymentMethodKind } from '@/lib/cards'
 import { parseCardCurrency } from '@/lib/money'
 import type { CardCurrency } from '@/lib/money'
 
@@ -22,6 +27,18 @@ export const CARD_CURRENCY_OPTIONS: readonly {
   { value: 'BOTH', label: 'Pesos y dólares' },
 ]
 
+// "Pesos y dólares" is one card the bank settles as two resúmenes, which
+// only a credit card does. Cash in dollars and cash in pesos are two
+// different piles of money, so they are two methods -- per direct feedback,
+// the dollars you take on a trip are their own thing.
+export function currencyOptionsFor(
+  kind: PaymentMethodKind,
+): readonly { readonly value: CardCurrency; readonly label: string }[] {
+  return kind === 'credito'
+    ? CARD_CURRENCY_OPTIONS
+    : CARD_CURRENCY_OPTIONS.filter((option) => option.value !== 'BOTH')
+}
+
 export type CardFormProps = {
   // The card being edited, or undefined when one is being created.
   readonly card?: Card
@@ -29,6 +46,7 @@ export type CardFormProps = {
   readonly error: string | null
   readonly onSubmit: (input: {
     readonly name: string
+    readonly kind: PaymentMethodKind
     readonly currency: CardCurrency
     readonly brand: CardBrand
   }) => void
@@ -46,14 +64,24 @@ export function CardForm({
   onSubmit,
 }: CardFormProps): ReactElement {
   const [name, setName] = useState(card?.name ?? '')
+  const [kind, setKind] = useState<PaymentMethodKind>(card?.kind ?? 'credito')
   const [currency, setCurrency] = useState<CardCurrency>(
     card?.currency ?? 'ARS',
   )
   const [brand, setBrand] = useState<CardBrand>(card?.brand ?? 'otra')
+  const currencyOptions = currencyOptionsFor(kind)
+  // A method that stops being a credit card cannot stay "pesos y dólares",
+  // so the field falls back to pesos rather than submitting a value its own
+  // dropdown no longer offers.
+  const effectiveCurrency = currencyOptions.some(
+    (option) => option.value === currency,
+  )
+    ? currency
+    : 'ARS'
 
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault()
-    onSubmit({ name, currency, brand })
+    onSubmit({ name, kind, currency: effectiveCurrency, brand })
   }
 
   return (
@@ -79,7 +107,30 @@ export function CardForm({
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="card-brand">Tipo de tarjeta</Label>
+        <Label htmlFor="card-kind">Tipo</Label>
+        <Select
+          id="card-kind"
+          value={kind}
+          disabled={pending}
+          onChange={(event) => {
+            setKind(parsePaymentMethodKind(event.target.value))
+          }}
+        >
+          {PAYMENT_METHOD_KINDS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
+        {/* What picking it means for the month, said here rather than
+            learned by watching the budget move. */}
+        <p className="text-muted-foreground text-xs">
+          {PAYMENT_METHOD_KINDS.find((option) => option.value === kind)?.detail}
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="card-brand">Marca</Label>
         <Select
           id="card-brand"
           value={brand}
@@ -100,21 +151,22 @@ export function CardForm({
         <Label htmlFor="card-currency">Moneda</Label>
         <Select
           id="card-currency"
-          value={currency}
+          value={effectiveCurrency}
           disabled={pending}
           onChange={(event) => {
             setCurrency(parseCardCurrency(event.target.value))
           }}
         >
-          {CARD_CURRENCY_OPTIONS.map((option) => (
+          {currencyOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
           ))}
         </Select>
         <p className="text-muted-foreground text-xs">
-          «Pesos y dólares» es la tarjeta que el banco te factura en las dos:
-          lleva un resumen por moneda y el de dólares no toca el presupuesto.
+          {kind === 'credito'
+            ? '«Pesos y dólares» es la tarjeta que el banco te factura en las dos: lleva un resumen por moneda y el de dólares no toca el presupuesto.'
+            : 'Lo que cargues con este método va a estar en esta moneda. Los gastos en dólares se registran pero no se descuentan del presupuesto.'}
         </p>
       </div>
 
@@ -124,7 +176,7 @@ export function CardForm({
         {pending
           ? 'Guardando…'
           : card === undefined
-            ? 'Agregar tarjeta'
+            ? 'Agregar método'
             : 'Guardar'}
       </Button>
     </form>

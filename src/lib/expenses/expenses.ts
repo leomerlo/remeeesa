@@ -50,9 +50,15 @@ export async function createExpense(input: {
   // Pesos when omitted. A dollar gasto is recorded and shown but never
   // counted -- see lib/money/currency.
   readonly currency?: Currency
+  // Which of the household's payment methods paid for it. Omitted for
+  // cash, the one method every household has without writing it down.
+  readonly paymentMethodId?: string | null
 }): Promise<Expense> {
   return input.db.createExpense({
     ...(input.currency === undefined ? {} : { currency: input.currency }),
+    ...(input.paymentMethodId === undefined
+      ? {}
+      : { paymentMethodId: input.paymentMethodId }),
     householdId: input.householdId,
     categoryId: input.categoryId,
     memberId: input.memberId,

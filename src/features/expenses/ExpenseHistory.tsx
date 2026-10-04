@@ -86,11 +86,16 @@ function ExpenseRow({
   expense,
   category,
   authorDisplayName,
+  paymentMethodName,
   onEditExpense,
 }: {
   readonly expense: Expense
   readonly category: Category | undefined
   readonly authorDisplayName: string
+  // The method it was paid with, when it was one the household wrote down.
+  // Cash says nothing: it is the default, and naming it on every row is
+  // noise.
+  readonly paymentMethodName: string | undefined
   readonly onEditExpense?: (expense: Expense, categoryName: string) => void
 }): ReactElement {
   const categoryName = category?.name ?? 'Categoría desconocida'
@@ -108,7 +113,11 @@ function ExpenseRow({
         CategoryIcon={iconForCategoryName(categoryName)}
         title={expense.name}
         when={paidDateLabel(expense.expenseDate)}
-        meta={authorDisplayName}
+        meta={
+          paymentMethodName === undefined
+            ? authorDisplayName
+            : `${authorDisplayName} · ${paymentMethodName}`
+        }
         amount={
           <span className="money text-foreground text-lg">
             {formatAmount(expense.price, expense.currency)}
@@ -635,6 +644,11 @@ export function ExpenseHistory({
                 authorDisplayName={
                   memberById.get(expense.memberId)?.displayName ??
                   expense.authorDisplayName
+                }
+                paymentMethodName={
+                  expense.paymentMethodId === null
+                    ? undefined
+                    : purchasesQuery.cardNameById.get(expense.paymentMethodId)
                 }
                 {...(onEditExpense === undefined ? {} : { onEditExpense })}
               />

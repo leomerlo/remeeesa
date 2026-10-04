@@ -866,6 +866,7 @@ export function createFirestoreHouseholdsDb(
               isService: false,
               subcategory: null,
               currency: input.currency ?? DEFAULT_CURRENCY,
+              paymentMethodId: input.paymentMethodId ?? null,
               createdAt,
             }),
             expense_date: toFirestoreExpenseDate(input.expenseDate),
@@ -885,6 +886,7 @@ export function createFirestoreHouseholdsDb(
             isService: false,
             subcategory: null,
             currency: input.currency ?? DEFAULT_CURRENCY,
+            paymentMethodId: input.paymentMethodId ?? null,
             createdAt,
           }
         },
@@ -1330,6 +1332,9 @@ export function createFirestoreHouseholdsDb(
                 isService: current.recurring,
                 subcategory: null,
                 currency: DEFAULT_CURRENCY,
+                // Paying a bill is not itself paid with a method the app
+                // knows: what settles it is money the household already had.
+                paymentMethodId: null,
                 createdAt,
               },
             }
@@ -1488,6 +1493,7 @@ export function createFirestoreHouseholdsDb(
             // written, and those are the ones returned.
             const expenses = payment.expenses.map((line): Expense => ({
               currency: input.currency,
+              paymentMethodId: null,
               id: doc(collection(firestore, 'expenses')).id,
               householdId: input.householdId,
               categoryId: input.tarjetaCategoryId,
@@ -1617,6 +1623,7 @@ export function createFirestoreHouseholdsDb(
           await setDoc(cardRef, {
             household_id: input.householdId,
             name: input.name,
+            kind: input.kind,
             currency: input.currency,
             brand: input.brand,
             created_at: now,
@@ -1625,6 +1632,7 @@ export function createFirestoreHouseholdsDb(
             id: cardRef.id,
             householdId: input.householdId,
             name: input.name,
+            kind: input.kind,
             currency: input.currency,
             brand: input.brand,
             createdAt: now.toDate(),
@@ -1658,6 +1666,7 @@ export function createFirestoreHouseholdsDb(
           const batch = writeBatch(firestore)
           batch.update(cardRef, {
             name: input.name,
+            kind: input.kind,
             currency: input.currency,
             brand: input.brand,
           })
@@ -1673,6 +1682,7 @@ export function createFirestoreHouseholdsDb(
           return {
             ...parseCardDocument({ id: cardSnap.id, data: cardSnap.data() }),
             name: input.name,
+            kind: input.kind,
             currency: input.currency,
             brand: input.brand,
           }

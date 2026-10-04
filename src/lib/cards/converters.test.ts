@@ -14,6 +14,9 @@ describe('parseCardDocument', () => {
       id: 'card-1',
       householdId: 'h-1',
       name: 'Visa',
+      // No stored kind: every method written before kinds existed is a
+      // credit card, which is all this collection could hold.
+      kind: 'credito',
       // No stored currency: every card written before they existed is in
       // pesos, since there was no way to record anything else.
       currency: 'ARS',

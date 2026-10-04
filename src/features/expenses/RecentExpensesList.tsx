@@ -299,6 +299,17 @@ export function RecentExpensesList({
                       item.authorDisplayName}
                   </span>
                 </div>
+                {/* Which method paid for it, when it was one the
+                    household wrote down. Cash says nothing: it is the
+                    default and saying so on every row is noise. */}
+                {row.kind === 'expense' &&
+                row.expense.paymentMethodId !== null ? (
+                  <span className="text-xs text-muted-foreground">
+                    {purchasesQuery.cardNameById.get(
+                      row.expense.paymentMethodId,
+                    ) ?? 'Método de pago'}
+                  </span>
+                ) : null}
                 {row.kind === 'purchase' ? (
                   <span className="text-xs text-muted-foreground">
                     {cardPurchaseMark(

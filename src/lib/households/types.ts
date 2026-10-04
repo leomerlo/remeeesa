@@ -1,5 +1,5 @@
 import type { CardCurrency, Currency } from '@/lib/money'
-import type { CardBrand } from '@/lib/cards/types'
+import type { CardBrand, PaymentMethodKind } from '@/lib/cards/types'
 import type { Projection } from '@/lib/proyecciones'
 import type { Card, CardPurchase } from '@/lib/cards/types'
 import type { Pendiente } from '@/lib/pendientes/types'
@@ -141,6 +141,9 @@ export type HouseholdsDb = {
     // Pesos when omitted. A dollar amount is recorded but never counted --
     // see lib/money/currency.
     readonly currency?: Currency
+    // Which of the household's own payment methods it was paid with.
+    // Omitted for cash, which every household has without creating it.
+    readonly paymentMethodId?: string | null
   }): Promise<Expense>
   listExpensesInMonth(input: {
     readonly householdId: string
@@ -293,6 +296,7 @@ export type HouseholdsDb = {
   createCard(input: {
     readonly householdId: string
     readonly name: string
+    readonly kind: PaymentMethodKind
     readonly currency: CardCurrency
     readonly brand: CardBrand
   }): Promise<Card>
@@ -304,6 +308,7 @@ export type HouseholdsDb = {
     readonly householdId: string
     readonly cardId: string
     readonly name: string
+    readonly kind: PaymentMethodKind
     readonly currency: CardCurrency
     readonly brand: CardBrand
   }): Promise<Card>

@@ -22,6 +22,7 @@ function expense(
     isService,
     subcategory: null,
     currency: 'ARS' as const,
+    paymentMethodId: null,
     createdAt: new Date(),
   }
 }

@@ -57,6 +57,26 @@ export function CardBrandMark({
       </svg>
     )
   }
+  if (brand === 'mercadopago') {
+    // Their blue with "MP" in it, not a trace of the artwork: enough to
+    // recognise at a glance in a list, which is all any of these marks are
+    // for.
+    return (
+      <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+        <circle cx="12" cy="12" r="10" fill="#009ee3" />
+        <text
+          x="12"
+          y="16"
+          textAnchor="middle"
+          fontSize="9"
+          fontWeight="800"
+          fill="#ffffff"
+        >
+          MP
+        </text>
+      </svg>
+    )
+  }
   // "Otra": a plain card outline, which is what the app has always drawn
   // for a Resumen row.
   return (

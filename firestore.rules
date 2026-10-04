@@ -96,7 +96,7 @@ service cloud.firestore {
     }
 
     function isValidCard(data) {
-      return data.keys().hasOnly(['household_id', 'name', 'currency', 'brand', 'created_at'])
+      return data.keys().hasOnly(['household_id', 'name', 'kind', 'currency', 'brand', 'created_at'])
         && data.household_id is string
         && data.household_id.size() > 0
         && data.name is string
@@ -104,6 +104,10 @@ service cloud.firestore {
         // Absent on every card written before currencies existed. 'BOTH'
         // is a card the bank bills in pesos and in dollars.
         && (!('currency' in data) || data.currency in ['ARS', 'USD', 'BOTH'])
+        // Absent on every method written before kinds existed, which were
+        // all credit cards. 'credito' is the one that books a purchase into
+        // a later Resumen; the rest settle the moment the gasto is logged.
+        && (!('kind' in data) || data.kind in ['efectivo', 'cuenta', 'debito', 'credito'])
         // Absent on every card written before brands existed, which read
         // as 'otra'. It is only ever the mark drawn on the card.
         && (!('brand' in data) || data.brand in ['visa', 'mastercard', 'amex', 'otra'])
@@ -153,7 +157,7 @@ service cloud.firestore {
     }
 
     function isValidExpense(data) {
-      return data.keys().hasOnly(['household_id', 'category_id', 'member_id', 'name', 'price', 'comments', 'expense_date', 'pendiente_id', 'is_service', 'subcategory', 'currency', 'created_at', 'author_display_name'])
+      return data.keys().hasOnly(['household_id', 'category_id', 'member_id', 'name', 'price', 'comments', 'expense_date', 'pendiente_id', 'is_service', 'subcategory', 'currency', 'payment_method_id', 'created_at', 'author_display_name'])
         && data.household_id is string
         && data.household_id.size() > 0
         && data.category_id is string
@@ -189,6 +193,10 @@ service cloud.firestore {
         // Absent on every expense written before currencies existed, and
         // only ever one of the two the app knows.
         && (!('currency' in data) || data.currency in ['ARS', 'USD'])
+        // Which payment method paid for it, when it was one the household
+        // wrote down. Null for cash, and absent on everything logged
+        // before methods existed.
+        && (!('payment_method_id' in data) || data.payment_method_id == null || (data.payment_method_id is string && data.payment_method_id.size() > 0))
         && data.created_at is timestamp
         && data.author_display_name is string
         && data.author_display_name.size() > 0
@@ -689,7 +697,7 @@ service cloud.firestore {
       // tests run against has no rules, so nothing caught it until these
       // rules were read alongside what the app actually writes.
       allow update: if isMemberOf(resource.data.household_id)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'currency', 'brand'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'kind', 'currency', 'brand'])
         && isValidCard(request.resource.data);
       // Deleting one is now a real action in Ajustes. "Nothing points at
       // this card" cannot be expressed here -- rules cannot query -- so the

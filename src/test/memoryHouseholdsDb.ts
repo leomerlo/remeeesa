@@ -554,6 +554,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         isService: false,
         subcategory: null,
         currency: input.currency ?? DEFAULT_CURRENCY,
+        paymentMethodId: input.paymentMethodId ?? null,
         createdAt: new Date(),
       }
       state.expenses.set(expense.id, expense)
@@ -732,6 +733,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         id: crypto.randomUUID(),
         householdId: input.householdId,
         name: input.name,
+        kind: input.kind,
         currency: input.currency,
         brand: input.brand,
         createdAt: new Date(),
@@ -751,6 +753,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       const next: Card = {
         ...existing,
         name: input.name,
+        kind: input.kind,
         currency: input.currency,
         brand: input.brand,
       }
@@ -1128,6 +1131,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         householdId: input.householdId,
         categoryId: existing.categoryId,
         memberId: input.memberId,
+        paymentMethodId: null,
         authorDisplayName: input.authorDisplayName,
         name: existing.name,
         price: input.finalAmount,
@@ -1192,6 +1196,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       const createdAt = new Date()
       const expenses = payment.expenses.map((line): Expense => ({
         currency: input.currency,
+        paymentMethodId: null,
         id: crypto.randomUUID(),
         householdId: input.householdId,
         categoryId: input.tarjetaCategoryId,

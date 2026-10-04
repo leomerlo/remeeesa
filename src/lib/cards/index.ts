@@ -1,5 +1,13 @@
-export type { Card, CardBrand, CardPurchase } from './types'
-export { CARD_BRANDS, isCardBrand, parseCardBrand } from './types'
+export type { Card, CardBrand, CardPurchase, PaymentMethodKind } from './types'
+export {
+  CARD_BRANDS,
+  PAYMENT_METHOD_KINDS,
+  isCardBrand,
+  isPaymentMethodKind,
+  parseCardBrand,
+  parsePaymentMethodKind,
+  settlesNow,
+} from './types'
 export type { CardsDueTotal, ResumenCuota } from './purchases'
 export {
   CardNameTakenError,

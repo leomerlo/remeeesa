@@ -336,6 +336,7 @@ describe('createExpense', () => {
       price: 10.46,
       comments: 'Friday dinner',
       expenseDate,
+      paymentMethodId: null,
       pendienteId: null,
       isService: false,
       subcategory: null,

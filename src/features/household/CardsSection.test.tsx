@@ -43,18 +43,18 @@ describe('CardsSection', () => {
     renderWithProviders(<CardsSection db={db} householdId={householdId} />)
 
     expect(
-      await screen.findByText('Todavía no hay tarjetas'),
+      await screen.findByText('Todavía no hay métodos de pago'),
     ).toBeInTheDocument()
   })
 
   it('creates a card from the sheet and lists it', async () => {
     const { db, householdId } = await seedHousehold()
     renderWithProviders(<CardsSection db={db} householdId={householdId} />)
-    await screen.findByText('Todavía no hay tarjetas')
+    await screen.findByText('Todavía no hay métodos de pago')
 
     openAddSheet()
     fillName('  Visa  ')
-    submit('Agregar tarjeta')
+    submit('Agregar método')
 
     expect(await screen.findByRole('listitem')).toHaveTextContent('Visa')
     expect((await listCards({ db, householdId })).map((c) => c.name)).toEqual([
@@ -62,23 +62,24 @@ describe('CardsSection', () => {
     ])
   })
 
-  it('saves the brand and the currency chosen alongside the name', async () => {
+  it('saves the kind, the brand and the currency alongside the name', async () => {
     const { db, householdId } = await seedHousehold()
     renderWithProviders(<CardsSection db={db} householdId={householdId} />)
-    await screen.findByText('Todavía no hay tarjetas')
+    await screen.findByText('Todavía no hay métodos de pago')
 
     openAddSheet()
     fillName('Amex')
-    fireEvent.change(screen.getByLabelText('Tipo de tarjeta'), {
+    fireEvent.change(screen.getByLabelText('Marca'), {
       target: { value: 'amex' },
     })
     fireEvent.change(screen.getByLabelText('Moneda'), {
       target: { value: 'BOTH' },
     })
-    submit('Agregar tarjeta')
+    submit('Agregar método')
 
     await waitFor(async () => {
       const [card] = await listCards({ db, householdId })
+      expect(card?.kind).toBe('credito')
       expect(card?.brand).toBe('amex')
       expect(card?.currency).toBe('BOTH')
     })
@@ -90,7 +91,7 @@ describe('CardsSection', () => {
   it('offers the three things a card can be', async () => {
     const { db, householdId } = await seedHousehold()
     renderWithProviders(<CardsSection db={db} householdId={householdId} />)
-    await screen.findByText('Todavía no hay tarjetas')
+    await screen.findByText('Todavía no hay métodos de pago')
 
     openAddSheet()
 
@@ -108,11 +109,11 @@ describe('CardsSection', () => {
   it('rejects a blank name and creates nothing', async () => {
     const { db, householdId } = await seedHousehold()
     renderWithProviders(<CardsSection db={db} householdId={householdId} />)
-    await screen.findByText('Todavía no hay tarjetas')
+    await screen.findByText('Todavía no hay métodos de pago')
 
     openAddSheet()
     fillName('   ')
-    submit('Agregar tarjeta')
+    submit('Agregar método')
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Ingresá un nombre para la tarjeta',
@@ -128,7 +129,7 @@ describe('CardsSection', () => {
 
     openAddSheet()
     fillName('visa')
-    submit('Agregar tarjeta')
+    submit('Agregar método')
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Ya existe una tarjeta con ese nombre.',
@@ -186,7 +187,7 @@ describe('CardsSection', () => {
       fireEvent.click(
         await screen.findByRole('button', { name: 'Editar Visa' }),
       )
-      await screen.findByRole('dialog', { name: 'Editar tarjeta' })
+      await screen.findByRole('dialog', { name: 'Editar método' })
       return { ...seeded, queryClient }
     }
 

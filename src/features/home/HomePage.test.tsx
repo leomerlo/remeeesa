@@ -592,7 +592,7 @@ describe('HomePage', () => {
     fireEvent.change(screen.getByLabelText('Precio'), {
       target: { value: '80' },
     })
-    const paidWith = screen.getByLabelText('Pagó con')
+    const paidWith = screen.getByLabelText('Método de pago')
     const visa = await within(paidWith).findByRole('option', { name: 'Visa' })
     fireEvent.change(paidWith, {
       target: { value: visa.getAttribute('value') },

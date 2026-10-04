@@ -1,9 +1,9 @@
 import { DEFAULT_CURRENCY } from '@/lib/money'
 import type { CardCurrency } from '@/lib/money'
-import type { CardBrand } from './types'
+import type { CardBrand, PaymentMethodKind } from './types'
 import type { HouseholdsDb } from '@/lib/households/types'
 import type { Card } from './types'
-import { parseCardName } from './validate'
+import { parseCardCurrencyFor, parseCardName } from './validate'
 
 export class CardNameTakenError extends Error {
   override readonly name = 'CardNameTakenError'
@@ -25,6 +25,9 @@ export async function createCard(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly name: string
+  // What it does with the money. A credit card unless said otherwise --
+  // which is what every method in here was before kinds existed.
+  readonly kind?: PaymentMethodKind
   // Pesos unless said otherwise. 'BOTH' for a card billed in pesos and in
   // dollars, which then keeps one Resumen per currency per month.
   readonly currency?: CardCurrency
@@ -35,10 +38,15 @@ export async function createCard(input: {
   // ponytail: client-side uniqueness check can race (two members adding the
   // same name at once); move to name-keyed doc ids if that ever matters.
   await assertNameFree(input.db, input.householdId, name)
+  const kind = input.kind ?? 'credito'
   return input.db.createCard({
     householdId: input.householdId,
     name,
-    currency: input.currency ?? DEFAULT_CURRENCY,
+    kind,
+    currency: parseCardCurrencyFor({
+      kind,
+      currency: input.currency ?? DEFAULT_CURRENCY,
+    }),
     brand: input.brand ?? 'otra',
   })
 }
@@ -51,6 +59,7 @@ export async function updateCard(input: {
   readonly householdId: string
   readonly cardId: string
   readonly name: string
+  readonly kind: PaymentMethodKind
   readonly currency: CardCurrency
   readonly brand: CardBrand
 }): Promise<Card> {
@@ -60,7 +69,11 @@ export async function updateCard(input: {
     householdId: input.householdId,
     cardId: input.cardId,
     name,
-    currency: input.currency,
+    kind: input.kind,
+    currency: parseCardCurrencyFor({
+      kind: input.kind,
+      currency: input.currency,
+    }),
     brand: input.brand,
   })
 }

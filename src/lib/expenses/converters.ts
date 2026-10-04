@@ -129,6 +129,7 @@ export function parseExpenseDocument(input: {
     is_service,
     subcategory,
     currency,
+    payment_method_id,
     created_at,
   } = input.data
   if (typeof name !== 'string') {
@@ -165,6 +166,12 @@ export function parseExpenseDocument(input: {
     isService: parseOptionalBoolean(is_service, 'is_service', false),
     subcategory: parseNullableString(subcategory, 'subcategory'),
     currency: parseCurrency(currency),
+    // Missing on every Expense written before payment methods existed, and
+    // on every cash one since -- both of which read as "cash".
+    paymentMethodId: parseNullableString(
+      payment_method_id,
+      'payment_method_id',
+    ),
     createdAt: parseTimestamp(created_at, 'created_at'),
   }
 }
@@ -199,6 +206,8 @@ export function expenseToDocument(input: {
   // Optional at the door: almost every Expense written is in pesos, and a
   // required field here would mean restating that at a dozen call sites.
   readonly currency?: Currency
+  // Same: cash, and everything written before methods existed, is null.
+  readonly paymentMethodId?: string | null
   readonly createdAt: Date
 }): {
   readonly household_id: string
@@ -213,6 +222,7 @@ export function expenseToDocument(input: {
   readonly is_service: boolean
   readonly subcategory: string | null
   readonly currency: Currency
+  readonly payment_method_id: string | null
   readonly created_at: Date
 } {
   return {
@@ -228,6 +238,7 @@ export function expenseToDocument(input: {
     is_service: input.isService,
     subcategory: input.subcategory,
     currency: input.currency ?? DEFAULT_CURRENCY,
+    payment_method_id: input.paymentMethodId ?? null,
     created_at: input.createdAt,
   }
 }

@@ -18,6 +18,7 @@ function makeExpense(overrides: Partial<Expense> = {}): Expense {
     isService: false,
     subcategory: null,
     currency: 'ARS' as const,
+    paymentMethodId: null,
     createdAt: new Date(2026, 7, 15),
     ...overrides,
   }
@@ -332,12 +333,14 @@ describe('summarizeTarjeta', () => {
         categoryId: 'cat-tarjeta',
         subcategory: 'Ropa',
         currency: 'ARS' as const,
+        paymentMethodId: null,
         price: 30,
       }),
       makeExpense({
         categoryId: 'cat-tarjeta',
         subcategory: null,
         currency: 'ARS' as const,
+        paymentMethodId: null,
         price: -4.5,
       }),
       makeExpense({ categoryId: 'cat-comida', price: 99 }),
@@ -375,6 +378,7 @@ describe('summarizeTarjeta', () => {
         categoryId: 'cat-tarjeta',
         subcategory: 'Ropa',
         currency: 'ARS' as const,
+        paymentMethodId: null,
         price: 30,
       }),
     ]
@@ -383,6 +387,7 @@ describe('summarizeTarjeta', () => {
         categoryId: 'cat-tarjeta',
         expectedAmount: 12,
         currency: 'ARS' as const,
+        paymentMethodId: null,
       },
       {
         categoryId: 'cat-tarjeta',

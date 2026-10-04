@@ -10,7 +10,13 @@ import { ConfirmDestructive } from '@/components/ui/confirm-destructive'
 import { MovementCard } from '@/components/MovementCard'
 import { Sheet } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
-import { createCard, deleteCard, listCards, updateCard } from '@/lib/cards'
+import {
+  PAYMENT_METHOD_KINDS,
+  createCard,
+  deleteCard,
+  listCards,
+  updateCard,
+} from '@/lib/cards'
 import type { Card } from '@/lib/cards'
 import type { HouseholdsDb } from '@/lib/households'
 import { pendientesQueryKey } from '@/features/pendientes'
@@ -62,6 +68,7 @@ export function CardsSection({
     mutationFn: (input: {
       readonly card: Card | undefined
       readonly name: string
+      readonly kind: Card['kind']
       readonly currency: Card['currency']
       readonly brand: Card['brand']
     }) =>
@@ -70,6 +77,7 @@ export function CardsSection({
             db,
             householdId,
             name: input.name,
+            kind: input.kind,
             currency: input.currency,
             brand: input.brand,
           })
@@ -78,6 +86,7 @@ export function CardsSection({
             householdId,
             cardId: input.card.id,
             name: input.name,
+            kind: input.kind,
             currency: input.currency,
             brand: input.brand,
           }),
@@ -93,7 +102,7 @@ export function CardsSection({
       setError(
         caught instanceof Error
           ? caught.message
-          : 'No se pudo guardar la tarjeta.',
+          : 'No se pudo guardar el método de pago.',
       )
     },
   })
@@ -114,24 +123,35 @@ export function CardsSection({
       setError(
         caught instanceof Error
           ? caught.message
-          : 'No se pudo borrar la tarjeta.',
+          : 'No se pudo borrar el método de pago.',
       )
     },
   })
 
   const cards = cardsQuery.data
-  const currencyLabel = (card: Card): string =>
-    CARD_CURRENCY_OPTIONS.find((option) => option.value === card.currency)
-      ?.label ?? 'Pesos'
+  // "Crédito · Pesos y dólares": what it does with the money first, since
+  // that is the half that decides how a gasto behaves.
+  const methodLabel = (card: Card): string => {
+    const kind =
+      PAYMENT_METHOD_KINDS.find((option) => option.value === card.kind)
+        ?.label ?? 'Crédito'
+    const currency =
+      CARD_CURRENCY_OPTIONS.find((option) => option.value === card.currency)
+        ?.label ?? 'Pesos'
+    return `${kind} · ${currency}`
+  }
 
   return (
     <section
-      aria-labelledby="tarjetas-heading"
+      aria-labelledby="metodos-heading"
       className="flex w-full flex-col gap-3"
     >
       <div className="flex items-center justify-between gap-2">
-        <h2 id="tarjetas-heading" className="text-title font-semibold">
-          Tarjetas
+        {/* "Métodos de pago", not "Tarjetas": cash, a Mercado Pago balance
+            and a debit card are all ways this household pays for things,
+            and only one of them is a card. Per direct feedback. */}
+        <h2 id="metodos-heading" className="text-title font-semibold">
+          Métodos de pago
         </h2>
         <Button
           type="button"
@@ -155,7 +175,7 @@ export function CardsSection({
         <AlertMessage>
           {cardsQuery.error instanceof Error
             ? cardsQuery.error.message
-            : 'No se pudieron cargar las tarjetas.'}
+            : 'No se pudieron cargar los métodos de pago.'}
         </AlertMessage>
       ) : null}
 
@@ -177,8 +197,8 @@ export function CardsSection({
         // direct feedback.
         <EmptyState
           illustration={ILLUSTRATIONS.loaded}
-          title="Todavía no hay tarjetas"
-          description="Agregá una y vas a poder cargar un gasto con ella: sus cuotas se juntan en el resumen del mes que viene."
+          title="Todavía no hay métodos de pago"
+          description="Efectivo, débito, una cuenta de Mercado Pago o una tarjeta de crédito: con el que elijas al cargar un gasto, la app sabe si sale este mes o va al resumen del que viene."
           action={
             <Button
               type="button"
@@ -188,7 +208,7 @@ export function CardsSection({
               }}
             >
               <Plus aria-hidden="true" />
-              Agregar tarjeta
+              Agregar método
             </Button>
           }
         />
@@ -211,7 +231,7 @@ export function CardsSection({
                 }
                 title={card.name}
                 amount={null}
-                when={currencyLabel(card)}
+                when={methodLabel(card)}
                 actions={
                   <>
                     <Button
@@ -257,7 +277,7 @@ export function CardsSection({
             setError(null)
           }
         }}
-        title={editing === null ? 'Agregar tarjeta' : 'Editar tarjeta'}
+        title={editing === null ? 'Agregar método' : 'Editar método'}
       >
         <CardForm
           // Remounted per card, so the fields start from whichever one is
@@ -270,6 +290,7 @@ export function CardsSection({
             saveMutation.mutate({
               card: editing ?? undefined,
               name: input.name,
+              kind: input.kind,
               currency: input.currency,
               brand: input.brand,
             })
@@ -285,7 +306,7 @@ export function CardsSection({
           }
         }}
         title={`Borrar «${deleting?.name ?? ''}»`}
-        description="Solo se puede borrar una tarjeta sin consumos ni resúmenes cargados."
+        description="Solo se puede borrar un método sin gastos ni resúmenes cargados."
         confirmLabel="Sí, borrar"
         pending={deleteMutation.isPending}
         onConfirm={() => {

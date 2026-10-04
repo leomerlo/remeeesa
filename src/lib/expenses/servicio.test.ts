@@ -17,6 +17,7 @@ function makeExpense(overrides: Partial<Expense> = {}): Expense {
     isService: false,
     subcategory: null,
     currency: 'ARS' as const,
+    paymentMethodId: null,
     createdAt: new Date(2026, 7, 15),
     ...overrides,
   }

@@ -118,7 +118,7 @@ describe('EditHouseholdPage', () => {
     ).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Ajustes' })).toBeInTheDocument()
     expect(
-      await screen.findByRole('heading', { name: 'Tarjetas' }),
+      await screen.findByRole('heading', { name: 'Métodos de pago' }),
     ).toBeInTheDocument()
   })
 

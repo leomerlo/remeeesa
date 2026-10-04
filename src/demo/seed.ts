@@ -353,6 +353,39 @@ async function seedCasa(
     currency: 'BOTH',
     brand: 'amex',
   })
+  // Not every method is a credit card: a Mercado Pago balance you spend
+  // straight out of, and a dollar debit card for the money that is already
+  // abroad. Both settle the moment a gasto is logged, so they make an
+  // ordinary gasto of this month rather than a Resumen of the next.
+  const mercadoPago = await createCard({
+    db,
+    householdId,
+    name: 'Mercado Pago',
+    kind: 'cuenta',
+    brand: 'mercadopago',
+  })
+  await createCard({
+    db,
+    householdId,
+    name: 'Mercury',
+    kind: 'debito',
+    currency: 'USD',
+    brand: 'otra',
+  })
+  // Paid out of the Mercado Pago balance: an ordinary gasto of this month,
+  // with the method named on its row.
+  await createExpense({
+    db,
+    householdId,
+    categoryId: comida.id,
+    memberId: user.id,
+    authorDisplayName: user.displayName,
+    name: 'Delivery',
+    price: 18500,
+    comments: '',
+    expenseDate: pastDayThisMonth(3),
+    paymentMethodId: mercadoPago.id,
+  })
   const compras: readonly {
     readonly cardId: string
     readonly name: string

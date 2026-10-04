@@ -9,6 +9,7 @@ import {
   listExpensesInMonth,
 } from '@/lib/expenses'
 import { createCard } from '@/lib/cards'
+import type { PaymentMethodKind } from '@/lib/cards'
 import type { CardCurrency } from '@/lib/money'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { listPendientes } from '@/lib/pendientes'
@@ -28,8 +29,14 @@ async function renderForm(
   options: {
     readonly showRecurringOptions?: boolean
     readonly defaultDueDate?: Date
-    // A plain name is a peso card; pass a pair for anything else.
+    // A plain name is a peso credit card; pass a pair for another
+    // currency, or a `methods` entry for anything that is not credit.
     readonly cardNames?: readonly (string | readonly [string, CardCurrency])[]
+    readonly methods?: readonly {
+      readonly name: string
+      readonly kind: PaymentMethodKind
+      readonly currency: CardCurrency
+    }[]
   } = {},
 ) {
   const db = createMemoryHouseholdsDb().asUser('user-1')
@@ -43,6 +50,15 @@ async function renderForm(
     const [name, currency] =
       typeof entry === 'string' ? ([entry, 'ARS'] as const) : entry
     await createCard({ db, householdId: household.id, name, currency })
+  }
+  for (const method of options.methods ?? []) {
+    await createCard({
+      db,
+      householdId: household.id,
+      name: method.name,
+      kind: method.kind,
+      currency: method.currency,
+    })
   }
   renderWithProviders(
     <MemoryRouter>
@@ -244,12 +260,21 @@ describe('AddGastoSheet (unified add flow)', () => {
 
   // Dollars are recorded but never counted; the form says so where the
   // amount is typed, so the figure is never a surprise later.
+  // Efectivo is pesos, so a dollar gasto is logged against a method that is
+  // itself in dollars -- a dollar debit card, or the cash you take on a
+  // trip, added once in Ajustes. Per direct feedback.
   it('records a gasto in dollars and warns it will not touch the budget', async () => {
-    const { db, householdId } = await renderForm()
+    const { db, householdId } = await renderForm({
+      methods: [{ name: 'Efectivo USD', kind: 'efectivo', currency: 'USD' }],
+    })
 
     fillCommon({ name: 'Hosting', category: 'Servicios' })
-    fireEvent.change(screen.getByLabelText('Moneda'), {
-      target: { value: 'USD' },
+    const paidWith = screen.getByLabelText('Método de pago')
+    const efectivoUsd = within(paidWith)
+      .getAllByRole('option')
+      .find((option) => option.textContent === 'Efectivo USD')
+    fireEvent.change(paidWith, {
+      target: { value: efectivoUsd?.getAttribute('value') },
     })
     expect(
       screen.getByText(
@@ -407,20 +432,20 @@ describe('AddGastoSheet (unified add flow)', () => {
     )
   })
 
-  describe('Pagó con', () => {
-    it('defaults to "Efectivo / débito" and offers a shortcut to Ajustes when there are no cards', async () => {
+  describe('Método de pago', () => {
+    it('defaults to efectivo and offers a shortcut to Ajustes when there are no others', async () => {
       await renderForm()
 
-      const paidWith = screen.getByLabelText('Pagó con')
+      const paidWith = screen.getByLabelText('Método de pago')
       expect(paidWith).toHaveValue('')
       expect(
         within(paidWith)
           .getAllByRole('option')
           .map((o) => o.textContent),
-      ).toEqual(['Efectivo / débito'])
+      ).toEqual(['Efectivo'])
       expect(
         await screen.findByRole('link', {
-          name: 'Crear una tarjeta en Ajustes',
+          name: 'Agregar un método de pago en Ajustes',
         }),
       ).toHaveAttribute('href', '/household')
       expect(screen.queryByLabelText('Cuotas')).not.toBeInTheDocument()
@@ -429,7 +454,7 @@ describe('AddGastoSheet (unified add flow)', () => {
     it('lists the household cards and asks for cuotas, defaulting to 1, once one is picked', async () => {
       await renderForm({ cardNames: ['Visa', 'Amex'] })
 
-      const paidWith = screen.getByLabelText('Pagó con')
+      const paidWith = screen.getByLabelText('Método de pago')
       await within(paidWith).findByRole('option', { name: 'Visa' })
       expect(
         screen.queryByRole('link', { name: 'Crear una tarjeta en Ajustes' }),
@@ -453,7 +478,7 @@ describe('AddGastoSheet (unified add flow)', () => {
     })
 
     async function pickVisa(): Promise<void> {
-      const paidWith = screen.getByLabelText('Pagó con')
+      const paidWith = screen.getByLabelText('Método de pago')
       const visa = await within(paidWith).findByRole('option', { name: 'Visa' })
       fireEvent.change(paidWith, {
         target: { value: visa.getAttribute('value') },
@@ -484,6 +509,75 @@ describe('AddGastoSheet (unified add flow)', () => {
         ['Visa', 33.33],
         ['Visa', 33.33],
         ['Visa', 33.34],
+      ])
+    })
+
+    // The whole point of the kinds: credit is the only one that does not
+    // touch this month. Debit, a Mercado Pago balance and cash are money
+    // that has already gone, so each makes an ordinary gasto of the month
+    // it was made in -- with the method recorded on it. Per direct
+    // feedback.
+    it('logs a debit gasto as this month, with the method on it', async () => {
+      const { db, householdId } = await renderForm({
+        methods: [{ name: 'Mercury', kind: 'debito', currency: 'USD' }],
+      })
+
+      fillCommon({ name: 'Cena', category: 'Comida' })
+      const paidWith = screen.getByLabelText('Método de pago')
+      const mercury = within(paidWith)
+        .getAllByRole('option')
+        .find((option) => option.textContent === 'Mercury')
+      fireEvent.change(paidWith, {
+        target: { value: mercury?.getAttribute('value') },
+      })
+      // No cuotas: nothing is being financed.
+      expect(screen.queryByLabelText('Cuotas')).not.toBeInTheDocument()
+      fireEvent.change(screen.getByLabelText('Precio'), {
+        target: { value: '40' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
+
+      await waitFor(() => {
+        expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
+      })
+      const expenses = await listExpensesInMonth({
+        db,
+        householdId,
+        ...currentMonthRange(),
+      })
+      expect(expenses).toEqual([
+        expect.objectContaining({
+          name: 'Cena',
+          price: 40,
+          // The method's own currency, with no choice to make: that is why
+          // the method is picked before the amount.
+          currency: 'USD',
+          paymentMethodId: mercury?.getAttribute('value'),
+        }),
+      ])
+      // And nothing booked for a later month.
+      expect(await listPendientes({ db, householdId })).toEqual([])
+    })
+
+    it('leaves the method off a gasto paid in cash', async () => {
+      const { db, householdId } = await renderForm()
+
+      fillCommon({ name: 'Feria', category: 'Comida' })
+      fireEvent.change(screen.getByLabelText('Precio'), {
+        target: { value: '15' },
+      })
+      fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
+
+      await waitFor(() => {
+        expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
+      })
+      const expenses = await listExpensesInMonth({
+        db,
+        householdId,
+        ...currentMonthRange(),
+      })
+      expect(expenses).toEqual([
+        expect.objectContaining({ name: 'Feria', paymentMethodId: null }),
       ])
     })
 
@@ -592,7 +686,7 @@ describe('AddGastoSheet (unified add flow)', () => {
 // that card's Resumen of its own currency.
 describe('AddGastoSheet on a card that holds both currencies', () => {
   async function pickCard(name: string): Promise<void> {
-    const paidWith = screen.getByLabelText('Pagó con')
+    const paidWith = screen.getByLabelText('Método de pago')
     await within(paidWith).findByRole('option', { name })
     fireEvent.change(paidWith, {
       target: {
