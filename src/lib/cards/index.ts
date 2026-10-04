@@ -30,6 +30,7 @@ export {
   listCardPurchasesInMonth,
   listResumenCuotas,
   markResumenPaid,
+  setResumenAmount,
   MAX_CUOTAS,
   RESUMEN_CATEGORY_NAME,
   parseCuotas,

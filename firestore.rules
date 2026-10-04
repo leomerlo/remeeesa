@@ -259,7 +259,7 @@ service cloud.firestore {
     // from creating a Pendiente that is already marked paid. Editing, deleting,
     // and marking a pendiente paid are handled by later tickets in this feature.
     function isValidPendiente(data) {
-      return data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'auto_debit', 'status', 'paid_expense_id', 'paid_at', 'created_at', 'card_id', 'currency', 'purchase_ids'])
+      return data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'estimated_amount', 'recurring', 'auto_debit', 'status', 'paid_expense_id', 'paid_at', 'created_at', 'card_id', 'currency', 'purchase_ids'])
         && data.household_id is string
         && data.household_id.size() > 0
         && data.category_id is string
@@ -269,6 +269,9 @@ service cloud.firestore {
         && data.name.matches('.*\\S.*')
         && data.due_date is timestamp
         && (data.expected_amount == null || (data.expected_amount is number && data.expected_amount > 0))
+        // Only a Resumen carries one: what the cuotas logged so far add up
+        // to, which is an estimate of the bill and never the bill itself.
+        && (!('estimated_amount' in data) || (data.estimated_amount is number && data.estimated_amount >= 0))
         && data.recurring is bool
         // Absent on every Pendiente written before auto-debit existed;
         // direct dot-access on a missing key fails closed, hence the
@@ -307,10 +310,27 @@ service cloud.firestore {
         && resumenCardId(pendienteId) == data.card_id
         && data.purchase_ids is list
         && data.purchase_ids.size() == 1
-        && data.expected_amount is number
+        // Nothing is owed until the statement is loaded by hand.
+        && data.expected_amount == null
+        && data.estimated_amount is number
         && data.recurring == false
         && (!('auto_debit' in data) || data.auto_debit == false)
         && get(/databases/$(database)/documents/cards/$(data.card_id)).data.household_id == data.household_id;
+    }
+
+    // Loading what the card actually billed, once the statement closes.
+    // The household types this one in: it is the only way a Resumen comes
+    // to owe anything, and it can still be corrected until it is paid.
+    // estimated_amount rides along so a Resumen written before the two
+    // figures were told apart stops reading as a legacy one.
+    function isValidResumenAmountLoad() {
+      return resource.data.status == 'pending'
+        && ('card_id' in resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['expected_amount', 'estimated_amount'])
+        && request.resource.data.expected_amount is number
+        && request.resource.data.expected_amount > 0
+        && request.resource.data.estimated_amount is number;
     }
 
     // Missing Resúmenes have no resource, but the purchase transaction has to
@@ -329,9 +349,9 @@ service cloud.firestore {
       return resource.data.status == 'pending'
         && ('card_id' in resource.data)
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['expected_amount', 'purchase_ids'])
-        && request.resource.data.expected_amount is number
-        && request.resource.data.expected_amount > 0
+          .hasOnly(['estimated_amount', 'purchase_ids'])
+        && request.resource.data.estimated_amount is number
+        && request.resource.data.estimated_amount > 0
         // One purchase joins, one leaves, or the list stays as it was (an
         // edited amount) -- never a wholesale rewrite.
         && request.resource.data.purchase_ids is list
@@ -577,7 +597,7 @@ service cloud.firestore {
           ? isValidResumen(pendienteId, request.resource.data)
           : !isResumenId(pendienteId));
       allow update: if isMemberOf(resource.data.household_id)
-        && (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenMarkPaid() || isResumenRename());
+        && (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenAmountLoad() || isValidResumenMarkPaid() || isResumenRename());
       allow delete: if isMemberOf(resource.data.household_id)
         && resource.data.status == 'pending';
     }

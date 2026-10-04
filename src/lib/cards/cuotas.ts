@@ -105,16 +105,21 @@ export function resumenChanges(
   return [...changes.values()]
 }
 
-// The Resumen's amount and purchase list once the change lands, or null when
-// no purchase is left in it (the Resumen is deleted).
+// The Resumen's estimate and purchase list once the change lands, or null
+// when no purchase is left in it (the Resumen is deleted).
+//
+// It moves estimatedAmount, not expectedAmount: what the household logs is
+// the app's running estimate of the bill, and the bill itself is whatever
+// the card says when the statement closes. Per direct feedback -- the two
+// used to be the same number, so a purchase quietly became a debt.
 export function applyResumenChange(
   resumen: {
-    readonly expectedAmount: number | null
+    readonly estimatedAmount?: number | undefined
     readonly purchaseIds?: readonly string[] | undefined
   },
   change: ResumenChange,
   purchaseId: string,
-): { readonly expectedAmount: number; readonly purchaseIds: string[] } | null {
+): { readonly estimatedAmount: number; readonly purchaseIds: string[] } | null {
   const ids = resumen.purchaseIds ?? []
   const purchaseIds = !change.holdsPurchase
     ? ids.filter((id) => id !== purchaseId)
@@ -125,8 +130,8 @@ export function applyResumenChange(
     return null
   }
   return {
-    expectedAmount:
-      (Math.round((resumen.expectedAmount ?? 0) * 100) + change.cents) / 100,
+    estimatedAmount:
+      (Math.round((resumen.estimatedAmount ?? 0) * 100) + change.cents) / 100,
     purchaseIds,
   }
 }

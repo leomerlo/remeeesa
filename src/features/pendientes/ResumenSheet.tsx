@@ -17,6 +17,7 @@ import {
   canPayResumen,
   listResumenCuotas,
   markResumenPaid,
+  setResumenAmount,
   ResumenAlreadyPaidError,
   resumenMonthStart,
 } from '@/lib/cards'
@@ -117,9 +118,7 @@ function ResumenDetail({
           {formatMonthLabel(resumen.dueDate)} · Vence el{' '}
           {formatDate(resumen.dueDate)}
         </p>
-        <span className="money text-foreground text-2xl">
-          {formatAmount(resumen.expectedAmount ?? 0, resumen.currency ?? 'ARS')}
-        </span>
+        <ResumenFigures resumen={resumen} />
       </div>
       {cuotasQuery.isPending ? (
         <div
@@ -176,6 +175,131 @@ function ResumenDetail({
         </ul>
       )}
     </div>
+  )
+}
+
+// What the card billed, and what the household thought it would.
+//
+// Until the statement arrives there is only the estimate -- the cuotas
+// logged so far -- and it is labelled as one, because it is not a debt. Once
+// the real figure is loaded, that is the headline and the estimate becomes
+// the comparison: how far off the household's own record was. Per direct
+// feedback, the gap is shown and nothing is invented to close it.
+function ResumenFigures({
+  resumen,
+}: {
+  readonly resumen: Pendiente
+}): ReactElement {
+  const currency = resumen.currency ?? 'ARS'
+  const estimated = resumen.estimatedAmount ?? 0
+  if (resumen.expectedAmount === null) {
+    return (
+      <>
+        <span className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
+          Estimado
+        </span>
+        <span className="money text-foreground text-2xl">
+          {formatAmount(estimated, currency)}
+        </span>
+        <span className="text-muted-foreground text-sm">
+          Lo que fuiste cargando. Todavía no es una cuenta a pagar: cargá lo que
+          te llegó en el resumen.
+        </span>
+      </>
+    )
+  }
+  const difference =
+    Math.round(resumen.expectedAmount * 100 - estimated * 100) / 100
+  return (
+    <>
+      <span className="money text-foreground text-2xl">
+        {formatAmount(resumen.expectedAmount, currency)}
+      </span>
+      <span className="text-muted-foreground text-sm">
+        {difference === 0
+          ? `Igual a los ${formatAmount(estimated, currency)} que habías cargado.`
+          : `Cargaste ${formatAmount(estimated, currency)} · ${formatAmount(Math.abs(difference), currency)} ${difference > 0 ? 'más' : 'menos'} de lo que esperabas.`}
+      </span>
+    </>
+  )
+}
+
+// Loading what the card actually billed. The one way a Resumen comes to owe
+// anything: the household reads its statement and types the figure in.
+function ResumenAmountForm({
+  db,
+  householdId,
+  resumen,
+  onSettled,
+}: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly resumen: Pendiente
+  readonly onSettled: () => Promise<void>
+}): ReactElement {
+  const [amount, setAmount] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const mutation = useMutation({
+    mutationFn: () =>
+      setResumenAmount({
+        db,
+        householdId,
+        resumenId: resumen.id,
+        amount: Number(amount),
+      }),
+    onSuccess: async () => {
+      setError(null)
+      await onSettled()
+    },
+    onError: async (caught: unknown) => {
+      if (
+        caught instanceof ResumenAlreadyPaidError ||
+        caught instanceof PendienteNotFoundError
+      ) {
+        await onSettled()
+      }
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'No se pudo cargar el monto del resumen',
+      )
+    },
+  })
+
+  return (
+    <form
+      aria-label="Cargar el resumen"
+      className="flex shrink-0 flex-col gap-4 pt-6"
+      onSubmit={(event) => {
+        event.preventDefault()
+        setError(null)
+        mutation.mutate()
+      }}
+    >
+      <div className="flex w-full flex-col gap-2">
+        <Label htmlFor="resumen-real-amount">Lo que llegó en el resumen</Label>
+        <div className="relative">
+          <span
+            aria-hidden="true"
+            className="text-muted-foreground pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
+          >
+            {resumen.currency === 'USD' ? 'US$' : '$'}
+          </span>
+          <FormattedAmountInput
+            id="resumen-real-amount"
+            name="resumen-real-amount"
+            className={resumen.currency === 'USD' ? 'pl-12' : 'pl-8'}
+            value={amount}
+            onChange={setAmount}
+            autoComplete="off"
+          />
+        </div>
+      </div>
+      {error === null ? null : <AlertMessage>{error}</AlertMessage>}
+      <Button type="submit" className="w-full" disabled={mutation.isPending}>
+        Cargar el resumen
+      </Button>
+    </form>
   )
 }
 
@@ -284,6 +408,20 @@ function ResumenPayment({
           Deshacer pago
         </Button>
       </div>
+    )
+  }
+
+  // Nothing to pay until the statement is loaded: what is on screen is an
+  // estimate, and paying an estimate is how a card purchase used to become
+  // a debt on its own. Per direct feedback.
+  if (resumen.expectedAmount === null) {
+    return (
+      <ResumenAmountForm
+        db={db}
+        householdId={householdId}
+        resumen={resumen}
+        onSettled={onSettled}
+      />
     )
   }
 

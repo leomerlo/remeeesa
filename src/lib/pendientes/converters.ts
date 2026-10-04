@@ -69,19 +69,32 @@ export function parsePendienteDocument(input: {
     card_id,
     purchase_ids,
     paid_expense_ids,
+    estimated_amount,
     currency,
   } = input.data
   if (typeof name !== 'string') {
     throw new Error('Pendiente name must be a string')
   }
 
+  // A Resumen written before the estimate and the bill were told apart
+  // carried its cuota total in expected_amount, which made what the
+  // household had been logging into a debt on its own. Under the model
+  // that replaced it, that figure is the estimate and the bill is simply
+  // not known yet -- so these read as "esperando el resumen" until
+  // somebody loads what the card actually billed. Per direct feedback.
+  // Loading it writes both fields, so a document only reads as legacy
+  // once.
+  const isLegacyResumen =
+    card_id !== undefined && estimated_amount === undefined
   return {
     id: input.id,
     householdId: parseRequiredString(household_id, 'household_id'),
     categoryId: parseRequiredString(category_id, 'category_id'),
     name: parsePendienteName(name),
     dueDate: parseTimestamp(due_date, 'due_date'),
-    expectedAmount: parseNullableNumber(expected_amount, 'expected_amount'),
+    expectedAmount: isLegacyResumen
+      ? null
+      : parseNullableNumber(expected_amount, 'expected_amount'),
     recurring: parseBoolean(recurring, 'recurring'),
     // Missing on any Pendiente written before auto-debit existed -- absent
     // means the household pays it themselves, which is what every one of
@@ -101,6 +114,9 @@ export function parsePendienteDocument(input: {
       : {
           cardId: parseRequiredString(card_id, 'card_id'),
           purchaseIds: parseStringList(purchase_ids, 'purchase_ids'),
+          estimatedAmount: isLegacyResumen
+            ? (parseNullableNumber(expected_amount, 'expected_amount') ?? 0)
+            : (parseNullableNumber(estimated_amount, 'estimated_amount') ?? 0),
           // A Resumen written before a card could hold two currencies is a
           // peso one, which is what its card was.
           currency: parseCurrency(currency),

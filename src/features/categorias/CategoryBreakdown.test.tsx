@@ -5,7 +5,12 @@ import {
   listCategories,
   updateCategoryBudget,
 } from '@/lib/expenses'
-import { createCard, createCardPurchase, markResumenPaid } from '@/lib/cards'
+import {
+  createCard,
+  createCardPurchase,
+  markResumenPaid,
+  setResumenAmount,
+} from '@/lib/cards'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { listPendientes } from '@/lib/pendientes'
 import type { HouseholdsDb } from '@/lib/households'
@@ -532,8 +537,22 @@ describe('CategoryBreakdown', () => {
       await buy(master.id, transporte.id, 'Peaje', 50)
       const pendientes = await listPendientes(s)
       const visaResumen = pendientes.find((p) => p.cardId === visa.id)
-      if (visaResumen === undefined) {
-        throw new Error('expected a Visa Resumen')
+      const masterResumen = pendientes.find((p) => p.cardId === master.id)
+      if (visaResumen === undefined || masterResumen === undefined) {
+        throw new Error('expected both Resúmenes')
+      }
+      // Both statements arrived: Visa's is paid $10 over what was logged,
+      // Master's is loaded and still owed.
+      for (const [resumen, amount] of [
+        [visaResumen, 300],
+        [masterResumen, 50],
+      ] as const) {
+        await setResumenAmount({
+          db: s.db,
+          householdId: s.householdId,
+          resumenId: resumen.id,
+          amount,
+        })
       }
       await markResumenPaid({
         db: s.db,
@@ -606,6 +625,19 @@ describe('CategoryBreakdown', () => {
         cuotas: 1,
         purchaseDate: new Date(now.getFullYear(), now.getMonth() - 1, 15),
         comments: '',
+      })
+
+      const [resumen] = await listPendientes(s)
+      if (resumen === undefined) {
+        throw new Error('expected a Resumen')
+      }
+      // Loaded, so it is a bill the household owes. Until then it is an
+      // estimate and the slice is empty -- see the test below.
+      await setResumenAmount({
+        db: s.db,
+        householdId: s.householdId,
+        resumenId: resumen.id,
+        amount: 300,
       })
 
       renderInRouter(

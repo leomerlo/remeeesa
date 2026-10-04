@@ -11,11 +11,12 @@ import { listPendientesForMonth, pendientesDueInMonth } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import { EmptyState } from '@/components/EmptyState'
 import { ILLUSTRATIONS } from '@/components/illustrations'
-import { currentMonthRange, formatAmount, listCategories } from '@/lib/expenses'
+import { currentMonthRange, listCategories } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { dueDateLabel, isOverdue, paidDateLabel } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
+import { PendienteAmount } from './PendienteAmount'
 import { pendientesQueryKey } from './queryKeys'
 import { ResumenSheet, resumenLabel } from './ResumenSheet'
 import { AlertMessage } from '@/components/ui/alert-message'
@@ -218,19 +219,7 @@ export function PendientesList({
     const isPaid = pendiente.status === 'paid'
     const overdue = !isPaid && isOverdue(pendiente.dueDate)
 
-    const amount =
-      pendiente.expectedAmount !== null ? (
-        <span className="money text-lg text-foreground">
-          {formatAmount(pendiente.expectedAmount, pendiente.currency ?? 'ARS')}
-        </span>
-      ) : pendiente.recurring ? (
-        // A recurring bill with no amount yet reads as incomplete/broken
-        // with nothing where a price usually is -- a placeholder says "not
-        // filled in yet" instead of looking like a rendering bug. A one-off
-        // Pendiente with no amount is a different, deliberate case (see
-        // AddPendienteForm's "Monto esperado" comment) and stays blank.
-        <span className="money text-muted-foreground text-lg">$ --,--</span>
-      ) : null
+    const amount = <PendienteAmount pendiente={pendiente} />
 
     // A paid row keeps Editar -- that is the way back from a mistaken
     // payment -- but not Pagar, which has nothing left to do. Pagar stays a

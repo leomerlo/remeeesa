@@ -352,6 +352,25 @@ export function resumenPayment(input: {
   }
 }
 
+// Loads what the card actually billed, once the statement closes. Until
+// this runs a Resumen owes nothing: everything the household logged against
+// the card is an estimate of this figure, never the figure itself. Per
+// direct feedback -- "no se tiene que sumar automáticamente".
+export async function setResumenAmount(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly resumenId: string
+  readonly amount: number
+}): Promise<Pendiente> {
+  return input.db.setResumenAmount({
+    householdId: input.householdId,
+    resumenId: input.resumenId,
+    // The same floor every amount in the app has: a resumen of nothing is
+    // a resumen that did not arrive.
+    amount: parseExpensePrice(input.amount),
+  })
+}
+
 // Pays a card's Resumen in one transaction (see HouseholdsDb.markResumenPaid).
 // Undoing it is unmarkPendientePaid, as for any Pendiente.
 export async function markResumenPaid(input: {
@@ -427,11 +446,12 @@ export function cardsDueNextMonthTotals(
       continue
     }
     const currency = resumen.currency ?? DEFAULT_CURRENCY
-    cents.set(
-      currency,
-      (cents.get(currency) ?? 0) +
-        Math.round((resumen.expectedAmount ?? 0) * 100),
-    )
+    // The bill once it has been loaded, the estimate until then. Next
+    // month's statement has almost never arrived yet, so this is nearly
+    // always the estimate -- which is exactly what this figure is for:
+    // what the cards are going to ask for, as far as the household knows.
+    const amount = resumen.expectedAmount ?? resumen.estimatedAmount ?? 0
+    cents.set(currency, (cents.get(currency) ?? 0) + Math.round(amount * 100))
   }
   return CURRENCY_ORDER.flatMap((currency) => {
     const amount = cents.get(currency) ?? 0

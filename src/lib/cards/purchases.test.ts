@@ -155,7 +155,7 @@ describe('createCardPurchase', () => {
         id: p.id,
         name: p.name,
         dueDate: p.dueDate,
-        expectedAmount: p.expectedAmount,
+        estimatedAmount: p.estimatedAmount,
         categoryId: p.categoryId,
         cardId: p.cardId,
         purchaseIds: p.purchaseIds,
@@ -165,7 +165,7 @@ describe('createCardPurchase', () => {
         id: `${s.visa.id}_2026-10`,
         name: 'Visa',
         dueDate: new Date(2026, 9, 10),
-        expectedAmount: 33.33,
+        estimatedAmount: 33.33,
         categoryId: tarjeta?.id,
         cardId: s.visa.id,
         purchaseIds: [created.id],
@@ -174,7 +174,7 @@ describe('createCardPurchase', () => {
         id: `${s.visa.id}_2026-11`,
         name: 'Visa',
         dueDate: new Date(2026, 10, 10),
-        expectedAmount: 33.33,
+        estimatedAmount: 33.33,
         categoryId: tarjeta?.id,
         cardId: s.visa.id,
         purchaseIds: [created.id],
@@ -183,7 +183,7 @@ describe('createCardPurchase', () => {
         id: `${s.visa.id}_2026-12`,
         name: 'Visa',
         dueDate: new Date(2026, 11, 10),
-        expectedAmount: 33.34,
+        estimatedAmount: 33.34,
         categoryId: tarjeta?.id,
         cardId: s.visa.id,
         purchaseIds: [created.id],
@@ -203,7 +203,7 @@ describe('createCardPurchase', () => {
 
     const october = await resumenesIn(s, 2026, 9)
     expect(october).toHaveLength(1)
-    expect(october[0]?.expectedAmount).toBe(30.3)
+    expect(october[0]?.estimatedAmount).toBe(30.3)
     expect(october[0]?.purchaseIds).toEqual([first.id, second.id])
   })
 
@@ -219,20 +219,29 @@ describe('createCardPurchase', () => {
     await purchase(s, { cuotas: 1, total: 20, cardId: master.id })
 
     const october = await resumenesIn(s, 2026, 9)
-    expect(october.map((r) => [r.name, r.expectedAmount]).sort()).toEqual([
+    expect(october.map((r) => [r.name, r.estimatedAmount]).sort()).toEqual([
       ['Master', 20],
       ['Visa', 10],
     ])
   })
 
-  it('leaves the purchase month budget alone and charges each cuota month', async () => {
+  // The rule that replaced "a cuota charges its month": what the household
+  // logs is an estimate of a bill, and nothing is owed until the statement
+  // arrives and somebody loads what it says. Per direct feedback -- "no se
+  // tiene que sumar automáticamente". The estimate is on the Resumen the
+  // whole time, it just is not money the budget has lost.
+  it('charges no month at all until the statement is loaded', async () => {
     const s = await setup()
 
     await purchase(s, { total: 300, cuotas: 3 })
 
     expect(await remainingIn(s, 2026, 8)).toBe(1000)
-    expect(await remainingIn(s, 2026, 9)).toBe(900)
-    expect(await remainingIn(s, 2026, 11)).toBe(900)
+    expect(await remainingIn(s, 2026, 9)).toBe(1000)
+    expect(await remainingIn(s, 2026, 11)).toBe(1000)
+    // And the estimate is there to be read.
+    expect(
+      (await resumenesIn(s, 2026, 9)).map((r) => r.estimatedAmount),
+    ).toEqual([100])
   })
 
   it('creates no Resumen for a month with no cuotas', async () => {
@@ -261,7 +270,10 @@ describe('createCardPurchase', () => {
     await purchase(s, { total: 2400, cuotas: 24 })
 
     expect(
-      (await resumenesIn(s, 2028, 8)).map((r) => [r.dueDate, r.expectedAmount]),
+      (await resumenesIn(s, 2028, 8)).map((r) => [
+        r.dueDate,
+        r.estimatedAmount,
+      ]),
     ).toEqual([[new Date(2028, 8, 10), 100]])
     expect(await resumenesIn(s, 2028, 9)).toEqual([])
   })
@@ -280,7 +292,7 @@ describe('createCardPurchase', () => {
     await purchase(s, { total: 0.03, cuotas: 3 })
 
     expect(
-      (await resumenesIn(s, 2026, 9)).map((r) => r.expectedAmount),
+      (await resumenesIn(s, 2026, 9)).map((r) => r.estimatedAmount),
     ).toEqual([0.01])
   })
 
@@ -370,7 +382,7 @@ async function resumenSummary(s: Setup) {
     db: s.db,
     householdId: s.householdId,
   })
-  return pendientes.map((p) => [p.id, p.expectedAmount, p.purchaseIds])
+  return pendientes.map((p) => [p.id, p.estimatedAmount, p.purchaseIds])
 }
 
 function edit(
@@ -540,7 +552,7 @@ describe('updateCardPurchase', () => {
       householdId: s.householdId,
     })
     expect(
-      pendientes.map((p) => [p.id, p.name, p.expectedAmount, p.purchaseIds]),
+      pendientes.map((p) => [p.id, p.name, p.estimatedAmount, p.purchaseIds]),
     ).toEqual([[`${master.id}_2026-10`, 'Master', 20, [created.id]]])
   })
 
@@ -1095,19 +1107,23 @@ describe('markResumenPaid', () => {
     expect(await expensesIn(s, 2026, 9)).toHaveLength(2)
   })
 
-  it('counts each cuota exactly once in every month the purchase touches, before and after paying', async () => {
+  // A cuota charges its month when the Resumen holding it is *paid*, and
+  // not a moment before: until then it is an estimate of a bill that has
+  // not arrived. Paying it still lands in the Resumen's own month, however
+  // late the payment is, and still exactly once.
+  it('charges a cuota month only once the Resumen is paid', async () => {
     const s = await setup()
     await purchase(s, { total: 300, cuotas: 3 })
     const remainingByMonth = async () =>
       Promise.all([8, 9, 10, 11].map((month) => remainingIn(s, 2026, month)))
-    expect(await remainingByMonth()).toEqual([1000, 900, 900, 900])
+    expect(await remainingByMonth()).toEqual([1000, 1000, 1000, 1000])
 
     vi.setSystemTime(new Date(2026, 10, 12, 12))
     await pay(s, (await resumenOf(s, 2026, 9)).id, 100, new Date(2026, 10, 12))
-    expect(await remainingByMonth()).toEqual([1000, 900, 900, 900])
+    expect(await remainingByMonth()).toEqual([1000, 900, 1000, 1000])
 
     await pay(s, (await resumenOf(s, 2026, 10)).id, 100, new Date(2026, 10, 12))
-    expect(await remainingByMonth()).toEqual([1000, 900, 900, 900])
+    expect(await remainingByMonth()).toEqual([1000, 900, 900, 1000])
   })
 
   it('locks a purchase with a paid cuota against editing and deleting', async () => {
@@ -1177,7 +1193,9 @@ describe('markResumenPaid', () => {
 
     expect(undone.status).toBe('pending')
     expect(await expensesIn(s, 2026, 9)).toEqual([])
-    expect(await remainingIn(s, 2026, 9)).toBe(850)
+    // All the way back to untouched: a Resumen returned to pending owes
+    // nothing again until the statement is loaded, so the month is whole.
+    expect(await remainingIn(s, 2026, 9)).toBe(1000)
     await expect(
       edit(s, s.remedios.id, { name: 'Vitaminas', total: 50, cuotas: 1 }),
     ).resolves.toEqual(expect.objectContaining({ paidResumenIds: [] }))
@@ -1313,7 +1331,7 @@ describe('a card that holds both currencies', () => {
         .map((resumen) => ({
           name: resumen.name,
           currency: resumen.currency,
-          amount: resumen.expectedAmount,
+          amount: resumen.estimatedAmount,
         }))
         .sort((left, right) => left.name.localeCompare(right.name)),
     ).toEqual([
@@ -1426,7 +1444,7 @@ describe('a card that holds both currencies', () => {
 
     const october = await resumenesIn(s, 2026, 9)
     expect(
-      october.map((resumen) => [resumen.name, resumen.expectedAmount]),
+      october.map((resumen) => [resumen.name, resumen.estimatedAmount]),
     ).toEqual([['Amex US$', 300]])
   })
 

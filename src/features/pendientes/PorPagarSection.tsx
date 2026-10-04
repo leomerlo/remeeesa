@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
-import { currentMonthRange, formatAmount, listCategories } from '@/lib/expenses'
+import { currentMonthRange, listCategories } from '@/lib/expenses'
 import {
   colorForCategoryName,
   inkForCategoryColor,
@@ -20,6 +20,7 @@ import {
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { formatDate } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
+import { PendienteAmount } from './PendienteAmount'
 import { pendientesQueryKey } from './queryKeys'
 import { ResumenSheet, resumenLabel } from './ResumenSheet'
 
@@ -164,22 +165,7 @@ export function PorPagarSection({
           const categoryColor =
             category?.color ?? colorForCategoryName(categoryName)
           const CategoryIcon = iconForCategoryName(categoryName)
-          const amount =
-            pendiente.expectedAmount !== null ? (
-              <span className="money text-lg text-foreground">
-                {formatAmount(
-                  pendiente.expectedAmount,
-                  pendiente.currency ?? 'ARS',
-                )}
-              </span>
-            ) : pendiente.recurring ? (
-              // Same placeholder RecentExpensesList/PendientesList use for a
-              // recurring pendiente with no amount yet -- a blank space here
-              // reads as a rendering bug, not "not filled in yet".
-              <span className="money text-muted-foreground text-lg">
-                $ --,--
-              </span>
-            ) : null
+          const amount = <PendienteAmount pendiente={pendiente} />
 
           const cardContent = (
             <>

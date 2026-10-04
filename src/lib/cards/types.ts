@@ -28,8 +28,10 @@ export const PAYMENT_METHOD_KINDS: readonly {
     detail: 'Plata en mano. El gasto es de este mes.',
   },
   {
+    // Her name for it, Mercado Pago and all: that is what this is around
+    // here, and "Efectivo en cuenta" on its own left people guessing.
     value: 'cuenta',
-    label: 'Efectivo en cuenta',
+    label: 'MP efectivo en cuenta',
     detail: 'Un saldo del que gastás directo, como Mercado Pago.',
   },
   {

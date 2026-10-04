@@ -256,7 +256,9 @@ function newResumenDocument(input: {
       categoryId: input.resumenCategoryId,
       name: resumenNameFor(input.cardName, input.currency),
       dueDate,
-      expectedAmount: input.amount,
+      // Null, not the estimate: a Resumen owes nothing until the statement
+      // arrives and somebody loads what it says. Per direct feedback.
+      expectedAmount: null,
       recurring: false,
       autoDebit: false,
       status: 'pending',
@@ -267,6 +269,9 @@ function newResumenDocument(input: {
     due_date: toFirestorePendienteDate(dueDate),
     created_at: input.now,
     card_id: input.cardId,
+    // The app's running total of the cuotas landing here. An estimate of
+    // the bill, compared against it once it arrives -- never the bill.
+    estimated_amount: input.amount,
     // What this Resumen settles in, and therefore what paying it records.
     // Written here rather than read back off the card, which may hold both.
     currency: input.currency,
@@ -365,7 +370,7 @@ async function moveCardPurchaseCuotas(input: {
       next.purchaseIds.length !== (resumen.purchaseIds ?? []).length
     ) {
       tx.update(ref, {
-        expected_amount: next.expectedAmount,
+        estimated_amount: next.estimatedAmount,
         purchase_ids: next.purchaseIds,
       })
     }
@@ -1415,6 +1420,39 @@ export function createFirestoreHouseholdsDb(
           pendienteId: input.pendienteId,
           householdId: input.householdId,
         },
+      )
+    },
+    async setResumenAmount(input) {
+      return withHouseholdAccess(
+        'setResumenAmount',
+        async () => {
+          const resumenRef = doc(firestore, 'pendientes', input.resumenId)
+          const snap = await getDoc(resumenRef)
+          if (
+            !snap.exists() ||
+            snap.data().household_id !== input.householdId ||
+            snap.data().card_id === undefined
+          ) {
+            throw new PendienteNotFoundError()
+          }
+          const resumen = parsePendienteDocument({
+            id: snap.id,
+            data: snap.data(),
+          })
+          if (resumen.status !== 'pending') {
+            throw new PendienteAlreadyPaidError()
+          }
+          // estimated_amount goes along for the ride so a Resumen written
+          // before the two were told apart stops reading as legacy: after
+          // this it carries both figures explicitly, and its own estimate
+          // is whatever it had been accumulating.
+          await updateDoc(resumenRef, {
+            expected_amount: input.amount,
+            estimated_amount: resumen.estimatedAmount ?? 0,
+          })
+          return { ...resumen, expectedAmount: input.amount }
+        },
+        { pendienteId: input.resumenId, householdId: input.householdId },
       )
     },
     async markResumenPaid(input) {

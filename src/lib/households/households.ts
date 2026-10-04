@@ -81,6 +81,7 @@ export const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
   deletePendiente: 'eliminar el pendiente',
   markPendientePaid: 'marcar el pendiente como pagado',
   unmarkPendientePaid: 'deshacer el pago del pendiente',
+  setResumenAmount: 'cargar el monto del resumen',
   markResumenPaid: 'pagar el resumen',
   getProjection: 'cargar la proyección del mes',
   saveProjection: 'guardar la proyección del mes',

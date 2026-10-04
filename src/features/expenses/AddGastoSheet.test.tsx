@@ -505,7 +505,10 @@ describe('AddGastoSheet (unified add flow)', () => {
         await listExpensesInMonth({ db, householdId, ...currentMonthRange() }),
       ).toEqual([])
       const resumenes = await listPendientes({ db, householdId })
-      expect(resumenes.map((r) => [r.name, r.expectedAmount])).toEqual([
+      // The estimate, not a debt: the cuotas are what the household has
+      // logged, and the bill is whatever the card says when the statement
+      // closes.
+      expect(resumenes.map((r) => [r.name, r.estimatedAmount])).toEqual([
         ['Visa', 33.33],
         ['Visa', 33.33],
         ['Visa', 33.34],

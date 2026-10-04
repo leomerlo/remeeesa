@@ -340,7 +340,7 @@ describe('firestore.rules pendiente category repoint', () => {
     expect(rules).toContain('function isPendienteCategoryRepoint()')
     expect(rules).toContain("hasOnly(['category_id'])")
     expect(rules).toContain(
-      '&& (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenMarkPaid() || isResumenRename());',
+      '&& (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenAmountLoad() || isValidResumenMarkPaid() || isResumenRename());',
     )
   })
 
@@ -440,7 +440,7 @@ describe('firestore.rules pendientes', () => {
   it('requires the exact field set and a category belonging to the same household', () => {
     expect(rules).toContain('function isValidPendiente(data)')
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'auto_debit', 'status', 'paid_expense_id', 'paid_at', 'created_at', 'card_id', 'currency', 'purchase_ids'])",
+      "data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'estimated_amount', 'recurring', 'auto_debit', 'status', 'paid_expense_id', 'paid_at', 'created_at', 'card_id', 'currency', 'purchase_ids'])",
     )
     expect(rules).toContain('data.due_date is timestamp')
     expect(rules).toContain(
@@ -494,7 +494,7 @@ describe('firestore.rules pendientes', () => {
       /function isValidPendienteUpdate\(\) \{[\s\S]*?!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'status', 'paid_expense_id', 'paid_at', 'created_at'\]\)/,
     )
     expect(rules).toMatch(
-      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\) \|\| isValidResumenMarkPaid\(\) \|\| isResumenRename\(\)\);/,
+      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\) \|\| isValidResumenAmountLoad\(\) \|\| isValidResumenMarkPaid\(\) \|\| isResumenRename\(\)\);/,
     )
   })
 
@@ -566,7 +566,7 @@ describe('firestore.rules pendientes mark-paid', () => {
 
   it('ORs isValidPendienteMarkPaid into the pendiente update rule alongside isValidPendienteUpdate', () => {
     expect(rules).toMatch(
-      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\) \|\| isValidResumenMarkPaid\(\) \|\| isResumenRename\(\)\);/,
+      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\) \|\| isValidResumenAmountLoad\(\) \|\| isValidResumenMarkPaid\(\) \|\| isResumenRename\(\)\);/,
     )
   })
 })
@@ -877,7 +877,10 @@ describe('firestore.rules Resúmenes', () => {
     const fn = ruleFunction('isValidResumen')
     expect(fn).toContain('resumenCardId(pendienteId) == data.card_id')
     expect(fn).toContain('data.purchase_ids.size() == 1')
-    expect(fn).toContain('data.expected_amount is number')
+    // A Resumen is born owing nothing: what the household has logged is an
+    // estimate of a bill that has not arrived.
+    expect(fn).toContain('data.expected_amount == null')
+    expect(fn).toContain('data.estimated_amount is number')
     expect(fn).toContain(
       "(!('auto_debit' in data) || data.auto_debit == false)",
     )
@@ -886,7 +889,7 @@ describe('firestore.rules Resúmenes', () => {
   it("only lets a purchase move a pending Resumen's amount and purchase list", () => {
     const fn = ruleFunction('isValidResumenUpdate')
     expect(fn).toContain("resource.data.status == 'pending'")
-    expect(fn).toContain(".hasOnly(['expected_amount', 'purchase_ids'])")
+    expect(fn).toContain(".hasOnly(['estimated_amount', 'purchase_ids'])")
     expect(fn).toContain(
       'request.resource.data.purchase_ids.size() == resource.data.purchase_ids.size() + 1',
     )
@@ -894,7 +897,7 @@ describe('firestore.rules Resúmenes', () => {
       'request.resource.data.purchase_ids.hasAll(resource.data.purchase_ids)',
     )
     expect(rules).toContain(
-      '|| isValidResumenUpdate() || isValidResumenMarkPaid() || isResumenRename());',
+      '|| isValidResumenUpdate() || isValidResumenAmountLoad() || isValidResumenMarkPaid() || isResumenRename());',
     )
   })
 

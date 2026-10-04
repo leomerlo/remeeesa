@@ -880,9 +880,9 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         if (existing !== undefined) {
           return {
             ...existing,
-            expectedAmount:
+            estimatedAmount:
               Math.round(
-                ((existing.expectedAmount ?? 0) + cuota.amount) * 100,
+                ((existing.estimatedAmount ?? 0) + cuota.amount) * 100,
               ) / 100,
             purchaseIds: [...(existing.purchaseIds ?? []), purchase.id],
           }
@@ -897,7 +897,10 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
             cuota.monthStart.getMonth(),
             RESUMEN_DUE_DAY,
           ),
-          expectedAmount: cuota.amount,
+          // Null, not the estimate: a Resumen owes nothing until the
+          // statement arrives and somebody loads what it says.
+          expectedAmount: null,
+          estimatedAmount: cuota.amount,
           recurring: false,
           autoDebit: false,
           status: 'pending',
@@ -954,7 +957,10 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
           monthStart.getMonth(),
           RESUMEN_DUE_DAY,
         ),
-        expectedAmount: cents / 100,
+        // Null, not the estimate: a Resumen owes nothing until the
+        // statement arrives and somebody loads what it says.
+        expectedAmount: null,
+        estimatedAmount: cents / 100,
         recurring: false,
         autoDebit: false,
         status: 'pending',
@@ -1159,6 +1165,23 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       state.expenses.set(expense.id, expense)
       state.pendientes.set(input.pendienteId, updated)
       return { pendiente: updated, expense }
+    },
+    async setResumenAmount(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const existing = state.pendientes.get(input.resumenId)
+      if (
+        existing === undefined ||
+        existing.householdId !== input.householdId ||
+        existing.cardId === undefined
+      ) {
+        throw new PendienteNotFoundError()
+      }
+      if (existing.status !== 'pending') {
+        throw new PendienteAlreadyPaidError()
+      }
+      const next: Pendiente = { ...existing, expectedAmount: input.amount }
+      state.pendientes.set(next.id, next)
+      return next
     },
     async markResumenPaid(input) {
       assertMemberOf(state, userId, input.householdId)

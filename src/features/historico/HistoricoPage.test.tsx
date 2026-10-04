@@ -831,7 +831,9 @@ describe('HistoricoPage card purchases', () => {
       expect(screen.getByText('Botines')).toBeInTheDocument()
       const resumenes = await listPendientes({ db, householdId })
       expect(
-        resumenes.map((r) => [r.name, r.dueDate, r.expectedAmount]),
+        // The estimate: editing a purchase moves what the household has
+        // logged, never the bill, which only the statement sets.
+        resumenes.map((r) => [r.name, r.dueDate, r.estimatedAmount]),
       ).toEqual([['Master', new Date(2026, 9, 10), 300]])
     } finally {
       vi.useRealTimers()
