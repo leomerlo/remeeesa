@@ -5,6 +5,8 @@ import { Illustration } from '@/components/Illustration'
 import { ILLUSTRATIONS } from '@/components/illustrations'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
+  formatAmount,
+  computeMonthTotalIn,
   computePendingCommitted,
   computeSpentThisMonth,
   currentMonthRange,
@@ -96,10 +98,18 @@ export function SpentThisMonthDisplay({
   }
 
   const spent = computeSpentThisMonth(expenses)
-  const pendingCommitted = computePendingCommitted(
-    pendientesDueInMonth(pending, monthStart, monthEnd),
-  )
+  const dueThisMonth = pendientesDueInMonth(pending, monthStart, monthEnd)
+  const pendingCommitted = computePendingCommitted(dueThisMonth)
   const formattedSpent = formatCurrency(spent + pendingCommitted)
+  // What the same month came to in dollars. Never added into the figure
+  // above -- the budget is a number of pesos -- but said out loud beside
+  // it, because leaving it out of every total is not the same as hiding
+  // it. Per direct feedback.
+  const usedUsd = computeMonthTotalIn({
+    expenses,
+    pendientes: dueThisMonth,
+    currency: 'USD',
+  })
 
   // A month with nothing in it yet gets its own card rather than the real
   // one with a zero in it: the figure is the whole point of this card, and
@@ -107,7 +117,7 @@ export function SpentThisMonthDisplay({
   // Centred, with the mascot and a line that explains the zero instead of
   // leaving it to be read as an error. The card with real figures is
   // untouched -- per direct feedback, only the zero changes.
-  if (spent + pendingCommitted === 0) {
+  if (spent + pendingCommitted === 0 && usedUsd === 0) {
     return (
       <div className="bg-card card-surface flex w-full flex-col items-center justify-center gap-4 rounded-3xl p-6 text-center lg:flex-[2]">
         <span
@@ -150,6 +160,13 @@ export function SpentThisMonthDisplay({
       >
         {formattedSpent}
       </p>
+      {/* Its own line, in its own currency, directly under the peso figure
+          it is not part of. */}
+      {usedUsd === 0 ? null : (
+        <p className="text-muted-foreground money -mt-1 text-base">
+          y {formatAmount(usedUsd, 'USD')}
+        </p>
+      )}
       {/* Only shown once there's something to differentiate -- per direct
           feedback, this figure now bundles what's already paid with what's
           still owed, so the breakdown is what tells them apart.

@@ -20,7 +20,14 @@ function category(overrides: Partial<Category> = {}): Category {
 }
 
 function summary(categoryId: string, total: number): CategorySummary {
-  return { categoryId, name: categoryId, color: '#000000', total, share: 0 }
+  return {
+    categoryId,
+    name: categoryId,
+    color: '#000000',
+    total,
+    totalUsd: 0,
+    share: 0,
+  }
 }
 
 describe('categoryBudgetRows', () => {

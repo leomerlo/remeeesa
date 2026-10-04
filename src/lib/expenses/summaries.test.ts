@@ -61,6 +61,7 @@ describe('summarizeByCategory', () => {
         name: 'Comida',
         color: comida.color,
         total: 25,
+        totalUsd: 0,
         share: 25 / 33,
       },
       {
@@ -68,6 +69,7 @@ describe('summarizeByCategory', () => {
         name: 'Transporte',
         color: transporte.color,
         total: 8,
+        totalUsd: 0,
         share: 8 / 33,
       },
     ])
@@ -128,6 +130,7 @@ describe('summarizeByCategory', () => {
         name: 'Categoría desconocida',
         color: colorForCategoryName('Categoría desconocida'),
         total: 12,
+        totalUsd: 0,
         share: 1,
       },
     ])
@@ -153,6 +156,7 @@ describe('summarizeByCategory', () => {
         name: 'Comida',
         color: comida.color,
         total: 15.5,
+        totalUsd: 0,
         share: 1,
       },
     ])
@@ -180,6 +184,7 @@ describe('summarizeByCategory with pendientes', () => {
         name: 'Comida',
         color: comida.color,
         total: 100,
+        totalUsd: 0,
         share: 1,
       },
     ])
@@ -200,6 +205,7 @@ describe('summarizeByCategory with pendientes', () => {
         name: 'Servicios',
         color: servicios.color,
         total: 500,
+        totalUsd: 0,
         share: 1,
       },
     ])
@@ -283,6 +289,56 @@ describe('summarizeByCategory share', () => {
     expect(summary).toEqual([])
     expect(summary.some((entry) => Number.isNaN(entry.share))).toBe(false)
   })
+})
+
+// Dollars are kept apart, never converted and never dropped: a household
+// that spent US$45 on hosting should see that said next to what it spent
+// in pesos. Per direct feedback.
+it('counts dollars in their own total, beside the pesos', () => {
+  const summary = summarizeByCategory({
+    expenses: [
+      makeExpense({ categoryId: 'cat-1', price: 100 }),
+      makeExpense({
+        categoryId: 'cat-1',
+        price: 45,
+        currency: 'USD' as const,
+      }),
+    ],
+    categories: [makeCategory({ id: 'cat-1', name: 'Servicios' })],
+    pendientes: [
+      { categoryId: 'cat-1', expectedAmount: 20, currency: 'USD' as const },
+    ],
+  })
+
+  expect(summary).toEqual([
+    expect.objectContaining({ total: 100, totalUsd: 65, share: 1 }),
+  ])
+})
+
+it('lists a category that only ever saw dollars, with no share of the pesos', () => {
+  const summary = summarizeByCategory({
+    expenses: [
+      makeExpense({ categoryId: 'cat-1', price: 100 }),
+      makeExpense({
+        categoryId: 'cat-2',
+        price: 30,
+        currency: 'USD' as const,
+      }),
+    ],
+    categories: [
+      makeCategory({ id: 'cat-1', name: 'Comida' }),
+      makeCategory({ id: 'cat-2', name: 'Viajes' }),
+    ],
+  })
+
+  expect(
+    summary.map((entry) => [entry.name, entry.total, entry.totalUsd]),
+  ).toEqual([
+    ['Comida', 100, 0],
+    ['Viajes', 0, 30],
+  ])
+  // It took nothing out of the budget the donut divides up.
+  expect(summary[1]?.share).toBe(0)
 })
 
 describe('summarizeTarjeta', () => {

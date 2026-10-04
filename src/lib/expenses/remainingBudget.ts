@@ -134,6 +134,39 @@ export function computePendingCommitted(
   return sum
 }
 
+// The month's total in one named currency: expenses plus the bills due in
+// it, which is exactly what "En uso" counts, asked about dollars instead of
+// pesos.
+//
+// The peso pair above (computeSpentThisMonth / computePendingCommitted) is
+// what the budget is made of and stays as it is. This exists because
+// leaving a dollar amount out of every total is not the same as hiding it:
+// per direct feedback the household wants to see what it spent in dollars
+// said out loud, beside the pesos, everywhere a total appears. The two are
+// never added together -- see lib/money/currency for why no rate is picked.
+export function computeMonthTotalIn(input: {
+  readonly expenses: readonly { price: number; currency: Currency }[]
+  readonly pendientes?: readonly {
+    readonly expectedAmount: number | null
+    readonly currency?: Currency
+  }[]
+  readonly currency: Currency
+}): number {
+  let cents = 0
+  for (const expense of input.expenses) {
+    if (expense.currency === input.currency) {
+      cents += Math.round(expense.price * 100)
+    }
+  }
+  for (const pendiente of input.pendientes ?? []) {
+    const currency = pendiente.currency ?? DEFAULT_CURRENCY
+    if (currency === input.currency && pendiente.expectedAmount !== null) {
+      cents += Math.round(pendiente.expectedAmount * 100)
+    }
+  }
+  return cents / 100
+}
+
 export function computeRemainingBudget(
   monthlyBudget: number,
   expenses: readonly { price: number; currency: Currency }[],

@@ -15,6 +15,7 @@ import {
 } from '@/features/expenses'
 import {
   deleteCategory,
+  formatAmount,
   formatCurrency,
   listCategories,
   listExpensesInMonth,
@@ -127,7 +128,13 @@ export function CategoryManager({
             monthStart,
             monthEnd,
           ),
-        }).map((entry) => [entry.categoryId, entry.total] as const),
+        }).map(
+          (entry) =>
+            [
+              entry.categoryId,
+              { total: entry.total, totalUsd: entry.totalUsd },
+            ] as const,
+        ),
   )
 
   const categories = categoriesQuery.data
@@ -224,21 +231,46 @@ export function CategoryManager({
                 CategoryIcon={iconForCategoryName(category.name)}
                 title={category.name}
                 showCategoryBadge={false}
-                amount={
-                  spentByCategory.get(category.id) === undefined ||
-                  spentByCategory.get(category.id) === 0 ? (
+                amount={(() => {
+                  const spent = spentByCategory.get(category.id)
+                  if (
+                    spent === undefined ||
+                    (spent.total === 0 && spent.totalUsd === 0)
+                  ) {
                     // A category with nothing on it this month says so
                     // rather than showing a bare "$0", which reads like a
                     // figure that failed to load.
-                    <span className="text-muted-foreground shrink-0 text-sm">
-                      Sin gastos
-                    </span>
-                  ) : (
-                    <span className="money text-foreground shrink-0 text-lg">
-                      {formatCurrency(spentByCategory.get(category.id) ?? 0)}
+                    return (
+                      <span className="text-muted-foreground shrink-0 text-sm">
+                        Sin gastos
+                      </span>
+                    )
+                  }
+                  return (
+                    <span className="flex shrink-0 flex-col items-end">
+                      {/* Pesos and dollars on their own lines, never added
+                          together: the budget is in pesos and there is no
+                          rate this app will pick. A category that only ever
+                          saw dollars shows the dollar figure alone. */}
+                      {spent.total === 0 && spent.totalUsd > 0 ? null : (
+                        <span className="money text-foreground text-lg">
+                          {formatCurrency(spent.total)}
+                        </span>
+                      )}
+                      {spent.totalUsd === 0 ? null : (
+                        <span
+                          className={
+                            spent.total === 0
+                              ? 'money text-foreground text-lg'
+                              : 'text-muted-foreground text-xs'
+                          }
+                        >
+                          {formatAmount(spent.totalUsd, 'USD')}
+                        </span>
+                      )}
                     </span>
                   )
-                }
+                })()}
                 when={
                   category.monthlyBudget > 0 ? (
                     <>

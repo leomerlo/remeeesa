@@ -18,6 +18,7 @@ import {
   categoryDocumentId,
   categoryBudgetsOverspill,
   currentMonthRange,
+  formatAmount,
   formatCurrency,
   isDateInCurrentMonth,
   listCategories,
@@ -261,8 +262,20 @@ export function CategoryBreakdown({
                       <span className="text-muted-foreground text-xs">
                         {formatShare(entry.share)}
                       </span>
-                      <span className="text-foreground font-medium">
-                        {formatCurrency(entry.total)}
+                      <span className="flex flex-col items-end">
+                        {/* The peso figure is the one the share and the
+                            donut are about. A category that also saw
+                            dollars says so on its own line underneath --
+                            never added in, since there is no rate this app
+                            will pick. Per direct feedback. */}
+                        <span className="text-foreground font-medium">
+                          {formatCurrency(entry.total)}
+                        </span>
+                        {entry.totalUsd === 0 ? null : (
+                          <span className="text-muted-foreground text-xs">
+                            {formatAmount(entry.totalUsd, 'USD')}
+                          </span>
+                        )}
                       </span>
                       {marker}
                     </span>

@@ -8,9 +8,17 @@ export type CategorySummary = {
   readonly name: string
   readonly color: string
   readonly total: number
-  // Fraction of the period's total spend, 0..1. Computed here rather than in
-  // the chart so the number the chart draws and the number the list prints
-  // can never disagree.
+  // What the category took in dollars over the same period, kept apart
+  // rather than converted: there is no rate the app is willing to pick (see
+  // lib/money/currency), and a household that spent US$45 on something
+  // should see that said, not silently dropped. Per direct feedback -- the
+  // two currencies are shown side by side everywhere a total is.
+  readonly totalUsd: number
+  // Fraction of the period's *peso* spend, 0..1. Computed here rather than
+  // in the chart so the number the chart draws and the number the list
+  // prints can never disagree. A category with only dollar spend is still
+  // listed, with a share of zero -- it took nothing out of the budget the
+  // donut is dividing up.
   readonly share: number
 }
 
@@ -51,33 +59,37 @@ export function summarizeByCategory(input: {
   )
   const totals = new Map<
     string,
-    { name: string; color: string; total: number }
+    { name: string; color: string; total: number; totalUsd: number }
   >()
 
-  function add(categoryId: string, amount: number): void {
+  function add(categoryId: string, amount: number, currency: Currency): void {
     const category = categoryById.get(categoryId)
     const name = category?.name ?? UNKNOWN_CATEGORY_NAME
     const color = category?.color ?? colorForCategoryName(name)
-    const existing = totals.get(categoryId)
-    if (existing === undefined) {
-      totals.set(categoryId, { name, color, total: amount })
-    } else {
-      existing.total += amount
+    const existing = totals.get(categoryId) ?? {
+      name,
+      color,
+      total: 0,
+      totalUsd: 0,
     }
+    if (currency === DEFAULT_CURRENCY) {
+      existing.total += amount
+    } else {
+      existing.totalUsd += amount
+    }
+    totals.set(categoryId, existing)
   }
 
-  for (const expense of countedByBudget(input.expenses)) {
-    add(expense.categoryId, expense.price)
+  for (const expense of input.expenses) {
+    add(expense.categoryId, expense.price, expense.currency)
   }
-  const countedPendientes = countedByBudget(
-    (input.pendientes ?? []).map((pendiente) => ({
-      ...pendiente,
-      currency: pendiente.currency ?? DEFAULT_CURRENCY,
-    })),
-  )
-  for (const pendiente of countedPendientes) {
+  for (const pendiente of input.pendientes ?? []) {
     if (pendiente.expectedAmount !== null) {
-      add(pendiente.categoryId, pendiente.expectedAmount)
+      add(
+        pendiente.categoryId,
+        pendiente.expectedAmount,
+        pendiente.currency ?? DEFAULT_CURRENCY,
+      )
     }
   }
 
@@ -89,13 +101,21 @@ export function summarizeByCategory(input: {
     grandTotal += entry.total
   }
 
-  return Array.from(totals.entries())
-    .map(([categoryId, entry]) => ({
-      categoryId,
-      ...entry,
-      share: grandTotal > 0 ? entry.total / grandTotal : 0,
-    }))
-    .sort((left, right) => right.total - left.total)
+  return (
+    Array.from(totals.entries())
+      .map(([categoryId, entry]) => ({
+        categoryId,
+        ...entry,
+        share: grandTotal > 0 ? entry.total / grandTotal : 0,
+      }))
+      // By pesos, then by dollars: the budget is in pesos, so that is the
+      // order the list is read in, and a dollars-only category sorts among
+      // the zeroes rather than above everything.
+      .sort(
+        (left, right) =>
+          right.total - left.total || right.totalUsd - left.totalUsd,
+      )
+  )
 }
 
 export type TarjetaLine = {

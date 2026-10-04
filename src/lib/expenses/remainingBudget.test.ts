@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   formatAmount,
+  computeMonthTotalIn,
   computePendingCommitted,
   computePercentUsed,
   computeRemainingBudget,
@@ -12,6 +13,7 @@ import {
 
 // Every fixture here is a peso amount; the dollar case has its own test.
 const ARS = 'ARS' as const
+const USD = 'USD' as const
 
 describe('computeSpentThisMonth', () => {
   it('returns zero with no expenses', () => {
@@ -142,6 +144,41 @@ describe('dollar amounts', () => {
         { price: 5000, currency: 'USD' },
       ]),
     ).toBe(40)
+  })
+})
+
+describe('computeMonthTotalIn', () => {
+  // Dollars are recorded and shown but never counted toward the budget --
+  // which is not the same as hiding them. This is how a screen asks what
+  // the month came to in dollars, so it can say it beside the pesos.
+  it('sums expenses and bills of the named currency only', () => {
+    expect(
+      computeMonthTotalIn({
+        expenses: [
+          { price: 100, currency: ARS },
+          { price: 45.5, currency: USD },
+          { price: 20, currency: USD },
+        ],
+        pendientes: [
+          { expectedAmount: 10, currency: USD },
+          { expectedAmount: 999, currency: ARS },
+          // No amount yet: there is nothing to add.
+          { expectedAmount: null, currency: USD },
+          // Written before currencies existed, so pesos.
+          { expectedAmount: 7 },
+        ],
+        currency: USD,
+      }),
+    ).toBe(75.5)
+  })
+
+  it('is zero when the month saw none of that currency', () => {
+    expect(
+      computeMonthTotalIn({
+        expenses: [{ price: 100, currency: ARS }],
+        currency: USD,
+      }),
+    ).toBe(0)
   })
 })
 
