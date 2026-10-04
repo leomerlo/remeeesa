@@ -252,6 +252,13 @@
 
   --surface-due-soon: var(--color-rose-500);
   --surface-warning: var(--color-amber-50);
+  /* Navigation is its own dark surface at every width -- the sidebar on a
+     monitor and the bar on a phone -- rather than another white card. It
+     is the frame around the app, not a part of the page, and a near-black
+     frame says so without a border. Per direct feedback. */
+  --surface-nav: var(--color-grey-950);
+  --text-nav: var(--color-grey-300);
+  --text-nav-active: var(--color-grey-white);
 
   /* Text (Icon reuses this table 1:1, see --icon-* below) */
   --text-primary: var(--color-grey-900);
@@ -308,6 +315,9 @@
   --text-on-error: var(--color-grey-white);
   --surface-due-soon: var(--color-rose-500);
   --surface-warning: var(--color-amber-800);
+  --surface-nav: var(--color-grey-950);
+  --text-nav: var(--color-grey-300);
+  --text-nav-active: var(--color-grey-white);
   --surface-action-subtle: var(--color-grey-800);
 
   /* Text */
@@ -377,6 +387,9 @@
   --color-dot-paid: var(--dot-paid);
   --color-dot-pending: var(--dot-pending);
   --color-due-soon: var(--surface-due-soon);
+  --color-nav: var(--surface-nav);
+  --color-nav-foreground: var(--text-nav);
+  --color-nav-foreground-active: var(--text-nav-active);
   --color-success: var(--text-success);
   --color-success-surface: var(--surface-success);
   --color-error: var(--text-error);

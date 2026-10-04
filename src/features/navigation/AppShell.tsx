@@ -114,7 +114,10 @@ export function AppShell({
         <nav
           aria-label="Navegación principal"
           className={cn(
-            'bg-card shadow-raised fixed z-30',
+            // Dark at every width: the sidebar on a monitor and the bar on
+            // a phone are the frame around the app, not another card in the
+            // page. Per direct feedback.
+            'bg-nav text-nav-foreground fixed z-30',
             'inset-x-0 bottom-0 mx-auto max-w-md rounded-t-3xl px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:max-w-lg',
             'lg:flex lg:flex-col lg:inset-y-0 lg:right-auto lg:left-0 lg:mx-0 lg:w-64 lg:max-w-none lg:rounded-none lg:px-4 lg:py-6',
           )}
@@ -122,7 +125,7 @@ export function AppShell({
           {/* The wordmark lives in the header on a phone; with a sidebar
               there is a natural home for it at the top of the column, and
               AppHeader steps aside at the same breakpoint. */}
-          <Logo className="mb-8 hidden h-5 lg:block" />
+          <Logo variant="light" className="mb-8 hidden h-5 lg:block" />
           {/* On a phone only the current destination is named; the rest are
               their icon alone. Six labels stacked under six icons wanted
               458px of a 374px bar -- "Ajustes" was pushed off the screen
@@ -143,9 +146,12 @@ export function AppShell({
                     cn(
                       'flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-2xl px-2 text-xs font-medium transition-colors',
                       'lg:w-full lg:justify-start lg:gap-3 lg:px-4 lg:py-3 lg:text-sm',
+                      // On a dark frame the active item is a lighter well
+                      // rather than a tinted one: the page's own action
+                      // colour would read as a button sitting in the nav.
                       isActive
-                        ? 'text-primary bg-primary-subtle'
-                        : 'text-muted-foreground lg:hover:bg-muted lg:hover:text-foreground',
+                        ? 'bg-white/12 text-nav-foreground-active'
+                        : 'text-nav-foreground lg:hover:bg-white/8 lg:hover:text-nav-foreground-active',
                     )
                   }
                 >

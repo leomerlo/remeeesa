@@ -189,6 +189,9 @@ export function HomePage({
         />
         <AddGastoSheet
           {...(isFutureMonth ? { defaultDueDate: monthStart } : {})}
+          // The header carries this from `lg` up, reachable on every
+          // screen; two of the same button on one page reads as a mistake.
+          triggerClassName="w-full lg:hidden"
           open={isAddGastoSheetOpen}
           onOpenChange={setIsAddGastoSheetOpen}
           editPurchase={editPurchase}
