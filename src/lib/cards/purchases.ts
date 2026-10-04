@@ -413,6 +413,21 @@ export async function markResumenPaid(input: {
   })
 }
 
+// Every card bill of the month after today's -- the ones "Tarjetas el mes
+// que viene" adds up. Returned whole rather than summed so the screen can
+// open them and show what each one is made of.
+export function cardsDueNextMonth(
+  pendientes: readonly Pendiente[],
+  today: Date,
+): readonly Pendiente[] {
+  const { monthStart, monthEnd } = currentMonthRange(
+    new Date(today.getFullYear(), today.getMonth() + 1, 1),
+  )
+  return pendientesDueInMonth(pendientes, monthStart, monthEnd).filter(
+    (pendiente) => pendiente.cardId !== undefined,
+  )
+}
+
 export type CardsDueTotal = {
   readonly currency: Currency
   readonly total: number
@@ -433,18 +448,10 @@ export function cardsDueNextMonthTotals(
   pendientes: readonly Pendiente[],
   today: Date,
 ): readonly CardsDueTotal[] {
-  const { monthStart, monthEnd } = currentMonthRange(
-    new Date(today.getFullYear(), today.getMonth() + 1, 1),
-  )
   const cents = new Map<Currency, number>()
-  for (const resumen of pendientesDueInMonth(
-    pendientes,
-    monthStart,
-    monthEnd,
-  )) {
-    if (resumen.cardId === undefined) {
-      continue
-    }
+  // The same list the sheet opens, so the figure and what it opens into can
+  // never disagree about which bills are in it.
+  for (const resumen of cardsDueNextMonth(pendientes, today)) {
     const currency = resumen.currency ?? DEFAULT_CURRENCY
     // The bill once it has been loaded, the estimate until then. Next
     // month's statement has almost never arrived yet, so this is nearly

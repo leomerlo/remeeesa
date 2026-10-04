@@ -118,15 +118,30 @@ export function summarizeByCategory(input: {
   )
 }
 
+// Which of the three things a line in the Tarjeta breakdown is. They are
+// not the same kind of money and the screen must not let them read as one:
+// 'pagado' already left the household, 'sinPagar' is a bill that arrived
+// and is owed, and 'estimado' is the household's own running record of
+// consumos whose statement has not come yet -- it counts towards nothing.
+// Per direct feedback: tiene que quedar muy en claro esa identificación.
+export type TarjetaLineKind = 'pagado' | 'sinPagar' | 'estimado'
+
 export type TarjetaLine = {
   readonly name: string
   readonly total: number
+  readonly kind: TarjetaLineKind
 }
 
 // The Tarjeta slice opened up: its paid cuotas by the purchase's category
-// (Expense.subcategory), largest first, then the ajuste (subcategory null)
-// and the month's still-unpaid Resúmenes, each on a line of its own. Lines
-// add up to the slice's total in summarizeByCategory, given the same input.
+// (Expense.subcategory), largest first, then the ajuste (subcategory null),
+// then the month's bills that arrived and are still owed, and last the
+// ones whose statement has not come -- which are an estimate and count
+// towards nothing.
+//
+// Only the 'pagado' and 'sinPagar' lines add up to the slice's total in
+// summarizeByCategory, given the same input; an 'estimado' line is
+// deliberately outside it, which is the whole distinction.
+//
 // Per the design, every null subcategory is "Ajuste": a gasto logged by hand
 // under Tarjeta lands there too, an accepted mislabel.
 export function summarizeTarjeta(input: {
@@ -135,6 +150,9 @@ export function summarizeTarjeta(input: {
   readonly pendientes: readonly {
     readonly categoryId: string
     readonly expectedAmount: number | null
+    // What the cuotas logged against the card add up to, for a Resumen
+    // whose statement has not arrived.
+    readonly estimatedAmount?: number
     // Same as summarizeByCategory's: absent means pesos, and a dollar
     // Resumen is left out. Without this these lines added up to more than
     // the slice they break down, on exactly the card this app added
@@ -156,6 +174,7 @@ export function summarizeTarjeta(input: {
     }
   }
   let unpaid: number | null = null
+  let estimated: number | null = null
   const countedPendientes = countedByBudget(
     input.pendientes.map((pendiente) => ({
       ...pendiente,
@@ -163,18 +182,37 @@ export function summarizeTarjeta(input: {
     })),
   )
   for (const pendiente of countedPendientes) {
-    if (
-      pendiente.categoryId === input.categoryId &&
-      pendiente.expectedAmount !== null
-    ) {
+    if (pendiente.categoryId !== input.categoryId) {
+      continue
+    }
+    if (pendiente.expectedAmount !== null) {
       unpaid = (unpaid ?? 0) + pendiente.expectedAmount
+    } else if ((pendiente.estimatedAmount ?? 0) > 0) {
+      estimated = (estimated ?? 0) + (pendiente.estimatedAmount ?? 0)
     }
   }
   return [
-    ...Array.from(bySubcategory, ([name, total]) => ({ name, total })).sort(
-      (left, right) => right.total - left.total,
-    ),
-    ...(ajuste === null ? [] : [{ name: 'Ajuste', total: ajuste }]),
-    ...(unpaid === null ? [] : [{ name: 'Sin pagar', total: unpaid }]),
+    ...Array.from(bySubcategory, ([name, total]) => ({
+      name,
+      total,
+      kind: 'pagado' as const,
+    })).sort((left, right) => right.total - left.total),
+    ...(ajuste === null
+      ? []
+      : [{ name: 'Ajuste', total: ajuste, kind: 'pagado' as const }]),
+    ...(unpaid === null
+      ? []
+      : // The group heading says it already arrived and is owed, so the
+        // line says what it is rather than repeating it.
+        [{ name: 'Resumen', total: unpaid, kind: 'sinPagar' as const }]),
+    ...(estimated === null
+      ? []
+      : [
+          {
+            name: 'Consumos cargados',
+            total: estimated,
+            kind: 'estimado' as const,
+          },
+        ]),
   ]
 }

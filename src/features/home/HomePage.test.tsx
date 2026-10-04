@@ -556,13 +556,13 @@ describe('HomePage', () => {
     renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
 
     expect(
-      await screen.findByRole('region', { name: 'Tarjetas el mes que viene' }),
+      await screen.findByRole('button', { name: /Tarjetas el mes que viene/ }),
     ).toHaveTextContent('$80')
 
     fireEvent.click(screen.getByRole('button', { name: 'Mes anterior' }))
 
     expect(
-      screen.getByRole('region', { name: 'Tarjetas el mes que viene' }),
+      screen.getByRole('button', { name: /Tarjetas el mes que viene/ }),
     ).toHaveTextContent('$80')
   })
   it('refreshes the recent list and "Tarjetas el mes que viene" after logging a card purchase', async () => {
@@ -581,7 +581,7 @@ describe('HomePage', () => {
       await screen.findByRole('button', { name: 'Cargar el primero' }),
     )
     expect(
-      screen.queryByRole('region', { name: 'Tarjetas el mes que viene' }),
+      screen.queryByRole('button', { name: /Tarjetas el mes que viene/ }),
     ).not.toBeInTheDocument()
     fireEvent.change(await screen.findByLabelText('Nombre'), {
       target: { value: 'Zapatillas' },
@@ -606,7 +606,7 @@ describe('HomePage', () => {
       await within(list).findByText('Visa · 1 cuota · no suma este mes'),
     ).toBeInTheDocument()
     expect(
-      await screen.findByRole('region', { name: 'Tarjetas el mes que viene' }),
+      await screen.findByRole('button', { name: /Tarjetas el mes que viene/ }),
     ).toHaveTextContent('$80')
   })
 
@@ -658,7 +658,7 @@ describe('HomePage', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('region', { name: 'Tarjetas el mes que viene' }),
+        screen.getByRole('button', { name: /Tarjetas el mes que viene/ }),
       ).toHaveTextContent('$120')
     })
     expect(

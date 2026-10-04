@@ -315,18 +315,41 @@ export function CategoryBreakdown({
                           categoryId: entry.categoryId,
                           expenses,
                           pendientes: pendingInMonth,
-                        }).map((line, index) => (
+                        }).map((line, index, lines) => (
                           // Index, not name: a purchase category may itself
                           // be called "Ajuste" or "Sin pagar".
-                          <li
-                            key={index}
-                            className="flex items-baseline justify-between gap-2"
-                          >
-                            <span className="text-muted-foreground truncate">
-                              {line.name}
-                            </span>
-                            <span className="text-foreground shrink-0">
-                              {formatCurrency(line.total)}
+                          <li key={index} className="flex flex-col gap-1.5">
+                            {/* The three kinds are not the same money, so
+                                the first line of each says which it is.
+                                What is estimated counts towards nothing --
+                                it is the household's own record of consumos
+                                whose statement has not arrived -- and is
+                                greyed and labelled as such. Per direct
+                                feedback: tiene que quedar muy en claro esa
+                                identificación. */}
+                            {index === 0 ||
+                            lines[index - 1]?.kind !== line.kind ? (
+                              <span className="text-muted-foreground mt-1.5 text-xs font-semibold tracking-wide uppercase">
+                                {line.kind === 'pagado'
+                                  ? 'Pagado del resumen'
+                                  : line.kind === 'sinPagar'
+                                    ? 'Llegó y falta pagar'
+                                    : 'Todavía sin resumen · no suma'}
+                              </span>
+                            ) : null}
+                            <span className="flex items-baseline justify-between gap-2">
+                              <span className="text-muted-foreground truncate">
+                                {line.name}
+                              </span>
+                              <span
+                                className={
+                                  line.kind === 'estimado'
+                                    ? 'text-muted-foreground shrink-0'
+                                    : 'text-foreground shrink-0'
+                                }
+                              >
+                                {formatCurrency(line.total)}
+                              </span>
                             </span>
                           </li>
                         ))}

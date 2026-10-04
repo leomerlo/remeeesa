@@ -1,5 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-import { screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createCard, createCardPurchase } from '@/lib/cards'
 import { listCategories } from '@/lib/expenses'
@@ -62,10 +62,42 @@ describe('CardsNextMonth', () => {
 
     renderWithProviders(<CardsNextMonth db={db} householdId={householdId} />)
 
-    const section = await screen.findByRole('region', {
+    const card = await screen.findByRole('button', {
+      name: /Tarjetas el mes que viene/,
+    })
+    expect(card).toHaveTextContent('$150,50')
+  })
+
+  // The figure is a summary of movements, so the obvious thing to want is
+  // to see them. Read-only: these are bills that have not arrived. Per
+  // direct feedback.
+  it('opens the consumos behind the figure, each under its own bill', async () => {
+    const { db, householdId, buy } = await setup()
+    await buy('Visa', 100, new Date(2026, 8, 5))
+    await buy('Master', 50.5, new Date(2026, 8, 6))
+
+    renderWithProviders(<CardsNextMonth db={db} householdId={householdId} />)
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: /Tarjetas el mes que viene/,
+      }),
+    )
+
+    const dialog = await screen.findByRole('dialog', {
       name: 'Tarjetas el mes que viene',
     })
-    expect(section).toHaveTextContent('$150,50')
+    expect(
+      await within(dialog).findByRole('list', { name: 'Consumos de Visa' }),
+    ).toHaveTextContent('$100')
+    expect(
+      within(dialog).getByRole('list', { name: 'Consumos de Master' }),
+    ).toHaveTextContent('$50,50')
+    // Nothing here can be paid: it is an estimate of bills that have not
+    // arrived.
+    expect(
+      within(dialog).queryByRole('button', { name: /Pagar/ }),
+    ).not.toBeInTheDocument()
   })
 
   it('renders nothing when no card is due next month', async () => {

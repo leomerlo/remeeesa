@@ -599,13 +599,75 @@ describe('CategoryBreakdown', () => {
       expect(lines).toBeVisible()
       const rows = within(lines).getAllByRole('listitem')
       expect(rows.map((row) => row.textContent)).toEqual([
-        expect.stringMatching(/^Comida.*\$300/),
+        // Each kind of money is named where it starts. Per direct feedback.
+        expect.stringMatching(/^Pagado del resumen.*Comida.*\$300/),
         expect.stringMatching(/^Ajuste.*\$10/),
-        expect.stringMatching(/^Sin pagar.*\$50/),
+        expect.stringMatching(/^Llegó y falta pagar.*Resumen.*\$50/),
       ])
     })
 
-    it('shows a Tarjeta made only of an unpaid Resumen, opening to just Sin pagar', async () => {
+    // The distinction the whole card model turns on: what the statement
+    // billed and is owed, against what the household has been logging for
+    // a statement that has not come. Per direct feedback.
+    it('separates what is owed from what is only an estimate', async () => {
+      const s = await seedHousehold()
+      const comida = s.byName.get('Comida')
+      if (comida === undefined) {
+        throw new Error('expected seeded categories')
+      }
+      const now = new Date()
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 15)
+      const visa = await createCard({ ...s, name: 'Visa' })
+      const master = await createCard({ ...s, name: 'Master' })
+      for (const [cardId, total] of [
+        [visa.id, 300],
+        [master.id, 80],
+      ] as const) {
+        await createCardPurchase({
+          db: s.db,
+          householdId: s.householdId,
+          cardId,
+          categoryId: comida.id,
+          memberId: 'user-1',
+          authorDisplayName: 'Ada',
+          name: 'Super',
+          total,
+          cuotas: 1,
+          purchaseDate: lastMonth,
+          comments: '',
+        })
+      }
+      // Only Visa's statement arrived.
+      const visaResumen = (await listPendientes(s)).find(
+        (pendiente) => pendiente.cardId === visa.id,
+      )
+      if (visaResumen === undefined) {
+        throw new Error('expected a Visa Resumen')
+      }
+      await setResumenAmount({
+        db: s.db,
+        householdId: s.householdId,
+        resumenId: visaResumen.id,
+        amount: 320,
+      })
+
+      renderInRouter(
+        <CategoryBreakdown db={s.db} householdId={s.householdId} />,
+      )
+
+      fireEvent.click(await screen.findByText('Tarjeta'))
+      const rows = within(
+        screen.getByRole('list', { name: 'Tarjeta por categoría' }),
+      ).getAllByRole('listitem')
+      expect(rows.map((row) => row.textContent)).toEqual([
+        expect.stringMatching(/^Llegó y falta pagar.*Resumen.*\$320/),
+        expect.stringMatching(
+          /^Todavía sin resumen.*no suma.*Consumos cargados.*\$80/,
+        ),
+      ])
+    })
+
+    it('shows a Tarjeta made only of an unpaid Resumen, opening to just the bill', async () => {
       const s = await seedHousehold()
       const comida = s.byName.get('Comida')
       if (comida === undefined) {
@@ -649,7 +711,7 @@ describe('CategoryBreakdown', () => {
         screen.getByRole('list', { name: 'Tarjeta por categoría' }),
       ).getAllByRole('listitem')
       expect(rows.map((row) => row.textContent)).toEqual([
-        expect.stringMatching(/^Sin pagar.*\$300/),
+        expect.stringMatching(/^Llegó y falta pagar.*Resumen.*\$300/),
       ])
     })
   })

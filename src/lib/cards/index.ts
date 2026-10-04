@@ -24,6 +24,7 @@ export {
   CardPurchaseLockedError,
   CardPurchaseNotFoundError,
   cardPurchaseMark,
+  cardsDueNextMonth,
   cardsDueNextMonthTotals,
   createCardPurchase,
   deleteCardPurchase,

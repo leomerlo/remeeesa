@@ -364,14 +364,55 @@ describe('summarizeTarjeta', () => {
     })
 
     expect(lines).toEqual([
-      { name: 'Ropa', total: 45 },
-      { name: 'Comida', total: 30 },
-      { name: 'Ajuste', total: -5 },
-      { name: 'Sin pagar', total: 42 },
+      { name: 'Ropa', total: 45, kind: 'pagado' },
+      { name: 'Comida', total: 30, kind: 'pagado' },
+      { name: 'Ajuste', total: -5, kind: 'pagado' },
+      { name: 'Resumen', total: 42, kind: 'sinPagar' },
     ])
   })
 
-  it('leaves out Ajuste and Sin pagar when there is neither', () => {
+  // The third kind, and the one the whole split exists for: a Resumen whose
+  // statement has not arrived is the household's own running record, not a
+  // debt. It is listed, said to be an estimate, and left out of the total
+  // the other lines add up to. Per direct feedback.
+  it('lists a Resumen with no statement yet as an estimate, outside the slice', () => {
+    const expenses = [
+      makeExpense({
+        categoryId: 'cat-tarjeta',
+        subcategory: 'Ropa',
+        price: 45,
+      }),
+    ]
+    const pendientes = [
+      { categoryId: 'cat-tarjeta', expectedAmount: 40 },
+      { categoryId: 'cat-tarjeta', expectedAmount: null, estimatedAmount: 300 },
+    ]
+
+    const lines = summarizeTarjeta({
+      categoryId: 'cat-tarjeta',
+      expenses,
+      pendientes,
+    })
+    expect(lines).toEqual([
+      { name: 'Ropa', total: 45, kind: 'pagado' },
+      { name: 'Resumen', total: 40, kind: 'sinPagar' },
+      { name: 'Consumos cargados', total: 300, kind: 'estimado' },
+    ])
+
+    // Only the counted kinds add up to the slice.
+    const slice = summarizeByCategory({
+      expenses,
+      categories: [makeCategory({ id: 'cat-tarjeta', name: 'Tarjeta' })],
+      pendientes,
+    }).find((entry) => entry.categoryId === 'cat-tarjeta')
+    expect(
+      lines
+        .filter((line) => line.kind !== 'estimado')
+        .reduce((sum, line) => sum + line.total, 0),
+    ).toBe(slice?.total)
+  })
+
+  it('leaves out Ajuste and the bill lines when there is neither', () => {
     expect(
       summarizeTarjeta({
         categoryId: 'cat-tarjeta',
@@ -380,7 +421,7 @@ describe('summarizeTarjeta', () => {
         ],
         pendientes: [],
       }),
-    ).toEqual([{ name: 'Ropa', total: 10 }])
+    ).toEqual([{ name: 'Ropa', total: 10, kind: 'pagado' }])
   })
 
   it('adds up to the Tarjeta slice of summarizeByCategory given the same input', () => {
@@ -428,7 +469,7 @@ describe('summarizeTarjeta', () => {
   // month can carry a pending dollar one. summarizeByCategory leaves it out
   // of the peso slice; these lines have to leave it out too, or the
   // breakdown of the slice adds up to more than the slice it breaks down.
-  it('leaves a dollar Resumen out of Sin pagar, the same as the slice does', () => {
+  it('leaves a dollar Resumen out of the bill line, the same as the slice does', () => {
     const expenses = [
       makeExpense({
         categoryId: 'cat-tarjeta',
@@ -463,7 +504,7 @@ describe('summarizeTarjeta', () => {
       pendientes,
     })
 
-    expect(lines.find((line) => line.name === 'Sin pagar')?.total).toBe(12)
+    expect(lines.find((line) => line.name === 'Resumen')?.total).toBe(12)
     expect(lines.reduce((sum, line) => sum + line.total, 0)).toBe(slice?.total)
   })
 })
