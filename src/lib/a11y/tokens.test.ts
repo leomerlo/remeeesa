@@ -253,3 +253,34 @@ describe('nothing renders below 14px', () => {
     expect(offenders).toEqual([])
   })
 })
+
+// Tailwind v4's preflight follows the native default and leaves a button
+// with `cursor: default`, so every button, tab, toggle and card in the app
+// pointed at nothing under a mouse. The app puts it back in one base rule;
+// this holds that rule in place, because the symptom is invisible in a
+// jsdom test and easy to lose in a refactor. Per direct feedback.
+describe('anything clickable says so under a cursor', () => {
+  const rule = css.slice(css.indexOf('@media (hover: hover)'))
+
+  it.each([
+    ['button:not(:disabled)'],
+    ['summary'],
+    ['select:not(:disabled)'],
+    ['a[href]'],
+    ["[role='button']:not([aria-disabled='true'])"],
+    ["[role='switch']:not(:disabled)"],
+    ["[role='option']"],
+    ["[role='tab']"],
+    // A toggle row's label flips the switch, so it points too. `~` because
+    // Radix puts a visually hidden checkbox between the two.
+    ["[role='switch'] ~ label"],
+  ])('covers %s', (selector) => {
+    expect(rule.slice(0, rule.indexOf('cursor: pointer'))).toContain(selector)
+  })
+
+  // Behind `hover: hover` on purpose: a phone has no cursor to change, and
+  // a hybrid device should not get one from its touchscreen half.
+  it('only applies where there is a real cursor', () => {
+    expect(css).toContain('@media (hover: hover)')
+  })
+})

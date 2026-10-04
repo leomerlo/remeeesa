@@ -600,6 +600,35 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Anything you can click says so under a real cursor.
+     Tailwind v4's preflight stopped giving buttons `cursor: pointer` --
+     it follows the native default instead -- so every button, tab, toggle
+     and card in the app pointed at nothing. Per direct feedback.
+
+     Behind `hover: hover` because it is only ever about a mouse: a phone
+     has no cursor to change, and a hybrid device should not get one from
+     the touchscreen half. Disabled controls are left out: a pointer on
+     something that cannot be pressed is a lie. */
+  @media (hover: hover) {
+    button:not(:disabled),
+    summary,
+    select:not(:disabled),
+    a[href],
+    [role='button']:not([aria-disabled='true']),
+    [role='switch']:not(:disabled),
+    [role='option'],
+    [role='tab'],
+    /* A toggle row's label flips the switch, so it points too. The switch
+       comes first in the markup, which is why this reads forwards. A label
+       for a text field is deliberately left alone: clicking it only moves
+       focus, and a pointer there would promise more than it does.
+
+       `~` and not `+`: Radix puts a visually hidden checkbox between the
+       switch and its label, so they are siblings but not adjacent. */
+    [role='switch'] ~ label {
+      cursor: pointer;
+    }
+  }
   /* Safari (iOS especially) ignores height, padding and width on a date
      input while its native appearance is on, and sizes it from the date
      text at the platform font instead -- so "Fecha" rendered taller and
