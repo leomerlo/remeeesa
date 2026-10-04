@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
@@ -16,6 +16,7 @@ import { useFirebase } from '@/lib/firebaseContext'
 import { cn } from '@/lib/utils'
 import { createFirestoreHouseholdsDb } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
+import { AddGastoSheet } from '@/features/expenses'
 import { DolarConverter } from './DolarConverter'
 import { useCurrentMembership } from './useShowNav'
 
@@ -44,6 +45,11 @@ const NAV_ITEMS: readonly NavItem[] = [
   { to: '/household', label: 'Ajustes', icon: Settings, end: false },
 ]
 
+// The add button goes in the middle of the bar, with three destinations
+// either side of it -- which is where the eye and the thumb both expect the
+// one thing you came to do.
+const FAB_POSITION = 3
+
 // The app's frame: a bottom tab bar on a phone, a left sidebar from `lg` up.
 // A bar pinned to the bottom of a 27" monitor is a phone idiom on a screen
 // that has never held a thumb, so above `lg` the same nav becomes a column
@@ -57,6 +63,7 @@ export function AppShell({
 }: AppShellProps): ReactElement {
   const membership = useCurrentMembership({ currentUserId, householdsDb })
   const showNav = membership !== undefined && membership !== null
+  const [isAddGastoOpen, setIsAddGastoOpen] = useState(false)
   const firebase = useFirebase()
   const db = useMemo(
     () => householdsDb ?? createFirestoreHouseholdsDb(firebase.db),
@@ -83,27 +90,30 @@ export function AppShell({
   // renders.
   return (
     <>
-      {/* Padding, not margin, reserves the sidebar's column: `mx-auto` on
-          the inner box then centres the content within what is left over
-          rather than within the whole viewport, so the reading column sits
-          centred in the space beside the sidebar at any window width. */}
+      {/* Padding, not margin, reserves the sidebar's column, so anything
+          the inner box does happens within what is left over rather than
+          within the whole viewport. */}
       <div
         className={cn(
           'w-full',
-          // Matches the bar's own height (8 + 44 + 12) plus clearance. It
-          // used to reserve 6rem for a 76px bar, leaving a band of dead
-          // space above it.
+          // The bar's own height plus the part of the add button that
+          // stands above it -- without that extra, the last card on a page
+          // scrolled to the bottom sat underneath the circle.
           showNav &&
-            'pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-64',
+            'pb-[calc(7rem+env(safe-area-inset-bottom))] lg:pb-0 lg:pl-64',
         )}
       >
         <div
           className={cn(
             'mx-auto flex w-full flex-col items-center gap-8',
             // <main> hands the whole canvas over at lg (see App.tsx), so the
-            // column width and page padding are owned here from that point up.
+            // column width and page padding are owned here from that point
+            // up. Fluid, with a 32px gutter: beside the sidebar a 1024px cap
+            // was already the whole width at 1280 and only started showing
+            // as empty gutters past that. The cap comes back at 2xl, where
+            // a line of text really would run too long. Per direct feedback.
             showNav
-              ? 'lg:max-w-5xl lg:px-10 lg:py-8'
+              ? 'lg:px-8 lg:py-8 2xl:max-w-7xl'
               : 'lg:max-w-lg lg:px-8 lg:pt-6',
           )}
         >
@@ -137,44 +147,67 @@ export function AppShell({
               76px to 64px. The sidebar from `lg` up is unchanged -- it has
               the room, and always names everything. */}
           <ul className="flex items-stretch justify-around lg:flex-col lg:justify-start lg:gap-1">
-            {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
-              <li key={to} className={cn('min-w-0', 'lg:w-full')}>
-                <NavLink
-                  to={to}
-                  end={end}
-                  className={({ isActive }) =>
-                    cn(
-                      'flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-2xl px-2 text-xs font-medium transition-colors',
-                      'lg:w-full lg:justify-start lg:gap-3 lg:px-4 lg:py-3 lg:text-sm',
-                      // On a dark frame the active item is a lighter well
-                      // rather than a tinted one: the page's own action
-                      // colour would read as a button sitting in the nav.
-                      isActive
-                        ? 'bg-white/12 text-nav-foreground-active'
-                        : 'text-nav-foreground lg:hover:bg-white/8 lg:hover:text-nav-foreground-active',
-                    )
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <Icon className="size-5 shrink-0" aria-hidden="true" />
-                      {/* sr-only rather than hidden: an unlabelled icon is
-                          still a named destination to a screen reader. The
-                          active label truncates rather than pushing a
-                          sibling off the bar on a narrow phone. */}
-                      <span
-                        className={cn(
-                          'truncate',
-                          isActive ? '' : 'sr-only',
-                          'lg:not-sr-only',
-                        )}
-                      >
-                        {label}
-                      </span>
-                    </>
-                  )}
-                </NavLink>
-              </li>
+            {NAV_ITEMS.map(({ to, label, icon: Icon, end }, index) => (
+              <Fragment key={to}>
+                {index === FAB_POSITION ? (
+                  /* The one add button on a phone, in the middle of the bar
+                     and lifted out of it. The header carries it from `lg`,
+                     where there is a sidebar and no thumb; down here the
+                     bar is where the thumb already is. Per direct feedback.
+
+                     A 2px ring in the same grey the bar's own icons are
+                     draws it off the bar: both are near-black, so edge to
+                     edge the circle was disappearing into the bar it sits
+                     in. border-0 matters -- Button carries a 1px
+                     transparent border and clips its background to the
+                     padding box, so the bar showed through as a dark hair
+                     between the fill and the ring. No shadow; nothing in
+                     this app casts one. */
+                  <li className="relative flex w-14 shrink-0 items-center justify-center lg:hidden">
+                    <AddGastoSheet
+                      triggerIconOnly
+                      triggerClassName="bg-fab ring-nav-foreground absolute -top-6 size-14 rounded-full border-0 p-0 ring-2 transition-transform active:scale-95"
+                      open={isAddGastoOpen}
+                      onOpenChange={setIsAddGastoOpen}
+                      db={db}
+                      householdId={membership.householdId}
+                      memberId={membership.userId}
+                      authorDisplayName={membership.displayName}
+                    />
+                  </li>
+                ) : null}
+                <li className={cn('min-w-0', 'lg:w-full')}>
+                  <NavLink
+                    to={to}
+                    end={end}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-2xl px-2 text-xs font-medium transition-colors',
+                        'lg:w-full lg:justify-start lg:gap-3 lg:px-4 lg:py-3 lg:text-sm',
+                        // On a dark frame the active item is a lighter well
+                        // rather than a tinted one: the page's own action
+                        // colour would read as a button sitting in the nav.
+                        isActive
+                          ? 'bg-white/12 text-nav-foreground-active'
+                          : 'text-nav-foreground lg:hover:bg-white/8 lg:hover:text-nav-foreground-active',
+                      )
+                    }
+                  >
+                    <Icon className="size-5 shrink-0" aria-hidden="true" />
+                    {/* Icons alone on a phone -- sr-only rather than hidden,
+                        so an unlabelled icon is still a named destination to
+                        a screen reader. The active one used to unfurl into
+                        its label, which widened that item and shoved the
+                        raised add button off centre every time you changed
+                        screen. The lit pill behind the icon is what says
+                        which one you are on. The sidebar from `lg` names
+                        everything; it has the room. */}
+                    <span className="sr-only truncate lg:not-sr-only">
+                      {label}
+                    </span>
+                  </NavLink>
+                </li>
+              </Fragment>
             ))}
           </ul>
           <div className="hidden lg:contents">

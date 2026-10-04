@@ -7,6 +7,8 @@ import {
 } from '@/lib/pendientes/pendientes'
 import type { Pendiente } from '@/lib/pendientes/types'
 import type { Card, CardPurchase } from '@/lib/cards/types'
+import { projectionIdFor } from '@/lib/proyecciones'
+import type { Projection } from '@/lib/proyecciones'
 import {
   applyResumenChange,
   cuotasOf,
@@ -15,6 +17,7 @@ import {
   resumenNameFor,
 } from '@/lib/cards/cuotas'
 import {
+  CardInUseError,
   CardNotFoundError,
   CardPurchaseLockedError,
   CardPurchaseNotFoundError,
@@ -23,7 +26,7 @@ import {
   resumenMonthStart,
   resumenPayment,
 } from '@/lib/cards/purchases'
-import { colorForCategoryName } from '@/lib/expenses/categoryColor'
+import { nextCategoryColor } from '@/lib/expenses/categoryColor'
 import {
   CategoryInUseError,
   CategoryNameTakenError,
@@ -78,6 +81,7 @@ type MemoryState = {
   pendientes: Map<string, Pendiente>
   cards: Map<string, Card>
   cardPurchases: Map<string, CardPurchase>
+  projections: Map<string, Projection>
 }
 
 function toHousehold(id: string, record: HouseholdRecord): Household {
@@ -449,7 +453,12 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         id,
         householdId: input.householdId,
         name: input.name,
-        color: colorForCategoryName(input.name),
+        color: nextCategoryColor(
+          input.name,
+          [...state.categories.values()]
+            .filter((other) => other.householdId === input.householdId)
+            .map((other) => other.color),
+        ),
         monthlyBudget: 0,
         createdAt: new Date(),
       }
@@ -689,6 +698,28 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       }
       state.expenses.delete(input.expenseId)
     },
+    async getProjection(input) {
+      assertMemberOf(state, userId, input.householdId)
+      return (
+        state.projections.get(
+          projectionIdFor(input.householdId, input.monthStart),
+        ) ?? null
+      )
+    },
+    async saveProjection(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const projection: Projection = {
+        householdId: input.householdId,
+        monthStart: input.monthStart,
+        excluded: [...input.excluded],
+        overrides: { ...input.overrides },
+      }
+      state.projections.set(
+        projectionIdFor(input.householdId, input.monthStart),
+        projection,
+      )
+      return projection
+    },
     async listCards(input) {
       assertMemberOf(state, userId, input.householdId)
       return [...state.cards.values()].filter(
@@ -702,10 +733,60 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         householdId: input.householdId,
         name: input.name,
         currency: input.currency,
+        brand: input.brand,
         createdAt: new Date(),
       }
       state.cards.set(card.id, card)
       return card
+    },
+    async updateCard(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const existing = state.cards.get(input.cardId)
+      if (
+        existing === undefined ||
+        existing.householdId !== input.householdId
+      ) {
+        throw new CardNotFoundError()
+      }
+      const next: Card = {
+        ...existing,
+        name: input.name,
+        currency: input.currency,
+        brand: input.brand,
+      }
+      state.cards.set(next.id, next)
+      // Every Resumen of the card carries its name, paid ones included --
+      // the real adapter renames them in the same batch.
+      for (const [id, pendiente] of state.pendientes) {
+        if (pendiente.cardId === next.id) {
+          state.pendientes.set(id, {
+            ...pendiente,
+            name: resumenNameFor(next.name, pendiente.currency ?? 'ARS'),
+          })
+        }
+      }
+      return next
+    },
+    async deleteCard(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const existing = state.cards.get(input.cardId)
+      if (
+        existing === undefined ||
+        existing.householdId !== input.householdId
+      ) {
+        throw new CardNotFoundError()
+      }
+      const used =
+        [...state.cardPurchases.values()].some(
+          (purchase) => purchase.cardId === input.cardId,
+        ) ||
+        [...state.pendientes.values()].some(
+          (pendiente) => pendiente.cardId === input.cardId,
+        )
+      if (used) {
+        throw new CardInUseError(existing.name)
+      }
+      state.cards.delete(input.cardId)
     },
     async updateCardCurrency(input) {
       assertMemberOf(state, userId, input.householdId)
@@ -1210,6 +1291,7 @@ export function createMemoryHouseholdsDb(): {
     pendientes: new Map(),
     cards: new Map(),
     cardPurchases: new Map(),
+    projections: new Map(),
   }
 
   return {

@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { currentMonthRange } from '@/lib/expenses'
 import { formatMonthLabel } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
 export type MonthPagerProps = {
   readonly viewedMonth: Date
@@ -10,6 +11,12 @@ export type MonthPagerProps = {
   // How many months past the current one the pager may reach. 0 by default
   // -- see isAtForwardEdge below.
   readonly maxMonthsAhead?: number
+  // For sitting inside a PageToolbar. Only from `lg`, where the toolbar is
+  // one row and there is width to share: on a phone it stays the full-width
+  // block with its own rule that Home and Categorías use, because a month
+  // squeezed next to a search box is not the heading of the screen it is
+  // actually the heading of. Per direct feedback.
+  readonly inline?: boolean
 }
 
 function addMonths(date: Date, delta: number): Date {
@@ -28,6 +35,7 @@ export function MonthPager({
   viewedMonth,
   onViewedMonthChange,
   maxMonthsAhead = 0,
+  inline = false,
 }: MonthPagerProps): ReactElement {
   // Paging past the current month is blocked by default: on Categorías a
   // future month is guaranteed empty, so the arrow would only ever lead
@@ -47,11 +55,23 @@ export function MonthPager({
     // it, and without a line it read as just another heading in the stack
     // rather than as the scope the rest of the page is in. Per direct
     // feedback.
-    <div className="border-border-subtle flex w-full items-center justify-between gap-2 border-b pb-3">
+    <div
+      className={cn(
+        'flex items-center gap-2',
+        inline
+          ? 'border-border-subtle w-full justify-between border-b pb-3 lg:w-auto lg:shrink-0 lg:justify-start lg:border-b-0 lg:pb-0'
+          : 'border-border-subtle w-full justify-between border-b pb-3',
+      )}
+    >
       <span
         role="status"
         aria-live="polite"
-        className="text-foreground text-xl font-semibold"
+        className={cn(
+          // A step below the page title above it, and a step above the
+          // group labels below it.
+          'text-foreground text-xl font-semibold',
+          inline ? 'lg:text-base' : '',
+        )}
       >
         {formatMonthLabel(viewedMonth)}
       </span>

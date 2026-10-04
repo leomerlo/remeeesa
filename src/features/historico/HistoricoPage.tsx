@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
 import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import type { ReactElement } from 'react'
 import { PageHeader } from '@/components/PageHeader'
@@ -63,6 +65,11 @@ export function HistoricoPage({
           illustration={ILLUSTRATIONS.celebrating}
           title="Todavía no hay movimientos"
           description="Acá va quedando todo: los gastos sueltos y los servicios que paguen."
+          action={
+            <Button asChild>
+              <Link to="/">Ir a Inicio</Link>
+            </Button>
+          }
         />
       </div>
     )
@@ -79,31 +86,25 @@ export function HistoricoPage({
 
   return (
     <div className="flex w-full flex-col gap-8">
-      {/* Title and the one action share a row on a wide window, the same
-          shape Servicios has. Adding a gasto from here rather than only
-          from Home: this is the screen you are on when you notice one is
-          missing. Per direct feedback. */}
-      {/* Title and its one action share a line at every width, the action
-          pinned to the right margin. Sitting it flush against the title
-          crowded the two together; the screen's edges are what the eye
-          reads the row against. Per direct feedback. */}
-      <div className="flex w-full items-center justify-between gap-3">
-        {header}
-        <AddGastoSheet
-          triggerClassName="shrink-0 px-5"
-          showRecurringOptions={false}
-          open={isAddGastoSheetOpen}
-          onOpenChange={setIsAddGastoSheetOpen}
-          editPurchase={editPurchase}
-          onEditFinished={() => {
-            setEditPurchase(null)
-          }}
-          db={db}
-          householdId={membership.householdId}
-          memberId={currentUserId}
-          authorDisplayName={authorDisplayName}
-        />
-      </div>
+      {header}
+      {/* No "Agregar gasto" here: the header's one action covers it at every
+          width. Two buttons a screen apart that open the same form read as
+          two different things. Per direct feedback. The sheet stays mounted
+          with no trigger, purely to edit a purchase it is handed. */}
+      <AddGastoSheet
+        showTrigger={false}
+        showRecurringOptions={false}
+        open={isAddGastoSheetOpen}
+        onOpenChange={setIsAddGastoSheetOpen}
+        editPurchase={editPurchase}
+        onEditFinished={() => {
+          setEditPurchase(null)
+        }}
+        db={db}
+        householdId={membership.householdId}
+        memberId={currentUserId}
+        authorDisplayName={authorDisplayName}
+      />
       {/* Editing from here reuses the very same sheet as Home, so correcting
           an expense from an old month behaves identically to correcting one
           from this month -- including the delete action, which lives inside
@@ -140,6 +141,9 @@ export function HistoricoPage({
         }}
         onEditPurchase={(purchase, categoryName) => {
           setEditPurchase({ purchase, categoryName })
+        }}
+        onAddGasto={() => {
+          setIsAddGastoSheetOpen(true)
         }}
       />
     </div>

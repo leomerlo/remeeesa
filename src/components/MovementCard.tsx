@@ -2,6 +2,7 @@ import type { ReactElement, ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { CategoryBadge } from '@/components/CategoryBadge'
 import { cssVars } from '@/lib/cssVars'
+import { inkForCategoryColor } from '@/lib/expenses/categoryColor'
 import { cn } from '@/lib/utils'
 
 export type MovementCardProps = {
@@ -12,10 +13,14 @@ export type MovementCardProps = {
   // body reads as creating a component during render (and trips the
   // static-components lint rule).
   readonly CategoryIcon: LucideIcon
+  // Replaces the whole disc. For a row whose mark is not a category's --
+  // a credit card wears its own brand, in the brand's own colours.
+  readonly iconSlot?: ReactNode
   readonly title: string
-  // Already phrased: "Vence el 06/09/2026", "Pagado el 04/09/2026". See
-  // lib/format's dueDateLabel / paidDateLabel.
-  readonly when: string
+  // The line under the title. Already phrased: "Vence el 06/09/2026",
+  // "Pagado el 04/09/2026", "Tope $120.000". See lib/format's dueDateLabel
+  // and paidDateLabel.
+  readonly when: ReactNode
   // True when `when` says a bill has been missed, so it can be said in the
   // colour the rest of the app uses for that.
   readonly isOverdue?: boolean
@@ -25,26 +30,28 @@ export type MovementCardProps = {
   readonly badge?: ReactNode
   // Trails the date: who logged it, in Histórico.
   readonly meta?: string
-  // Sits against the card's right edge, level with the category disc: the
-  // pencil that opens this row for editing, and on a bill the Pagar button
-  // beside it. Per direct feedback -- a full-width "Editar" bar under every
-  // row made a list of them read as a column of buttons with some text
-  // between them.
+  // False where the badge would only repeat the title -- a category's own
+  // card, where the name is the heading.
+  readonly showCategoryBadge?: boolean
+  // The footer. Separated by a rule and pinned to the bottom, so a column of
+  // these has its actions on one line however much text each one carries.
   readonly actions?: ReactNode
 }
 
-// One row shape for a bill and for a movement in the history. They are the
-// same thing seen at two moments -- something owed, and the money that left
-// when it was paid -- so per direct feedback they read the same way rather
-// than being two layouts that happen to show the same fields.
+// The one card shape in the app: a bill, a movement in the history, and a
+// category all read the same way.
 //
-// Four lines, always, in this order: what kind of thing it is, what it is
-// called, when it is due or when it was paid, how much. Fixed so a column of
-// them lines up instead of shuffling as one row's date wraps and another's
-// does not.
+// It is Home's "Últimos gastos del mes" row, which is the quietest of the
+// shapes this replaced -- icon on the left, the name and the figure sharing
+// the first line, and the category and the date beneath them at a whisper.
+// The alternatives were a tall stack per row, which made a list of twenty
+// read as twenty panels, and a wide row with the actions floating at the
+// right edge, which left each card's buttons wherever its text happened to
+// end. Per direct feedback.
 //
-// Home is deliberately not built on this: its carousel cards and its recent
-// list are their own shapes and stay that way.
+// Four parts, always in this order: the category's disc, the title, the
+// figure, and the quiet line under them -- then a footer, when there is
+// anything to do.
 export function MovementCard({
   categoryName,
   categoryColor,
@@ -55,51 +62,68 @@ export function MovementCard({
   amount,
   badge,
   meta,
+  showCategoryBadge = true,
+  iconSlot,
   actions,
 }: MovementCardProps): ReactElement {
   return (
-    // One row at every width now: the actions are an icon and, on a bill, a
-    // short button, so they fit beside the text on a phone rather than
-    // needing a line of their own. Everything centres against the row's
-    // height, which puts the actions level with the category disc -- the
-    // anchor the eye already uses down a list of these.
-    <div className="bg-card flex items-center gap-3 rounded-2xl p-4">
-      <div className="flex min-w-0 flex-1 items-center gap-3">
-        <span
-          aria-hidden="true"
-          data-testid="category-icon"
-          className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--swatch-color)]"
-          style={cssVars({ '--swatch-color': categoryColor })}
-        >
-          <CategoryIcon className="size-5 text-white" aria-hidden="true" />
-        </span>
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <CategoryBadge name={categoryName} color={categoryColor} />
-            {badge}
-          </div>
-          <span className="truncate text-lg font-semibold text-foreground">
-            {title}
-          </span>
+    // h-full so a card fills the height its row was given: in a grid the
+    // row is as tall as its tallest card, and the footer has to sit at the
+    // bottom of all of them, not just that one.
+    <div className="bg-card card-surface flex h-full w-full flex-col gap-3 rounded-2xl p-4">
+      <div className="flex w-full items-center gap-3">
+        {iconSlot ?? (
           <span
-            className={cn(
-              'text-xs',
-              isOverdue ? 'text-error font-semibold' : 'text-muted-foreground',
-            )}
+            aria-hidden="true"
+            data-testid="category-icon"
+            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--swatch-color)]"
+            style={cssVars({
+              '--swatch-color': categoryColor,
+              '--swatch-ink': inkForCategoryColor(categoryColor),
+            })}
           >
-            {when}
-            {meta === undefined ? null : (
-              <>
-                <span aria-hidden="true"> · </span>
-                {meta}
-              </>
-            )}
+            <CategoryIcon
+              className="size-5 text-[var(--swatch-ink)]"
+              aria-hidden="true"
+            />
           </span>
-          {amount}
+        )}
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          {/* Name and figure on one line: the name is what you scan for and
+              the figure is what you came for, and side by side a column of
+              these lines both of them up. */}
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-foreground truncate font-bold">{title}</span>
+            {amount}
+          </div>
+          <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+            {showCategoryBadge ? (
+              <CategoryBadge name={categoryName} color={categoryColor} />
+            ) : null}
+            {badge}
+            {/* Always its own line, whether or not it would have fit beside
+                the badge: a row whose date sits next to the badge and the
+                next one whose date has wrapped leaves a column of these
+                looking ragged, and the date stops being findable in the
+                same place every time. */}
+            <span
+              className={cn('w-full', isOverdue && 'text-error font-semibold')}
+            >
+              {when}
+              {meta === undefined ? null : (
+                <>
+                  <span aria-hidden="true"> · </span>
+                  {meta}
+                </>
+              )}
+            </span>
+          </div>
         </div>
       </div>
       {actions === undefined ? null : (
-        <div className="flex shrink-0 items-center gap-2">{actions}</div>
+        <div className="border-border-subtle mt-auto flex flex-wrap items-center justify-end gap-2 border-t pt-3">
+          {actions}
+        </div>
       )}
     </div>
   )

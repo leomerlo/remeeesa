@@ -417,7 +417,7 @@ describe('EditExpenseFlow', () => {
 
     expect(
       await screen.findByRole('status', {
-        name: 'Presupuesto restante $70',
+        name: /^Te quedan \$70\./,
       }),
     ).toBeInTheDocument()
 
@@ -437,7 +437,7 @@ describe('EditExpenseFlow', () => {
       await screen.findByText('Todavía no anotaron nada'),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('status', { name: 'Presupuesto restante $100' }),
+      screen.getByRole('status', { name: /^Te quedan \$100\./ }),
     ).toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Guardar cambios' }),

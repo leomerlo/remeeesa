@@ -17,8 +17,9 @@ import {
 } from '@/features/pendientes'
 import type { EditPendienteTarget } from '@/features/pendientes/AddPendienteForm'
 import { LogoutButton } from '@/features/auth'
+import { InviteHouseholdBanner } from './InviteHouseholdBanner'
 import { currentMonthRange } from '@/lib/expenses'
-import { OnboardingChecklist, OnboardingForm } from '@/features/onboarding'
+import { OnboardingForm } from '@/features/onboarding'
 import type { SignupAuth } from '@/features/onboarding'
 import { markReturningUser } from '@/features/onboarding/returningUserStorage'
 import { useFirebase } from '@/lib/firebaseContext'
@@ -166,142 +167,191 @@ export function HomePage({
     <div className="flex w-full flex-col items-center gap-8">
       {/* No page title here: the household's name is in the app header now,
           on every screen, rather than being Home's heading. */}
-      {/* Above everything, and only while there is something left to do:
-          it is the one place the app says what it is for. */}
-      <OnboardingChecklist
-        db={db}
-        householdId={membership.householdId}
-        onAddGasto={() => {
-          setIsAddGastoSheetOpen(true)
-        }}
-      />
-      <PendienteDueSoonBanner db={db} householdId={membership.householdId} />
-      {/* The month, its two cards and the one action they lead to are one
+      {/* Above everything, and only while the household is one person with
+          nothing logged. What used to sit here was an "Empezá por acá"
+          checklist telling them to set a budget, add a servicio and log a
+          gasto -- three things the screen underneath already asks for, in
+          its own empty cards, where the action actually is. Per direct
+          feedback: drop the checklist, and use the space for the one thing
+          Home could not say on its own. */}
+      <InviteHouseholdBanner db={db} householdId={membership.householdId} />
+      {/* One column on a phone; from `lg` a 9/3 dashboard. Everything you
+          act on is the wide column; the right one is the two things you
+          only read -- what is about to come due, and where the month went.
+
+          The three live in one grid rather than in two nested columns so
+          the right column can start level with the month pager while the
+          due-soon banner still comes *first* on a phone, where it is the
+          most urgent thing on the screen and there is no second column to
+          put it in. That is what the explicit row/column placement below
+          is for; order-* handles the phone, col-start/row-start the rest.
+
+          The rows are auto/1fr, not auto/auto: the wide column spans both,
+          and with two auto rows the browser splits its height between them,
+          which pushed the second thing in the right column halfway down the
+          page. 1fr absorbs the slack instead, so the right column stacks
+          tight to the top -- and collapses cleanly to nothing on a month
+          with no bill coming due.
+
+          And when it collapses to nothing -- a new household, where there
+          is no bill due and nothing spent to break down -- the wide column
+          takes all twelve instead of leaving a quarter of the screen
+          empty. That is what home-grid/home-main plus the two data-aside
+          marks below are for: the column asks whether either of them actually rendered
+          anything, which is the same question `null` already answers, so
+          the two can never disagree. Written as `:not(:has(...))` on top of
+          the 9-column default on purpose -- a browser without `:has()`
+          drops the whole rule and keeps the layout it has always had,
+          rather than running the main column under the aside. Per direct
+          feedback. */}
+      <div className="home-grid flex w-full flex-col gap-8 lg:grid lg:grid-cols-12 lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-8">
+        <div
+          data-aside=""
+          className="order-1 w-full lg:order-none lg:col-span-3 lg:col-start-10 lg:row-start-1"
+        >
+          <PendienteDueSoonBanner
+            db={db}
+            householdId={membership.householdId}
+          />
+        </div>
+        <div className="home-main order-2 flex w-full flex-col gap-8 lg:order-none lg:col-span-9 lg:col-start-1 lg:row-span-2 lg:row-start-1">
+          {/* The month, its two cards and the one action they lead to are one
           block -- at the page's own 32px rhythm the button floated between
           sections and read as belonging to neither. */}
-      <div className="flex w-full flex-col gap-3">
-        <MonthNavigator
-          db={db}
-          householdId={membership.householdId}
-          viewedMonth={viewedMonth}
-          onViewedMonthChange={setViewedMonth}
-          maxMonthsAhead={1}
-        />
-        <AddGastoSheet
-          {...(isFutureMonth ? { defaultDueDate: monthStart } : {})}
-          // The header carries this from `lg` up, reachable on every
-          // screen; two of the same button on one page reads as a mistake.
-          triggerClassName="w-full lg:hidden"
-          open={isAddGastoSheetOpen}
-          onOpenChange={setIsAddGastoSheetOpen}
-          editPurchase={editPurchase}
-          onEditFinished={() => {
-            setEditPurchase(null)
-          }}
-          db={db}
-          householdId={membership.householdId}
-          memberId={currentUserId}
-          authorDisplayName={authorDisplayName}
-        />
-      </div>
-      {/* Both mounted purely to edit/mark-paid a row they were handed
+          <div className="flex w-full flex-col gap-3">
+            <MonthNavigator
+              db={db}
+              householdId={membership.householdId}
+              viewedMonth={viewedMonth}
+              onViewedMonthChange={setViewedMonth}
+              maxMonthsAhead={1}
+            />
+            <AddGastoSheet
+              {...(isFutureMonth ? { defaultDueDate: monthStart } : {})}
+              // No trigger of its own: the header carries this from `lg` up
+              // and the bar's round button carries it on a phone, so a
+              // third copy under the budget card was the same action said
+              // three times. It stays mounted so the onboarding checklist
+              // and a row being edited can still open it. Per direct
+              // feedback.
+              showTrigger={false}
+              open={isAddGastoSheetOpen}
+              onOpenChange={setIsAddGastoSheetOpen}
+              editPurchase={editPurchase}
+              onEditFinished={() => {
+                setEditPurchase(null)
+              }}
+              db={db}
+              householdId={membership.householdId}
+              memberId={currentUserId}
+              authorDisplayName={authorDisplayName}
+            />
+          </div>
+          {/* Both mounted purely to edit/mark-paid a row they were handed
           (editExpense/editPendiente) -- adding goes through AddGastoSheet
           above instead, so neither shows its own trigger here. */}
-      <AddExpenseSheet
-        open={false}
-        showTrigger={false}
-        onOpenChange={() => {}}
-        db={db}
-        householdId={membership.householdId}
-        memberId={currentUserId}
-        authorDisplayName={authorDisplayName}
-        editExpense={editExpense}
-        onEditFinished={() => {
-          setEditExpense(null)
-        }}
-      />
-      <AddPendienteSheet
-        open={false}
-        showTrigger={false}
-        onOpenChange={() => {}}
-        db={db}
-        householdId={membership.householdId}
-        memberId={currentUserId}
-        authorDisplayName={authorDisplayName}
-        editPendiente={editPendiente}
-        onEditFinished={() => {
-          setEditPendiente(null)
-        }}
-      />
-      {/* One column on a phone, two from lg: the month's outstanding
-          services and the recent movements are the things being read, the
-          category split is a reference panel beside them. */}
-      <div className="flex w-full flex-col gap-8 lg:grid lg:grid-cols-3 lg:items-start">
-        <div className="flex w-full flex-col gap-8 lg:col-span-2">
-          {/* Always next calendar month, not the viewed one: it is the card
-              bill coming up, said before it arrives. */}
-          <CardsNextMonth db={db} householdId={membership.householdId} />
-          <PorPagarSection
+          <AddExpenseSheet
+            open={false}
+            showTrigger={false}
+            onOpenChange={() => {}}
             db={db}
             householdId={membership.householdId}
             memberId={currentUserId}
             authorDisplayName={authorDisplayName}
-            monthStart={monthStart}
-            monthEnd={monthEnd}
-            onMarkPaid={(pendiente, categoryName) => {
-              // Opens the same edit sheet as tapping a row on /pendientes, with
-              // "Ya lo pagué" pre-checked -- one form for both editing and
-              // paying (this used to open a separate amount-only sheet).
-              setEditPendiente({
-                pendienteId: pendiente.id,
-                name: pendiente.name,
-                categoryName,
-                dueDate: pendiente.dueDate,
-                expectedAmount: pendiente.expectedAmount,
-                recurring: pendiente.recurring,
-                autoDebit: pendiente.autoDebit,
-                defaultMarkPaid: true,
-              })
+            editExpense={editExpense}
+            onEditFinished={() => {
+              setEditExpense(null)
             }}
           />
-          {/* Hidden in a future month: a paid gasto cannot be dated in the
-              future, so the list could only ever be empty there. */}
-          {isFutureMonth ? null : (
-            <div className="flex w-full flex-col gap-3">
-              <h2 className="text-title font-semibold self-start">
-                Últimos gastos del mes
-              </h2>
-              <RecentExpensesList
+          <AddPendienteSheet
+            open={false}
+            showTrigger={false}
+            onOpenChange={() => {}}
+            db={db}
+            householdId={membership.householdId}
+            memberId={currentUserId}
+            authorDisplayName={authorDisplayName}
+            editPendiente={editPendiente}
+            onEditFinished={() => {
+              setEditPendiente(null)
+            }}
+          />
+          <div className="flex w-full flex-col gap-8">
+            <div className="flex w-full flex-col gap-8">
+              {/* Always next calendar month, not the viewed one: it is the card
+              bill coming up, said before it arrives. */}
+              <CardsNextMonth db={db} householdId={membership.householdId} />
+              <PorPagarSection
                 db={db}
                 householdId={membership.householdId}
+                memberId={currentUserId}
+                authorDisplayName={authorDisplayName}
                 monthStart={monthStart}
                 monthEnd={monthEnd}
-                onEditExpense={(expense, categoryName) => {
-                  setEditExpense({
-                    expenseId: expense.id,
-                    name: expense.name,
-                    price: expense.price,
+                onMarkPaid={(pendiente, categoryName) => {
+                  // Opens the same edit sheet as tapping a row on /pendientes, with
+                  // "Ya lo pagué" pre-checked -- one form for both editing and
+                  // paying (this used to open a separate amount-only sheet).
+                  setEditPendiente({
+                    pendienteId: pendiente.id,
+                    name: pendiente.name,
                     categoryName,
-                    comments: expense.comments,
-                    expenseDate: expense.expenseDate,
-                    memberId: expense.memberId,
-                    pendienteId: expense.pendienteId,
-                    isService: expense.isService,
+                    dueDate: pendiente.dueDate,
+                    expectedAmount: pendiente.expectedAmount,
+                    recurring: pendiente.recurring,
+                    autoDebit: pendiente.autoDebit,
+                    defaultMarkPaid: true,
                   })
                 }}
-                onEditPurchase={(purchase, categoryName) => {
-                  setEditPurchase({ purchase, categoryName })
-                }}
               />
+              {/* Hidden in a future month: a paid gasto cannot be dated in the
+              future, so the list could only ever be empty there. */}
+              {isFutureMonth ? null : (
+                <div className="flex w-full flex-col gap-3">
+                  <h2 className="text-title font-semibold self-start">
+                    Últimos gastos del mes
+                  </h2>
+                  <RecentExpensesList
+                    db={db}
+                    householdId={membership.householdId}
+                    monthStart={monthStart}
+                    monthEnd={monthEnd}
+                    onAddGasto={() => {
+                      setIsAddGastoSheetOpen(true)
+                    }}
+                    onEditExpense={(expense, categoryName) => {
+                      setEditExpense({
+                        expenseId: expense.id,
+                        name: expense.name,
+                        price: expense.price,
+                        categoryName,
+                        comments: expense.comments,
+                        expenseDate: expense.expenseDate,
+                        memberId: expense.memberId,
+                        pendienteId: expense.pendienteId,
+                        isService: expense.isService,
+                      })
+                    }}
+                    onEditPurchase={(purchase, categoryName) => {
+                      setEditPurchase({ purchase, categoryName })
+                    }}
+                  />
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
-        <CategoryMiniSummary
-          db={db}
-          householdId={membership.householdId}
-          monthStart={monthStart}
-          monthEnd={monthEnd}
-        />
+        <div
+          data-aside=""
+          className="order-3 w-full lg:order-none lg:col-span-3 lg:col-start-10 lg:row-start-2"
+        >
+          <CategoryMiniSummary
+            db={db}
+            householdId={membership.householdId}
+            monthStart={monthStart}
+            monthEnd={monthEnd}
+          />
+        </div>
       </div>
     </div>
   )

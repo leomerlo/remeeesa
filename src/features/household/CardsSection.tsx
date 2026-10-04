@@ -1,322 +1,299 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useRef, useState } from 'react'
-import type { FormEvent, ReactElement } from 'react'
+import { useState } from 'react'
+import type { ReactElement } from 'react'
+import { CreditCard, Pencil, Plus, Trash2 } from 'lucide-react'
 import { AlertMessage } from '@/components/ui/alert-message'
+import { EmptyState } from '@/components/EmptyState'
+import { ILLUSTRATIONS } from '@/components/illustrations'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select } from '@/components/ui/select'
+import { ConfirmDestructive } from '@/components/ui/confirm-destructive'
+import { MovementCard } from '@/components/MovementCard'
+import { Sheet } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  createCard,
-  listCards,
-  renameCard,
-  updateCardCurrency,
-} from '@/lib/cards'
-import { DEFAULT_CURRENCY, parseCardCurrency } from '@/lib/money'
-import type { CardCurrency } from '@/lib/money'
+import { createCard, deleteCard, listCards, updateCard } from '@/lib/cards'
 import type { Card } from '@/lib/cards'
 import type { HouseholdsDb } from '@/lib/households'
-import { pendientesQueryKey } from '@/features/pendientes/queryKeys'
+import { pendientesQueryKey } from '@/features/pendientes'
+import { CardBrandMark } from './CardBrandMark'
+import { CARD_CURRENCY_OPTIONS, CardForm } from './CardForm'
 import { cardsQueryKey } from './cardsQueryKey'
-
-// The three things a card can be, in the order they are offered. "$ y US$"
-// is the ordinary Argentine credit card: billed in pesos, plus a separate
-// dollar total for whatever the bank bills in dollars.
-const CARD_CURRENCY_OPTIONS: readonly {
-  readonly value: CardCurrency
-  readonly label: string
-}[] = [
-  { value: 'ARS', label: '$' },
-  { value: 'USD', label: 'US$' },
-  { value: 'BOTH', label: '$ y US$' },
-]
 
 export type CardsSectionProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
 }
 
+// The household's credit cards, one card each.
+//
+// This was a single panel holding a row per card, and each row was a bare
+// currency dropdown and a ghost "Renombrar" with the add form loose at the
+// bottom -- three different controls in a line with nothing saying they
+// belonged to the same thing. Now a card is a card, like a category or a
+// movement: its own mark, its name, what it can be billed in said in words,
+// and a footer with the two things you can do to it. Everything that
+// changes it happens in a sheet. Per direct feedback.
 export function CardsSection({
   db,
   householdId,
 }: CardsSectionProps): ReactElement {
-  const [name, setName] = useState('')
-  // Fixed when the card is created and never edited afterwards: its past
-  // Resúmenes are already denominated, so changing it would rewrite what
-  // they meant.
-  const [currency, setCurrency] = useState<CardCurrency>(DEFAULT_CURRENCY)
-  const [error, setError] = useState<string | null>(null)
   const queryClient = useQueryClient()
-  const queryKey = cardsQueryKey({ householdId })
-
+  const [editing, setEditing] = useState<Card | null>(null)
+  const [deleting, setDeleting] = useState<Card | null>(null)
+  const [isAdding, setIsAdding] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const cardsQuery = useQuery({
-    queryKey,
+    queryKey: cardsQueryKey({ householdId }),
     queryFn: () => listCards({ db, householdId }),
   })
 
-  const mutation = useMutation({
-    mutationFn: (cardName: string) =>
-      createCard({ db, householdId, name: cardName, currency }),
+  // Renaming a card renames its Resúmenes, so the bills have to refetch too.
+  async function invalidate(): Promise<void> {
+    await Promise.all([
+      queryClient.invalidateQueries({
+        queryKey: cardsQueryKey({ householdId }),
+      }),
+      queryClient.invalidateQueries({
+        queryKey: pendientesQueryKey({ householdId }),
+      }),
+    ])
+  }
+
+  const saveMutation = useMutation({
+    mutationFn: (input: {
+      readonly card: Card | undefined
+      readonly name: string
+      readonly currency: Card['currency']
+      readonly brand: Card['brand']
+    }) =>
+      input.card === undefined
+        ? createCard({
+            db,
+            householdId,
+            name: input.name,
+            currency: input.currency,
+            brand: input.brand,
+          })
+        : updateCard({
+            db,
+            householdId,
+            cardId: input.card.id,
+            name: input.name,
+            currency: input.currency,
+            brand: input.brand,
+          }),
     onMutate: () => {
       setError(null)
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey })
-      setName('')
-      setCurrency(DEFAULT_CURRENCY)
+      setEditing(null)
+      setIsAdding(false)
+      await invalidate()
     },
     onError: (caught: unknown) => {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'No se pudo guardar la tarjeta. Volvé a intentar.',
+          : 'No se pudo guardar la tarjeta.',
       )
     },
   })
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>): void {
-    event.preventDefault()
-    mutation.mutate(name)
-  }
+  const deleteMutation = useMutation({
+    mutationFn: (cardId: string) => deleteCard({ db, householdId, cardId }),
+    onMutate: () => {
+      setError(null)
+    },
+    onSuccess: async () => {
+      setDeleting(null)
+      await invalidate()
+    },
+    // A card with consumos cannot be deleted, and saying why is the whole
+    // point -- the alternative is a button that does nothing.
+    onError: (caught: unknown) => {
+      setDeleting(null)
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'No se pudo borrar la tarjeta.',
+      )
+    },
+  })
 
   const cards = cardsQuery.data
+  const currencyLabel = (card: Card): string =>
+    CARD_CURRENCY_OPTIONS.find((option) => option.value === card.currency)
+      ?.label ?? 'Pesos'
 
   return (
     <section
+      aria-labelledby="tarjetas-heading"
       className="flex w-full flex-col gap-3"
-      aria-labelledby="cards-heading"
     >
-      <h2 id="cards-heading" className="text-title font-semibold">
-        Tarjetas
-      </h2>
-      {cards === undefined ? (
-        cardsQuery.isError ? (
-          <AlertMessage>
-            {cardsQuery.error instanceof Error
-              ? cardsQuery.error.message
-              : 'No se pudieron cargar las tarjetas.'}
-          </AlertMessage>
-        ) : (
-          <div
-            role="status"
-            aria-label="Cargando…"
-            className="flex flex-col gap-3"
-          >
-            <span className="sr-only">Cargando…</span>
-            <Skeleton className="h-4 w-24" />
-          </div>
-        )
+      <div className="flex items-center justify-between gap-2">
+        <h2 id="tarjetas-heading" className="text-title font-semibold">
+          Tarjetas
+        </h2>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            setError(null)
+            setIsAdding(true)
+          }}
+        >
+          <Plus aria-hidden="true" />
+          Agregar
+        </Button>
+      </div>
+
+      {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
+      {/* A load that failed has to say so. Without this the section sat on
+          its skeleton for ever, since the query's data simply stays
+          undefined -- the same shape as "still loading". */}
+      {cardsQuery.isError ? (
+        <AlertMessage>
+          {cardsQuery.error instanceof Error
+            ? cardsQuery.error.message
+            : 'No se pudieron cargar las tarjetas.'}
+        </AlertMessage>
+      ) : null}
+
+      {cardsQuery.isError ? null : cards === undefined ? (
+        <div
+          role="status"
+          aria-label="Cargando…"
+          className="grid grid-cols-1 gap-3 lg:grid-cols-2"
+        >
+          <span className="sr-only">Cargando…</span>
+          {[0, 1].map((i) => (
+            <Skeleton key={i} className="h-28 w-full rounded-2xl" />
+          ))}
+        </div>
       ) : cards.length === 0 ? (
-        <p className="text-muted-foreground text-sm">Todavía no hay tarjetas</p>
+        // The shared empty state, not a hand-rolled one: this screen was
+        // the last place still drawing its own, with a grey outline icon
+        // where every other empty moment in the app has the mascot. Per
+        // direct feedback.
+        <EmptyState
+          illustration={ILLUSTRATIONS.loaded}
+          title="Todavía no hay tarjetas"
+          description="Agregá una y vas a poder cargar un gasto con ella: sus cuotas se juntan en el resumen del mes que viene."
+          action={
+            <Button
+              type="button"
+              onClick={() => {
+                setError(null)
+                setIsAdding(true)
+              }}
+            >
+              <Plus aria-hidden="true" />
+              Agregar tarjeta
+            </Button>
+          }
+        />
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {cards.map((card) => (
-            <CardRow
-              key={card.id}
-              db={db}
-              householdId={householdId}
-              card={card}
-            />
+            <li key={card.id}>
+              <MovementCard
+                categoryName={card.name}
+                categoryColor="#4e4c56"
+                CategoryIcon={CreditCard}
+                showCategoryBadge={false}
+                iconSlot={
+                  <span
+                    aria-hidden="true"
+                    className="bg-muted text-foreground flex size-11 shrink-0 items-center justify-center rounded-full"
+                  >
+                    <CardBrandMark brand={card.brand} className="size-7" />
+                  </span>
+                }
+                title={card.name}
+                amount={null}
+                when={currencyLabel(card)}
+                actions={
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      aria-label={`Editar ${card.name}`}
+                      onClick={() => {
+                        setError(null)
+                        setEditing(card)
+                      }}
+                    >
+                      <Pencil aria-hidden="true" />
+                      Editar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive-outline"
+                      size="sm"
+                      aria-label={`Borrar ${card.name}`}
+                      onClick={() => {
+                        setError(null)
+                        setDeleting(card)
+                      }}
+                    >
+                      <Trash2 aria-hidden="true" />
+                      Borrar
+                    </Button>
+                  </>
+                }
+              />
+            </li>
           ))}
         </ul>
       )}
-      <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-        <Label htmlFor="new-card-name">Nombre de la tarjeta</Label>
-        <div className="flex items-center gap-2">
-          <Select
-            aria-label="Moneda de la tarjeta"
-            value={currency}
-            disabled={mutation.isPending}
-            onChange={(event) => {
-              setCurrency(parseCardCurrency(event.target.value))
-            }}
-            className="w-auto shrink-0 text-sm"
-          >
-            {CARD_CURRENCY_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-          <Input
-            id="new-card-name"
-            value={name}
-            // readOnly, not disabled: disabling drops keyboard focus to
-            // <body>, and this section stays open for the next card.
-            readOnly={mutation.isPending}
-            onChange={(event) => {
-              setName(event.target.value)
-            }}
-          />
-          <Button type="submit" disabled={mutation.isPending}>
-            Agregar tarjeta
-          </Button>
-        </div>
-        {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
-      </form>
-    </section>
-  )
-}
 
-function CardRow({
-  db,
-  householdId,
-  card,
-}: CardsSectionProps & { readonly card: Card }): ReactElement {
-  const [draft, setDraft] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const queryClient = useQueryClient()
-  // The form unmounts on save or cancel; focus goes back to "Renombrar"
-  // instead of dropping to <body>.
-  const returnFocus = useRef(false)
-
-  function close(): void {
-    returnFocus.current = true
-    setDraft(null)
-    setError(null)
-  }
-
-  // Separate from the rename: changing the currency is a one-tap switch on
-  // the row, not something to open a form for.
-  const currencyMutation = useMutation({
-    mutationFn: (currency: CardCurrency) =>
-      updateCardCurrency({ db, householdId, cardId: card.id, currency }),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: cardsQueryKey({ householdId }),
-      })
-    },
-    onError: (caught: unknown) => {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : 'No se pudo cambiar la moneda. Volvé a intentar.',
-      )
-    },
-  })
-
-  const mutation = useMutation({
-    mutationFn: (name: string) =>
-      renameCard({ db, householdId, cardId: card.id, name }),
-    onMutate: () => {
-      setError(null)
-    },
-    onSuccess: async () => {
-      // Resúmenes carry the card's name, so every Pendiente view refreshes.
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: cardsQueryKey({ householdId }),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: pendientesQueryKey({ householdId }),
-        }),
-      ])
-      close()
-    },
-    onError: (caught: unknown) => {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : 'No se pudo renombrar la tarjeta. Volvé a intentar.',
-      )
-    },
-  })
-
-  if (draft === null) {
-    return (
-      <li className="flex items-center justify-between gap-2">
-        <span className="flex min-w-0 flex-1 items-center gap-2">
-          <span className="text-foreground truncate text-sm font-medium">
-            {card.name}
-          </span>
-          {/* Editable, not fixed: every card that existed before currencies
-              did reads as pesos, which is right for most of them and wrong
-              for the dollar one -- and "$ y US$" is the real case of a card
-              the bank bills in both. Changing it only changes the card:
-              every purchase and Resumen keeps the currency stamped on it. */}
-          <Select
-            aria-label={`Moneda de ${card.name}`}
-            value={card.currency}
-            disabled={currencyMutation.isPending}
-            onChange={(event) => {
-              currencyMutation.mutate(parseCardCurrency(event.target.value))
-            }}
-            className="w-auto shrink-0 text-xs"
-          >
-            {CARD_CURRENCY_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-        </span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          aria-label={`Renombrar ${card.name}`}
-          ref={(button) => {
-            if (button !== null && returnFocus.current) {
-              returnFocus.current = false
-              button.focus()
-            }
-          }}
-          onClick={() => {
-            setDraft(card.name)
-          }}
-        >
-          Renombrar
-        </Button>
-      </li>
-    )
-  }
-
-  const inputId = `rename-card-${card.id}`
-  return (
-    <li>
-      <form
-        className="flex flex-col gap-2"
-        onSubmit={(event: FormEvent<HTMLFormElement>) => {
-          event.preventDefault()
-          // Nothing changed: no batch over every Resumen of the card.
-          if (draft.trim() === card.name) {
-            close()
-            return
+      <Sheet
+        open={isAdding || editing !== null}
+        onOpenChange={(next) => {
+          if (!next && !saveMutation.isPending) {
+            setIsAdding(false)
+            setEditing(null)
+            setError(null)
           }
-          mutation.mutate(draft)
         }}
+        title={editing === null ? 'Agregar tarjeta' : 'Editar tarjeta'}
       >
-        <Label htmlFor={inputId}>Nuevo nombre de {card.name}</Label>
-        <div className="flex items-center gap-2">
-          <Input
-            id={inputId}
-            value={draft}
-            autoFocus
-            readOnly={mutation.isPending}
-            onChange={(event) => {
-              setDraft(event.target.value)
-            }}
-          />
-          <Button
-            type="submit"
-            disabled={mutation.isPending}
-            aria-label={`Guardar nombre de ${card.name}`}
-          >
-            Guardar
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={mutation.isPending}
-            aria-label={`Cancelar renombrar ${card.name}`}
-            onClick={close}
-          >
-            Cancelar
-          </Button>
-        </div>
-        {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
-      </form>
-    </li>
+        <CardForm
+          // Remounted per card, so the fields start from whichever one is
+          // open rather than from whatever the last one left behind.
+          key={editing?.id ?? 'nueva'}
+          {...(editing === null ? {} : { card: editing })}
+          pending={saveMutation.isPending}
+          error={error}
+          onSubmit={(input) => {
+            saveMutation.mutate({
+              card: editing ?? undefined,
+              name: input.name,
+              currency: input.currency,
+              brand: input.brand,
+            })
+          }}
+        />
+      </Sheet>
+
+      <ConfirmDestructive
+        open={deleting !== null}
+        onOpenChange={(next) => {
+          if (!next && !deleteMutation.isPending) {
+            setDeleting(null)
+          }
+        }}
+        title={`Borrar «${deleting?.name ?? ''}»`}
+        description="Solo se puede borrar una tarjeta sin consumos ni resúmenes cargados."
+        confirmLabel="Sí, borrar"
+        pending={deleteMutation.isPending}
+        onConfirm={() => {
+          if (deleting !== null) {
+            deleteMutation.mutate(deleting.id)
+          }
+        }}
+      />
+    </section>
   )
 }

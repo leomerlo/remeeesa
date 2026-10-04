@@ -84,7 +84,7 @@ describe('EditHouseholdPage', () => {
     })
   })
 
-  it('shows name, budget, participants, and invite controls', async () => {
+  it('shows the household name, its people and its cards', async () => {
     const store = createMemoryHouseholdsDb()
     const db = store.asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -104,13 +104,17 @@ describe('EditHouseholdPage', () => {
         'Casa Verde',
       )
     })
-    expect(screen.getByLabelText('Presupuesto mensual')).toHaveValue('100')
+    // No budget here any more: it belongs to a month, and the month lives
+    // on Home.
+    expect(screen.queryByLabelText('Presupuesto mensual')).toBeNull()
     expect(
       await screen.findByRole('heading', { name: 'Integrantes' }),
     ).toBeInTheDocument()
     expect(await screen.findByText('Vos')).toBeInTheDocument()
+    // Inviting is the empty slot at the end of the people you have; the
+    // link is generated inside the sheet it opens.
     expect(
-      screen.getByRole('button', { name: 'Generar link de invitación' }),
+      screen.getByRole('button', { name: 'Invitar a alguien' }),
     ).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Ajustes' })).toBeInTheDocument()
     expect(
@@ -135,7 +139,6 @@ describe('EditHouseholdPage', () => {
       expect(screen.getByLabelText('Nombre del hogar')).toHaveValue(
         'Casa Verde',
       )
-      expect(screen.getByLabelText('Presupuesto mensual')).toHaveValue('100')
     })
     fireEvent.change(screen.getByLabelText('Nombre del hogar'), {
       target: { value: 'Casa Azul' },

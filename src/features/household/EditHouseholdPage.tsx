@@ -4,13 +4,11 @@ import type { ReactElement } from 'react'
 import { Navigate } from 'react-router-dom'
 import { PageHeader } from '@/components/PageHeader'
 import { LogoutButton } from '@/features/auth'
-import { InviteLinkPanel } from '@/features/invite'
 import { useFirebase } from '@/lib/firebaseContext'
 import { createFirestoreHouseholdsDb, getMembership } from '@/lib/households'
 import type { HouseholdMember, HouseholdsDb } from '@/lib/households'
 import { CardsSection } from './CardsSection'
-import { EditDisplayNameForm } from './EditDisplayNameForm'
-import { EditHouseholdForm } from './EditHouseholdForm'
+import { HouseholdNameForm } from './HouseholdNameForm'
 import { MemberList } from './MemberList'
 
 export type EditHouseholdPageProps = {
@@ -88,7 +86,7 @@ export function EditHouseholdPage({
 
   if (currentUserId === undefined) {
     return (
-      <div className="bg-card w-full rounded-3xl p-8">
+      <div className="bg-card card-surface w-full rounded-3xl p-8">
         <LoadingIndicator />
       </div>
     )
@@ -100,7 +98,7 @@ export function EditHouseholdPage({
 
   if (membership === undefined) {
     return (
-      <div className="bg-card w-full rounded-3xl p-8">
+      <div className="bg-card card-surface w-full rounded-3xl p-8">
         <LoadingIndicator />
       </div>
     )
@@ -116,29 +114,31 @@ export function EditHouseholdPage({
           like Home/Histórico/Categorías, not a drill-down sub-page -- the
           nav already gets you back in one tap. */}
       <PageHeader title="Ajustes" />
-      <div className="bg-card flex w-full flex-col gap-6 rounded-3xl p-6">
-        <EditHouseholdForm db={db} householdId={membership.householdId} />
-      </div>
-      {/* Members and the invite link share one card: inviting somebody is
-          how the member list grows, and the invite panel on its own was a
-          card whose entire contents were a single button. */}
-      <div className="bg-card flex w-full flex-col gap-6 rounded-3xl p-6">
-        <EditDisplayNameForm
-          db={db}
-          householdId={membership.householdId}
-          userId={currentUserId}
-          currentDisplayName={membership.displayName}
-        />
-        <MemberList
-          db={db}
-          householdId={membership.householdId}
-          currentUserId={currentUserId}
-        />
-        <InviteLinkPanel db={db} householdId={membership.householdId} />
-      </div>
-      <div className="bg-card flex w-full flex-col gap-6 rounded-3xl p-6">
-        <CardsSection db={db} householdId={membership.householdId} />
-      </div>
+      {/* Every section here is a titled block with its own card, the same
+          shape Categorías and Proyecciones have.
+
+          No budget here any more: it belongs to a month, and the month
+          lives on Home -- "Editar presupuesto del mes" sits under the cards
+          it governs. Ajustes is what is true about the household and the
+          account, not what is true about October. Per direct feedback. */}
+      <section
+        aria-labelledby="hogar-heading"
+        className="flex w-full flex-col gap-3"
+      >
+        <h2 id="hogar-heading" className="text-title font-semibold">
+          Tu hogar
+        </h2>
+        <div className="bg-card card-surface w-full rounded-2xl p-5">
+          <HouseholdNameForm db={db} householdId={membership.householdId} />
+        </div>
+      </section>
+      <MemberList
+        db={db}
+        householdId={membership.householdId}
+        currentUserId={currentUserId}
+        currentDisplayName={membership.displayName}
+      />
+      <CardsSection db={db} householdId={membership.householdId} />
       {usesLiveSession ? (
         <div className="flex w-full justify-center">
           <LogoutButton />

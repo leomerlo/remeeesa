@@ -1,10 +1,13 @@
-export type { Card, CardPurchase } from './types'
+export type { Card, CardBrand, CardPurchase } from './types'
+export { CARD_BRANDS, isCardBrand, parseCardBrand } from './types'
 export type { ResumenCuota } from './purchases'
 export {
   CardNameTakenError,
   createCard,
   listCards,
+  deleteCard,
   renameCard,
+  updateCard,
   updateCardCurrency,
 } from './cards'
 export {

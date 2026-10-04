@@ -1,7 +1,5 @@
 export { EditDisplayNameForm } from './EditDisplayNameForm'
 export type { EditDisplayNameFormProps } from './EditDisplayNameForm'
-export { EditHouseholdForm } from './EditHouseholdForm'
-export type { EditHouseholdFormProps } from './EditHouseholdForm'
 export { EditHouseholdPage } from './EditHouseholdPage'
 export type { EditHouseholdPageProps } from './EditHouseholdPage'
 export { householdQueryKey } from './householdQueryKey'

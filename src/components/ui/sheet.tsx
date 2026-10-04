@@ -50,7 +50,7 @@ function Sheet({ open, onOpenChange, title, children }: SheetProps) {
           // there, which read as a second page rather than a dialog over
           // the one you were on. Per direct feedback. Inset by 1rem a side
           // so the card never touches the screen edge.
-          className="bg-card shadow-raised fixed top-1/2 left-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col rounded-3xl p-6 pt-8 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom-2"
+          className="bg-card border-border-card fixed border top-1/2 left-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col rounded-3xl p-6 pt-8 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-bottom-2"
         >
           <VisuallyHidden.Root asChild>
             <Dialog.Title>{title}</Dialog.Title>

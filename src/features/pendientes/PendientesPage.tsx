@@ -11,7 +11,10 @@ import type { EditPendienteTarget } from './AddPendienteForm'
 import { MonthPager } from '@/features/expenses'
 import { SearchInput } from '@/components/ui/search-input'
 import { currentMonthRange } from '@/lib/expenses'
-import { PendientesList } from './PendientesList'
+import { PendientesList, PENDIENTES_FILTERS } from './PendientesList'
+import type { PendientesFilter } from './PendientesList'
+import { FilterTabs } from '@/components/ui/filter-tabs'
+import { PageToolbar } from '@/components/ui/page-toolbar'
 
 export type PendientesPageProps = {
   readonly currentUserId?: string | null
@@ -31,6 +34,8 @@ export function PendientesPage({
   // it, the same way Home's MonthNavigator drives every section on that
   // page.
   const [query, setQuery] = useState('')
+  const [filter, setFilter] = useState<PendientesFilter>('all')
+  const isSearching = query.trim() !== ''
   const [viewedMonth, setViewedMonth] = useState(
     () => currentMonthRange().monthStart,
   )
@@ -69,66 +74,96 @@ export function PendientesPage({
           pinned to the right margin. Sitting it flush against the title
           crowded the two together; the screen's edges are what the eye
           reads the row against. Per direct feedback. */}
-      <div className="flex w-full items-center justify-between gap-3">
-        <PageHeader
-          title="Servicios"
-          headingRef={headingRef}
-          className="w-auto"
-        />
-        <AddPendienteSheet
-          triggerClassName="shrink-0 px-5"
-          open={isAddPendienteSheetOpen}
-          onOpenChange={setIsAddPendienteSheetOpen}
-          db={db}
-          householdId={membership.householdId}
-          memberId={currentUserId}
-          authorDisplayName={authorDisplayName}
-          editPendiente={editPendiente}
-          onEditFinished={() => {
-            setEditPendiente(null)
-          }}
-        />
-      </div>
-      {/* Above the pager, not below it: the pager steps aside while
-          searching, and a box under it would jump up the screen when it
-          did. Same order as Histórico. */}
-      <SearchInput
-        label="Buscar servicios"
-        placeholder="Buscar por nombre o categoría"
-        value={query}
-        onChange={setQuery}
+      <PageHeader title="Servicios" headingRef={headingRef} />
+      {/* No "Agregar Servicio" here: the header's one action covers it at
+          every width, and a servicio is a gasto with "se repite" ticked.
+          Two buttons a screen apart that open the same form read as two
+          different things. Per direct feedback. The sheet below stays
+          mounted, with no trigger, purely to edit a row it is handed. */}
+      <AddPendienteSheet
+        open={isAddPendienteSheetOpen}
+        showTrigger={false}
+        onOpenChange={setIsAddPendienteSheetOpen}
+        db={db}
+        householdId={membership.householdId}
+        memberId={currentUserId}
+        authorDisplayName={authorDisplayName}
+        editPendiente={editPendiente}
+        onEditFinished={() => {
+          setEditPendiente(null)
+        }}
+        // No trigger of its own to hand focus back to: it is opened from a
+        // row, and that row may be gone by the time it closes (paying one
+        // removes it). Without this, closing it dropped focus onto <body>.
+        // The heading is tabIndex -1 for exactly this.
+        onCloseFocus={() => {
+          headingRef.current?.focus()
+        }}
       />
-      {/* Steps aside while searching, same as Histórico: the search reaches
-          across months here too, so a pager that no longer decided what was
-          on screen would be a lie.
-
-          Otherwise it is the one pager in the app with no forward limit -- a
-          service's due date is in the future by definition, so next month's
-          list is the whole point of the screen. */}
-      {query.trim() === '' ? (
-        <>
-          <MonthPager
-            viewedMonth={viewedMonth}
-            onViewedMonthChange={setViewedMonth}
-            maxMonthsAhead={Infinity}
+      {/* The same toolbar Histórico has, in the same order: the two screens
+          are one screen with different rows in it, so they are steered the
+          same way. Per direct feedback. */}
+      <PageToolbar
+        // Steps aside while searching, same as Histórico: the search reaches
+        // across months here too, so a pager that no longer decided what was
+        // on screen would be a lie.
+        //
+        // Otherwise it is the one pager in the app with no forward limit --
+        // a service's due date is in the future by definition, so next
+        // month's list is the whole point of the screen.
+        scope={
+          isSearching ? null : (
+            <MonthPager
+              inline
+              viewedMonth={viewedMonth}
+              onViewedMonthChange={setViewedMonth}
+              maxMonthsAhead={Infinity}
+            />
+          )
+        }
+        search={
+          <SearchInput
+            label="Buscar servicios"
+            placeholder="Buscar servicios"
+            value={query}
+            onChange={setQuery}
           />
-          {/* Next to the month it fills: bills do not carry over on their
-              own, a member picks which ones come into this month. */}
-          <CarryRecurrentesSheet
-            db={db}
-            householdId={membership.householdId}
-            monthStart={monthStart}
+        }
+        tabs={
+          <FilterTabs
+            label="Filtrar servicios"
+            value={filter}
+            tabs={PENDIENTES_FILTERS}
+            onChange={setFilter}
           />
-        </>
-      ) : null}
+        }
+        // Belongs next to the month it fills: bills do not carry over on
+        // their own, a member picks which ones come into this month.
+        action={
+          isSearching ? null : (
+            <CarryRecurrentesSheet
+              db={db}
+              householdId={membership.householdId}
+              monthStart={monthStart}
+            />
+          )
+        }
+      />
       <PendientesList
         db={db}
         memberId={currentUserId}
         authorDisplayName={authorDisplayName}
         query={query}
+        filter={filter}
         monthStart={monthStart}
         monthEnd={monthEnd}
         householdId={membership.householdId}
+        onAddPendiente={() => {
+          setIsAddPendienteSheetOpen(true)
+        }}
+        onClearQuery={() => {
+          setQuery('')
+        }}
         onEditPendiente={(pendiente, categoryName) => {
           setEditPendiente({
             pendienteId: pendiente.id,

@@ -97,7 +97,7 @@ export function OnboardingForm({
     <div className="flex w-full flex-col items-center gap-8">
       <AuthHero />
       <form
-        className="bg-card flex w-full flex-col items-center gap-6 rounded-3xl p-6"
+        className="bg-card card-surface flex w-full flex-col items-center gap-6 rounded-3xl p-6"
         onSubmit={onSubmit}
       >
         <div className="flex w-full flex-col gap-2">
@@ -122,7 +122,7 @@ export function OnboardingForm({
             onChange={setMonthlyBudget}
             autoComplete="off"
             placeholder="0"
-            className="h-auto border-0 px-0 text-center font-display text-5xl tracking-tight md:text-5xl"
+            className="h-auto border-0 px-0 text-center money text-5xl tracking-tight md:text-5xl"
           />
           <p className="text-muted-foreground text-sm">
             Cuánto manejan por mes. Cada gasto se descuenta de acá.

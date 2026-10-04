@@ -115,6 +115,11 @@ export function summarizeTarjeta(input: {
   readonly pendientes: readonly {
     readonly categoryId: string
     readonly expectedAmount: number | null
+    // Same as summarizeByCategory's: absent means pesos, and a dollar
+    // Resumen is left out. Without this these lines added up to more than
+    // the slice they break down, on exactly the card this app added
+    // two-currency support for.
+    readonly currency?: Currency
   }[]
 }): readonly TarjetaLine[] {
   const bySubcategory = new Map<string, number>()
@@ -131,7 +136,13 @@ export function summarizeTarjeta(input: {
     }
   }
   let unpaid: number | null = null
-  for (const pendiente of input.pendientes) {
+  const countedPendientes = countedByBudget(
+    input.pendientes.map((pendiente) => ({
+      ...pendiente,
+      currency: pendiente.currency ?? DEFAULT_CURRENCY,
+    })),
+  )
+  for (const pendiente of countedPendientes) {
     if (
       pendiente.categoryId === input.categoryId &&
       pendiente.expectedAmount !== null

@@ -165,6 +165,22 @@ describe('the adapter persists per-month budgets', () => {
     expect(body).toContain('currency: input.currency')
   })
 
+  // A projection is the household's, shared between its members -- so the
+  // rules have to let every member of it write the same document, and the
+  // adapter has to write the fields the converter reads back.
+  it('writes a projection as one whole document under the household id', () => {
+    const body = adapterSource.slice(
+      adapterSource.indexOf('async saveProjection'),
+      adapterSource.indexOf('async listCards'),
+    )
+    expect(body).toContain(
+      'projectionIdFor(input.householdId, input.monthStart)',
+    )
+    expect(body).toContain('household_id: input.householdId')
+    expect(body).toContain('excluded,')
+    expect(body).toContain('overrides,')
+  })
+
   it('writes monthly_budgets when the name and budget are updated together', () => {
     const body = adapterSource.slice(
       adapterSource.indexOf('async updateHousehold'),
@@ -184,7 +200,7 @@ describe('firestore.rules currencies', () => {
   it('accepts a currency on an expense, and only the two the app knows', () => {
     expect(rules).toContain("'subcategory', 'currency', 'created_at'")
     expect(rules).toContain(
-      "(!('currency' in data) || data.currency in ['ARS', 'USD'])",
+      "(!('currency' in data) || data.currency in ['ARS', 'USD', 'BOTH'])",
     )
   })
 })
@@ -714,17 +730,31 @@ describe('updatePendiente/deletePendiente adapter', () => {
 })
 
 describe('firestore.rules cards', () => {
-  it('lets household members read, create, rename and re-denominate cards, never delete', () => {
+  it('lets household members read, create, edit and delete cards', () => {
     const block = rules.slice(rules.indexOf('match /cards/{cardId} {'))
-    expect(block.slice(0, block.indexOf('\n    }\n'))).toMatch(
-      /allow read: if isMemberOf\(resource\.data\.household_id\);\s*\n\s*allow create: if isMemberOf\(request\.resource\.data\.household_id\)\s*\n\s*&& isValidCard\(request\.resource\.data\);\s*\n\s*allow update: if isMemberOf\(resource\.data\.household_id\)\s*\n\s*&& request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\.hasOnly\(\['name', 'currency'\]\)\s*\n\s*&& isValidCard\(request\.resource\.data\);\s*$/,
+    const body = block.slice(0, block.indexOf('\n    }\n'))
+    expect(body).toContain(
+      'allow read: if isMemberOf(resource.data.household_id);',
+    )
+    expect(body).toContain(
+      'allow create: if isMemberOf(request.resource.data.household_id)',
+    )
+    // All three keys the card's one "Guardar" writes. Short of this, saving
+    // a card after picking its brand is refused in production.
+    expect(body).toContain(
+      "request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'currency', 'brand'])",
+    )
+    // Deleting a card is a real action in Ajustes now. The "nothing points
+    // at it" check lives in the adapter, since rules cannot query.
+    expect(body).toContain(
+      'allow delete: if isMemberOf(resource.data.household_id);',
     )
   })
 
   it('restricts card fields and requires a non-blank name', () => {
     expect(rules).toContain('function isValidCard(data)')
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'name', 'currency', 'created_at'])",
+      "data.keys().hasOnly(['household_id', 'name', 'currency', 'brand', 'created_at'])",
     )
     // Optional, because every card written before currencies existed has
     // no such key, and only ever one of the two the app knows.

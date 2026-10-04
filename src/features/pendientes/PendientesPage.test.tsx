@@ -125,7 +125,7 @@ describe('PendientesPage', () => {
     expect(await screen.findByText('Home')).toBeInTheDocument()
   })
 
-  it('shows the pendientes list and the "Agregar Servicio" trigger for a signed-in member', async () => {
+  it('shows the pendientes list and its empty-state CTA for a signed-in member', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     await createHouseholdWithMembership({
       db,
@@ -142,14 +142,14 @@ describe('PendientesPage', () => {
       await screen.findByRole('heading', { name: 'Servicios' }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: 'Agregar Servicio' }),
+      await screen.findByText('Ningún servicio este mes'),
     ).toBeInTheDocument()
     expect(
-      await screen.findByText('Ningún servicio este mes'),
+      screen.getByRole('button', { name: 'Agregar un servicio' }),
     ).toBeInTheDocument()
   })
 
-  it('opens the add-pendiente form when the "Agregar Servicio" trigger is clicked', async () => {
+  it('opens the add-pendiente form from the empty state', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     await createHouseholdWithMembership({
       db,
@@ -163,7 +163,7 @@ describe('PendientesPage', () => {
     )
 
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Agregar Servicio' }),
+      await screen.findByRole('button', { name: 'Agregar un servicio' }),
     )
 
     expect(await screen.findByLabelText('Nombre')).toBeInTheDocument()
@@ -424,14 +424,16 @@ describe('PendientesPage', () => {
     fireEvent.click(
       await screen.findByRole('button', { name: 'Mes siguiente' }),
     )
-    fireEvent.click(screen.getByRole('button', { name: 'Pasar recurrentes' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Traer del mes pasado' }),
+    )
 
     const internet = await screen.findByRole('checkbox', { name: /Internet/ })
     expect(internet).toBeChecked()
     expect(internet).toBeDisabled()
     expect(screen.getByRole('checkbox', { name: /Alquiler/ })).toBeChecked()
     fireEvent.click(screen.getByRole('checkbox', { name: /Gimnasio/ }))
-    fireEvent.click(screen.getByRole('button', { name: 'Pasar 1 recurrente' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Traer 1 servicio' }))
 
     expect(
       await screen.findByText(
@@ -521,7 +523,7 @@ describe('PendientesPage', () => {
     expect(screen.getByText('Alquiler')).toBeInTheDocument()
   })
 
-  it('restores focus to the Agregar Servicio trigger when Cancelar edición is clicked', async () => {
+  it('restores focus to the row that opened the sheet when Cancelar edición is clicked', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -559,12 +561,11 @@ describe('PendientesPage', () => {
     await waitFor(() => {
       expect(screen.queryByLabelText('Monto esperado')).not.toBeInTheDocument()
     })
-    // The row is still there (nothing was saved), but the sheet's own
-    // trigger-focus restoration (AddPendienteSheet's, shared by every
-    // externally-triggered edit -- see onEditPendiente's identical flow)
-    // lands on "Agregar Servicio", not the row's own "Pagar" button.
-    expect(
-      screen.getByRole('button', { name: 'Agregar Servicio' }),
-    ).toHaveFocus()
+    // The row is still there (nothing was saved) and focus is back on the
+    // page's heading. It used to land on the page's own "Agregar Servicio",
+    // which no longer exists -- the header carries the one add action now,
+    // and the sheet is opened from a row that may be gone by the time it
+    // closes, so the heading is where the page puts you.
+    expect(screen.getByRole('heading', { name: 'Servicios' })).toHaveFocus()
   })
 })

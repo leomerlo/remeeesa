@@ -1,7 +1,15 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
-@import '@fontsource-variable/geist';
+/* Two families, as the reference this visual system was taken from uses
+   them: Montserrat carries every display role -- headings, the big money
+   numerals, buttons and nav labels -- at heavy weights with tight tracking,
+   and Lato carries running text, where it is quieter and more readable than
+   a geometric face. Geist is gone; nothing points at it any more. */
+@import '@fontsource-variable/montserrat';
+@import '@fontsource/lato/400.css';
+@import '@fontsource/lato/700.css';
+@import '@fontsource/lato/900.css';
 
 /* ============================================================
    Layer 1 — Primitive: raw values, no meaning yet.
@@ -43,6 +51,17 @@
   --color-grey-900: #2c2b30;
   --color-grey-950: #1d1c20;
   --color-grey-white: #ffffff;
+
+  /* The page the whole app sits on. A cool blue-grey rather than the warm
+     lavender it used to be, picked directly. Everything that has to sit
+     *on* the page is derived from it -- most of all the card shadow, which
+     is a blue-grey here; a lilac shadow on a blue-grey page reads as a
+     smudge rather than as depth. Per direct feedback. */
+  --color-page: #eceff1;
+  /* The ink the card shadows are mixed from: the page's own hue taken all
+     the way down, so a shadow looks like less light rather than like
+     another colour. */
+  --color-shadow-ink: 38 50 56;
   --color-grey-black: #000000;
 
   /* Color: jade (success), seed #1C8478, anchor step 600 */
@@ -150,10 +169,13 @@
 
   /* Radius: one container radius for every card in the app, aliased as both
      --radius-2xl and --radius-3xl in @theme inline below so the two classes
-     already in the markup keep working and land on the same corner. There
-     used to be a 20/24 pair; per direct feedback every card is 16. Controls
-     are unaffected -- buttons are pills, inputs are rounded-lg. */
-  --radius-16: 16px;
+     already in the markup keep working and land on the same corner. It was
+     16px, then 22px; the reference visual system this app was moved onto
+     rounds its cards more than the original did, which is part of what makes
+     its surfaces read as soft panels rather than boxes. Controls are unaffected -- buttons
+     are pills, inputs use --radius-control. */
+  --radius-card: 18px;
+  --radius-control: 14px;
 
   /* Type: Geist Variable ships the full 100-900 axis (verified via
      node_modules/@fontsource-variable/geist/index.css: font-weight: 100 900),
@@ -173,26 +195,29 @@
      numeral down to captions) rather than t-shirt size, matching how the
      approved Home comp actually uses type -- one huge bold numeral, section
      headers, card titles, and small muted metadata, nothing in between. */
-  --text-display: 2rem; /* 32px -- the hero "$284.50" numeral */
-  --text-display--line-height: 1.05;
-  --text-title: 1.25rem; /* 20px -- section headers ("Por pagar") */
+  --text-display: 1.875rem; /* 30px -- the hero "$284.50" numeral */
+  --text-display--line-height: 1.1;
+  --text-display--letter-spacing: -0.03em;
+  --text-title: 1.0625rem; /* 17px -- section headers ("Por pagar") */
   --text-title--line-height: 1.3;
-  --text-body: 1rem; /* 16px -- card titles, primary row text */
-  --text-body--line-height: 1.4;
+  --text-title--letter-spacing: -0.01em;
+  --text-body: 0.9375rem; /* 15px -- card titles, primary row text */
+  --text-body--line-height: 1.5;
   /* 14px is the floor for every piece of text in the app, per direct
      feedback: at 13px the grey metadata under each row was unreadable.
      Nothing in the scale, and nothing built on it, may go below this. */
   --text-caption: 0.875rem; /* 14px -- muted metadata (category - date) */
   --text-caption--line-height: 1.4;
 
-  /* Elevation: one step, for surfaces that genuinely float above the page
-     -- the sheet/modal and the nav. Cards carry no shadow at all: per
-     direct feedback they sit *on* the lavender ground rather than hovering
-     over it, and the tint alone is enough to separate white from it. The
-     resting step that used to exist for them is gone rather than left
-     defined and unused. */
-  --shadow-raised:
-    0 4px 8px -2px rgb(23 7 89 / 0.08), 0 12px 24px -4px rgb(23 7 89 / 0.1);
+  /* No elevation. Nothing in this app casts a shadow -- not the cards, not
+     the coloured ones, not the modal. Per direct feedback: every card is
+     separated from the page by its own fill and a 1px outline, and that is
+     the whole system. A shadow scale used to live here (and before that,
+     none at all); it is gone rather than left defined and unused, so there
+     is nothing for a component to reach for by reflex.
+
+     --color-shadow-ink stays, since the outlines are mixed from the same
+     blue-grey the page is. */
 }
 
 /* ============================================================
@@ -215,7 +240,7 @@
      on top of it -- this pairing (tinted page + white cards, no shadow
      under them) is what gives the app its "wallet" warmth instead of a flat
      white shell. */
-  --surface-page: var(--color-grey-50);
+  --surface-page: var(--color-page);
   --surface-card: var(--color-grey-white);
   --surface-primary: var(--color-grey-50);
   --surface-secondary: var(--color-grey-100);
@@ -249,6 +274,25 @@
      them carry the meaning anyway. */
   --dot-paid: var(--color-jade-600);
   --dot-pending: var(--color-amber-500);
+  /* The month-to-month trend line, and the wash under it. The brand violet
+     at the step that carries text, so the line is legible as a line rather
+     than as a tint. */
+  --trend-line: var(--color-purple-450);
+  /* The one "here is how this works" colour: the app's blue, deep enough to
+     carry its own words at AA on the pale tint it sits on. */
+  --text-info: var(--color-blue-700);
+  /* The same four, declared again for the light theme (the dark block
+     repeats them below: these hues read correctly on either ground). See
+     that block for what each one means and why the stops are this deep. */
+  --stat-violet-from: #7c3aed;
+  --stat-violet-to: #4c1d95;
+  --stat-sky-from: #0277b4;
+  --stat-sky-to: #0c4a6e;
+  --stat-red-from: #c2410c;
+  --stat-red-to: #be185d;
+  --stat-pink-from: #db2777;
+  --stat-pink-to: #831843;
+  --text-on-stat: var(--color-grey-white);
 
   --surface-due-soon: var(--color-rose-500);
   --surface-warning: var(--color-amber-50);
@@ -289,6 +333,19 @@
   /* grey-300 sat at 2.43:1 on card -- an input outline is a UI component
      boundary and needs 3:1. grey-400 clears it at 3.61 / 3.13. */
   --border-primary: var(--color-grey-400);
+  /* The outline around a card. The only thing separating a white panel
+     from the grey page now that nothing casts a shadow, so it is a real
+     line rather than a tint -- picked directly against #eceff1.
+
+     The state outlines are the same line in the state's own hue. They are
+     never the only thing saying what the state is: the amount and the date
+     inside a due-soon card are already red, so the outline reinforces the
+     reading rather than carrying it alone (it is 1.5:1 against the page,
+     which is a frame, not a signal). */
+  --border-card: #bec8cf;
+  --border-card-error: #d7bec8;
+  --border-card-warning: #ddcdb4;
+  --border-card-success: #b4d2cc;
   --border-secondary: var(--color-grey-200);
   --border-subtle: var(--color-grey-100);
   --border-action: var(--color-grey-900);
@@ -344,6 +401,10 @@
 
   /* Border */
   --border-primary: var(--color-grey-500);
+  --border-card: var(--color-grey-800);
+  --border-card-error: var(--color-rose-900);
+  --border-card-warning: var(--color-amber-900);
+  --border-card-success: var(--color-jade-900);
   --border-secondary: var(--color-grey-800);
   --border-subtle: var(--color-grey-900);
   --border-action: var(--color-grey-50);
@@ -351,6 +412,33 @@
   --border-success: var(--color-jade-500);
   --border-error: var(--color-rose-500);
   --border-warning: var(--color-amber-500);
+
+  /* ---- The four coloured cards -------------------------------------
+     The headline figures do not sit on white: each is a card filled with a
+     gradient in one of four hues, which is the signature of the reference
+     visual system this app was moved onto. The four are not decoration --
+     they are a ladder:
+
+       violeta  neutral. A figure that is just a fact (what the month cost).
+       celeste  ok.      Budget with room left in it.
+       naranja  not ok.  Budget getting tight; it warms toward the pink.
+       fucsia   danger.  Budget spent, or past it.
+
+     Every stop is deep enough that white clears AA *at the light end too*,
+     not only over the dark end where the gradient finishes -- a gradient is
+     only as readable as its lightest point. Measured in a11y/tokens.test:
+     5.70, 4.88, 4.60 and 5.18 respectively. They sit a shade deeper than
+     the reference's light-theme gradients for exactly that reason; three of
+     the four are its own dark-theme stops, unchanged. */
+  --stat-violet-from: #7c3aed;
+  --stat-violet-to: #4c1d95;
+  --stat-sky-from: #0277b4;
+  --stat-sky-to: #0c4a6e;
+  --stat-red-from: #c2410c;
+  --stat-red-to: #be185d;
+  --stat-pink-from: #db2777;
+  --stat-pink-to: #831843;
+  --text-on-stat: var(--color-grey-white);
 }
 
 /* ============================================================
@@ -367,8 +455,12 @@
    so component class names never had to change for color.
    ============================================================ */
 @theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: 'Geist Variable', sans-serif;
+  /* Montserrat for anything that is a display role -- headings, the money
+     numerals, buttons, nav labels -- and Lato for running text. font-heading
+     is no longer an alias of font-sans: the two are now genuinely different
+     faces, which is most of what gives this system its voice. */
+  --font-heading: 'Montserrat Variable', system-ui, sans-serif;
+  --font-sans: 'Lato', system-ui, sans-serif;
   --color-background: var(--surface-page);
   --color-foreground: var(--text-primary);
   --color-card: var(--surface-card);
@@ -406,8 +498,102 @@
      as a way around it. */
   --text-xs: 0.875rem;
   --text-xs--line-height: 1.25rem;
-  --radius-2xl: var(--radius-16);
-  --radius-3xl: var(--radius-16);
+  --radius-2xl: var(--radius-card);
+  --radius-3xl: var(--radius-card);
+  /* Inputs and other controls: softer than they were, but clearly a step
+     tighter than the cards holding them. */
+  --radius-lg: var(--radius-control);
+  /* The four coloured cards, as gradient utilities. Named for the hue, not
+     the meaning: a component picks the one its state calls for (see the
+     ladder in the token block above), so the meaning lives at the call
+     site where the state actually is. */
+  --background-image-stat-violet: linear-gradient(
+    135deg,
+    var(--stat-violet-from) 0%,
+    var(--stat-violet-to) 100%
+  );
+  --background-image-stat-sky: linear-gradient(
+    135deg,
+    var(--stat-sky-from) 0%,
+    var(--stat-sky-to) 100%
+  );
+  --background-image-stat-red: linear-gradient(
+    135deg,
+    var(--stat-red-from) 0%,
+    var(--stat-red-to) 100%
+  );
+  --background-image-stat-pink: linear-gradient(
+    135deg,
+    var(--stat-pink-from) 0%,
+    var(--stat-pink-to) 100%
+  );
+  --color-on-stat: var(--text-on-stat);
+  --color-trend: var(--trend-line);
+  --color-info: var(--text-info);
+  /* The add button in the phone's bar. The same gradient treatment the
+     coloured cards get, in the app's own near-black: it is the primary
+     action, and primary here is the dark the buttons are filled with, not
+     the brand violet. Lighter at the top so the circle reads as raised out
+     of the bar it sits in. */
+  --background-image-fab: linear-gradient(
+    160deg,
+    var(--color-grey-700) 0%,
+    var(--color-grey-950) 100%
+  );
+}
+
+/* Every card in the app. Purely additive on top of the bg-card the markup
+   already carries: one hairline, and nothing else. It is the only thing
+   separating a white panel from the grey page, which is why it is a real
+   line rather than the barely-there tint it started as. */
+@utility card-surface {
+  border: 1px solid var(--border-card);
+}
+
+/* A card that is in a state wears that state in its outline. The fill stays
+   white -- these are ordinary cards, not filled ones; the frame is what
+   carries the state, and the colour inside the card (the amount, the date)
+   carries the meaning, so the outline is never the only thing saying it. */
+@utility card-surface-error {
+  border: 1px solid var(--border-card-error);
+}
+
+@utility card-surface-warning {
+  border: 1px solid var(--border-card-warning);
+}
+
+@utility card-surface-success {
+  border: 1px solid var(--border-card-success);
+}
+
+/* Every figure that is an amount of money. The display face, heavy and
+   tightly tracked -- a money figure is a headline, not body copy that
+   happens to contain digits -- and tabular, so a column of them lines up
+   and a figure that updates does not jitter as its digits change width.
+   This replaced a bare font-display (which, confusingly, is only a weight
+   token) at every amount in the app. */
+@utility money {
+  font-family: var(--font-heading);
+  font-weight: var(--font-weight-extrabold);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The loading mascot's bob: small enough to read as breathing rather than
+   as movement, slow enough not to pull the eye off whatever else is on the
+   page. Suppressed under prefers-reduced-motion at the call site. */
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@utility animate-bob {
+  animation: bob 2.4s ease-in-out infinite;
 }
 
 @layer base {
@@ -431,6 +617,18 @@
     margin: 0;
     text-align: left;
   }
+  /* Chrome draws its own clear button inside a search field, so typing in
+     one produced two crosses side by side -- the browser's blue-tinted one
+     and ours. Safari hides it already; this hides it everywhere, leaving
+     the one SearchInput draws, which is the one that is positioned and
+     sized to match the field. */
+  input[type='search']::-webkit-search-cancel-button,
+  input[type='search']::-webkit-search-decoration,
+  input[type='search']::-webkit-search-results-button,
+  input[type='search']::-webkit-search-results-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+  }
   input[type='date']::-webkit-calendar-picker-indicator {
     margin: 0;
     padding: 0;
@@ -440,5 +638,48 @@
   }
   html {
     @apply font-sans;
+  }
+  /* Montserrat carries every display role without each component having to
+     ask for it: headings, and the money figures, which are headings in all
+     but name. Heavy and tightly tracked, which is what the reference does
+     and what keeps a big number from looking like body copy scaled up. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-heading font-extrabold tracking-tight;
+  }
+  /* Tabular figures everywhere a number is a quantity, so columns of money
+     line up and a changing figure does not jitter. */
+  .tabular-money {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Home's dashboard grid: the wide column takes all twelve tracks whenever
+   the right-hand column rendered nothing at all -- a new household, where
+   no bill is due and there is nothing spent to break down, so a quarter of
+   a monitor would otherwise sit empty beside it. Per direct feedback.
+
+   Written by hand rather than as a Tailwind variant because the condition
+   is a parent one: the column has to ask about its *siblings'* contents,
+   which `group-[...]` cannot express (v4 silently emits nothing for an
+   arbitrary group variant containing `:has()` with a child combinator --
+   verified in the browser: the class was on the element and no rule
+   existed). It asks the same question `return null` already answers, so
+   the layout and the components can never disagree about whether the aside
+   is there.
+
+   Layered after the utilities on purpose, and only ever widening: a
+   browser without `:has()` support drops the whole rule and keeps the
+   9-column layout that has always been there, rather than running this
+   column underneath the aside. */
+@media (width >= 64rem) {
+  .home-grid:not(:has([data-aside] > *)) > .home-main {
+    /* 1 / -1, not `span 12`: a bare span leaves the start line to
+       auto-placement, which -- with the aside still claiming tracks 10-12
+       -- invented twelve implicit columns and put this one in them, half
+       of it off the right edge of the page. Measured, not guessed. */
+    grid-column: 1 / -1;
   }
 }

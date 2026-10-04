@@ -82,7 +82,11 @@ export const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
   markPendientePaid: 'marcar el pendiente como pagado',
   unmarkPendientePaid: 'deshacer el pago del pendiente',
   markResumenPaid: 'pagar el resumen',
+  getProjection: 'cargar la proyección del mes',
+  saveProjection: 'guardar la proyección del mes',
   listCards: 'cargar las tarjetas',
+  updateCard: 'guardar la tarjeta',
+  deleteCard: 'borrar la tarjeta',
   createCard: 'guardar la tarjeta',
   renameCard: 'renombrar la tarjeta',
   updateCardCurrency: 'cambiar la moneda de la tarjeta',
@@ -193,6 +197,26 @@ export async function updateHousehold(input: {
       month: input.month ?? new Date(),
       monthlyBudget,
     }),
+  })
+}
+
+// Renaming the house and deciding what a month may cost are two different
+// decisions, so they are two different calls. updateHousehold writes both at
+// once, which meant saving a new name also wrote a budget for whichever
+// month a picker happened to be on. This carries the budgets through
+// untouched. Per direct feedback.
+export async function renameHousehold(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly name: string
+}): Promise<Household> {
+  const name = parseHouseholdName(input.name)
+  const household = await input.db.getHousehold(input.householdId)
+  return input.db.updateHousehold({
+    householdId: input.householdId,
+    name,
+    monthlyBudget: household.monthlyBudget,
+    monthlyBudgets: household.monthlyBudgets,
   })
 }
 

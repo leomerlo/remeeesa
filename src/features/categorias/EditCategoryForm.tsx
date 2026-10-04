@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { categoriesQueryKey, expensesQueryKey } from '@/features/expenses'
 import {
-  deleteCategory,
   mergeCategories,
   parseCategoryName,
   renameCategory,
@@ -30,7 +29,10 @@ export type EditCategoryFormProps = {
   readonly onPendingChange?: (pending: boolean) => void
 }
 
-type Action = 'save' | 'merge' | 'delete'
+// Deleting is not one of these any more: it lives on the category's own
+// card, behind its own confirmation, rather than at the bottom of a form
+// whose other three buttons all did something else. Per direct feedback.
+type Action = 'save' | 'merge'
 
 export function EditCategoryForm({
   db,
@@ -48,7 +50,6 @@ export function EditCategoryForm({
     category.monthlyBudget > 0 ? String(category.monthlyBudget) : '',
   )
   const [survivorId, setSurvivorId] = useState('')
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const queryClient = useQueryClient()
 
@@ -77,10 +78,6 @@ export function EditCategoryForm({
 
   const mutation = useMutation({
     mutationFn: async (action: Action) => {
-      if (action === 'delete') {
-        await deleteCategory({ db, householdId, categoryId: category.id })
-        return
-      }
       if (action === 'merge') {
         await mergeCategories({
           db,
@@ -143,13 +140,22 @@ export function EditCategoryForm({
       setError(caught instanceof Error ? caught.message : 'Nombre inválido')
       return
     }
-    mutation.mutate('save')
+    mutation.mutate(survivorId === '' ? 'save' : 'merge')
   }
 
   const pending = mutation.isPending
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+    <form
+      onSubmit={handleSubmit}
+      // The form itself is the scrolling area. Without min-h-0 a flex child
+      // refuses to shrink below its content, so the sheet's max-h-[85vh] was
+      // simply overflowed -- the colour grid, "Unir con otra categoría" and
+      // the delete action were all off the bottom of the screen with no way
+      // to reach them. Every other form in a sheet already does this; this
+      // one was the exception.
+      className="flex h-full min-h-0 flex-col gap-6 overflow-x-hidden overflow-y-auto overscroll-contain"
+    >
       <div className="flex flex-col gap-2">
         <Label htmlFor="category-name">Nombre</Label>
         <Input
@@ -204,16 +210,15 @@ export function EditCategoryForm({
 
       {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
 
-      <Button type="submit" className="w-full" disabled={pending}>
-        Guardar
-      </Button>
-
       {otherCategories.length > 0 ? (
         <div className="border-border flex flex-col gap-2 border-t pt-6">
           <Label htmlFor="merge-target">Unir con otra categoría</Label>
           {/* Merge is the escape hatch from both a name collision and a
-              category that cannot be deleted, so it sits next to Guardar
-              rather than behind a separate screen. */}
+              category that cannot be deleted, so it sits here rather than
+              behind a separate screen -- but it has no button of its own.
+              One "Guardar" does whatever the form says, which is what
+              stopped this modal being four buttons that each did a
+              different thing to the same category. Per direct feedback. */}
           <Select
             id="merge-target"
             value={survivorId}
@@ -234,62 +239,16 @@ export function EditCategoryForm({
             Los gastos y pendientes de «{category.name}» pasan a la categoría
             que elijas, y «{category.name}» se borra.
           </p>
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            disabled={pending || survivorId === ''}
-            onClick={() => {
-              mutation.mutate('merge')
-            }}
-          >
-            Unir
-          </Button>
         </div>
       ) : null}
 
-      <div className="border-border flex flex-col gap-2 border-t pt-6">
-        {confirmingDelete ? (
-          <>
-            <p className="text-sm font-medium">
-              ¿Seguro que querés borrar «{category.name}»?
-            </p>
-            <Button
-              type="button"
-              className="w-full"
-              disabled={pending}
-              onClick={() => {
-                mutation.mutate('delete')
-              }}
-            >
-              Sí, borrar
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              disabled={pending}
-              onClick={() => {
-                setConfirmingDelete(false)
-              }}
-            >
-              Cancelar
-            </Button>
-          </>
-        ) : (
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            disabled={pending}
-            onClick={() => {
-              setConfirmingDelete(true)
-            }}
-          >
-            Borrar categoría
-          </Button>
-        )}
-      </div>
+      {/* The one action. With a category picked above it merges -- the
+          other fields are moot, since this category is about to stop
+          existing -- and otherwise it saves the name, the ceiling and the
+          colour. */}
+      <Button type="submit" className="w-full" disabled={pending}>
+        {survivorId === '' ? 'Guardar' : 'Unir y guardar'}
+      </Button>
     </form>
   )
 }

@@ -13,6 +13,12 @@ export type AddGastoSheetProps = {
   // Home puts this button under the budget cards, right-aligned; Histórico
   // shares a row with the page title. Same button, different place.
   readonly triggerClassName?: string
+  // False for a sheet mounted only to edit a row it is handed -- the screen
+  // has no button of its own, the one in the header is the way in.
+  readonly showTrigger?: boolean
+  // Drops the label to a screen-reader-only one, for the round button in
+  // the phone's nav bar where there is room for the plus and nothing else.
+  readonly triggerIconOnly?: boolean
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly memberId: string
@@ -34,7 +40,9 @@ export type AddGastoSheetProps = {
 export function AddGastoSheet({
   open,
   onOpenChange,
-  triggerClassName = 'w-full lg:w-auto lg:self-end lg:px-6',
+  triggerClassName = 'w-full lg:w-auto lg:self-end',
+  showTrigger = true,
+  triggerIconOnly = false,
   db,
   householdId,
   memberId,
@@ -80,7 +88,7 @@ export function AddGastoSheet({
 
   return (
     <>
-      {!sheetOpen ? (
+      {showTrigger && !sheetOpen ? (
         <Button
           ref={triggerRef}
           className={`gap-1.5 ${triggerClassName}`}
@@ -88,8 +96,13 @@ export function AddGastoSheet({
             onOpenChange(true)
           }}
         >
-          <Plus aria-hidden="true" />
-          Agregar gasto
+          <Plus
+            aria-hidden="true"
+            className={triggerIconOnly ? 'size-6' : ''}
+          />
+          <span className={triggerIconOnly ? 'sr-only' : ''}>
+            Agregar gasto
+          </span>
         </Button>
       ) : null}
       <Sheet

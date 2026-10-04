@@ -1,12 +1,18 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
-import { Link } from 'react-router-dom'
+import { Wallet } from 'lucide-react'
+import { Illustration } from '@/components/Illustration'
+import { ILLUSTRATIONS } from '@/components/illustrations'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cssVars } from '@/lib/cssVars'
+import { cn } from '@/lib/utils'
 import { householdQueryKey } from '@/features/household'
 import {
-  budgetColor,
+  budgetTone,
+  budgetToneClass,
+  budgetToneLabel,
   computePendingCommitted,
   computePercentUsed,
   computeRemainingBudget,
@@ -19,12 +25,15 @@ import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
 import { pendientesQueryKey } from '@/features/pendientes'
 import { getHousehold, monthlyBudgetFor } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
-import { PiggyBankIllustration } from './PiggyBankIllustration'
 import { expensesInMonthQueryKey } from './queryKeys'
 
 export type RemainingBudgetDisplayProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
+  // Opens the month's budget form. Only ever used by the empty state below:
+  // once there is a budget this card is a figure, not an action, and the
+  // "Editar presupuesto del mes" button under the pair is the way back in.
+  readonly onSetBudget?: () => void
   // Defaults to the current month. MonthNavigator passes the month it's
   // paging through instead -- this card has no month-picking UI of its own,
   // it just renders whatever range it's given.
@@ -37,6 +46,7 @@ export function RemainingBudgetDisplay({
   householdId,
   monthStart: monthStartProp,
   monthEnd: monthEndProp,
+  onSetBudget,
 }: RemainingBudgetDisplayProps): ReactElement {
   const householdQuery = useQuery({
     queryKey: householdQueryKey({ householdId }),
@@ -85,7 +95,7 @@ export function RemainingBudgetDisplay({
       <div
         role="status"
         aria-label="Cargando…"
-        className="bg-card flex w-full flex-col gap-6 rounded-3xl p-6"
+        className="bg-card card-surface flex w-full flex-col gap-6 rounded-3xl p-6"
       >
         <span className="sr-only">Cargando…</span>
         <div className="flex flex-col gap-2">
@@ -107,23 +117,42 @@ export function RemainingBudgetDisplay({
 
   if (monthlyBudget === 0) {
     return (
-      // The whole card is the link, and it carries no button of its own: the
-      // onboarding checklist directly above this one cannot be finished
-      // without a budget, so it is always on screen here with its own "Poner
-      // presupuesto" -- two of the same button, a screen apart, reads as a
-      // mistake. Dashed and unfilled rather than the solid card the budget
-      // gets: it is a slot waiting to be filled, and it sits right under the
-      // solid white "Gastos del mes", which it would otherwise merge
-      // into. No piggy either -- there is no budget for it to be guarding.
-      <Link
-        to="/household"
-        className="border-border hover:bg-card flex w-full flex-col gap-2 rounded-3xl border-2 border-dashed p-6 transition-colors"
-      >
-        <span className="text-body font-medium">Presupuesto del mes</span>
-        <span className="text-muted-foreground text-sm">
-          Todavía no pusiste uno. Ponelo y cada gasto se descuenta de ahí.
+      // Dashed and unfilled rather than the solid card a real budget gets:
+      // it is a slot waiting to be filled, in the exact place and width the
+      // coloured card will take. It used to be the whole card as a link to
+      // Ajustes with no art and no button -- which stopped being true when
+      // the budget moved onto this page, and read as a placeholder nobody
+      // had finished. So: the mascot doing the one thing this card is
+      // asking for, a real heading, and the button that opens the form. It
+      // is the only trigger in this state -- EditMonthBudgetSheet hides its
+      // own while there is no budget. Per direct feedback.
+      <div className="border-border flex w-full flex-col items-center gap-5 rounded-3xl border-2 border-dashed p-6 text-center lg:flex-[3] lg:flex-row lg:items-center lg:gap-6 lg:text-left">
+        <span
+          aria-hidden="true"
+          className="bg-muted flex size-28 shrink-0 items-center justify-center rounded-full"
+        >
+          <Illustration src={ILLUSTRATIONS.counting} className="size-20" />
         </span>
-      </Link>
+        <div className="flex min-w-0 flex-col items-center gap-3 lg:items-start">
+          <div className="flex flex-col gap-1.5">
+            <p className="text-title font-semibold">Presupuesto del mes</p>
+            <p className="text-muted-foreground max-w-sm text-sm">
+              Todavía no pusieron uno. Ponelo y cada gasto se descuenta de ahí.
+            </p>
+          </div>
+          {onSetBudget === undefined ? null : (
+            <Button
+              type="button"
+              onClick={() => {
+                onSetBudget()
+              }}
+            >
+              <Wallet aria-hidden="true" />
+              Poner presupuesto
+            </Button>
+          )}
+        </div>
+      </div>
     )
   }
 
@@ -146,50 +175,56 @@ export function RemainingBudgetDisplay({
     expenses,
     pendingCommitted,
   )
-  const heatColor = budgetColor(percentUsed)
+  const tone = budgetTone(percentUsed)
 
   return (
     <div
-      // The card's own colour tracks how much of the budget is gone --
-      // charcoal while there is room, the danger rose as it runs out. A
-      // custom property rather than a class because the colour is computed
-      // per render; see lib/expenses/budgetHeat.
-      style={cssVars({ '--budget-heat': heatColor })}
-      className="relative flex w-full flex-col gap-6 rounded-3xl bg-[var(--budget-heat)] p-6 transition-colors duration-500"
+      // The card's own colour says how much of the budget is gone before
+      // any of it is read: celeste while there is room, naranja once it is
+      // getting tight, fucsia with no margin left. One of three gradient
+      // cards rather than a computed colour -- see lib/expenses/budgetHeat.
+      className={cn(
+        // Only the fill animates between tones. transition-colors also
+        // animates `color`, so on the first paint the figure started at the
+        // inherited near-black and faded to white -- a flash of the wrong
+        // colour on the one card whose text is always white.
+        'text-on-stat relative flex w-full flex-col gap-6 rounded-3xl p-6 transition-[background-color,background-image] duration-500 lg:flex-[3]',
+        budgetToneClass(tone),
+      )}
     >
-      {/* Deliberately no overflow-hidden: the illustration is meant to poke
-          past the card edge, and clipping it cut off half of it.
-
-          On a phone it overhangs the top, where this card sits under the
-          "Gastos del mes" card and there is room. From `lg` the two cards
-          sit side by side directly under the month pager and that same
-          overhang landed on top of the pager's next-month arrow, so there
-          it sits centred inside the card's right edge instead -- which the
-          wider card has room for, and the phone's does not (centred, it
-          would run straight through the amount). Everything to its left
-          reserves that width from `lg` up, the progress bar included. */}
-      <PiggyBankIllustration className="pointer-events-none absolute -top-14 -right-3 h-28 w-32 lg:top-1/2 lg:right-3 lg:-translate-y-1/2" />
-      <div className="flex flex-col gap-2 pr-16 lg:pr-36">
+      <div className="flex flex-col gap-2">
         {/* No month label here -- MonthNavigator (Home's shared control
             above both cards) is the one place that says which month is
             being viewed now; repeating it on every card it renders was
             three copies of the same sentence. */}
-        <span className="text-primary-foreground text-body font-medium">
-          Presupuesto restante
-        </span>
+        {/* "Te quedan" rather than "Presupuesto restante": the three
+            figures of a month are the budget, what is gone and what is
+            left, and this card is the third of them. Said the way someone
+            would say it out loud. */}
+        <span className="text-body font-medium text-white/90">Te quedan</span>
         <p
           role="status"
-          aria-label={`Presupuesto restante ${formattedRemaining}`}
-          className="text-primary-foreground font-display text-display tracking-tight"
+          aria-label={`Te quedan ${formattedRemaining}. ${budgetToneLabel(percentUsed)}.`}
+          className="font-heading text-display tabular-money font-extrabold tracking-tight text-white"
         >
           {formattedRemaining}
         </p>
+        {/* The colour said in words, for anyone not reading the colour --
+            and the percentage beside it, since the two are the same fact
+            said twice over: "Casi sin margen · 96% usado". It used to sit
+            at the far end of the line under the bar, where it was a number
+            with nothing to attach itself to. Per direct feedback. */}
+        <span className="text-xs font-bold text-white/90">
+          {budgetToneLabel(percentUsed)}
+          <span aria-hidden="true"> · </span>
+          {percentUsed}% usado
+        </span>
       </div>
-      <div className="flex w-full flex-col gap-1 lg:pr-36">
+      <div className="flex w-full flex-col gap-1">
         <div
           role="progressbar"
           aria-label="% usado"
-          aria-valuenow={percentUsed}
+          aria-valuenow={Math.min(100, percentUsed)}
           aria-valuemin={0}
           aria-valuemax={100}
           className="h-2 w-full overflow-hidden rounded-full bg-white/30"
@@ -202,12 +237,14 @@ export function RemainingBudgetDisplay({
         {/* The budget itself, which the card otherwise never states: it
             only ever showed what was left and a percentage, so the figure
             those are measured against was nowhere on screen. Per direct
-            feedback. */}
-        <div className="text-primary-foreground flex w-full items-baseline justify-between gap-2 text-xs font-medium">
-          <span>
-            {formatCurrency(used)} de {formatCurrency(monthlyBudget)}
-          </span>
-          <span className="shrink-0">{percentUsed}% usado</span>
+            feedback. Named, not just implied by "de": the month has three
+            figures and this is the one the other two are measured against. */}
+        <div className="text-xs font-medium text-white/90">
+          En uso {formatCurrency(used)} de{' '}
+          {/* The budget itself in bold: it is the figure the other two are
+              measured against, and in one flat run of text it read as the
+              least important thing on the line. */}
+          <span className="font-bold">{formatCurrency(monthlyBudget)}</span>
         </div>
       </div>
     </div>

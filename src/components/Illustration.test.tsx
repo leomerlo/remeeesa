@@ -49,8 +49,6 @@ describe('the named illustrations', () => {
   it('gives each slot its own artwork rather than reusing one image', () => {
     const { container } = render(
       <>
-        <PiggyBankIllustration />
-        <OnboardingIllustration />
         <Illustration src={ILLUSTRATIONS.writing} />
         <Illustration src={ILLUSTRATIONS.saving} />
         <Illustration src={ILLUSTRATIONS.counting} />
@@ -61,9 +59,11 @@ describe('the named illustrations', () => {
     const sources = Array.from(container.querySelectorAll('img')).map((img) =>
       img.getAttribute('src'),
     )
-    // The four named drawings are four distinct files: an empty state that
-    // picks `saving` must not quietly get the same picture as one that picks
-    // `writing`.
-    expect(new Set(sources).size).toBe(4)
+    // Each name is its own file: an empty state that picks `saving` must
+    // not quietly get the same picture as one that picks `writing`.
+    // PiggyBankIllustration is deliberately not in here -- it draws from
+    // the same named set, so it shares a file with whichever tone it is
+    // showing, which is the point of the set rather than a collision.
+    expect(new Set(sources).size).toBe(sources.length)
   })
 })

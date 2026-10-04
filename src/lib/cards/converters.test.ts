@@ -17,6 +17,9 @@ describe('parseCardDocument', () => {
       // No stored currency: every card written before they existed is in
       // pesos, since there was no way to record anything else.
       currency: 'ARS',
+      // Same for the brand: a card written before brands existed carries
+      // no mark, which reads as "otra".
+      brand: 'otra',
       createdAt,
     })
   })

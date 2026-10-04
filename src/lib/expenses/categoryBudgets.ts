@@ -40,7 +40,13 @@ export function categoryBudgetRows(input: {
         color: category.color,
         spent,
         budget,
-        percentUsed: Math.min(100, Math.round((spent / budget) * 100)),
+        // Floored at 0 as well as capped at 100, the same way the month's
+        // own percentage is: a category whose only movement is a negative
+        // ajuste sums below zero, and a bar cannot be -7% wide.
+        percentUsed: Math.max(
+          0,
+          Math.min(100, Math.round((spent / budget) * 100)),
+        ),
         remaining: budget - spent,
         overBudget: spent > budget,
       }

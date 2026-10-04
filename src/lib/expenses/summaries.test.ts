@@ -364,4 +364,45 @@ describe('summarizeTarjeta', () => {
 
     expect(lines.reduce((sum, line) => sum + line.total, 0)).toBe(slice?.total)
   })
+
+  // A card billed in both currencies settles each as its own Resumen, so a
+  // month can carry a pending dollar one. summarizeByCategory leaves it out
+  // of the peso slice; these lines have to leave it out too, or the
+  // breakdown of the slice adds up to more than the slice it breaks down.
+  it('leaves a dollar Resumen out of Sin pagar, the same as the slice does', () => {
+    const expenses = [
+      makeExpense({
+        categoryId: 'cat-tarjeta',
+        subcategory: 'Ropa',
+        currency: 'ARS' as const,
+        price: 30,
+      }),
+    ]
+    const pendientes = [
+      {
+        categoryId: 'cat-tarjeta',
+        expectedAmount: 12,
+        currency: 'ARS' as const,
+      },
+      {
+        categoryId: 'cat-tarjeta',
+        expectedAmount: 500,
+        currency: 'USD' as const,
+      },
+    ]
+
+    const slice = summarizeByCategory({
+      expenses,
+      categories: [makeCategory({ id: 'cat-tarjeta', name: 'Tarjeta' })],
+      pendientes,
+    }).find((entry) => entry.categoryId === 'cat-tarjeta')
+    const lines = summarizeTarjeta({
+      categoryId: 'cat-tarjeta',
+      expenses,
+      pendientes,
+    })
+
+    expect(lines.find((line) => line.name === 'Sin pagar')?.total).toBe(12)
+    expect(lines.reduce((sum, line) => sum + line.total, 0)).toBe(slice?.total)
+  })
 })

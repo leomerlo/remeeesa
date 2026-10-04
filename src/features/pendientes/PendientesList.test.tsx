@@ -588,7 +588,7 @@ describe('PendientesList', () => {
   // Per direct feedback: Pagar stays a spelled-out button because it is what
   // this screen exists for; Editar is a pencil against the right edge, the
   // same target Histórico and Categorías use.
-  it('offers Pagar as a labelled button and Editar as a pencil', async () => {
+  it('offers Pagar as the filled action and Editar beside it', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -624,9 +624,10 @@ describe('PendientesList', () => {
     })
     const editar = screen.getByRole('button', { name: 'Editar Alquiler' })
     expect(pagar).toHaveTextContent('Pagar')
-    // The pencil carries no label of its own -- its accessible name is the
-    // aria-label found above, and an icon is all it shows.
-    expect(editar).toHaveTextContent('')
+    // Both are labelled now: a row's footer is a row of actions, and an
+    // unlabelled pencil among written buttons read as a different kind of
+    // thing. The pencil is still there beside the word.
+    expect(editar).toHaveTextContent('Editar')
     expect(editar.querySelector('svg')).not.toBeNull()
     // The hierarchy itself: only Pagar is filled with the action colour.
     expect(pagar).toHaveClass('bg-primary')

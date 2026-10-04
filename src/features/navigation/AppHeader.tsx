@@ -63,22 +63,31 @@ export function AppHeader({
       <Logo className="h-5 shrink-0 lg:hidden" />
       {/* Smaller than a page title on purpose: it shares a line with the
           wordmark on a phone, and it is a label for where you are rather
-          than a heading for what you are reading. */}
-      <span className="flex min-w-0 flex-1 items-center gap-1.5 text-sm font-semibold text-foreground lg:flex-none lg:text-base">
+          than a heading for what you are reading.
+
+          No flex-1: growing to fill the row left it sitting hard against
+          the wordmark, reading as part of it. Sized to its own content, the
+          header's justify-between pushes it to the opposite edge, which is
+          where a label for "where you are" belongs. min-w-0 stays so a long
+          household name still truncates instead of pushing the row wide.
+          Per direct feedback. */}
+      <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-foreground lg:text-base">
         <Home className="size-4 shrink-0" aria-hidden="true" />
         <span className="truncate">{householdQuery.data?.name ?? 'Hogar'}</span>
       </span>
-      {/* Desktop only, and pushed to the far edge. On a monitor the one
-          thing you came to do should be reachable from every screen, not
-          only from the two that happen to carry the button -- and there is
-          room for it up here that a phone does not have. Per direct
-          feedback. The phone keeps its in-page buttons: a thumb reaches the
-          bottom of the screen, not the top. */}
-      <div className="ml-auto hidden lg:block">
+      {/* One add button in the app, in one place per form factor: up here
+          beside the sidebar, and down in the bar's own raised button on a
+          phone, where the thumb is (see AppShell). The header on a phone is
+          only the wordmark and the household's name. Per direct feedback.
+
+          It used to be desktop-only, so Histórico and Servicios each
+          carried their own -- two buttons a screen apart opening the same
+          form; a servicio is just a gasto with "se repite" ticked. */}
+      <div className="hidden shrink-0 lg:block">
         <AddGastoSheet
           open={isAddGastoOpen}
           onOpenChange={setIsAddGastoOpen}
-          triggerClassName="px-5"
+
           db={db}
           householdId={membership.householdId}
           memberId={membership.userId}

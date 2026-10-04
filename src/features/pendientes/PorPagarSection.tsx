@@ -12,12 +12,11 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { listPendientes, pendientesDueInMonth } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
+import { currentMonthRange, formatAmount, listCategories } from '@/lib/expenses'
 import {
-  currentMonthRange,
-  formatBudgetAmount,
-  listCategories,
-} from '@/lib/expenses'
-import { colorForCategoryName } from '@/lib/expenses/categoryColor'
+  colorForCategoryName,
+  inkForCategoryColor,
+} from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { formatDate } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
@@ -103,10 +102,10 @@ export function PorPagarSection({
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="bg-card flex aspect-square w-[calc((100%-0.75rem)/2)] shrink-0 flex-col gap-2 rounded-2xl p-4 sm:w-[calc((100%-1.5rem)/3)]"
+              className="bg-card card-surface flex w-[calc((100%-0.75rem)/2)] shrink-0 flex-col gap-3 rounded-2xl p-4 sm:w-[calc((100%-1.5rem)/3)]"
             >
               <Skeleton className="size-11 shrink-0 rounded-full" />
-              <div className="mt-auto flex flex-col gap-2">
+              <div className="flex flex-col gap-2">
                 <Skeleton className="h-4 w-2/3" />
                 <Skeleton className="h-3 w-1/3" />
               </div>
@@ -167,14 +166,17 @@ export function PorPagarSection({
           const CategoryIcon = iconForCategoryName(categoryName)
           const amount =
             pendiente.expectedAmount !== null ? (
-              <span className="font-display text-lg text-foreground">
-                {formatBudgetAmount(pendiente.expectedAmount)}
+              <span className="money text-lg text-foreground">
+                {formatAmount(
+                  pendiente.expectedAmount,
+                  pendiente.currency ?? 'ARS',
+                )}
               </span>
             ) : pendiente.recurring ? (
               // Same placeholder RecentExpensesList/PendientesList use for a
               // recurring pendiente with no amount yet -- a blank space here
               // reads as a rendering bug, not "not filled in yet".
-              <span className="font-display text-muted-foreground text-lg">
+              <span className="money text-muted-foreground text-lg">
                 $ --,--
               </span>
             ) : null
@@ -184,18 +186,21 @@ export function PorPagarSection({
               <span
                 aria-hidden="true"
                 className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--swatch-color)]"
-                style={cssVars({ '--swatch-color': categoryColor })}
+                style={cssVars({
+                  '--swatch-color': categoryColor,
+                  '--swatch-ink': inkForCategoryColor(categoryColor),
+                })}
               >
                 <CategoryIcon
-                  className="size-5 text-white"
+                  className="size-5 text-[var(--swatch-ink)]"
                   aria-hidden="true"
                 />
               </span>
               {/* Icon pinned to the top, name/amount/meta pinned to the
                   bottom -- the square aspect ratio leaves variable space
                   between them depending on how much text wraps. */}
-              <div className="mt-auto flex min-w-0 flex-col gap-0.5">
-                <span className="line-clamp-2 text-foreground font-medium">
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-foreground line-clamp-2 font-bold">
                   {pendiente.name}
                 </span>
                 {amount}
@@ -224,7 +229,7 @@ export function PorPagarSection({
                 <button
                   type="button"
                   aria-label={`Ver ${resumenLabel(pendiente)}`}
-                  className="bg-card flex aspect-square w-full flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
+                  className="bg-card card-surface flex w-full flex-col gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
                   onClick={() => {
                     setOpenResumen(pendiente)
                   }}
@@ -235,7 +240,7 @@ export function PorPagarSection({
                 <button
                   type="button"
                   aria-label={`Marcar pagado ${pendiente.name}`}
-                  className="bg-card flex aspect-square w-full flex-col gap-2 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
+                  className="bg-card card-surface flex w-full flex-col gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
                   onClick={() => {
                     onMarkPaid(pendiente, categoryName)
                   }}
@@ -256,7 +261,7 @@ export function PorPagarSection({
         {/* Not an overflow escape hatch any more (every pendiente shows in
             the carousel above) -- kept as the only way to reach Servicios'
             own edit/delete management. */}
-        <Button asChild variant="outline" className="ml-auto px-6">
+        <Button asChild variant="outline" className="ml-auto">
           <Link to="/pendientes">Ver todas</Link>
         </Button>
       </div>

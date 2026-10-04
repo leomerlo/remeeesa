@@ -91,9 +91,11 @@ exist or should be fabricated — this is a private tool, not a marketed product
 
 ## Accessibility & Inclusion
 
-Mobile-first. Interactive elements (buttons, inputs, tap targets) must meet real touch-target
-sizing (44×44pt/px minimum) so they're comfortably tappable by finger — not merely visually
-present, which today's undersized controls fail at. Standard web accessibility practice
+Mobile-first. Interactive elements must be comfortably tappable by finger, not merely visually
+present. The floor is WCAG 2.2's 24×24 minimum, and the icon-only controls a thumb reaches for
+(the bar's add button, a row's action) stay at 44×44. Text buttons are sized by their padding
+instead — 36px on a phone — because at 44 a row of them read as oversized beside everything
+around it; that was a deliberate trade made with the owner, not an oversight. Standard web accessibility practice
 (accessible roles/labels, keyboard operability) is already used throughout the existing codebase
 and must continue. No formal accessibility standard (e.g. WCAG audit) is required — solid
 practice, not certification.

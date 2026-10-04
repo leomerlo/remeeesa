@@ -29,10 +29,18 @@ export {
   currentMonthRange,
   formatBudgetAmount,
   formatAmount,
+  formatCompactCurrency,
   formatCurrency,
   isDateInCurrentMonth,
 } from './remainingBudget'
-export { BUDGET_CALM, BUDGET_SPENT, budgetColor } from './budgetHeat'
+export {
+  BUDGET_SPENT_AT,
+  BUDGET_TIGHT_AT,
+  budgetTone,
+  budgetToneClass,
+  budgetToneLabel,
+} from './budgetHeat'
+export type { BudgetTone } from './budgetHeat'
 export { lastNMonthRanges, MONTHLY_TOTALS_MONTH_COUNT } from './monthlyTotals'
 export type { MonthRange } from './monthlyTotals'
 export { summarizeByCategory, summarizeTarjeta } from './summaries'

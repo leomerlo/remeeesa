@@ -1,5 +1,6 @@
 import { DEFAULT_CURRENCY } from '@/lib/money'
 import type { CardCurrency } from '@/lib/money'
+import type { CardBrand } from './types'
 import type { HouseholdsDb } from '@/lib/households/types'
 import type { Card } from './types'
 import { parseCardName } from './validate'
@@ -27,6 +28,8 @@ export async function createCard(input: {
   // Pesos unless said otherwise. 'BOTH' for a card billed in pesos and in
   // dollars, which then keeps one Resumen per currency per month.
   readonly currency?: CardCurrency
+  // Which card it is. Only ever the mark on its card; "otra" when unsaid.
+  readonly brand?: CardBrand
 }): Promise<Card> {
   const name = parseCardName(input.name)
   // ponytail: client-side uniqueness check can race (two members adding the
@@ -36,6 +39,43 @@ export async function createCard(input: {
     householdId: input.householdId,
     name,
     currency: input.currency ?? DEFAULT_CURRENCY,
+    brand: input.brand ?? 'otra',
+  })
+}
+
+// Everything the card's own edit form can change, in one write. The form has
+// one "Guardar", so this is one call rather than three that can half-fail
+// and leave a card renamed but still in the wrong currency.
+export async function updateCard(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly cardId: string
+  readonly name: string
+  readonly currency: CardCurrency
+  readonly brand: CardBrand
+}): Promise<Card> {
+  const name = parseCardName(input.name)
+  await assertNameFree(input.db, input.householdId, name, input.cardId)
+  return input.db.updateCard({
+    householdId: input.householdId,
+    cardId: input.cardId,
+    name,
+    currency: input.currency,
+    brand: input.brand,
+  })
+}
+
+// A card nothing points at. Anything else is refused rather than silently
+// orphaning its purchases and its Resúmenes -- they carry its id, and a
+// card id that resolves to nothing is a bill with no explanation.
+export async function deleteCard(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly cardId: string
+}): Promise<void> {
+  return input.db.deleteCard({
+    householdId: input.householdId,
+    cardId: input.cardId,
   })
 }
 

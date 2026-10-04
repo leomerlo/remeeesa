@@ -14,6 +14,8 @@ export type EditDisplayNameFormProps = {
   readonly householdId: string
   readonly userId: string
   readonly currentDisplayName: string
+  // Lets the sheet holding this close itself once the save lands.
+  readonly onSaved?: () => void
 }
 
 // Self-only: lets a member set/correct their own name -- e.g. a membership
@@ -26,6 +28,7 @@ export function EditDisplayNameForm({
   householdId,
   userId,
   currentDisplayName,
+  onSaved,
 }: EditDisplayNameFormProps): ReactElement {
   const queryClient = useQueryClient()
   const [displayName, setDisplayName] = useState(currentDisplayName)
@@ -35,6 +38,7 @@ export function EditDisplayNameForm({
     mutationFn: (name: string) =>
       updateMemberDisplayName({ db, householdId, userId, displayName: name }),
     onSuccess: async () => {
+      onSaved?.()
       setError(null)
       await queryClient.invalidateQueries({
         queryKey: membersQueryKey({ householdId }),

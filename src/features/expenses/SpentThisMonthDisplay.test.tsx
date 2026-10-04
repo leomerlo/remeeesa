@@ -44,9 +44,9 @@ describe('SpentThisMonthDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Gastos del mes $0' }),
+      await screen.findByRole('status', { name: 'En uso $0' }),
     ).toHaveTextContent('$0')
-    expect(screen.getByText('Gastos del mes')).toBeInTheDocument()
+    expect(screen.getByText('En uso')).toBeInTheDocument()
   })
 
   it('sums current-month expenses, ascending', async () => {
@@ -79,7 +79,7 @@ describe('SpentThisMonthDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Gastos del mes $45' }),
+      await screen.findByRole('status', { name: 'En uso $45' }),
     ).toHaveTextContent('$45')
   })
 
@@ -103,7 +103,7 @@ describe('SpentThisMonthDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Gastos del mes $0' }),
+      await screen.findByRole('status', { name: 'En uso $0' }),
     ).toHaveTextContent('$0')
   })
 
@@ -153,7 +153,7 @@ describe('SpentThisMonthDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Gastos del mes $60' }),
+      await screen.findByRole('status', { name: 'En uso $60' }),
     ).toHaveTextContent('$60')
   })
 
@@ -186,16 +186,16 @@ describe('SpentThisMonthDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Gastos del mes $5.100' }),
+      await screen.findByRole('status', { name: 'En uso $5.100' }),
     ).toHaveTextContent('$5.100')
     // The two halves are separate elements so the line can break between
     // them, so they are asserted separately rather than as one string.
     // Two rows now, each a term and its figure, so each is asserted on the
     // row it belongs to.
-    expect(screen.getByText('Pagado').closest('div')).toHaveTextContent('$100')
-    expect(screen.getByText('Pendiente').closest('div')).toHaveTextContent(
-      '$5.000',
-    )
+    expect(screen.getByText('Pagaste').closest('div')).toHaveTextContent('$100')
+    expect(
+      screen.getByText('Pendiente de pago').closest('div'),
+    ).toHaveTextContent('$5.000')
   })
 
   it('omits a Pendiente with no expected amount yet from the pending total', async () => {
@@ -214,9 +214,9 @@ describe('SpentThisMonthDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Gastos del mes $0' }),
+      await screen.findByRole('status', { name: 'En uso $0' }),
     ).toHaveTextContent('$0')
-    expect(screen.queryByText('Pendiente')).not.toBeInTheDocument()
+    expect(screen.queryByText('Pendiente de pago')).not.toBeInTheDocument()
   })
 
   // A Pendiente due in a different month than the one being viewed doesn't
@@ -270,9 +270,9 @@ describe('SpentThisMonthDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Gastos del mes $60' }),
+      await screen.findByRole('status', { name: 'En uso $60' }),
     ).toHaveTextContent('$60')
-    expect(screen.queryByText('Pendiente')).not.toBeInTheDocument()
+    expect(screen.queryByText('Pendiente de pago')).not.toBeInTheDocument()
   })
 
   // Regression: Cuentas por pagar shows every pending Pendiente regardless
@@ -309,8 +309,8 @@ describe('SpentThisMonthDisplay', () => {
     )
 
     expect(
-      await screen.findByRole('status', { name: 'Gastos del mes $100' }),
+      await screen.findByRole('status', { name: 'En uso $100' }),
     ).toHaveTextContent('$100')
-    expect(screen.queryByText('Pendiente')).not.toBeInTheDocument()
+    expect(screen.queryByText('Pendiente de pago')).not.toBeInTheDocument()
   })
 })

@@ -1,4 +1,4 @@
-import { DEFAULT_CURRENCY } from '@/lib/money'
+import { DEFAULT_CURRENCY, parseCurrency } from '@/lib/money'
 import type { Currency } from '@/lib/money'
 import {
   arrayRemove,
@@ -38,6 +38,7 @@ import {
 import type { CardPurchase } from '@/lib/cards/types'
 import type { Expense } from '@/lib/expenses/types'
 import {
+  CardInUseError,
   CardNotFoundError,
   CardPurchaseLockedError,
   CardPurchaseNotFoundError,
@@ -57,7 +58,8 @@ import {
   PendienteNotPaidError,
 } from '@/lib/pendientes/pendientes'
 import { chunkForWriteBatch } from '@/lib/expenses/batching'
-import { colorForCategoryName } from '@/lib/expenses/categoryColor'
+import { nextCategoryColor } from '@/lib/expenses/categoryColor'
+import { parseProjectionDocument, projectionIdFor } from '@/lib/proyecciones'
 import {
   categoryToDocument,
   expenseToDocument,
@@ -661,7 +663,26 @@ export function createFirestoreHouseholdsDb(
 
           const now = Timestamp.now()
           const createdAt = now.toDate()
-          const color = colorForCategoryName(name)
+          // One extra read, on the one path that creates a category: without
+          // it the colour is a hash into twenty buckets, which collides long
+          // before the buckets run out -- a household with eleven categories
+          // was more likely than not to have two of them on the same swatch.
+          const siblings = await getDocs(
+            query(
+              collection(firestore, 'categories'),
+              where('household_id', '==', input.householdId),
+            ),
+          )
+          const color = nextCategoryColor(
+            name,
+            siblings.docs.map(
+              (sibling) =>
+                parseCategoryDocument({
+                  id: sibling.id,
+                  data: sibling.data(),
+                }).color,
+            ),
+          )
           try {
             await setDoc(categoryRef, {
               ...categoryToDocument({
@@ -1518,6 +1539,58 @@ export function createFirestoreHouseholdsDb(
         { resumenId: input.resumenId, householdId: input.householdId },
       )
     },
+    async getProjection(input) {
+      return withHouseholdAccess(
+        'getProjection',
+        async () => {
+          const snap = await getDoc(
+            doc(
+              firestore,
+              'projections',
+              projectionIdFor(input.householdId, input.monthStart),
+            ),
+          )
+          // Nobody has touched this month yet, which is the common case and
+          // not an error.
+          return snap.exists()
+            ? parseProjectionDocument({ id: snap.id, data: snap.data() })
+            : null
+        },
+        { householdId: input.householdId },
+      )
+    },
+    async saveProjection(input) {
+      return withHouseholdAccess(
+        'saveProjection',
+        async () => {
+          const projectionRef = doc(
+            firestore,
+            'projections',
+            projectionIdFor(input.householdId, input.monthStart),
+          )
+          const excluded = [...input.excluded]
+          const overrides = { ...input.overrides }
+          // setDoc, not updateDoc: the first save has no document to update,
+          // and a whole-document write is what "last one wins" means here.
+          await setDoc(projectionRef, {
+            household_id: input.householdId,
+            // Midday, like every other date this app stores: a local
+            // midnight instant reads as the previous month for a member
+            // further west.
+            month_start: toFirestoreExpenseDate(input.monthStart),
+            excluded,
+            overrides,
+          })
+          return {
+            householdId: input.householdId,
+            monthStart: input.monthStart,
+            excluded,
+            overrides,
+          }
+        },
+        { householdId: input.householdId },
+      )
+    },
     async listCards(input) {
       return withHouseholdAccess(
         'listCards',
@@ -1545,6 +1618,7 @@ export function createFirestoreHouseholdsDb(
             household_id: input.householdId,
             name: input.name,
             currency: input.currency,
+            brand: input.brand,
             created_at: now,
           })
           return {
@@ -1552,8 +1626,98 @@ export function createFirestoreHouseholdsDb(
             householdId: input.householdId,
             name: input.name,
             currency: input.currency,
+            brand: input.brand,
             createdAt: now.toDate(),
           }
+        },
+        { householdId: input.householdId },
+      )
+    },
+    async updateCard(input) {
+      return withHouseholdAccess(
+        'updateCard',
+        async () => {
+          const cardRef = doc(firestore, 'cards', input.cardId)
+          const cardSnap = await getDoc(cardRef)
+          if (
+            !cardSnap.exists() ||
+            cardSnap.data().household_id !== input.householdId
+          ) {
+            throw new CardNotFoundError()
+          }
+          // One batch: the card and the name of every Resumen of it,
+          // whatever its status -- a renamed card whose bills still carry
+          // the old name is two names for one thing.
+          const resumenes = await getDocs(
+            query(
+              collection(firestore, 'pendientes'),
+              where('household_id', '==', input.householdId),
+              where('card_id', '==', input.cardId),
+            ),
+          )
+          const batch = writeBatch(firestore)
+          batch.update(cardRef, {
+            name: input.name,
+            currency: input.currency,
+            brand: input.brand,
+          })
+          for (const resumen of resumenes.docs) {
+            batch.update(resumen.ref, {
+              name: resumenNameFor(
+                input.name,
+                parseCurrency(resumen.data().currency),
+              ),
+            })
+          }
+          await batch.commit()
+          return {
+            ...parseCardDocument({ id: cardSnap.id, data: cardSnap.data() }),
+            name: input.name,
+            currency: input.currency,
+            brand: input.brand,
+          }
+        },
+        { householdId: input.householdId },
+      )
+    },
+    async deleteCard(input) {
+      return withHouseholdAccess(
+        'deleteCard',
+        async () => {
+          const cardRef = doc(firestore, 'cards', input.cardId)
+          const cardSnap = await getDoc(cardRef)
+          if (
+            !cardSnap.exists() ||
+            cardSnap.data().household_id !== input.householdId
+          ) {
+            throw new CardNotFoundError()
+          }
+          // Checked here, not in rules: rules cannot query, so "nothing
+          // points at this card" is not something they can know. Two reads
+          // on a path taken once in a card's life.
+          const [purchases, resumenes] = await Promise.all([
+            getDocs(
+              query(
+                collection(firestore, 'card_purchases'),
+                where('household_id', '==', input.householdId),
+                where('card_id', '==', input.cardId),
+              ),
+            ),
+            getDocs(
+              query(
+                collection(firestore, 'pendientes'),
+                where('household_id', '==', input.householdId),
+                where('card_id', '==', input.cardId),
+              ),
+            ),
+          ])
+          if (!purchases.empty || !resumenes.empty) {
+            throw new CardInUseError(
+              parseCardDocument({ id: cardSnap.id, data: cardSnap.data() })
+                .name,
+            )
+          }
+          await deleteDoc(cardRef)
         },
         { householdId: input.householdId },
       )

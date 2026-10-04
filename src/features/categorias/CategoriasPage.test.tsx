@@ -61,7 +61,7 @@ describe('CategoriasPage', () => {
       screen.getByRole('heading', { name: 'Categorías' }),
     ).toBeInTheDocument()
     expect(
-      await screen.findByRole('heading', { name: 'Por categoría' }),
+      await screen.findByRole('heading', { name: 'Gastos por categoría' }),
     ).toBeInTheDocument()
     // No per-person breakdown here any more -- per direct feedback, who
     // spent what is still recorded on every Expense, just not shown.
@@ -79,7 +79,7 @@ describe('CategoriasPage', () => {
     // The month-over-month trend chart sits between the breakdown and the
     // management list.
     expect(
-      await screen.findByRole('heading', { name: 'Por mes' }),
+      await screen.findByRole('heading', { name: 'Gastos por mes' }),
     ).toBeInTheDocument()
   })
 

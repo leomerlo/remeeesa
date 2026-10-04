@@ -1,9 +1,10 @@
 import { QueryClient } from '@tanstack/react-query'
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { pendientesQueryKey } from '@/features/pendientes/queryKeys'
-import { createCard, listCards } from '@/lib/cards'
+import { createCard, createCardPurchase, listCards } from '@/lib/cards'
 import { createHouseholdWithMembership } from '@/lib/households'
+import { listCategories } from '@/lib/expenses'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { CardsSection } from './CardsSection'
@@ -20,11 +21,19 @@ async function seedHousehold() {
   return { memory, db, householdId: household.id }
 }
 
-function addCard(name: string): void {
-  fireEvent.change(screen.getByLabelText('Nombre de la tarjeta'), {
-    target: { value: name },
-  })
-  fireEvent.click(screen.getByRole('button', { name: 'Agregar tarjeta' }))
+// Everything a card is decided in a sheet now -- adding one and editing one
+// are the same form, with one "Guardar" writing the name, the brand and the
+// currency together. These helpers drive it the way the screen does.
+function openAddSheet(): void {
+  fireEvent.click(screen.getByRole('button', { name: 'Agregar' }))
+}
+
+function fillName(name: string): void {
+  fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: name } })
+}
+
+function submit(name: string | RegExp): void {
+  fireEvent.click(screen.getByRole('button', { name }))
 }
 
 describe('CardsSection', () => {
@@ -38,47 +47,61 @@ describe('CardsSection', () => {
     ).toBeInTheDocument()
   })
 
-  // Disabling the input would drop keyboard focus to <body> mid-save; the
-  // section stays open for the next card, so only the button is disabled.
-  it('keeps the input focusable while a card is saving', async () => {
-    const { db, householdId } = await seedHousehold()
-    let release: () => void = () => {}
-    const gate = new Promise<void>((resolve) => {
-      release = resolve
-    })
-    const slowDb = {
-      ...db,
-      createCard: async (input: Parameters<typeof db.createCard>[0]) => {
-        await gate
-        return db.createCard(input)
-      },
-    }
-    renderWithProviders(<CardsSection db={slowDb} householdId={householdId} />)
-    await screen.findByText('Todavía no hay tarjetas')
-
-    addCard('Visa')
-
-    await vi.waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: 'Agregar tarjeta' }),
-      ).toBeDisabled()
-    })
-    expect(screen.getByLabelText('Nombre de la tarjeta')).toBeEnabled()
-    release()
-    expect(await screen.findByRole('listitem')).toHaveTextContent('Visa')
-  })
-
-  it('creates a card, lists it, and clears the input', async () => {
+  it('creates a card from the sheet and lists it', async () => {
     const { db, householdId } = await seedHousehold()
     renderWithProviders(<CardsSection db={db} householdId={householdId} />)
     await screen.findByText('Todavía no hay tarjetas')
 
-    addCard('  Visa  ')
+    openAddSheet()
+    fillName('  Visa  ')
+    submit('Agregar tarjeta')
 
     expect(await screen.findByRole('listitem')).toHaveTextContent('Visa')
-    expect(screen.getByLabelText('Nombre de la tarjeta')).toHaveValue('')
     expect((await listCards({ db, householdId })).map((c) => c.name)).toEqual([
       'Visa',
+    ])
+  })
+
+  it('saves the brand and the currency chosen alongside the name', async () => {
+    const { db, householdId } = await seedHousehold()
+    renderWithProviders(<CardsSection db={db} householdId={householdId} />)
+    await screen.findByText('Todavía no hay tarjetas')
+
+    openAddSheet()
+    fillName('Amex')
+    fireEvent.change(screen.getByLabelText('Tipo de tarjeta'), {
+      target: { value: 'amex' },
+    })
+    fireEvent.change(screen.getByLabelText('Moneda'), {
+      target: { value: 'BOTH' },
+    })
+    submit('Agregar tarjeta')
+
+    await waitFor(async () => {
+      const [card] = await listCards({ db, householdId })
+      expect(card?.brand).toBe('amex')
+      expect(card?.currency).toBe('BOTH')
+    })
+  })
+
+  // The ordinary Argentine credit card is billed in pesos and separately in
+  // dollars, so that is one of the three things a card can be -- said in
+  // words rather than in symbols, which is what "$ y US$" used to be.
+  it('offers the three things a card can be', async () => {
+    const { db, householdId } = await seedHousehold()
+    renderWithProviders(<CardsSection db={db} householdId={householdId} />)
+    await screen.findByText('Todavía no hay tarjetas')
+
+    openAddSheet()
+
+    expect(
+      [...screen.getByLabelText('Moneda').querySelectorAll('option')].map(
+        (option) => [option.value, option.textContent],
+      ),
+    ).toEqual([
+      ['ARS', 'Pesos'],
+      ['USD', 'Dólares'],
+      ['BOTH', 'Pesos y dólares'],
     ])
   })
 
@@ -87,7 +110,9 @@ describe('CardsSection', () => {
     renderWithProviders(<CardsSection db={db} householdId={householdId} />)
     await screen.findByText('Todavía no hay tarjetas')
 
-    addCard('   ')
+    openAddSheet()
+    fillName('   ')
+    submit('Agregar tarjeta')
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Ingresá un nombre para la tarjeta',
@@ -101,26 +126,15 @@ describe('CardsSection', () => {
     renderWithProviders(<CardsSection db={db} householdId={householdId} />)
     await screen.findByText('Visa')
 
-    addCard('visa')
+    openAddSheet()
+    fillName('visa')
+    submit('Agregar tarjeta')
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Ya existe una tarjeta con ese nombre.',
     )
-    expect(screen.getByLabelText('Nombre de la tarjeta')).toHaveValue('visa')
+    expect(screen.getByLabelText('Nombre')).toHaveValue('visa')
     expect(await listCards({ db, householdId })).toHaveLength(1)
-  })
-
-  it('clears the error once a valid card is added', async () => {
-    const { db, householdId } = await seedHousehold()
-    renderWithProviders(<CardsSection db={db} householdId={householdId} />)
-    await screen.findByText('Todavía no hay tarjetas')
-    addCard('   ')
-    await screen.findByRole('alert')
-
-    addCard('Visa')
-
-    expect(await screen.findByRole('listitem')).toHaveTextContent('Visa')
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('shows an error when the cards cannot be loaded', async () => {
@@ -147,91 +161,18 @@ describe('CardsSection', () => {
     expect(await screen.findByText('Visa')).toBeInTheDocument()
   })
 
-  // Every card that existed before currencies did reads as pesos, which is
-  // right for most of them and wrong for the dollar one. Fixing it at
-  // creation left no way to correct that, and the gasto form takes the
-  // card's currency as given -- so a dollar card could not be used at all.
-  describe('currency', () => {
-    async function renderWithCard() {
-      const seeded = await seedHousehold()
-      await createCard({ ...seeded, name: 'Visa' })
-      renderWithProviders(
-        <CardsSection db={seeded.db} householdId={seeded.householdId} />,
-      )
-      await screen.findByRole('button', { name: 'Renombrar Visa' })
-      return seeded
-    }
+  it('says in words what a card can be billed in', async () => {
+    const { db, householdId } = await seedHousehold()
+    await createCard({ db, householdId, name: 'Amex', currency: 'BOTH' })
 
-    it('opens on pesos for a card that never recorded one', async () => {
-      await renderWithCard()
+    renderWithProviders(<CardsSection db={db} householdId={householdId} />)
 
-      expect(screen.getByLabelText('Moneda de Visa')).toHaveValue('ARS')
-    })
-
-    it('switches an existing card to dollars', async () => {
-      const { db, householdId } = await renderWithCard()
-
-      fireEvent.change(screen.getByLabelText('Moneda de Visa'), {
-        target: { value: 'USD' },
-      })
-
-      await waitFor(async () => {
-        const [card] = await listCards({ db, householdId })
-        expect(card?.currency).toBe('USD')
-      })
-    })
-
-    it('switches back', async () => {
-      const { db, householdId } = await renderWithCard()
-
-      fireEvent.change(screen.getByLabelText('Moneda de Visa'), {
-        target: { value: 'USD' },
-      })
-      await waitFor(async () => {
-        const [card] = await listCards({ db, householdId })
-        expect(card?.currency).toBe('USD')
-      })
-
-      fireEvent.change(screen.getByLabelText('Moneda de Visa'), {
-        target: { value: 'ARS' },
-      })
-      await waitFor(async () => {
-        const [card] = await listCards({ db, householdId })
-        expect(card?.currency).toBe('ARS')
-      })
-    })
-
-    // The ordinary Argentine credit card: billed in pesos, and separately
-    // in dollars for whatever the bank bills in dollars.
-    it('offers the three things a card can be', async () => {
-      await renderWithCard()
-
-      expect(
-        [
-          ...screen.getByLabelText('Moneda de Visa').querySelectorAll('option'),
-        ].map((option) => [option.value, option.textContent]),
-      ).toEqual([
-        ['ARS', '$'],
-        ['USD', 'US$'],
-        ['BOTH', '$ y US$'],
-      ])
-    })
-
-    it('switches a card to holding both currencies', async () => {
-      const { db, householdId } = await renderWithCard()
-
-      fireEvent.change(screen.getByLabelText('Moneda de Visa'), {
-        target: { value: 'BOTH' },
-      })
-
-      await waitFor(async () => {
-        const [card] = await listCards({ db, householdId })
-        expect(card?.currency).toBe('BOTH')
-      })
-    })
+    expect(await screen.findByRole('listitem')).toHaveTextContent(
+      'Pesos y dólares',
+    )
   })
 
-  describe('renaming', () => {
+  describe('editing', () => {
     async function renderWithCard() {
       const seeded = await seedHousehold()
       await createCard({ ...seeded, name: 'Visa' })
@@ -243,46 +184,54 @@ describe('CardsSection', () => {
         { queryClient },
       )
       fireEvent.click(
-        await screen.findByRole('button', { name: 'Renombrar Visa' }),
+        await screen.findByRole('button', { name: 'Editar Visa' }),
       )
+      await screen.findByRole('dialog', { name: 'Editar tarjeta' })
       return { ...seeded, queryClient }
     }
 
-    function rename(name: string): void {
-      fireEvent.change(screen.getByLabelText('Nuevo nombre de Visa'), {
-        target: { value: name },
-      })
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Guardar nombre de Visa' }),
-      )
-    }
-
-    it('starts from the current name', async () => {
+    it('starts from the card it was opened on', async () => {
       await renderWithCard()
 
-      expect(screen.getByLabelText('Nuevo nombre de Visa')).toHaveValue('Visa')
+      expect(screen.getByLabelText('Nombre')).toHaveValue('Visa')
+      expect(screen.getByLabelText('Moneda')).toHaveValue('ARS')
     })
 
     it('saves the trimmed name and lists it', async () => {
       const { db, householdId } = await renderWithCard()
 
-      rename('  Visa Gold ')
+      fillName('  Visa Gold ')
+      submit('Guardar')
 
       expect(
-        await screen.findByRole('button', { name: 'Renombrar Visa Gold' }),
-      ).toHaveFocus()
-      expect(screen.getByRole('listitem')).toHaveTextContent('Visa Gold')
+        await screen.findByRole('button', { name: 'Editar Visa Gold' }),
+      ).toBeInTheDocument()
       expect((await listCards({ db, householdId })).map((c) => c.name)).toEqual(
         ['Visa Gold'],
       )
     })
 
+    it('re-denominates a card that was recorded in pesos', async () => {
+      const { db, householdId } = await renderWithCard()
+
+      fireEvent.change(screen.getByLabelText('Moneda'), {
+        target: { value: 'BOTH' },
+      })
+      submit('Guardar')
+
+      await waitFor(async () => {
+        const [card] = await listCards({ db, householdId })
+        expect(card?.currency).toBe('BOTH')
+      })
+    })
+
     it("refreshes the Resúmenes, which carry the card's name", async () => {
       const { householdId, queryClient } = await renderWithCard()
-      const pendientesKey = [...pendientesQueryKey({ householdId }), 'all']
+      const pendientesKey = pendientesQueryKey({ householdId })
       queryClient.setQueryData(pendientesKey, [])
 
-      rename('Visa Gold')
+      fillName('Visa Gold')
+      submit('Guardar')
 
       await vi.waitFor(() => {
         expect(queryClient.getQueryState(pendientesKey)?.isInvalidated).toBe(
@@ -291,59 +240,105 @@ describe('CardsSection', () => {
       })
     })
 
-    it("rejects another card's name and keeps editing", async () => {
+    it("rejects another card's name and keeps the sheet open", async () => {
       const { db, householdId } = await renderWithCard()
       await createCard({ db, householdId, name: 'Amex' })
 
-      rename('amex')
+      fillName('amex')
+      submit('Guardar')
 
       expect(await screen.findByRole('alert')).toHaveTextContent(
         'Ya existe una tarjeta con ese nombre.',
       )
-      expect(screen.getByLabelText('Nuevo nombre de Visa')).toHaveValue('amex')
+      expect(screen.getByLabelText('Nombre')).toHaveValue('amex')
     })
 
     it('rejects a blank name', async () => {
       await renderWithCard()
 
-      rename('   ')
+      fillName('   ')
+      submit('Guardar')
 
       expect(await screen.findByRole('alert')).toHaveTextContent(
         'Ingresá un nombre para la tarjeta',
       )
     })
+  })
 
-    it('writes nothing when the name is unchanged', async () => {
-      const { db, householdId } = await renderWithCard()
-      const renameSpy = vi.spyOn(db, 'renameCard')
-
-      rename(' Visa ')
-
-      expect(
-        screen.getByRole('button', { name: 'Renombrar Visa' }),
-      ).toHaveFocus()
-      expect(renameSpy).not.toHaveBeenCalled()
-      expect((await listCards({ db, householdId })).map((c) => c.name)).toEqual(
-        ['Visa'],
+  describe('deleting', () => {
+    async function renderWithCard() {
+      const seeded = await seedHousehold()
+      const card = await createCard({ ...seeded, name: 'Visa' })
+      renderWithProviders(
+        <CardsSection db={seeded.db} householdId={seeded.householdId} />,
       )
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Borrar Visa' }),
+      )
+      return { ...seeded, card }
+    }
+
+    // Destructive and irreversible, so it is never the button you pressed:
+    // it is the one in the dialog that names the card out loud.
+    it('asks before borrando, then deletes', async () => {
+      const { db, householdId } = await renderWithCard()
+
+      const dialog = await screen.findByRole('dialog', {
+        name: /Borrar «Visa»/,
+      })
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: 'Sí, borrar' }),
+      )
+
+      await waitFor(async () => {
+        expect(await listCards({ db, householdId })).toEqual([])
+      })
     })
 
-    it('cancels without saving', async () => {
-      const { db, householdId } = await renderWithCard()
-      fireEvent.change(screen.getByLabelText('Nuevo nombre de Visa'), {
-        target: { value: 'Otra' },
+    it('refuses a card that has a Resumen, and says why', async () => {
+      const seeded = await seedHousehold()
+      const card = await createCard({ ...seeded, name: 'Visa' })
+      const categories = await listCategories({
+        db: seeded.db,
+        householdId: seeded.householdId,
       })
+      const comida = categories.find((category) => category.name === 'Comida')
+      if (comida === undefined) {
+        throw new Error('expected the Comida category')
+      }
+      // A purchase is what puts a Resumen on a card, so this is the real
+      // way a card ends up with something pointing at it.
+      await createCardPurchase({
+        db: seeded.db,
+        householdId: seeded.householdId,
+        cardId: card.id,
+        categoryId: comida.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        name: 'Zapatillas',
+        total: 100,
+        cuotas: 1,
+        purchaseDate: new Date(),
+        comments: '',
+      })
+      renderWithProviders(
+        <CardsSection db={seeded.db} householdId={seeded.householdId} />,
+      )
 
       fireEvent.click(
-        screen.getByRole('button', { name: 'Cancelar renombrar Visa' }),
+        await screen.findByRole('button', { name: 'Borrar Visa' }),
+      )
+      const dialog = await screen.findByRole('dialog', {
+        name: /Borrar «Visa»/,
+      })
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: 'Sí, borrar' }),
       )
 
+      expect(await screen.findByRole('alert')).toHaveTextContent(/Visa/)
       expect(
-        screen.getByRole('button', { name: 'Renombrar Visa' }),
-      ).toHaveFocus()
-      expect((await listCards({ db, householdId })).map((c) => c.name)).toEqual(
-        ['Visa'],
-      )
+        await listCards({ db: seeded.db, householdId: seeded.householdId }),
+      ).toHaveLength(1)
     })
   })
 })

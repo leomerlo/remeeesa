@@ -29,6 +29,7 @@ export {
   listHouseholdMembers,
   NotSignedInError,
   updateHousehold,
+  renameHousehold,
   updateHouseholdBudget,
   updateMemberDisplayName,
 } from './households'

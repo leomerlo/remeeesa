@@ -70,6 +70,19 @@ export class CardCurrencyNotAcceptedError extends Error {
   }
 }
 
+// A card with purchases or Resúmenes pointing at it. Deleting it would
+// leave each of them with a card id that resolves to nothing -- a bill with
+// no explanation of what it is for.
+export class CardInUseError extends Error {
+  override readonly name = 'CardInUseError'
+
+  constructor(cardName: string) {
+    super(
+      `${cardName} tiene consumos o resúmenes cargados: no se puede borrar.`,
+    )
+  }
+}
+
 export class CardNotFoundError extends Error {
   override readonly name = 'CardNotFoundError'
 

@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import type { ReactElement } from 'react'
+import { Link } from 'react-router-dom'
 import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import { PageHeader } from '@/components/PageHeader'
+import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/EmptyState'
 import { ILLUSTRATIONS } from '@/components/illustrations'
 import { MonthPager } from '@/features/expenses'
@@ -59,6 +61,12 @@ export function CategoriasPage({
           illustration={ILLUSTRATIONS.counting}
           title="Todavía no hay nada para repartir"
           description="El desglose por categoría aparece apenas carguen el primer gasto."
+
+          action={
+            <Button asChild>
+              <Link to="/">Ir a Inicio</Link>
+            </Button>
+          }
         />
       </div>
     )
@@ -80,14 +88,32 @@ export function CategoriasPage({
         viewedMonth={viewedMonth}
         onViewedMonthChange={setViewedMonth}
       />
+      {/* One column on a phone; two from `lg`. The breakdown is a tall
+          list, so it takes a column of its own and the two short things --
+          what is near its ceiling, and the month-to-month shape -- stack in
+          the other. The sections are direct children of this grid rather
+          than of their own components: CategoryBreakdown's wrapper goes
+          `display: contents` at the same breakpoint, which lets its two
+          sections take their own places in here. Per direct feedback. */}
+      {/* The two columns are CategoryBreakdown's own layout -- the chart
+          goes into its right-hand one as a slot, under "Cerca del tope",
+          so the three panels sit where they belong without the page having
+          to place each one in a grid cell. */}
       <CategoryBreakdown
         db={db}
         householdId={membership.householdId}
         monthStart={monthStart}
         monthEnd={monthEnd}
+        trend={
+          <MonthlyTotalsChart db={db} householdId={membership.householdId} />
+        }
       />
-      <MonthlyTotalsChart db={db} householdId={membership.householdId} />
-      <CategoryManager db={db} householdId={membership.householdId} />
+      <CategoryManager
+        db={db}
+        householdId={membership.householdId}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />
     </div>
   )
 }

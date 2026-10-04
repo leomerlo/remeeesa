@@ -20,11 +20,7 @@ import {
   ResumenAlreadyPaidError,
   resumenMonthStart,
 } from '@/lib/cards'
-import {
-  formatBudgetAmount,
-  formatCurrency,
-  listCategories,
-} from '@/lib/expenses'
+import { formatAmount, formatCurrency, listCategories } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { formatDate, formatMonthLabel } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
@@ -121,8 +117,8 @@ function ResumenDetail({
           {formatMonthLabel(resumen.dueDate)} · Vence el{' '}
           {formatDate(resumen.dueDate)}
         </p>
-        <span className="font-display text-foreground text-2xl">
-          {formatBudgetAmount(resumen.expectedAmount ?? 0)}
+        <span className="money text-foreground text-2xl">
+          {formatAmount(resumen.expectedAmount ?? 0, resumen.currency ?? 'ARS')}
         </span>
       </div>
       {cuotasQuery.isPending ? (
@@ -171,7 +167,7 @@ function ResumenDetail({
                     )}
                   </div>
                 </div>
-                <span className="font-display text-foreground shrink-0 text-lg">
+                <span className="money text-foreground shrink-0 text-lg">
                   {formatCurrency(cuota.amount)}
                 </span>
               </li>

@@ -32,8 +32,8 @@ describe('MonthNavigator', () => {
     expect(
       await screen.findByText(formatMonthLabel(new Date())),
     ).toBeInTheDocument()
-    expect(await screen.findByText('Gastos del mes')).toBeInTheDocument()
-    expect(await screen.findByText('Presupuesto restante')).toBeInTheDocument()
+    expect(await screen.findByText('En uso')).toBeInTheDocument()
+    expect(await screen.findByText('Te quedan')).toBeInTheDocument()
   })
 
   // The one guard that keeps this from paging somewhere meaningless: a
@@ -43,7 +43,7 @@ describe('MonthNavigator', () => {
 
     renderWithProviders(<MonthNavigator db={db} householdId={household.id} />)
 
-    await screen.findByText('Gastos del mes')
+    await screen.findByText('En uso')
     expect(screen.getByRole('button', { name: 'Mes siguiente' })).toBeDisabled()
     expect(
       screen.getByRole('button', { name: 'Mes anterior' }),
@@ -78,7 +78,7 @@ describe('MonthNavigator', () => {
     })
 
     renderWithProviders(<MonthNavigator db={db} householdId={household.id} />)
-    await screen.findByRole('status', { name: 'Gastos del mes $999' })
+    await screen.findByRole('status', { name: 'En uso $999' })
 
     fireEvent.click(screen.getByRole('button', { name: 'Mes anterior' }))
 
@@ -86,7 +86,7 @@ describe('MonthNavigator', () => {
       await screen.findByText(formatMonthLabel(lastMonth)),
     ).toBeInTheDocument()
     expect(
-      await screen.findByRole('status', { name: 'Gastos del mes $40' }),
+      await screen.findByRole('status', { name: 'En uso $40' }),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: 'Mes siguiente' }),

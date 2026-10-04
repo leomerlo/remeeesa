@@ -29,10 +29,18 @@ describe('seedDemoHousehold', () => {
         pendiente.dueDate >= monthStart &&
         pendiente.dueDate <= monthEnd,
     )
+    // One settled and the rest still owed -- the month has three cards,
+    // and the Amex is billed in both currencies, so it carries a peso
+    // Resumen and a dollar one.
     expect(resumenes.map((resumen) => resumen.status).sort()).toEqual([
       'paid',
       'pending',
+      'pending',
+      'pending',
     ])
+    expect(
+      resumenes.filter((resumen) => resumen.currency === 'USD'),
+    ).toHaveLength(1)
 
     const tarjeta = (await listCategories({ db, householdId })).find(
       (category) => category.name === 'Tarjeta',

@@ -1,8 +1,32 @@
 import type { CardCurrency, Currency } from '@/lib/money'
+// Which card it is, for the mark on its card and nothing else: the app
+// never behaves differently because of it. 'otra' is the escape hatch and
+// the default, including for every card created before this existed.
+export type CardBrand = 'visa' | 'mastercard' | 'amex' | 'otra'
+
+export const CARD_BRANDS: readonly {
+  readonly value: CardBrand
+  readonly label: string
+}[] = [
+  { value: 'visa', label: 'Visa' },
+  { value: 'mastercard', label: 'Mastercard' },
+  { value: 'amex', label: 'American Express' },
+  { value: 'otra', label: 'Otra' },
+]
+
+export function isCardBrand(value: unknown): value is CardBrand {
+  return CARD_BRANDS.some((brand) => brand.value === value)
+}
+
+export function parseCardBrand(value: unknown): CardBrand {
+  return isCardBrand(value) ? value : 'otra'
+}
+
 export type Card = {
   readonly id: string
   readonly householdId: string
   readonly name: string
+  readonly brand: CardBrand
   // Which currencies this card holds. One of them, or 'BOTH' for a card
   // that is billed in pesos and in dollars -- each currency gets its own
   // Resumen per month, since the two totals cannot be added together.

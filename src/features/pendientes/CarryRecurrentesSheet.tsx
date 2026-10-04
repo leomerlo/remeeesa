@@ -6,7 +6,7 @@ import { AlertMessage } from '@/components/ui/alert-message'
 import { Button } from '@/components/ui/button'
 import { LoadingIndicator } from '@/components/ui/loading-indicator'
 import { Sheet } from '@/components/ui/sheet'
-import { formatBudgetAmount } from '@/lib/expenses'
+import { formatAmount } from '@/lib/expenses'
 import { formatMonthLabel } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
 import { carryRecurrentes, listRecurrentesToCarry } from '@/lib/pendientes'
@@ -19,10 +19,15 @@ export type CarryRecurrentesSheetProps = {
   readonly monthStart: Date
 }
 
-// "Pasar recurrentes": last month's recurring bills as a checklist, carried
-// into the viewed month only when a member picks them. Nothing carries over
-// on its own any more -- per direct feedback, after doing it automatically
-// on every payment left bills doubled.
+// "Traer del mes pasado": last month's recurring bills as a checklist,
+// copied into the viewed month only when a member picks them. Nothing
+// carries over on its own any more -- per direct feedback, doing it
+// automatically on every payment left bills doubled.
+//
+// It used to be called "Pasar recurrentes", which assumed you already knew
+// what a recurrente was and said nothing about where it was passing them
+// from or to. Per direct feedback: the label now names the thing being
+// done, in the words someone would use for it.
 export function CarryRecurrentesSheet({
   db,
   householdId,
@@ -35,15 +40,20 @@ export function CarryRecurrentesSheet({
       <Button
         type="button"
         variant="outline"
-        className="gap-1.5 self-start px-5"
+        size="icon"
+        className="size-12 shrink-0 rounded-full lg:size-auto lg:gap-2 lg:px-4.5 lg:py-1.5"
         onClick={() => {
           setOpen(true)
         }}
       >
         <Repeat aria-hidden="true" />
-        Pasar recurrentes
+        <span className="sr-only lg:not-sr-only">Traer del mes pasado</span>
       </Button>
-      <Sheet open={open} onOpenChange={setOpen} title="Pasar recurrentes">
+      <Sheet
+        open={open}
+        onOpenChange={setOpen}
+        title="Traer servicios del mes pasado"
+      >
         <CarryRecurrentesForm
           db={db}
           householdId={householdId}
@@ -122,23 +132,28 @@ function CarryRecurrentesForm({
     >
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto overscroll-contain">
         <div className="flex flex-col gap-1">
-          <h2 className="text-title font-semibold">Pasar recurrentes</h2>
+          <h2 className="text-title font-semibold">
+            Traer servicios del mes pasado
+          </h2>
           <p className="text-muted-foreground text-sm">
-            De {formatMonthLabel(previousMonth)} a{' '}
-            {formatMonthLabel(monthStart)}
+            Elegí cuáles de {formatMonthLabel(previousMonth)} se repiten en{' '}
+            {formatMonthLabel(monthStart)}.
           </p>
         </div>
 
         {rowsQuery.isPending ? (
-          <LoadingIndicator />
+          <LoadingIndicator compact />
         ) : rowsQuery.isError ? (
-          <AlertMessage>No se pudieron cargar los recurrentes</AlertMessage>
+          <AlertMessage>
+            No se pudieron cargar los servicios del mes pasado
+          </AlertMessage>
         ) : rows.length === 0 ? (
           <p className="text-muted-foreground text-sm">
-            No hay recurrentes en {formatMonthLabel(previousMonth)}.
+            No hay servicios que se repitan en {formatMonthLabel(previousMonth)}
+            .
           </p>
         ) : (
-          <ul aria-label="Recurrentes para pasar" className="flex flex-col">
+          <ul aria-label="Servicios del mes pasado" className="flex flex-col">
             {rows.map(({ pendiente, alreadyThere }) => (
               <li key={pendiente.id}>
                 <label
@@ -161,7 +176,10 @@ function CarryRecurrentesForm({
                       ? 'Ya está'
                       : pendiente.expectedAmount === null
                         ? null
-                        : formatBudgetAmount(pendiente.expectedAmount)}
+                        : formatAmount(
+                            pendiente.expectedAmount,
+                            pendiente.currency ?? 'ARS',
+                          )}
                   </span>
                 </label>
               </li>
@@ -184,8 +202,8 @@ function CarryRecurrentesForm({
           disabled={picked.length === 0 || mutation.isPending}
         >
           {picked.length === 1
-            ? 'Pasar 1 recurrente'
-            : `Pasar ${String(picked.length)} recurrentes`}
+            ? 'Traer 1 servicio'
+            : `Traer ${String(picked.length)} servicios`}
         </Button>
       </div>
     </form>

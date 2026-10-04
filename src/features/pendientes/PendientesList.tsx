@@ -4,18 +4,14 @@ import type { ReactElement } from 'react'
 import { TintedBadge } from '@/components/CategoryBadge'
 import { MovementCard } from '@/components/MovementCard'
 import { matchesSearch } from '@/lib/search/fuzzyMatch'
-import { Pencil } from 'lucide-react'
+import { Pencil, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { listPendientesForMonth, pendientesDueInMonth } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import { EmptyState } from '@/components/EmptyState'
 import { ILLUSTRATIONS } from '@/components/illustrations'
-import {
-  currentMonthRange,
-  formatBudgetAmount,
-  listCategories,
-} from '@/lib/expenses'
+import { currentMonthRange, formatAmount, listCategories } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { dueDateLabel, isOverdue, paidDateLabel } from '@/lib/format'
@@ -23,6 +19,21 @@ import type { HouseholdsDb } from '@/lib/households'
 import { pendientesQueryKey } from './queryKeys'
 import { ResumenSheet, resumenLabel } from './ResumenSheet'
 import { AlertMessage } from '@/components/ui/alert-message'
+
+// The same three-way shape Histórico's filter has, so both list screens
+// read identically: everything, or one of the two halves. It replaced a pair
+// of "POR PAGAR" / "PAGADOS" group headings -- per direct feedback the two
+// screens should differ in their rows, not in how they are steered.
+export type PendientesFilter = 'all' | 'pendiente' | 'pagado'
+
+export const PENDIENTES_FILTERS: readonly {
+  readonly value: PendientesFilter
+  readonly label: string
+}[] = [
+  { value: 'all', label: 'Todos' },
+  { value: 'pendiente', label: 'Por pagar' },
+  { value: 'pagado', label: 'Pagados' },
+]
 
 export type PendientesListProps = {
   readonly db: HouseholdsDb
@@ -38,11 +49,21 @@ export type PendientesListProps = {
   // pager -- the pager steps aside while searching, and a box below it
   // would jump up the screen when it did.
   readonly query?: string
+  // Which of the month's servicios to show. Owned by the page, the same way
+  // the query is, so it can sit in the page's toolbar beside the month --
+  // the two together are what decides the list.
+  readonly filter?: PendientesFilter
   readonly onEditPendiente?: (
     pendiente: Pendiente,
     categoryName: string,
   ) => void
   readonly onMarkPaid?: (pendiente: Pendiente, categoryName: string) => void
+  // Opens the page's add form, and clears the page's search box, from the
+  // two empty states below. Both optional: the page owns the state, so a
+  // caller that does not pass them simply gets an empty state with no
+  // button rather than one that does nothing.
+  readonly onAddPendiente?: () => void
+  readonly onClearQuery?: () => void
 }
 
 export function PendientesList({
@@ -53,8 +74,11 @@ export function PendientesList({
   monthStart: monthStartProp,
   monthEnd: monthEndProp,
   query = '',
+  filter = 'all',
   onEditPendiente,
   onMarkPaid,
+  onAddPendiente,
+  onClearQuery,
 }: PendientesListProps): ReactElement {
   // One month at a time, split in two: what is still owed for it, then what
   // was already paid in it. Reading a single list that mixed months and
@@ -125,14 +149,19 @@ export function PendientesList({
       pendiente.name,
       categoryById.get(pendiente.categoryId)?.name,
     ])
-  const stillOwed = (
-    isSearching
-      ? pendientes.filter((pendiente) => pendiente.status === 'pending')
-      : pendientesDueInMonth(pendientes, monthStart, monthEnd)
-  ).filter(matches)
-  const alreadyPaid = pendientes
-    .filter((pendiente) => pendiente.status === 'paid')
-    .filter(matches)
+  const stillOwed =
+    filter === 'pagado'
+      ? []
+      : (isSearching
+          ? pendientes.filter((pendiente) => pendiente.status === 'pending')
+          : pendientesDueInMonth(pendientes, monthStart, monthEnd)
+        ).filter(matches)
+  const alreadyPaid =
+    filter === 'pendiente'
+      ? []
+      : pendientes
+          .filter((pendiente) => pendiente.status === 'paid')
+          .filter(matches)
   if (stillOwed.length === 0 && alreadyPaid.length === 0) {
     // The month pager above already says which month is empty, so this does
     // not repeat it. The piggy-bank drawing rather than the notepad every
@@ -142,12 +171,42 @@ export function PendientesList({
       <EmptyState
         title="Sin resultados"
         description={`No encontramos nada para "${query.trim()}". Probá con otra palabra.`}
+        {...(onClearQuery === undefined
+          ? {}
+          : {
+              action: (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    onClearQuery()
+                  }}
+                >
+                  Limpiar la búsqueda
+                </Button>
+              ),
+            })}
       />
     ) : (
       <EmptyState
         illustration={ILLUSTRATIONS.saving}
         title="Ningún servicio este mes"
         description="Alquiler, internet, expensas: lo que vuelve todos los meses va acá."
+        {...(onAddPendiente === undefined
+          ? {}
+          : {
+              action: (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    onAddPendiente()
+                  }}
+                >
+                  <Plus aria-hidden="true" />
+                  Agregar un servicio
+                </Button>
+              ),
+            })}
       />
     )
   }
@@ -161,8 +220,8 @@ export function PendientesList({
 
     const amount =
       pendiente.expectedAmount !== null ? (
-        <span className="font-display text-lg text-foreground">
-          {formatBudgetAmount(pendiente.expectedAmount)}
+        <span className="money text-lg text-foreground">
+          {formatAmount(pendiente.expectedAmount, pendiente.currency ?? 'ARS')}
         </span>
       ) : pendiente.recurring ? (
         // A recurring bill with no amount yet reads as incomplete/broken
@@ -170,9 +229,7 @@ export function PendientesList({
         // filled in yet" instead of looking like a rendering bug. A one-off
         // Pendiente with no amount is a different, deliberate case (see
         // AddPendienteForm's "Monto esperado" comment) and stays blank.
-        <span className="font-display text-muted-foreground text-lg">
-          $ --,--
-        </span>
+        <span className="money text-muted-foreground text-lg">$ --,--</span>
       ) : null
 
     // A paid row keeps Editar -- that is the way back from a mistaken
@@ -187,26 +244,29 @@ export function PendientesList({
     const canEdit = onEditPendiente !== undefined && !isResumen
     const actions =
       !canMarkPaid && !canEdit && !isResumen ? null : (
+        // Editar first, then the one that does something to the money:
+        // the destructive-ish, committing action sits furthest from the
+        // thumb's resting edge and reads last. Per direct feedback.
         <>
-          {isResumen ? (
+          {canEdit ? (
             <Button
               type="button"
-              size="sm"
               variant="outline"
-              className="px-5"
-              aria-label={`Ver ${resumenLabel(pendiente)}`}
+              size="sm"
+              aria-label={`Editar ${pendiente.name}`}
               onClick={() => {
-                setOpenResumen(pendiente)
+                onEditPendiente?.(pendiente, category?.name ?? '')
               }}
             >
-              Ver
+              <Pencil aria-hidden="true" />
+              Editar
             </Button>
           ) : null}
           {canMarkPaid ? (
             <Button
               type="button"
               size="sm"
-              className="px-5"
+
               aria-label={`Marcar pagado ${pendiente.name}`}
               onClick={() => {
                 onMarkPaid?.(pendiente, category?.name ?? '')
@@ -215,17 +275,18 @@ export function PendientesList({
               Pagar
             </Button>
           ) : null}
-          {canEdit ? (
+          {isResumen ? (
             <Button
               type="button"
-              variant="ghost"
-              size="icon-mini"
-              aria-label={`Editar ${pendiente.name}`}
+              size="sm"
+              variant="outline"
+
+              aria-label={`Ver ${resumenLabel(pendiente)}`}
               onClick={() => {
-                onEditPendiente?.(pendiente, category?.name ?? '')
+                setOpenResumen(pendiente)
               }}
             >
-              <Pencil aria-hidden="true" />
+              Ver
             </Button>
           ) : null}
         </>
@@ -265,6 +326,8 @@ export function PendientesList({
     )
   }
 
+  const showGroupLabels = stillOwed.length > 0 && alreadyPaid.length > 0
+
   return (
     <div className="flex w-full flex-col gap-8 text-sm">
       <ResumenSheet
@@ -277,21 +340,32 @@ export function PendientesList({
           setOpenResumen(null)
         }}
       />
-      {/* Group labels, not titles. At the section size they were a third
-          heading in a row of three -- page name, month, group -- all at
-          much the same weight, so nothing said which was which. Smaller and
+      {/* Group labels, not titles, and only while both groups are on
+          screen: with the filter narrowed to one of them the heading only
+          repeats the word already showing in the filter.
+
+          At the section size they used to be a third heading in a row of
+          three -- page name, month, group -- all at much the same weight, so
+          nothing said which was which. Smaller and
           quieter puts them below the month they belong to. */}
       {stillOwed.length > 0 ? (
         <section
-          aria-labelledby="por-pagar-heading"
+          {...(showGroupLabels
+            ? { 'aria-labelledby': 'por-pagar-heading' }
+            : { 'aria-label': 'Servicios por pagar' })}
           className="flex flex-col gap-3"
         >
-          <h2
-            id="por-pagar-heading"
-            className="text-muted-foreground text-xs font-semibold tracking-wider uppercase"
-          >
-            Por pagar
-          </h2>
+          {showGroupLabels ? (
+            <h2
+              id="por-pagar-heading"
+              className="text-muted-foreground text-xs font-semibold tracking-wider uppercase"
+            >
+              Por pagar
+            </h2>
+          ) : null}
+          {/* One per row at every width. This is a list you read down, the
+              same as Histórico -- two columns turned it into a board. Per
+              direct feedback. */}
           <ul aria-label="Servicios por pagar" className="flex flex-col gap-3">
             {stillOwed.map(renderRow)}
           </ul>
@@ -299,15 +373,19 @@ export function PendientesList({
       ) : null}
       {alreadyPaid.length > 0 ? (
         <section
-          aria-labelledby="pagados-heading"
+          {...(showGroupLabels
+            ? { 'aria-labelledby': 'pagados-heading' }
+            : { 'aria-label': 'Servicios pagados' })}
           className="flex flex-col gap-3"
         >
-          <h2
-            id="pagados-heading"
-            className="text-muted-foreground text-xs font-semibold tracking-wider uppercase"
-          >
-            Pagados
-          </h2>
+          {showGroupLabels ? (
+            <h2
+              id="pagados-heading"
+              className="text-muted-foreground text-xs font-semibold tracking-wider uppercase"
+            >
+              Pagados
+            </h2>
+          ) : null}
           <ul aria-label="Servicios pagados" className="flex flex-col gap-3">
             {alreadyPaid.map(renderRow)}
           </ul>

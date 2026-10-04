@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { isRecord, parseRequiredString, parseTimestamp } from './documentParsing'
+import {
+  isRecord,
+  parseRequiredString,
+  parseTimestamp,
+} from './documentParsing'
 
 describe('isRecord', () => {
   it('accepts plain objects', () => {

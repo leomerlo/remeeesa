@@ -21,31 +21,49 @@ import { cn } from '@/lib/utils'
 // tune per step — `rounded-full` already resolves to the largest radius
 // Tailwind's border-radius scale supports for any box.
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-full border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  // border-2 on every variant, transparent where it is not drawn: a button
+  // is as tall as its border makes it, so an outlined one and a filled one
+  // with the same padding were two different heights until both carried the
+  // same box. Height itself is never set -- it is the padding, so a button
+  // with an icon and one without come out the same.
+  //
+  // No bg-clip-padding, which is the subtler half of the same problem: it
+  // clips the fill to the padding box, so a filled button painted 4px
+  // shorter than an outlined one that measured exactly the same, because
+  // the outlined one draws its border and the filled one leaves its
+  // transparent. Clipped to the border box both paint the full height. Per
+  // direct feedback.
+  "group/button inline-flex shrink-0 items-center justify-center rounded-full border-2 border-transparent text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground hover:bg-primary/80',
-        // The secondary button: a 2px neutral outline, label in the ordinary
-        // text colour. The weight is what tells it apart from a disabled
-        // control -- at 1px it read as one -- and the colour stays grey so
-        // it does not compete with the primary. Per direct feedback.
+        // Every variant carries the four states: rest, hover, active and
+        // the focus ring from the base above. Disabled is the base's
+        // opacity, one treatment for all of them.
+        default:
+          'bg-primary text-primary-foreground hover:bg-primary/85 active:bg-primary/75',
+        // The secondary button: a 2px neutral outline and a label in the
+        // ordinary text colour, over *nothing*. It used to fill itself with
+        // --background, which meant a grey chip on a white card and a white
+        // one on the grey page -- it has no business deciding what is
+        // behind it. Transparent, it is whatever it is sitting on. The
+        // outline's weight is what tells it apart from a disabled control;
+        // at 1px it read as one. Per direct feedback.
         outline:
-          'border-2 border-border bg-background text-foreground hover:bg-muted aria-expanded:bg-muted aria-expanded:text-foreground',
+          'border-border bg-transparent text-foreground hover:border-foreground hover:bg-foreground/5 active:bg-foreground/10 aria-expanded:bg-foreground/5',
         ghost:
-          'hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground',
+          'bg-transparent text-foreground hover:bg-foreground/5 active:bg-foreground/10 aria-expanded:bg-foreground/5',
         // Destroying something gets its own pair. `destructive` is the one
         // that actually does it -- solid red, white label, as prominent as
         // the primary it replaces in that moment. `destructive-outline` is
-        // its secondary: a pale red chip with a red outline and a red
-        // label, for the button that *offers* the deletion and for backing
-        // out of one. Neither is grey text on a grey border, which is what
-        // "Eliminar gasto" used to be and read as an afterthought. Per
-        // direct feedback.
+        // its secondary: a red outline and a red label, transparent like
+        // every other secondary, tinting red only on hover. Neither is grey
+        // text on a grey border, which is what "Eliminar gasto" used to be
+        // and read as an afterthought. Per direct feedback.
         destructive:
-          'bg-error-strong text-on-error hover:bg-error-strong-hover',
+          'bg-error-strong text-on-error hover:bg-error-strong-hover active:bg-error-strong-hover',
         'destructive-outline':
-          'border-2 border-error bg-error-surface text-error hover:bg-error-surface-hover',
+          'border-error bg-transparent text-error hover:bg-error-surface active:bg-error-surface-hover',
       },
       // Every size drops one step at `lg`. 44px is the size a thumb needs;
       // a pointer does not, and at that height a row of buttons on a
@@ -53,20 +71,31 @@ const buttonVariants = cva(
       // feedback -- the phone keeps the touch size, the desktop gets 36px,
       // still well clear of WCAG 2.2's 24px target minimum.
       size: {
-        default:
-          'h-11 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 lg:h-9',
-        xs: "h-11 gap-1 px-2 text-xs has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 lg:h-8 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-11 gap-1 px-2.5 text-sm has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 lg:h-9 [&_svg:not([class*='size-'])]:size-3.5",
-        lg: 'h-11 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 lg:h-10',
-        icon: 'size-11 lg:size-9',
+        // px-4.5 is 18px, the same on every size and every variant, with an
+        // icon or without: the icon-adjusted paddings this replaced left a
+        // button with an icon visibly tighter than its neighbour without
+        // one. Per direct feedback.
+        //
+        // No height anywhere. py-1.5 over a 20px line and a 2px border
+        // comes to 36px, at every width -- per direct feedback the 44px a
+        // phone used to get read as oversized next to everything around it.
+        // Still well clear of WCAG 2.2's 24px target minimum, though below
+        // the 44px a thumb is usually given.
+        default: 'gap-2 px-4.5 py-1.5',
+        xs: "gap-2 px-4.5 py-1.5 text-xs [&_svg:not([class*='size-'])]:size-3",
+        sm: "gap-2 px-4.5 py-1.5 text-sm [&_svg:not([class*='size-'])]:size-3.5",
+        lg: 'gap-2 px-4.5 py-2.5 lg:py-2',
+        // Square, so the padding that makes the others their height would
+        // make these oblong: these set a size and drop the padding instead.
+        icon: 'size-11 p-0 lg:size-9',
         // The icon buttons that are only ever chrome: a carousel's arrows, a
         // month pager's. 36px at every width, phone included -- these sit
         // beside a line of text rather than in a row of actions, and at
         // 44px they dwarfed it.
-        'icon-mini': "size-9 [&_svg:not([class*='size-'])]:size-4",
-        'icon-xs': "size-11 lg:size-9 [&_svg:not([class*='size-'])]:size-3",
-        'icon-sm': 'size-11 lg:size-9',
-        'icon-lg': 'size-12 lg:size-10',
+        'icon-mini': "size-9 p-0 [&_svg:not([class*='size-'])]:size-4",
+        'icon-xs': "size-11 p-0 lg:size-9 [&_svg:not([class*='size-'])]:size-3",
+        'icon-sm': 'size-11 p-0 lg:size-9',
+        'icon-lg': 'size-12 p-0 lg:size-10',
       },
     },
     defaultVariants: {

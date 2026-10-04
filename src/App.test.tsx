@@ -71,12 +71,16 @@ describe('App', () => {
         'Casa Verde',
       )
     })
-    expect(screen.getByLabelText('Presupuesto mensual')).toHaveValue('100')
+    // No budget field here any more: a budget belongs to a month, and the
+    // month lives on Home.
+    expect(screen.queryByLabelText('Presupuesto mensual')).toBeNull()
     expect(
       await screen.findByRole('heading', { name: 'Integrantes' }),
     ).toBeInTheDocument()
+    // Inviting is the empty slot at the end of the people you have, and
+    // the link itself is generated inside the sheet it opens.
     expect(
-      screen.getByRole('button', { name: 'Generar link de invitación' }),
+      screen.getByRole('button', { name: 'Invitar a alguien' }),
     ).toBeInTheDocument()
   })
 
@@ -179,9 +183,12 @@ describe('App', () => {
     expect(
       await screen.findByRole('heading', { name: 'Servicios' }),
     ).toBeInTheDocument()
+    // The add action lives in the shell now, not on the page: the header
+    // carries it from `lg` and the bar's round button on a phone, both of
+    // which are in the markup at once (each hidden at the other's widths).
     expect(
-      screen.getByRole('button', { name: 'Agregar Servicio' }),
-    ).toBeInTheDocument()
+      screen.getAllByRole('button', { name: 'Agregar gasto' }),
+    ).toHaveLength(2)
 
     const nav = await screen.findByRole('navigation')
     const servicios = within(nav).getByRole('link', { name: /servicios/i })

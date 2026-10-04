@@ -1,7 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
-import { screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createExpense, listCategories } from '@/lib/expenses'
 import {
   createHouseholdWithMembership,
@@ -27,6 +27,16 @@ async function seedHousehold(monthlyBudget: number) {
     throw new Error('expected Comida category')
   }
   return { db, household, comida }
+}
+
+// "En uso $250 de $1.000" is one line split across elements -- the budget
+// itself is in its own <span>, in bold -- so a plain string matcher never
+// sees the whole sentence. This matches the element that owns the line and
+// no ancestor of it, which is the documented way to assert across a break.
+function wholeLine(text: string) {
+  return (_content: string, element: Element | null): boolean =>
+    element?.textContent === text &&
+    !Array.from(element.children).some((child) => child.textContent === text)
 }
 
 describe('RemainingBudgetDisplay', () => {
@@ -59,7 +69,9 @@ describe('RemainingBudgetDisplay', () => {
           />
         </MemoryRouter>,
       )
-      expect(await screen.findByText('$0 de $5.355.000')).toBeInTheDocument()
+      expect(
+        await screen.findByText(wholeLine('En uso $0 de $5.355.000')),
+      ).toBeInTheDocument()
       unmount()
 
       renderWithProviders(
@@ -72,7 +84,9 @@ describe('RemainingBudgetDisplay', () => {
           />
         </MemoryRouter>,
       )
-      expect(await screen.findByText('$0 de $900.000')).toBeInTheDocument()
+      expect(
+        await screen.findByText(wholeLine('En uso $0 de $900.000')),
+      ).toBeInTheDocument()
     })
 
     // Leaving the budget alone means "same as last month", which is the
@@ -97,7 +111,9 @@ describe('RemainingBudgetDisplay', () => {
         </MemoryRouter>,
       )
 
-      expect(await screen.findByText('$0 de $900.000')).toBeInTheDocument()
+      expect(
+        await screen.findByText(wholeLine('En uso $0 de $900.000')),
+      ).toBeInTheDocument()
     })
   })
 
@@ -121,8 +137,10 @@ describe('RemainingBudgetDisplay', () => {
 
     // The card only ever showed what was left and a percentage; the figure
     // those are measured against was nowhere on it.
-    expect(await screen.findByText('$250 de $1.000')).toBeInTheDocument()
-    expect(screen.getByText('25% usado')).toBeInTheDocument()
+    expect(
+      await screen.findByText(wholeLine('En uso $250 de $1.000')),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/25% usado/)).toBeInTheDocument()
   })
 
   it('shows more spent than the budget once it is overspent, rather than clamping', async () => {
@@ -143,11 +161,35 @@ describe('RemainingBudgetDisplay', () => {
       <RemainingBudgetDisplay db={db} householdId={household.id} />,
     )
 
-    expect(await screen.findByText('$1.200 de $1.000')).toBeInTheDocument()
+    expect(
+      await screen.findByText(wholeLine('En uso $1.200 de $1.000')),
+    ).toBeInTheDocument()
   })
 
   describe('with no budget set', () => {
     it('offers to set one instead of counting down from nothing', async () => {
+      const { db, household } = await seedHousehold(0)
+      const onSetBudget = vi.fn()
+
+      renderWithProviders(
+        <MemoryRouter>
+          <RemainingBudgetDisplay
+            db={db}
+            householdId={household.id}
+            onSetBudget={onSetBudget}
+          />
+        </MemoryRouter>,
+      )
+
+      expect(await screen.findByText('Presupuesto del mes')).toBeInTheDocument()
+      expect(screen.getByText(/Todavía no pusieron uno/)).toBeInTheDocument()
+      // It opens the month's own budget form, in place. It used to be a
+      // link to Ajustes, which stopped being where a budget is set.
+      fireEvent.click(screen.getByRole('button', { name: /Poner presupuesto/ }))
+      expect(onSetBudget).toHaveBeenCalledTimes(1)
+    })
+
+    it('shows no button when the caller has no form to open', async () => {
       const { db, household } = await seedHousehold(0)
 
       renderWithProviders(
@@ -157,12 +199,7 @@ describe('RemainingBudgetDisplay', () => {
       )
 
       expect(await screen.findByText('Presupuesto del mes')).toBeInTheDocument()
-      // The whole card is the link -- no button of its own, since the
-      // onboarding checklist above already has one and cannot be finished
-      // while the budget is unset.
-      const card = screen.getByRole('link')
-      expect(card).toHaveAttribute('href', '/household')
-      expect(card).toHaveTextContent(/Todavía no pusiste uno/)
+      expect(screen.queryByRole('button')).toBeNull()
     })
 
     it('shows neither a remaining figure nor a progress bar', async () => {
@@ -204,7 +241,7 @@ describe('RemainingBudgetDisplay', () => {
 
     expect(
       await screen.findByRole('status', {
-        name: 'Presupuesto restante $100',
+        name: /^Te quedan \$100\./,
       }),
     ).toHaveTextContent('$100')
   })
@@ -218,10 +255,10 @@ describe('RemainingBudgetDisplay', () => {
 
     expect(
       await screen.findByRole('status', {
-        name: 'Presupuesto restante $100',
+        name: /^Te quedan \$100\./,
       }),
     ).toHaveTextContent('$100')
-    expect(screen.getByText('Presupuesto restante')).toBeInTheDocument()
+    expect(screen.getByText('Te quedan')).toBeInTheDocument()
   })
 
   // Same reasoning as SpentThisMonthDisplay's label: without it, nothing on
@@ -270,26 +307,28 @@ describe('RemainingBudgetDisplay', () => {
 
     expect(
       await screen.findByRole('status', {
-        name: 'Presupuesto restante $60',
+        name: /^Te quedan \$60\./,
       }),
     ).toHaveTextContent('$60')
   })
 
-  it('shows a progress bar at 0% used and the piggy-bank illustration when there are no expenses', async () => {
+  it('shows a progress bar at 0% used when there are no expenses', async () => {
     const { db, household } = await seedHousehold(100)
 
     const { container } = renderWithProviders(
       <RemainingBudgetDisplay db={db} householdId={household.id} />,
     )
 
-    await screen.findByRole('status', { name: 'Presupuesto restante $100' })
+    await screen.findByRole('status', { name: /^Te quedan \$100\./ })
     const progressbar = screen.getByRole('progressbar', {
       name: '% usado',
     })
     expect(progressbar).toHaveAttribute('aria-valuenow', '0')
     expect(progressbar).toHaveAttribute('aria-valuemin', '0')
     expect(progressbar).toHaveAttribute('aria-valuemax', '100')
-    expect(container.querySelector('img[aria-hidden="true"]')).not.toBeNull()
+    // No mascot on this card any more: it is the one figure the whole
+    // screen is for, and the drawing was taking the room the figure needed.
+    expect(container.querySelector('img[aria-hidden="true"]')).toBeNull()
   })
 
   it('updates the progress bar to reflect the percent of budget used', async () => {
@@ -310,7 +349,7 @@ describe('RemainingBudgetDisplay', () => {
       <RemainingBudgetDisplay db={db} householdId={household.id} />,
     )
 
-    await screen.findByRole('status', { name: 'Presupuesto restante $60' })
+    await screen.findByRole('status', { name: /^Te quedan \$60\./ })
     expect(
       screen.getByRole('progressbar', { name: '% usado' }),
     ).toHaveAttribute('aria-valuenow', '40')
@@ -334,7 +373,7 @@ describe('RemainingBudgetDisplay', () => {
       <RemainingBudgetDisplay db={db} householdId={household.id} />,
     )
 
-    await screen.findByRole('status', { name: 'Presupuesto restante -$50' })
+    await screen.findByRole('status', { name: /^Te quedan -\$50\./ })
     expect(
       screen.getByRole('progressbar', { name: '% usado' }),
     ).toHaveAttribute('aria-valuenow', '100')
@@ -360,7 +399,7 @@ describe('RemainingBudgetDisplay', () => {
 
     expect(
       await screen.findByRole('status', {
-        name: 'Presupuesto restante $70',
+        name: /^Te quedan \$70\./,
       }),
     ).toHaveTextContent('$70')
   })
@@ -397,7 +436,7 @@ describe('RemainingBudgetDisplay', () => {
 
     expect(
       await screen.findByRole('status', {
-        name: 'Presupuesto restante $75',
+        name: /^Te quedan \$75\./,
       }),
     ).toHaveTextContent('$75')
   })
@@ -415,10 +454,10 @@ describe('RemainingBudgetDisplay', () => {
 
     expect(
       await screen.findByRole('status', {
-        name: 'Presupuesto restante $100',
+        name: /^Te quedan \$100\./,
       }),
     ).toHaveTextContent('$100')
-    expect(screen.getByText('Presupuesto restante')).toBeInTheDocument()
+    expect(screen.getByText('Te quedan')).toBeInTheDocument()
 
     await createExpense({
       db,
@@ -437,7 +476,7 @@ describe('RemainingBudgetDisplay', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('status', { name: 'Presupuesto restante -$50' }),
+        screen.getByRole('status', { name: /^Te quedan -\$50\./ }),
       ).toHaveTextContent('-$50')
     })
   })
@@ -472,7 +511,7 @@ describe('RemainingBudgetDisplay', () => {
 
     expect(
       await screen.findByRole('status', {
-        name: 'Presupuesto restante $600',
+        name: /^Te quedan \$600\./,
       }),
     ).toHaveTextContent('$600')
   })
@@ -549,7 +588,7 @@ describe('RemainingBudgetDisplay', () => {
 
     expect(
       await screen.findByRole('status', {
-        name: 'Presupuesto restante $900',
+        name: /^Te quedan \$900\./,
       }),
     ).toHaveTextContent('$900')
     expect(screen.queryByText(/pendiente de pago/)).not.toBeInTheDocument()
@@ -590,7 +629,7 @@ describe('RemainingBudgetDisplay', () => {
 
     expect(
       await screen.findByRole('status', {
-        name: 'Presupuesto restante $900',
+        name: /^Te quedan \$900\./,
       }),
     ).toHaveTextContent('$900')
     expect(screen.queryByText(/pendiente de pago/)).not.toBeInTheDocument()

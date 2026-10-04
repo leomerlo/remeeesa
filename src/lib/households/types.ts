@@ -1,4 +1,6 @@
 import type { CardCurrency, Currency } from '@/lib/money'
+import type { CardBrand } from '@/lib/cards/types'
+import type { Projection } from '@/lib/proyecciones'
 import type { Card, CardPurchase } from '@/lib/cards/types'
 import type { Pendiente } from '@/lib/pendientes/types'
 import type { Category, Expense } from '@/lib/expenses/types'
@@ -269,12 +271,49 @@ export type HouseholdsDb = {
     readonly pendiente: Pendiente
     readonly expenses: readonly Expense[]
   }>
+  // The household's hand edits to one month's projection. Null when nobody
+  // has touched that month yet -- which is the common case, and is not an
+  // error.
+  getProjection(input: {
+    readonly householdId: string
+    readonly monthStart: Date
+  }): Promise<Projection | null>
+  // Writes the whole set of edits for the month, creating the document the
+  // first time. Last write wins: two members editing the same month at once
+  // is a thing that can happen, and the alternative -- merging two
+  // scratchpads field by field -- would produce a scenario neither of them
+  // built.
+  saveProjection(input: {
+    readonly householdId: string
+    readonly monthStart: Date
+    readonly excluded: readonly string[]
+    readonly overrides: Readonly<Record<string, string>>
+  }): Promise<Projection>
   listCards(input: { readonly householdId: string }): Promise<readonly Card[]>
   createCard(input: {
     readonly householdId: string
     readonly name: string
     readonly currency: CardCurrency
+    readonly brand: CardBrand
   }): Promise<Card>
+  // Everything a card's own edit form can change, in one write -- one form
+  // with one "Guardar" means one call. Renaming also renames every Resumen
+  // of the card, whatever its status; expenses a payment already saved keep
+  // the name they were saved with.
+  updateCard(input: {
+    readonly householdId: string
+    readonly cardId: string
+    readonly name: string
+    readonly currency: CardCurrency
+    readonly brand: CardBrand
+  }): Promise<Card>
+  // Only a card nothing points at. Rejects with CardInUseError when it has
+  // any purchase or any Resumen, since deleting it would leave those with a
+  // card id that resolves to nothing.
+  deleteCard(input: {
+    readonly householdId: string
+    readonly cardId: string
+  }): Promise<void>
   // One batch: the card's name and the name of every Resumen of the card,
   // whatever its status. Rejects with CardNotFoundError for a card outside
   // the household.

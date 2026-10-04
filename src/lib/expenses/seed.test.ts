@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { colorForCategoryName } from './categoryColor'
 import { categoryDocumentId, defaultCategoryRecords } from './seed'
 
 describe('categoryDocumentId', () => {
@@ -46,9 +45,13 @@ describe('defaultCategoryRecords colors', () => {
     const first = defaultCategoryRecords({ householdId: 'h1', createdAt })
     const second = defaultCategoryRecords({ householdId: 'h1', createdAt })
 
-    for (const category of first) {
-      expect(category.color).toBe(colorForCategoryName(category.name))
-    }
+    // Not colorForCategoryName any more: the names are assigned in one
+    // pass, each told what the ones before it took, so a default set never
+    // opens with two identical dots -- which the bare hash of the name did
+    // (four of the defaults landed on the same violet).
+    expect(new Set(first.map((category) => category.color)).size).toBe(
+      first.length,
+    )
     expect(first.map((category) => category.color)).toEqual(
       second.map((category) => category.color),
     )

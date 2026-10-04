@@ -155,10 +155,12 @@ describe('AppShell', () => {
   })
 
   // Six labels stacked under six icons wanted 458px of a 374px bar, which
-  // pushed Ajustes off the screen entirely. Only the current destination is
-  // named on a phone now -- but every one of them keeps its name for a
-  // screen reader, which is what makes an icon-only bar legitimate.
-  it('names only the active destination on a phone, without hiding the others from assistive technology', async () => {
+  // pushed Ajustes off the screen entirely. The bar is icons alone on a
+  // phone now -- including the active one, which used to unfurl into its
+  // label and shove its neighbours along as you moved between tabs -- but
+  // every one of them keeps its name for a screen reader, which is what
+  // makes an icon-only bar legitimate.
+  it('is icons alone on a phone, without hiding any destination from assistive technology', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     await createHouseholdWithMembership({
       db,
@@ -182,15 +184,13 @@ describe('AppShell', () => {
       expect(within(nav).getByRole('link', { name })).toBeInTheDocument()
     }
 
-    // The active one shows its label; the rest are their icon alone below
-    // `lg`, and labelled again from `lg` up where the sidebar has the room.
-    const active = within(nav).getByRole('link', { name: /inicio/i })
-    expect(active.querySelector('span')).not.toHaveClass('sr-only')
-    const inactive = within(nav).getByRole('link', { name: /proyecciones/i })
-    expect(inactive.querySelector('span')).toHaveClass(
-      'sr-only',
-      'lg:not-sr-only',
-    )
+    // Every label, active or not, is the icon alone below `lg` and a named
+    // row from `lg` up where the sidebar has the room for it.
+    for (const name of [/inicio/i, /proyecciones/i]) {
+      expect(
+        within(nav).getByRole('link', { name }).querySelector('span'),
+      ).toHaveClass('sr-only', 'lg:not-sr-only')
+    }
   })
 
   it('gives each nav link a 44px touch-target floor', async () => {

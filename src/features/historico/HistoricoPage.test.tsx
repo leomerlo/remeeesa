@@ -216,22 +216,17 @@ describe('HistoricoPage', () => {
     expect(screen.queryByText('Gasto viejo')).not.toBeInTheDocument()
   })
 
-  // Per direct feedback: this is the screen you are on when you notice a
-  // gasto is missing, so it gets the same title-row action Servicios has.
-  it('offers an add-expense button that opens the shared sheet', async () => {
-    const { db, householdId, categoryId } = await seedHousehold()
-    await seed({
-      db,
-      householdId,
-      categoryId,
-      name: 'Gasto',
-      date: new Date(),
-    })
+  // The page's title-row button is gone -- the app header carries the one
+  // add action at every width -- so what this screen offers on its own is
+  // its empty month's call to action, which opens the very same sheet.
+  it('opens the shared sheet from an empty month', async () => {
+    const { db } = await seedHousehold()
 
     renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
 
-    await screen.findByText('Gasto')
-    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Cargar un gasto' }),
+    )
 
     expect(await screen.findByLabelText('Nombre')).toBeInTheDocument()
     expect(screen.getByLabelText('Precio')).toBeInTheDocument()

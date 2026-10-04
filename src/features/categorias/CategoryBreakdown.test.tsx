@@ -74,8 +74,8 @@ describe('CategoryBreakdown', () => {
 
       renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
 
-      await screen.findByText('Por categoría')
-      expect(screen.queryByText('Topes por categoría')).not.toBeInTheDocument()
+      await screen.findByText('Gastos por categoría')
+      expect(screen.queryByText('Cerca del tope')).not.toBeInTheDocument()
     })
 
     it('shows what is left of a ceiling', async () => {
@@ -95,14 +95,20 @@ describe('CategoryBreakdown', () => {
         householdId,
         categoryId: comida.id,
         name: 'A',
-        price: 75,
+        price: 240,
       })
 
       renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
 
-      expect(await screen.findByText('Topes por categoría')).toBeInTheDocument()
-      expect(screen.getByText('$75 de $300')).toBeInTheDocument()
-      expect(screen.getByText('Quedan $225')).toBeInTheDocument()
+      // Scoped to the ceilings list: the same figure is also the
+      // category's own line in the breakdown beside it.
+      const topes = within(
+        (await screen.findByRole('heading', { name: 'Cerca del tope' }))
+          .parentElement as HTMLElement,
+      )
+      expect(topes.getByText('$240')).toBeInTheDocument()
+      expect(topes.getByText('de $300')).toBeInTheDocument()
+      expect(topes.getByText('Quedan $60')).toBeInTheDocument()
     })
 
     it('says how far past a ceiling the month has gone', async () => {
@@ -134,7 +140,11 @@ describe('CategoryBreakdown', () => {
 
     // Before anything has been spent is the most useful moment to look at a
     // ceiling, and summarizeByCategory drops a category with no spending.
-    it('shows a ceiling on a category nothing has gone into yet', async () => {
+    // It used to list every ceiling, including the ones with nothing spent
+    // against them -- which buried the one actually about to go over. The
+    // tope itself is printed on each category's own tile either way. Per
+    // direct feedback.
+    it('leaves out a ceiling nothing has gone into yet', async () => {
       const { db, householdId, byName } = await seedHousehold()
       const comida = byName.get('Comida')
       const salud = byName.get('Salud')
@@ -157,7 +167,9 @@ describe('CategoryBreakdown', () => {
 
       renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
 
-      expect(await screen.findByText('$0 de $300')).toBeInTheDocument()
+      await screen.findByText('Gastos por categoría')
+      expect(screen.queryByText('Cerca del tope')).not.toBeInTheDocument()
+      expect(screen.queryByText('de $300')).not.toBeInTheDocument()
     })
 
     // Per direct feedback the ceilings do not have to add up -- but promising
@@ -205,7 +217,7 @@ describe('CategoryBreakdown', () => {
 
       renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
 
-      await screen.findByText('Topes por categoría')
+      await screen.findByText('Todavía no hay nada para repartir')
       expect(
         screen.queryByText(/más que el presupuesto/),
       ).not.toBeInTheDocument()
@@ -291,7 +303,7 @@ describe('CategoryBreakdown', () => {
     )
 
     const heading = await screen.findByRole('heading', {
-      name: 'Por categoría',
+      name: 'Gastos por categoría',
     })
     expect(heading.parentElement).toHaveTextContent('$100')
     expect(container.querySelector('svg')?.textContent).toBe('')

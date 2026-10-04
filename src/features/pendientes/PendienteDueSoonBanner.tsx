@@ -6,7 +6,7 @@ import {
   useCarouselControls,
 } from '@/components/ui/carousel-arrows'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatBudgetAmount, listCategories } from '@/lib/expenses'
+import { formatAmount, listCategories } from '@/lib/expenses'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { formatDate } from '@/lib/format'
 import { listPendientes, pendientesDueSoon } from '@/lib/pendientes'
@@ -116,8 +116,9 @@ export function PendienteDueSoonBanner({
             controls={carousel}
             label="Vencimientos"
             // Shares its line with the section title, which already wraps at
-            // 375px; on a phone the swipe is the gesture anyway.
-            className="hidden sm:flex"
+            // 375px; on a phone the swipe is the gesture anyway. Gone from
+            // `lg`, where the cards are stacked and nothing pages.
+            className="hidden sm:flex lg:hidden"
           />
         ) : null}
       </div>
@@ -125,7 +126,12 @@ export function PendienteDueSoonBanner({
         ref={scrollerRef}
         onScroll={handleScroll}
         aria-label="Vencimientos próximos"
-        className="mt-3 flex w-full snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] lg:gap-4 [&::-webkit-scrollbar]:hidden"
+        // A swipeable row on a phone, where it sits across the top of Home
+        // and there is no room for a column. From `lg` it is Home's right
+        // column instead, so it stops being a carousel entirely and just
+        // stacks -- a pager for three cards you can already all see is a
+        // control with nothing to do.
+        className="mt-3 flex w-full snap-x snap-mandatory gap-3 overflow-x-auto [scrollbar-width:none] lg:snap-none lg:flex-col lg:overflow-visible [&::-webkit-scrollbar]:hidden"
       >
         {dueSoon.map((pendiente) => {
           const category = categoryById.get(pendiente.categoryId)
@@ -137,51 +143,58 @@ export function PendienteDueSoonBanner({
             // the row is far wider than one of these needs there. With two
             // or fewer due, that is the whole section and the arrows sit
             // disabled; past that it pages.
-            <li
-              key={pendiente.id}
-              className="w-full shrink-0 snap-start lg:w-[calc((100%-1rem)/2)]"
-            >
-              {/* The one filled card in a light interface. Same structure as
-                  every other row on Home, but none of its colours come from
-                  the category: whatever is about to come due should read as
-                  one thing, not as five differently-tinted things. It is
-                  filled flat with --surface-due-soon, the same colour the
-                  budget card lands on once the month is spent and the same
-                  one the destructive button uses -- one danger colour in the
-                  app, not a family of reds. */}
-              <div className="bg-due-soon flex w-full items-center gap-3 rounded-2xl p-4 text-white">
+            <li key={pendiente.id} className="w-full shrink-0 snap-start">
+              {/* An ordinary card with a red outline, not a card filled
+                  red. Filled, three of these across the top of Home were
+                  the loudest thing on the screen by far -- louder than the
+                  budget running out, which is the one figure that should
+                  shout. The outline still says "these are the urgent ones"
+                  without taking the page over. Per direct feedback.
+
+                  None of its colours come from the category: whatever is
+                  about to come due should read as one thing, not as five
+                  differently-tinted things. */}
+              <div className="card-surface-error bg-card flex w-full items-start gap-3 rounded-2xl p-4">
                 <span
                   aria-hidden="true"
-                  className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white/15"
+                  className="bg-error-surface flex size-11 shrink-0 items-center justify-center rounded-full"
                 >
                   <CategoryIcon
-                    className="size-5 text-white"
+                    className="text-error size-5"
                     aria-hidden="true"
                   />
                 </span>
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                {/* Stacked, with the figure last and largest. Name and
+                    category on one line, the due date under it, the amount
+                    on its own row at the bottom -- in a 3-column sidebar the
+                    old name-left/amount-right line gave the figure whatever
+                    width the name left over, which was usually not enough
+                    for it. Last and alone, it gets the whole row. Per
+                    direct feedback. */}
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
                   <div className="flex items-baseline justify-between gap-2">
                     <span className="truncate font-medium">
                       {pendiente.name}
                     </span>
-                    {pendiente.expectedAmount !== null ? (
-                      <span className="font-display text-lg">
-                        {formatBudgetAmount(pendiente.expectedAmount)}
-                      </span>
-                    ) : pendiente.recurring ? (
-                      <span className="font-display text-lg text-white/70">
-                        $ --,--
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                    <span className="rounded bg-white/15 px-1.5 py-0.5 font-medium">
+                    <span className="bg-muted text-muted-foreground shrink-0 rounded px-1.5 py-0.5 text-xs font-medium">
                       {categoryName}
                     </span>
-                    <span className="font-medium">
-                      Vence {formatDate(pendiente.dueDate)}
-                    </span>
                   </div>
+                  <span className="text-error text-xs font-medium">
+                    Vence {formatDate(pendiente.dueDate)}
+                  </span>
+                  {pendiente.expectedAmount !== null ? (
+                    <span className="money text-error text-xl">
+                      {formatAmount(
+                        pendiente.expectedAmount,
+                        pendiente.currency ?? 'ARS',
+                      )}
+                    </span>
+                  ) : pendiente.recurring ? (
+                    <span className="money text-muted-foreground text-xl">
+                      $ --,--
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </li>

@@ -95,6 +95,14 @@ describe('formatBudgetAmount', () => {
 
   it('formats negative remaining as -$amount', () => {
     expect(formatBudgetAmount(-50)).toBe('-$50')
+    // Every formatter keeps the sign, not just this one: a card Resumen
+    // paid for less than it said generates a negative "ajuste" expense, and
+    // the list it appears in used to print it as a positive figure -- so
+    // the rows no longer added up to the month total above them.
+    expect(formatCurrency(-50)).toBe('-$50')
+    expect(formatCurrency(-1850.5)).toBe('-$1.850,50')
+    expect(formatAmount(-120, 'USD')).toBe('-US$120')
+    expect(formatAmount(-120, 'ARS')).toBe('-$120')
   })
 
   it('keeps two decimals when needed', () => {
@@ -205,12 +213,12 @@ describe('computePercentUsed', () => {
     expect(computePercentUsed(0, [{ price: 10, currency: ARS }])).toBe(100)
   })
 
-  // Spending past the budget clamps at 100 rather than reporting e.g. 150%
-  // -- a progress bar has nowhere to put the overflow, and the exact
-  // over-budget amount is already shown by computeRemainingBudget going
-  // negative.
-  it('clamps at 100 when expenses exceed the budget', () => {
-    expect(computePercentUsed(100, [{ price: 150, currency: ARS }])).toBe(100)
+  // It does NOT clamp any more: a household $107.000 past its budget read
+  // "100% usado" beside a negative figure, which is the one moment the
+  // number most needs to be blunt. The progress *bar* still clamps, since
+  // it has nowhere to put the overflow; that belongs at the bar.
+  it('reports past 100 when expenses exceed the budget', () => {
+    expect(computePercentUsed(100, [{ price: 150, currency: ARS }])).toBe(150)
   })
 
   it('returns exactly 100 when spending exactly matches the budget', () => {
@@ -222,8 +230,8 @@ describe('computePercentUsed', () => {
     ).toBe(100)
   })
 
-  it('still clamps at 100 when spending is far past the budget', () => {
-    expect(computePercentUsed(100, [{ price: 1000, currency: ARS }])).toBe(100)
+  it('keeps counting when spending is far past the budget', () => {
+    expect(computePercentUsed(100, [{ price: 1000, currency: ARS }])).toBe(1000)
   })
 
   it('treats a zero-price expense as no additional spend', () => {

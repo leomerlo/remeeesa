@@ -72,8 +72,31 @@ service cloud.firestore {
         && data.created_at is timestamp;
     }
 
+    // A month's projection: the household's hand edits to what it thinks the
+    // month will come to. Keyed `{householdId}_{YYYY-MM}`, one per household
+    // per month, so two members editing the same month land on one document.
+    //
+    // The rows inside are not validated beyond their types: a key is
+    // whatever the screen calls a row, and an override is the raw string an
+    // input holds (a half-typed "12." is a legitimate thing to store).
+    // Rules cannot iterate a map's entries anyway.
+    function isValidProjection(projectionId, data) {
+      return data.keys().hasOnly(['household_id', 'month_start', 'excluded', 'overrides'])
+        && data.household_id is string
+        && data.household_id.size() > 0
+        // The id has to be the one this household's own projection for that
+        // month would take ('_YYYY-MM' is 8 characters), so a member of one
+        // household cannot squat on the document another household's screen
+        // will try to write.
+        && projectionId.matches('^.+_[0-9]{4}-[0-9]{2}$')
+        && projectionId[0:projectionId.size() - 8] == data.household_id
+        && data.month_start is timestamp
+        && data.excluded is list
+        && data.overrides is map;
+    }
+
     function isValidCard(data) {
-      return data.keys().hasOnly(['household_id', 'name', 'currency', 'created_at'])
+      return data.keys().hasOnly(['household_id', 'name', 'currency', 'brand', 'created_at'])
         && data.household_id is string
         && data.household_id.size() > 0
         && data.name is string
@@ -81,6 +104,9 @@ service cloud.firestore {
         // Absent on every card written before currencies existed. 'BOTH'
         // is a card the bank bills in pesos and in dollars.
         && (!('currency' in data) || data.currency in ['ARS', 'USD', 'BOTH'])
+        // Absent on every card written before brands existed, which read
+        // as 'otra'. It is only ever the mark drawn on the card.
+        && (!('brand' in data) || data.brand in ['visa', 'mastercard', 'amex', 'otra'])
         && data.created_at is timestamp;
     }
 
@@ -643,13 +669,34 @@ service cloud.firestore {
     }
 
     // No delete: a card's Resúmenes and purchases point at it.
+    match /projections/{projectionId} {
+      allow read: if isMemberOf(resource.data.household_id);
+      // One document the household overwrites, rather than a create and a
+      // separate narrow update: the whole set of edits is replaced on every
+      // save, which is what "last one wins" means for a scratchpad two
+      // people can be in at once.
+      allow write: if isMemberOf(request.resource.data.household_id)
+        && isValidProjection(projectionId, request.resource.data);
+    }
+
     match /cards/{cardId} {
       allow read: if isMemberOf(resource.data.household_id);
       allow create: if isMemberOf(request.resource.data.household_id)
         && isValidCard(request.resource.data);
+      // 'brand' is in here because the card's edit form writes all three in
+      // one go. It was not, which meant saving a card after picking Visa or
+      // Mastercard was refused in production -- the memory adapter the
+      // tests run against has no rules, so nothing caught it until these
+      // rules were read alongside what the app actually writes.
       allow update: if isMemberOf(resource.data.household_id)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'currency'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'currency', 'brand'])
         && isValidCard(request.resource.data);
+      // Deleting one is now a real action in Ajustes. "Nothing points at
+      // this card" cannot be expressed here -- rules cannot query -- so the
+      // adapter checks it before calling this (see deleteCard); these rules
+      // only decide who may delete, which is any member of the household
+      // the card belongs to.
+      allow delete: if isMemberOf(resource.data.household_id);
     }
   }
 }

@@ -39,7 +39,13 @@ export function AppRoutes({
           can place that column. Each route below therefore owns its own
           container from `lg` up: AppShell for everything inside the app,
           and the join route for itself. */}
-      <main className="mx-auto flex min-h-svh w-full max-w-md flex-col items-center gap-8 px-6 pt-6 sm:max-w-lg sm:px-8 lg:max-w-none lg:px-0 lg:pt-0">
+      {/* A reading column on a phone, fluid from `md` up. A small tablet is
+          not a big phone: capping it at max-w-lg there left a 512px column
+          marooned in the middle of a 900px screen with empty gutters either
+          side. From `md` it fills the width with a 32px gutter instead, and
+          only gets a max-width again once the window is wide enough for one
+          to mean something -- see AppShell. Per direct feedback. */}
+      <main className="mx-auto flex min-h-svh w-full max-w-md flex-col items-center gap-8 px-6 pt-6 sm:max-w-lg sm:px-8 md:max-w-none lg:px-0 lg:pt-0">
         <Routes>
           <Route
             element={

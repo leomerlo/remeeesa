@@ -131,7 +131,7 @@ describe('expenses prefix invalidation', () => {
 
     expect(
       await screen.findByRole('status', {
-        name: 'Presupuesto restante $100',
+        name: /^Te quedan \$100\./,
       }),
     ).toHaveTextContent('$100')
     expect(
@@ -153,7 +153,7 @@ describe('expenses prefix invalidation', () => {
     // new expense once the shared prefix invalidates.
     await waitFor(() => {
       expect(
-        screen.getByRole('status', { name: 'Presupuesto restante $90' }),
+        screen.getByRole('status', { name: /^Te quedan \$90\./ }),
       ).toHaveTextContent('$90')
     })
     expect(await screen.findByText('Pizza')).toBeInTheDocument()

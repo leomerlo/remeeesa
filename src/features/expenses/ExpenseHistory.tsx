@@ -1,13 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
 import { TintedBadge } from '@/components/CategoryBadge'
 import { MovementCard } from '@/components/MovementCard'
-import { Download, Lock, Pencil } from 'lucide-react'
+import { Download, Lock, Pencil, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AlertMessage } from '@/components/ui/alert-message'
 import { useMemo, useState } from 'react'
-import type { ReactElement } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { cn } from '@/lib/utils'
+import type { ReactElement, ReactNode } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { FilterTabs } from '@/components/ui/filter-tabs'
+import { PageToolbar } from '@/components/ui/page-toolbar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { membersQueryKey } from '@/features/household'
 import {
@@ -52,6 +53,9 @@ export type ExpenseHistoryProps = {
     purchase: CardPurchase,
     categoryName: string,
   ) => void
+  // Opens Histórico's own add form from an empty month. Optional, like
+  // RecentExpensesList's: without it the empty state simply has no button.
+  readonly onAddGasto?: () => void
 }
 
 type HistoryFilter = 'all' | 'servicio' | 'gasto'
@@ -106,7 +110,7 @@ function ExpenseRow({
         when={paidDateLabel(expense.expenseDate)}
         meta={authorDisplayName}
         amount={
-          <span className="font-display text-foreground text-lg">
+          <span className="money text-foreground text-lg">
             {formatAmount(expense.price, expense.currency)}
           </span>
         }
@@ -137,14 +141,15 @@ function ExpenseRow({
               actions: (
                 <Button
                   type="button"
-                  variant="ghost"
-                  size="icon-mini"
+                  variant="outline"
+                  size="sm"
                   aria-label={`Editar ${expense.name}`}
                   onClick={() => {
                     onEditExpense(expense, category?.name ?? '')
                   }}
                 >
                   <Pencil aria-hidden="true" />
+                  Editar
                 </Button>
               ),
             })}
@@ -184,7 +189,7 @@ function CardPurchaseRow({
         when={`Comprado el ${formatDate(purchase.purchaseDate)}`}
         meta={authorDisplayName}
         amount={
-          <span className="font-display text-muted-foreground text-lg">
+          <span className="money text-muted-foreground text-lg">
             {formatCurrency(purchase.total)}
           </span>
         }
@@ -219,14 +224,15 @@ function CardPurchaseRow({
                 actions: (
                   <Button
                     type="button"
-                    variant="ghost"
-                    size="icon-mini"
+                    variant="outline"
+                    size="sm"
                     aria-label={`Editar ${purchase.name}`}
                     onClick={() => {
                       onEditPurchase(purchase, category?.name ?? '')
                     }}
                   >
                     <Pencil aria-hidden="true" />
+                    Editar
                   </Button>
                 ),
               })}
@@ -240,6 +246,7 @@ export function ExpenseHistory({
   householdId,
   onEditExpense,
   onEditPurchase,
+  onAddGasto,
 }: ExpenseHistoryProps): ReactElement {
   // One month at a time, paged by the same control Home and Servicios use,
   // rather than an endless cursor-walk behind "Cargar más". Per direct
@@ -306,24 +313,44 @@ export function ExpenseHistory({
   // The pager and the tabs stay on screen while a month loads -- they are
   // this page's controls, and replacing them with a skeleton on every step
   // back through the year meant the way out vanished each time.
-  const controls = (
+  const controls = (action?: ReactNode): ReactElement => (
     <>
-      <SearchInput
-        label="Buscar movimientos"
-        placeholder="Buscar por nombre, categoría o comentario"
-        value={query}
-        onChange={setQuery}
+      <PageToolbar
+        // The pager steps aside while searching: you are either reading a
+        // month or looking through everything, and a pager that did not
+        // change what is on screen would be a lie. Clearing the box brings
+        // back the month you were on.
+        scope={
+          isSearching ? null : (
+            <MonthPager
+              inline
+              viewedMonth={viewedMonth}
+              onViewedMonthChange={setViewedMonth}
+            />
+          )
+        }
+        search={
+          <SearchInput
+            label="Buscar movimientos"
+            placeholder="Buscar movimientos"
+            value={query}
+            onChange={setQuery}
+          />
+        }
+        // Per direct feedback: no way to separate what a household pays as a
+        // recurring bill (Servicio) from a one-off, in-the-moment purchase
+        // (Gasto) -- the total below updates for whichever is selected,
+        // since it is computed from the filtered list.
+        tabs={
+          <FilterTabs
+            label="Filtrar histórico"
+            value={filter}
+            tabs={HISTORY_FILTERS}
+            onChange={setFilter}
+          />
+        }
+        action={action}
       />
-      {/* The pager steps aside while searching: you are either reading a
-          month or looking through everything, and a pager that did not
-          change what is on screen would be a lie. Clearing the box brings
-          back the month you were on. */}
-      {isSearching ? null : (
-        <MonthPager
-          viewedMonth={viewedMonth}
-          onViewedMonthChange={setViewedMonth}
-        />
-      )}
       {categoryFilter === null ? null : (
         <Button
           type="button"
@@ -339,41 +366,6 @@ export function ExpenseHistory({
           ✕
         </Button>
       )}
-      {/* Per direct feedback: no way to separate what a household pays as a
-          recurring bill (Servicio) from a one-off, in-the-moment purchase
-          (Gasto) -- the total below updates for whichever is selected,
-          since it's computed from the filtered list. */}
-      <div
-        role="tablist"
-        aria-label="Filtrar histórico"
-        // A segmented control, not three separate buttons: one track holding
-        // the three, with the selected one filled inside it. Three outlined
-        // pills in a row read as three unrelated actions -- this reads as
-        // one choice with three positions, which is what it is. Per direct
-        // feedback. Inactive labels clear AA on the track (4.95:1), the
-        // selected one on its fill (5.71:1).
-        className="bg-muted flex w-full gap-1 rounded-full p-1"
-      >
-        {HISTORY_FILTERS.map(({ value, label }) => (
-          <button
-            key={value}
-            type="button"
-            role="tab"
-            aria-selected={filter === value}
-            onClick={() => {
-              setFilter(value)
-            }}
-            className={cn(
-              'focus-visible:ring-ring/50 h-9 flex-1 rounded-full text-sm font-medium transition-colors outline-none focus-visible:ring-3',
-              filter === value
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
     </>
   )
 
@@ -385,7 +377,7 @@ export function ExpenseHistory({
   ) {
     return (
       <div className="flex w-full flex-col gap-6">
-        {controls}
+        {controls()}
         <div
           role="status"
           aria-label="Cargando…"
@@ -396,7 +388,7 @@ export function ExpenseHistory({
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="bg-card flex w-full items-center gap-3 rounded-2xl p-4"
+              className="bg-card card-surface flex w-full items-center gap-3 rounded-2xl p-4"
             >
               <Skeleton className="size-11 shrink-0 rounded-full" />
               <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -420,7 +412,7 @@ export function ExpenseHistory({
         : 'No se pudo cargar el histórico'
     return (
       <div className="flex w-full flex-col gap-6">
-        {controls}
+        {controls()}
         <AlertMessage>{message}</AlertMessage>
       </div>
     )
@@ -478,16 +470,21 @@ export function ExpenseHistory({
 
   return (
     <div className="flex w-full flex-col gap-6">
-      {controls}
-      {/* The whole month, not the selected tab: one file per month is what
-          makes two months comparable in a spreadsheet, and a file named for
-          September that held only its servicios would be a trap. Per direct
-          feedback. */}
-      <div className="flex w-full justify-end">
+      {/* The whole month, not the selected filter: one file per month is
+          what makes two months comparable in a spreadsheet, and a file named
+          for September that held only its servicios would be a trap. Per
+          direct feedback.
+
+          It used to sit on a row of its own under everything else, pinned
+          right, with the whole width empty beside it. In the toolbar it is
+          beside the other controls, where a secondary action belongs. */}
+      {controls(
         <Button
           type="button"
           variant="outline"
-          size="sm"
+          size="icon"
+          className="size-12 shrink-0 rounded-full lg:size-auto lg:gap-2 lg:px-4.5 lg:py-1.5"
+          title="Exportar mes"
           // Nothing to export while searching: the list on screen spans
           // months, and a file named for one of them would not be it.
           disabled={expenses.length === 0 || isSearching}
@@ -511,9 +508,9 @@ export function ExpenseHistory({
           }}
         >
           <Download aria-hidden="true" />
-          Exportar mes
-        </Button>
-      </div>
+          <span className="sr-only lg:not-sr-only">Exportar mes</span>
+        </Button>,
+      )}
       {/* The month's own total, for whichever of the three is selected --
           a history that only lists rows makes "what did we spend on
           servicios in July" a manual sum. */}
@@ -521,7 +518,7 @@ export function ExpenseHistory({
         <h2 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
           {isSearching ? 'Total encontrado' : FILTER_TOTAL_LABEL[filter]}
         </h2>
-        <span className="font-display text-title text-foreground shrink-0">
+        <span className="money text-title text-foreground shrink-0">
           {isSearchLoading ? '—' : formatCurrency(total)}
         </span>
       </div>
@@ -535,7 +532,7 @@ export function ExpenseHistory({
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className="bg-card flex w-full items-center gap-3 rounded-2xl p-4"
+              className="bg-card card-surface flex w-full items-center gap-3 rounded-2xl p-4"
             >
               <Skeleton className="size-11 shrink-0 rounded-full" />
               <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -550,24 +547,57 @@ export function ExpenseHistory({
           <EmptyState
             title="Sin resultados"
             description={`No encontramos nada para "${query.trim()}". Probá con otra palabra.`}
+            action={
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setQuery('')
+                }}
+              >
+                Limpiar la búsqueda
+              </Button>
+            }
           />
         ) : filter === 'servicio' ? (
           <EmptyState
             illustration={ILLUSTRATIONS.celebrating}
             title="Ningún servicio este mes"
             description="Los servicios que paguen van quedando registrados acá."
-          />
-        ) : filter === 'gasto' ? (
-          <EmptyState
-            illustration={ILLUSTRATIONS.celebrating}
-            title="Ningún gasto suelto este mes"
-            description="Los gastos del día a día aparecen acá apenas los carguen."
+            action={
+              <Button asChild variant="outline">
+                <Link to="/pendientes">Ir a Servicios</Link>
+              </Button>
+            }
           />
         ) : (
           <EmptyState
             illustration={ILLUSTRATIONS.celebrating}
-            title="Mes sin movimientos"
-            description="Acá va quedando todo: los gastos sueltos y los servicios que paguen."
+            title={
+              filter === 'gasto'
+                ? 'Ningún gasto suelto este mes'
+                : 'Mes sin movimientos'
+            }
+            description={
+              filter === 'gasto'
+                ? 'Los gastos del día a día aparecen acá apenas los carguen.'
+                : 'Acá va quedando todo: los gastos sueltos y los servicios que paguen.'
+            }
+            {...(onAddGasto === undefined
+              ? {}
+              : {
+                  action: (
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        onAddGasto()
+                      }}
+                    >
+                      <Plus aria-hidden="true" />
+                      Cargar un gasto
+                    </Button>
+                  ),
+                })}
           />
         )
       ) : (

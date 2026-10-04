@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { Plus } from 'lucide-react'
 import { cssVars } from '@/lib/cssVars'
 import { CategoryBadge } from '@/components/CategoryBadge'
 import { AlertMessage } from '@/components/ui/alert-message'
@@ -18,7 +19,10 @@ import {
   listCategories,
   listExpensesInMonth,
 } from '@/lib/expenses'
-import { colorForCategoryName } from '@/lib/expenses/categoryColor'
+import {
+  colorForCategoryName,
+  inkForCategoryColor,
+} from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { formatDate } from '@/lib/format'
 import type { Expense } from '@/lib/expenses'
@@ -46,6 +50,10 @@ export type RecentExpensesListProps = {
   // budget cards.
   readonly monthStart?: Date
   readonly monthEnd?: Date
+  // Opens the page's add form from the empty state. Optional: a screen
+  // without one of its own simply shows the empty state with nothing to
+  // press, rather than a button that goes nowhere.
+  readonly onAddGasto?: () => void
 }
 
 // A phone shows five before "Ver más"; a desktop window has the height for
@@ -83,6 +91,7 @@ export function RecentExpensesList({
   onEditPurchase,
   monthStart: monthStartProp,
   monthEnd: monthEndProp,
+  onAddGasto,
 }: RecentExpensesListProps): ReactElement {
   const defaultRange = useMemo(() => currentMonthRange(), [])
   const monthStart = monthStartProp ?? defaultRange.monthStart
@@ -136,7 +145,7 @@ export function RecentExpensesList({
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className="bg-card flex w-full items-center gap-3 rounded-2xl p-4"
+            className="bg-card card-surface flex w-full items-center gap-3 rounded-2xl p-4"
           >
             <Skeleton className="size-11 shrink-0 rounded-full" />
             <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -191,6 +200,21 @@ export function RecentExpensesList({
         illustration={ILLUSTRATIONS.writing}
         title="Todavía no anotaron nada"
         description="Los gastos del día a día van acá. Anotalos en el momento en que pagás."
+        {...(onAddGasto === undefined
+          ? {}
+          : {
+              action: (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    onAddGasto()
+                  }}
+                >
+                  <Plus aria-hidden="true" />
+                  Cargar el primero
+                </Button>
+              ),
+            })}
       />
     )
   }
@@ -239,21 +263,24 @@ export function RecentExpensesList({
                 aria-hidden="true"
                 data-testid="category-icon"
                 className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--swatch-color)]"
-                style={cssVars({ '--swatch-color': categoryColor })}
+                style={cssVars({
+                  '--swatch-color': categoryColor,
+                  '--swatch-ink': inkForCategoryColor(categoryColor),
+                })}
               >
                 <CategoryIcon
-                  className="size-5 text-white"
+                  className="size-5 text-[var(--swatch-ink)]"
                   aria-hidden="true"
                 />
               </span>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="truncate text-foreground font-medium">
+                  <span className="text-foreground truncate font-bold">
                     {item.name}
                   </span>
                   <span
                     className={cn(
-                      'font-display text-lg',
+                      'money text-lg',
                       row.kind === 'purchase'
                         ? 'text-muted-foreground'
                         : 'text-foreground',
@@ -304,14 +331,14 @@ export function RecentExpensesList({
               {onEdit !== undefined ? (
                 <button
                   type="button"
-                  className="bg-card flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
+                  className="bg-card card-surface flex w-full items-center gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
                   aria-label={`Editar ${item.name}`}
                   onClick={onEdit}
                 >
                   {rowContent}
                 </button>
               ) : (
-                <div className="bg-card flex w-full items-center gap-3 rounded-2xl p-4">
+                <div className="bg-card card-surface flex w-full items-center gap-3 rounded-2xl p-4">
                   {rowContent}
                 </div>
               )}
@@ -324,7 +351,14 @@ export function RecentExpensesList({
         // do at the foot of this list, and a link floating under a column
         // of cards read as a caption rather than as something to press.
         // Per direct feedback, at every width.
-        <Button asChild variant="outline" className="self-center px-8">
+        // Pinned right from `lg`, where every other footer action on the
+        // page already is; full width on a phone, where there is nothing to
+        // pin it against. Per direct feedback.
+        <Button
+          asChild
+          variant="outline"
+          className="w-full lg:w-auto lg:self-end"
+        >
           <Link to="/historico">Ver más</Link>
         </Button>
       ) : null}
