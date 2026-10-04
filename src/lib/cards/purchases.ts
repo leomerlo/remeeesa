@@ -1,4 +1,4 @@
-import { cardAccepts, countedByBudget, DEFAULT_CURRENCY } from '@/lib/money'
+import { cardAccepts, DEFAULT_CURRENCY } from '@/lib/money'
 import type { Currency } from '@/lib/money'
 import type { Expense } from '@/lib/expenses/types'
 import {
@@ -394,31 +394,54 @@ export async function markResumenPaid(input: {
   })
 }
 
+export type CardsDueTotal = {
+  readonly currency: Currency
+  readonly total: number
+}
+
 // Home's "Tarjetas el mes que viene": always the calendar month after today,
 // whichever month is on screen.
 //
-// One peso figure, so the dollar Resumen of a both-currencies card is left
-// out of it the same way every other dollar amount is left out of a peso
-// total -- see lib/money/currency.
-export function cardsDueNextMonthTotal(
+// One figure per currency, pesos first, and only the ones that are actually
+// owed. It used to return a single peso number with the dollar Resumen
+// dropped out of it -- which is right for a *budget* total, where mixing the
+// two would make it a number of nothing, but wrong here: this is not a
+// budget figure, it is what the cards are going to ask for, and a household
+// whose only bill next month is in dollars was shown nothing at all. Per
+// direct feedback. See lib/money/currency for why they are never added
+// together.
+export function cardsDueNextMonthTotals(
   pendientes: readonly Pendiente[],
   today: Date,
-): number {
+): readonly CardsDueTotal[] {
   const { monthStart, monthEnd } = currentMonthRange(
     new Date(today.getFullYear(), today.getMonth() + 1, 1),
   )
-  const resumenes = pendientesDueInMonth(pendientes, monthStart, monthEnd)
-    .filter((pendiente) => pendiente.cardId !== undefined)
-    .map((resumen) => ({
-      resumen,
-      currency: resumen.currency ?? DEFAULT_CURRENCY,
-    }))
-  const cents = countedByBudget(resumenes).reduce(
-    (sum, { resumen }) => sum + Math.round((resumen.expectedAmount ?? 0) * 100),
-    0,
-  )
-  return cents / 100
+  const cents = new Map<Currency, number>()
+  for (const resumen of pendientesDueInMonth(
+    pendientes,
+    monthStart,
+    monthEnd,
+  )) {
+    if (resumen.cardId === undefined) {
+      continue
+    }
+    const currency = resumen.currency ?? DEFAULT_CURRENCY
+    cents.set(
+      currency,
+      (cents.get(currency) ?? 0) +
+        Math.round((resumen.expectedAmount ?? 0) * 100),
+    )
+  }
+  return CURRENCY_ORDER.flatMap((currency) => {
+    const amount = cents.get(currency) ?? 0
+    return amount === 0 ? [] : [{ currency, total: amount / 100 }]
+  })
 }
+
+// Pesos first: it is the household's own currency, and the one most months
+// are entirely in.
+const CURRENCY_ORDER: readonly Currency[] = ['ARS', 'USD']
 
 // How a purchase reads in the movements list of its month, where it shows
 // but does not count: "Visa · 3 cuotas · no suma este mes".

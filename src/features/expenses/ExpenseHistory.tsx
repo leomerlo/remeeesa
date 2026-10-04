@@ -190,7 +190,7 @@ function CardPurchaseRow({
         meta={authorDisplayName}
         amount={
           <span className="money text-muted-foreground text-lg">
-            {formatCurrency(purchase.total)}
+            {formatAmount(purchase.total, purchase.currency)}
           </span>
         }
         badge={

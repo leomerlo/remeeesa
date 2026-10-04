@@ -403,12 +403,15 @@ async function seedCasa(
       day: 22,
     },
     // The dollar half of the same card: its own Resumen, recorded and
-    // labelled, and counted in no peso total anywhere in the app.
+    // labelled, and counted in no peso total anywhere in the app. In two
+    // cuotas so one lands in this month's Resumen and one in next month's
+    // -- which is what puts a dollar figure in "Tarjetas el mes que viene"
+    // beside the peso one, the case that used to show nothing at all.
     {
       cardId: amex.id,
       name: 'Suscripción anual',
-      total: 120,
-      cuotas: 1,
+      total: 240,
+      cuotas: 2,
       categoryId: ocio.id,
       day: 14,
       currency: 'USD',

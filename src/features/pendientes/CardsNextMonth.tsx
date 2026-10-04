@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
-import { cardsDueNextMonthTotal, RESUMEN_CATEGORY_NAME } from '@/lib/cards'
-import { formatBudgetAmount, listCategories } from '@/lib/expenses'
+import { cardsDueNextMonthTotals, RESUMEN_CATEGORY_NAME } from '@/lib/cards'
+import { formatAmount, listCategories } from '@/lib/expenses'
 import {
   colorForCategoryName,
   inkForCategoryColor,
@@ -48,11 +48,14 @@ export function CardsNextMonth({
   if (pendientesQuery.data === undefined) {
     return null
   }
-  const total = cardsDueNextMonthTotal(
+  // One figure per currency: a card billed in both settles each as its own
+  // resumen, and a month whose only bill is a dollar one used to show
+  // nothing here at all. Per direct feedback.
+  const totals = cardsDueNextMonthTotals(
     pendientesQuery.data.pendientes,
     new Date(),
   )
-  if (total === 0) {
+  if (totals.length === 0) {
     return null
   }
 
@@ -95,9 +98,15 @@ export function CardsNextMonth({
           Lo que van a pedir los resúmenes
         </span>
       </div>
-      <span className="money text-foreground shrink-0 text-xl">
-        {formatBudgetAmount(total)}
-      </span>
+      {/* Side by side on one line when there are two, each in its own
+          currency -- they are two separate bills, never one sum. */}
+      <div className="flex shrink-0 flex-col items-end">
+        {totals.map(({ currency, total }) => (
+          <span key={currency} className="money text-foreground text-xl">
+            {formatAmount(total, currency)}
+          </span>
+        ))}
+      </div>
     </section>
   )
 }

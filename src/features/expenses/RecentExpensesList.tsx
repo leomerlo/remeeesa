@@ -14,7 +14,6 @@ import { membersQueryKey } from '@/features/household'
 import {
   currentMonthRange,
   formatAmount,
-  formatCurrency,
   isServicio,
   listCategories,
   listExpensesInMonth,
@@ -288,7 +287,7 @@ export function RecentExpensesList({
                   >
                     {row.kind === 'expense'
                       ? formatAmount(row.expense.price, row.expense.currency)
-                      : formatCurrency(row.purchase.total)}
+                      : formatAmount(row.purchase.total, row.purchase.currency)}
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">

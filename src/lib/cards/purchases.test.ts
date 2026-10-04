@@ -24,7 +24,7 @@ import { createCard } from './cards'
 import {
   canPayResumen,
   CardPurchaseLockedError,
-  cardsDueNextMonthTotal,
+  cardsDueNextMonthTotals,
   createCardPurchase,
   deleteCardPurchase,
   listCardPurchasesInMonth,
@@ -838,7 +838,7 @@ describe('listResumenCuotas', () => {
   })
 })
 
-describe('cardsDueNextMonthTotal', () => {
+describe('cardsDueNextMonthTotals', () => {
   function resumen(overrides: Partial<Pendiente>): Pendiente {
     return {
       id: 'r',
@@ -860,7 +860,7 @@ describe('cardsDueNextMonthTotal', () => {
   }
 
   it("sums the unpaid Resúmenes due in the calendar month after today's", () => {
-    const total = cardsDueNextMonthTotal(
+    const totals = cardsDueNextMonthTotals(
       [
         resumen({ expectedAmount: 10.1 }),
         resumen({ expectedAmount: 20.2, cardId: 'card-2' }),
@@ -875,16 +875,16 @@ describe('cardsDueNextMonthTotal', () => {
       new Date(2026, 8, 30),
     )
 
-    expect(total).toBe(30.3)
+    expect(totals).toEqual([{ currency: 'ARS', total: 30.3 }])
   })
 
   it('rolls December into January of the next year', () => {
     expect(
-      cardsDueNextMonthTotal(
+      cardsDueNextMonthTotals(
         [resumen({ dueDate: new Date(2027, 0, 10), expectedAmount: 5 })],
         new Date(2026, 11, 31),
       ),
-    ).toBe(5)
+    ).toEqual([{ currency: 'ARS', total: 5 }])
   })
 })
 
@@ -1336,7 +1336,7 @@ describe('a card that holds both currencies', () => {
     expect(await remainingIn(s, 2026, 9)).toBe(1000)
   })
 
-  it('leaves the dollar Resumen out of "Tarjetas el mes que viene"', async () => {
+  it('shows both currencies in "Tarjetas el mes que viene"', async () => {
     const s = await bothSetup()
 
     await purchase(s, {
@@ -1357,7 +1357,14 @@ describe('a card that holds both currencies', () => {
       householdId: s.householdId,
     })
 
-    expect(cardsDueNextMonthTotal(pendientes, TODAY)).toBe(300)
+    // Both, each in its own currency and never added together: the dollar
+    // resumen is a bill the household is going to be asked for, even
+    // though it commits no pesos. It used to be dropped, which left a
+    // household whose only bill next month is in dollars shown nothing.
+    expect(cardsDueNextMonthTotals(pendientes, TODAY)).toEqual([
+      { currency: 'ARS', total: 300 },
+      { currency: 'USD', total: 50 },
+    ])
   })
 
   it('records the expenses of a paid dollar Resumen in dollars', async () => {

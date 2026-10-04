@@ -1,6 +1,6 @@
 export type { Card, CardBrand, CardPurchase } from './types'
 export { CARD_BRANDS, isCardBrand, parseCardBrand } from './types'
-export type { ResumenCuota } from './purchases'
+export type { CardsDueTotal, ResumenCuota } from './purchases'
 export {
   CardNameTakenError,
   createCard,
@@ -16,7 +16,7 @@ export {
   CardPurchaseLockedError,
   CardPurchaseNotFoundError,
   cardPurchaseMark,
-  cardsDueNextMonthTotal,
+  cardsDueNextMonthTotals,
   createCardPurchase,
   deleteCardPurchase,
   listCardPurchasesInMonth,
