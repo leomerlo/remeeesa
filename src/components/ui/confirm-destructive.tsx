@@ -30,7 +30,14 @@ export function ConfirmDestructive({
   onConfirm,
 }: ConfirmDestructiveProps): ReactElement {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} title={title}>
+    <Sheet
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      // A question, not a form: it stays a small centred card on a phone
+      // too, rather than taking over the screen to ask "¿seguro?".
+      variant="prompt"
+    >
       <div className="flex w-full flex-col gap-6">
         <div className="flex flex-col gap-2">
           <h2 className="text-title font-semibold">{title}</h2>

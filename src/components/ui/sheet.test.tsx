@@ -228,7 +228,9 @@ describe('Sheet', () => {
     )
 
     const content = document.querySelector('[data-slot="sheet-content"]')
-    expect(content).toHaveClass('max-h-[85vh]')
+    // A form fills the phone screen; the 85vh cap is what holds the
+    // centred card from `lg` up.
+    expect(content).toHaveClass('h-full', 'lg:max-h-[85vh]')
 
     const body = document.querySelector('[data-slot="sheet-body"]')
     // `min-h-0` is required here: without it, a flex item's default
@@ -238,12 +240,39 @@ describe('Sheet', () => {
     // action footer) is each Sheet-hosted form's own responsibility -- see
     // e.g. AddExpenseForm -- rather than this body, so a tall form's submit
     // button never scrolls out of reach.
-    expect(body).toHaveClass('flex', 'min-h-0', 'flex-col')
+    expect(body).toHaveClass('flex', 'min-h-0', 'flex-1', 'flex-col')
   })
 
-  it('is a centred modal at every width, not a bottom-anchored sheet on phones', () => {
+  // A form takes the whole phone screen -- squeezed into a card with
+  // margins on four sides there was barely a field visible with the
+  // keyboard up -- and is a centred card from `lg`. Per direct feedback.
+  it('fills the screen on a phone and is a centred card from lg', () => {
     render(
       <Sheet open onOpenChange={() => {}} title="Sheet title">
+        <p>Sheet body</p>
+      </Sheet>,
+    )
+
+    const content = document.querySelector('[data-slot="sheet-content"]')
+    expect(content).toHaveClass('inset-0', 'h-full', 'w-full', 'rounded-none')
+    expect(content).toHaveClass(
+      'lg:top-1/2',
+      'lg:left-1/2',
+      'lg:-translate-x-1/2',
+      'lg:-translate-y-1/2',
+      'lg:rounded-3xl',
+    )
+    // The old bottom-sheet anchoring must be gone at every width: this is a
+    // full panel, not a drawer rising part-way up the screen.
+    expect(content).not.toHaveClass('bottom-0')
+    expect(content).not.toHaveClass('rounded-t-3xl')
+  })
+
+  // Asking "¿seguro?" does not need the whole screen, so a destructive
+  // confirmation stays the centred card it has always been.
+  it('stays a centred card at every width for a prompt', () => {
+    render(
+      <Sheet open onOpenChange={() => {}} title="Sheet title" variant="prompt">
         <p>Sheet body</p>
       </Sheet>,
     )
@@ -255,12 +284,9 @@ describe('Sheet', () => {
       '-translate-x-1/2',
       '-translate-y-1/2',
       'rounded-3xl',
+      'max-h-[85vh]',
     )
-    // The old bottom-sheet anchoring must be gone at every width, including
-    // below `lg` where it used to be the default.
-    expect(content).not.toHaveClass('bottom-0')
-    expect(content).not.toHaveClass('inset-x-0')
-    expect(content).not.toHaveClass('rounded-t-3xl')
+    expect(content).not.toHaveClass('inset-0')
   })
 
   it('keeps the close control outside the scrollable body so it never scrolls out of reach', () => {
