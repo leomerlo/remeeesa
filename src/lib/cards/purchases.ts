@@ -1,4 +1,5 @@
-import { DEFAULT_CURRENCY } from '@/lib/money'
+import { cardAccepts, countedByBudget, DEFAULT_CURRENCY } from '@/lib/money'
+import type { Currency } from '@/lib/money'
 import type { Expense } from '@/lib/expenses/types'
 import {
   parseAuthorDisplayName,
@@ -59,6 +60,16 @@ export class CardPurchaseLockedError extends Error {
   }
 }
 
+// The purchase's currency is not one the card holds -- the card was
+// narrowed while the form was open on the other currency.
+export class CardCurrencyNotAcceptedError extends Error {
+  override readonly name = 'CardCurrencyNotAcceptedError'
+
+  constructor(cardName: string) {
+    super(`${cardName} no admite consumos en esa moneda.`)
+  }
+}
+
 export class CardNotFoundError extends Error {
   override readonly name = 'CardNotFoundError'
 
@@ -101,12 +112,15 @@ export async function createCardPurchase(input: {
   readonly cuotas: number
   readonly purchaseDate: Date
   readonly comments: string
+  // Pesos when omitted; must be one the card holds.
+  readonly currency?: Currency
 }): Promise<CardPurchase> {
   const name = parseExpenseName(input.name)
   const total = parseExpensePrice(input.total)
   const cuotas = parseCuotas(input.cuotas, total)
   const purchaseDate = parseExpenseDate(input.purchaseDate)
   const authorDisplayName = parseAuthorDisplayName(input.authorDisplayName)
+  const currency = await assertCardAccepts(input.db, input)
   const resumenCategory = await input.db.findOrCreateCategory({
     householdId: input.householdId,
     name: RESUMEN_CATEGORY_NAME,
@@ -123,7 +137,31 @@ export async function createCardPurchase(input: {
     cuotas,
     purchaseDate,
     comments: input.comments,
+    currency,
   })
+}
+
+// The currency the purchase will be saved in, once the card is known to
+// hold it. Pesos when the caller said nothing, which is what every call
+// written before a card could hold two currencies meant.
+async function assertCardAccepts(
+  db: HouseholdsDb,
+  input: {
+    readonly householdId: string
+    readonly cardId: string
+    readonly currency?: Currency
+  },
+): Promise<Currency> {
+  const currency = input.currency ?? DEFAULT_CURRENCY
+  const cards = await db.listCards({ householdId: input.householdId })
+  const card = cards.find((candidate) => candidate.id === input.cardId)
+  if (card === undefined) {
+    throw new CardNotFoundError()
+  }
+  if (!cardAccepts(card.currency, currency)) {
+    throw new CardCurrencyNotAcceptedError(card.name)
+  }
+  return currency
 }
 
 // Any field may change, card and cuotas included: the old cuotas leave their
@@ -139,12 +177,14 @@ export async function updateCardPurchase(input: {
   readonly cuotas: number
   readonly purchaseDate: Date
   readonly comments: string
+  readonly currency?: Currency
 }): Promise<CardPurchase> {
   const name = parseExpenseName(input.name)
   const total = parseExpensePrice(input.total)
   const cuotas = parseCuotas(input.cuotas, total)
   const purchaseDate = parseExpenseDate(input.purchaseDate)
-  // A new month may need a new Resumen.
+  const currency = await assertCardAccepts(input.db, input)
+  // A new month -- or a new currency -- may need a new Resumen.
   const resumenCategory = await input.db.findOrCreateCategory({
     householdId: input.householdId,
     name: RESUMEN_CATEGORY_NAME,
@@ -160,6 +200,7 @@ export async function updateCardPurchase(input: {
     cuotas,
     purchaseDate,
     comments: input.comments,
+    currency,
   })
 }
 
@@ -319,17 +360,15 @@ export async function markResumenPaid(input: {
     householdId: input.householdId,
     name: RESUMEN_CATEGORY_NAME,
   })
-  // Which card's Resumen this is decides the currency of the expenses the
-  // payment writes. Read before the transaction: the transaction re-checks
-  // the Resumen's own state, and the card's currency cannot change.
+  // The Resumen's own currency decides what the expenses the payment writes
+  // are denominated in -- not the card's, which may hold both and in any
+  // case can be changed after the fact. A Resumen saved before a card could
+  // hold two currencies carries none, and was a peso one.
   const resumen = await input.db.getPendiente({
     householdId: input.householdId,
     pendienteId: input.resumenId,
   })
-  const cards = await input.db.listCards({ householdId: input.householdId })
-  const currency =
-    cards.find((card) => card.id === resumen?.cardId)?.currency ??
-    DEFAULT_CURRENCY
+  const currency = resumen?.currency ?? DEFAULT_CURRENCY
   return input.db.markResumenPaid({
     currency,
     householdId: input.householdId,
@@ -344,6 +383,10 @@ export async function markResumenPaid(input: {
 
 // Home's "Tarjetas el mes que viene": always the calendar month after today,
 // whichever month is on screen.
+//
+// One peso figure, so the dollar Resumen of a both-currencies card is left
+// out of it the same way every other dollar amount is left out of a peso
+// total -- see lib/money/currency.
 export function cardsDueNextMonthTotal(
   pendientes: readonly Pendiente[],
   today: Date,
@@ -351,12 +394,16 @@ export function cardsDueNextMonthTotal(
   const { monthStart, monthEnd } = currentMonthRange(
     new Date(today.getFullYear(), today.getMonth() + 1, 1),
   )
-  const cents = pendientesDueInMonth(pendientes, monthStart, monthEnd)
+  const resumenes = pendientesDueInMonth(pendientes, monthStart, monthEnd)
     .filter((pendiente) => pendiente.cardId !== undefined)
-    .reduce(
-      (sum, resumen) => sum + Math.round((resumen.expectedAmount ?? 0) * 100),
-      0,
-    )
+    .map((resumen) => ({
+      resumen,
+      currency: resumen.currency ?? DEFAULT_CURRENCY,
+    }))
+  const cents = countedByBudget(resumenes).reduce(
+    (sum, { resumen }) => sum + Math.round((resumen.expectedAmount ?? 0) * 100),
+    0,
+  )
   return cents / 100
 }
 

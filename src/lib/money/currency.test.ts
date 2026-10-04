@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  cardAccepts,
   countedByBudget,
   countsTowardBudget,
+  currenciesOf,
   DEFAULT_CURRENCY,
+  defaultCurrencyOf,
   isCurrency,
+  parseCardCurrency,
   parseCurrency,
 } from './currency'
 
@@ -55,5 +59,52 @@ describe('countedByBudget', () => {
     const items = [{ currency: 'ARS' as const }]
 
     expect(countedByBudget(items)).toEqual(items)
+  })
+})
+
+describe('parseCardCurrency', () => {
+  it('keeps each of the three values a card can hold', () => {
+    expect(parseCardCurrency('ARS')).toBe('ARS')
+    expect(parseCardCurrency('USD')).toBe('USD')
+    expect(parseCardCurrency('BOTH')).toBe('BOTH')
+  })
+
+  it('reads a card written before currencies existed as pesos', () => {
+    expect(parseCardCurrency(undefined)).toBe('ARS')
+    expect(parseCardCurrency('EUR')).toBe('ARS')
+  })
+})
+
+describe('currenciesOf', () => {
+  it('offers both currencies on a both-currencies card, pesos first', () => {
+    expect(currenciesOf('BOTH')).toEqual(['ARS', 'USD'])
+  })
+
+  it('offers only its own on a single-currency card', () => {
+    expect(currenciesOf('ARS')).toEqual(['ARS'])
+    expect(currenciesOf('USD')).toEqual(['USD'])
+  })
+})
+
+describe('defaultCurrencyOf', () => {
+  it('starts a both-currencies card in pesos', () => {
+    expect(defaultCurrencyOf('BOTH')).toBe('ARS')
+  })
+
+  it('starts a single-currency card in its own currency', () => {
+    expect(defaultCurrencyOf('USD')).toBe('USD')
+    expect(defaultCurrencyOf('ARS')).toBe('ARS')
+  })
+})
+
+describe('cardAccepts', () => {
+  it('lets a both-currencies card take either one', () => {
+    expect(cardAccepts('BOTH', 'ARS')).toBe(true)
+    expect(cardAccepts('BOTH', 'USD')).toBe(true)
+  })
+
+  it('refuses the currency a single-currency card does not hold', () => {
+    expect(cardAccepts('ARS', 'USD')).toBe(false)
+    expect(cardAccepts('USD', 'ARS')).toBe(false)
   })
 })

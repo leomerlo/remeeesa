@@ -1,3 +1,6 @@
+import { DEFAULT_CURRENCY } from '@/lib/money'
+import type { Currency } from '@/lib/money'
+
 export type Cuota = {
   // 1-based: cuota k of N.
   readonly number: number
@@ -32,9 +35,26 @@ export function cuotasOf(input: {
 
 // Deterministic so a transaction can tx.get the Resumen (client transactions
 // cannot query).
-export function resumenIdFor(cardId: string, monthStart: Date): string {
+//
+// A card that holds both currencies has one Resumen per currency per month:
+// a dollar cuota cannot be added into a peso total, so they are separate
+// bills that are settled separately -- which is how the bank bills them
+// too. Pesos keep the id this function returned before currencies existed,
+// unsuffixed, so every Resumen already saved stays exactly where it is.
+export function resumenIdFor(
+  cardId: string,
+  monthStart: Date,
+  currency: Currency = DEFAULT_CURRENCY,
+): string {
   const month = String(monthStart.getMonth() + 1).padStart(2, '0')
-  return `${cardId}_${String(monthStart.getFullYear())}-${month}`
+  const base = `${cardId}_${String(monthStart.getFullYear())}-${month}`
+  return currency === DEFAULT_CURRENCY ? base : `${base}_${currency}`
+}
+
+// What a Resumen of a dollar purchase is called, so the two Resúmenes of
+// the same card in the same month are told apart wherever they are listed.
+export function resumenNameFor(cardName: string, currency: Currency): string {
+  return currency === DEFAULT_CURRENCY ? cardName : `${cardName} US$`
 }
 
 type CuotaSource = {
@@ -42,12 +62,15 @@ type CuotaSource = {
   readonly total: number
   readonly cuotas: number
   readonly purchaseDate: Date
+  readonly currency: Currency
 }
 
 // What editing or deleting a purchase does to one Resumen.
 export type ResumenChange = {
   readonly id: string
   readonly monthStart: Date
+  // Which of the card's Resúmenes of that month this is.
+  readonly currency: Currency
   // Added to the Resumen's amount; negative when a cuota leaves it.
   readonly cents: number
   // Whether the purchase still has a cuota in this Resumen afterwards.
@@ -66,11 +89,12 @@ export function resumenChanges(
       return
     }
     for (const cuota of cuotasOf(source)) {
-      const id = resumenIdFor(source.cardId, cuota.monthStart)
+      const id = resumenIdFor(source.cardId, cuota.monthStart, source.currency)
       const current = changes.get(id)
       changes.set(id, {
         id,
         monthStart: cuota.monthStart,
+        currency: source.currency,
         cents: (current?.cents ?? 0) + sign * Math.round(cuota.amount * 100),
         holdsPurchase: (current?.holdsPurchase ?? false) || sign === 1,
       })

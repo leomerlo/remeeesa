@@ -36,3 +36,41 @@ export function countedByBudget<T extends { readonly currency: Currency }>(
 ): readonly T[] {
   return items.filter(countsTowardBudget)
 }
+
+// What currencies a card can hold. A real credit card in Argentina often
+// carries both: pesos for everything local and dollars for the purchases
+// the bank bills in dollars, each settled as its own resumen. 'BOTH' says
+// the card does that, and is what makes the currency a per-purchase choice
+// instead of a property of the card. Per direct feedback.
+export type CardCurrency = Currency | 'BOTH'
+
+export function isCardCurrency(value: unknown): value is CardCurrency {
+  return isCurrency(value) || value === 'BOTH'
+}
+
+// Same reasoning as parseCurrency: a card written before this existed holds
+// exactly one currency, and pesos when it does not say which.
+export function parseCardCurrency(value: unknown): CardCurrency {
+  return isCardCurrency(value) ? value : DEFAULT_CURRENCY
+}
+
+// The currencies a purchase on this card may be in, in the order they are
+// offered. A single-currency card offers exactly one, which is why the form
+// shows a fixed label there rather than a choice.
+export function currenciesOf(card: CardCurrency): readonly Currency[] {
+  return card === 'BOTH' ? ['ARS', 'USD'] : [card]
+}
+
+// Which currency a new purchase on this card starts in. Pesos whenever the
+// card holds them at all: on a both-currencies card the dollar purchase is
+// the exception, the same way it is off a card.
+export function defaultCurrencyOf(card: CardCurrency): Currency {
+  return card === 'USD' ? 'USD' : DEFAULT_CURRENCY
+}
+
+// Whether a purchase in this currency can go on this card. Guards the one
+// case the UI cannot: a card narrowed from 'BOTH' to a single currency
+// while a form was open on the other one.
+export function cardAccepts(card: CardCurrency, currency: Currency): boolean {
+  return currenciesOf(card).includes(currency)
+}

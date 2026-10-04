@@ -200,6 +200,35 @@ describe('CardsSection', () => {
         expect(card?.currency).toBe('ARS')
       })
     })
+
+    // The ordinary Argentine credit card: billed in pesos, and separately
+    // in dollars for whatever the bank bills in dollars.
+    it('offers the three things a card can be', async () => {
+      await renderWithCard()
+
+      expect(
+        [
+          ...screen.getByLabelText('Moneda de Visa').querySelectorAll('option'),
+        ].map((option) => [option.value, option.textContent]),
+      ).toEqual([
+        ['ARS', '$'],
+        ['USD', 'US$'],
+        ['BOTH', '$ y US$'],
+      ])
+    })
+
+    it('switches a card to holding both currencies', async () => {
+      const { db, householdId } = await renderWithCard()
+
+      fireEvent.change(screen.getByLabelText('Moneda de Visa'), {
+        target: { value: 'BOTH' },
+      })
+
+      await waitFor(async () => {
+        const [card] = await listCards({ db, householdId })
+        expect(card?.currency).toBe('BOTH')
+      })
+    })
   })
 
   describe('renaming', () => {

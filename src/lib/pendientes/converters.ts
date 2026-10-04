@@ -1,3 +1,4 @@
+import { parseCurrency } from '@/lib/money'
 import { Timestamp } from 'firebase/firestore'
 import {
   isRecord,
@@ -68,6 +69,7 @@ export function parsePendienteDocument(input: {
     card_id,
     purchase_ids,
     paid_expense_ids,
+    currency,
   } = input.data
   if (typeof name !== 'string') {
     throw new Error('Pendiente name must be a string')
@@ -99,6 +101,9 @@ export function parsePendienteDocument(input: {
       : {
           cardId: parseRequiredString(card_id, 'card_id'),
           purchaseIds: parseStringList(purchase_ids, 'purchase_ids'),
+          // A Resumen written before a card could hold two currencies is a
+          // peso one, which is what its card was.
+          currency: parseCurrency(currency),
           // Absent until the Resumen is first paid.
           ...(paid_expense_ids === undefined
             ? {}
@@ -112,7 +117,10 @@ export function parsePendienteDocument(input: {
   }
 }
 
-export function parseStringList(value: unknown, field: string): readonly string[] {
+export function parseStringList(
+  value: unknown,
+  field: string,
+): readonly string[] {
   if (
     !Array.isArray(value) ||
     !value.every((item): item is string => typeof item === 'string')

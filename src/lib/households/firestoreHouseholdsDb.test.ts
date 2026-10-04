@@ -136,6 +136,35 @@ describe('the adapter persists per-month budgets', () => {
     expect(body).toContain('monthly_budgets: input.monthlyBudgets')
   })
 
+  // Same reason: every test above runs against the memory database, so a
+  // Firestore adapter that dropped the currency would look green here while
+  // in production every dollar consumo landed in the peso Resumen -- and
+  // was then subtracted from the peso budget.
+  it('stamps the currency on a card purchase and on the Resumen it creates', () => {
+    const body = adapterSource.slice(
+      adapterSource.indexOf('async createCardPurchase'),
+      adapterSource.indexOf('async updateCardPurchase'),
+    )
+    expect(body).toContain('currency: input.currency')
+    expect(body).toContain(
+      'resumenIdFor(input.cardId, cuota.monthStart, input.currency)',
+    )
+    const newResumen = adapterSource.slice(
+      adapterSource.indexOf('function newResumenDocument'),
+    )
+    expect(newResumen.slice(0, newResumen.indexOf('\n}\n'))).toContain(
+      'currency: input.currency',
+    )
+  })
+
+  it('rewrites the currency when a purchase is edited', () => {
+    const body = adapterSource.slice(
+      adapterSource.indexOf('async updateCardPurchase'),
+      adapterSource.indexOf('async deleteCardPurchase'),
+    )
+    expect(body).toContain('currency: input.currency')
+  })
+
   it('writes monthly_budgets when the name and budget are updated together', () => {
     const body = adapterSource.slice(
       adapterSource.indexOf('async updateHousehold'),
@@ -390,7 +419,7 @@ describe('firestore.rules pendientes', () => {
   it('requires the exact field set and a category belonging to the same household', () => {
     expect(rules).toContain('function isValidPendiente(data)')
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'auto_debit', 'status', 'paid_expense_id', 'paid_at', 'created_at', 'card_id', 'purchase_ids'])",
+      "data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'auto_debit', 'status', 'paid_expense_id', 'paid_at', 'created_at', 'card_id', 'currency', 'purchase_ids'])",
     )
     expect(rules).toContain('data.due_date is timestamp')
     expect(rules).toContain(
@@ -811,9 +840,7 @@ describe('firestore.rules Resúmenes', () => {
       '? isValidResumen(pendienteId, request.resource.data)',
     )
     const fn = ruleFunction('isValidResumen')
-    expect(fn).toContain(
-      'pendienteId[0:pendienteId.size() - 8] == data.card_id',
-    )
+    expect(fn).toContain('resumenCardId(pendienteId) == data.card_id')
     expect(fn).toContain('data.purchase_ids.size() == 1')
     expect(fn).toContain('data.expected_amount is number')
     expect(fn).toContain(
@@ -839,7 +866,7 @@ describe('firestore.rules Resúmenes', () => {
   it('keeps an edit off the author and the timestamps, and re-validates the whole purchase', () => {
     const fn = ruleFunction('isValidCardPurchaseEdit')
     expect(fn).toContain(
-      ".hasOnly(['card_id', 'category_id', 'name', 'total', 'cuotas', 'purchase_date', 'comments'])",
+      ".hasOnly(['card_id', 'category_id', 'name', 'total', 'cuotas', 'purchase_date', 'comments', 'currency'])",
     )
     expect(fn).toContain('isValidCardPurchase(request.resource.data)')
   })
@@ -858,8 +885,38 @@ describe('firestore.rules Resúmenes', () => {
   })
 
   it('reserves Resumen-shaped ids for Resúmenes so no one can squat on a card month', () => {
-    expect(rules).toContain(
-      ": !pendienteId.matches('^.+_[0-9]{4}-[0-9]{2}$'));",
+    expect(rules).toContain(': !isResumenId(pendienteId));')
+  })
+
+  // The dollar Resumen of a both-currencies card is the same id plus _USD,
+  // so the id pattern and the card-id slice both have to know about it --
+  // otherwise rules reject every dollar purchase in production while every
+  // test here, which runs against the memory adapter, still passes.
+  it('accepts the _USD Resumen id and reads the card id out of either form', () => {
+    expect(ruleFunction('isResumenId')).toContain(
+      "pendienteId.matches('^.+_[0-9]{4}-[0-9]{2}(_USD)?$')",
+    )
+    const cardId = ruleFunction('resumenCardId')
+    expect(cardId).toContain(
+      "pendienteId.matches('^.+_[0-9]{4}-[0-9]{2}_USD$')",
+    )
+    expect(cardId).toContain('pendienteId[0:pendienteId.size() - 12]')
+    expect(cardId).toContain('pendienteId[0:pendienteId.size() - 8]')
+  })
+
+  // The adapter writes these; without them in the key list every dollar
+  // purchase and every Resumen carrying a currency is refused.
+  it('lets a card hold both currencies, and stamps one on purchases and Resúmenes', () => {
+    expect(ruleFunction('isValidCard')).toContain(
+      "data.currency in ['ARS', 'USD', 'BOTH']",
+    )
+    const purchase = ruleFunction('isValidCardPurchase')
+    expect(purchase).toContain("'comments', 'currency', 'created_at'")
+    expect(purchase).toContain(
+      "(!('currency' in data) || data.currency in ['ARS', 'USD'])",
+    )
+    expect(ruleFunction('isValidPendiente')).toContain(
+      "(!('currency' in data) || data.currency in ['ARS', 'USD'])",
     )
   })
 

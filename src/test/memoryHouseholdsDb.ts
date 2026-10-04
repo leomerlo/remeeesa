@@ -1,4 +1,5 @@
 import { DEFAULT_CURRENCY } from '@/lib/money'
+import type { Currency } from '@/lib/money'
 import {
   PendienteAlreadyPaidError,
   PendienteNotFoundError,
@@ -11,6 +12,7 @@ import {
   cuotasOf,
   resumenChanges,
   resumenIdFor,
+  resumenNameFor,
 } from '@/lib/cards/cuotas'
 import {
   CardNotFoundError,
@@ -188,7 +190,11 @@ function moveCuotas(
   state: MemoryState,
   before: CardPurchase,
   after: CardPurchase | null,
-  newResumen: (monthStart: Date, cents: number) => Pendiente,
+  newResumen: (
+    monthStart: Date,
+    cents: number,
+    currency: Currency,
+  ) => Pendiente,
 ): void {
   const writes = resumenChanges(before, after).map((change) => {
     const existing = state.pendientes.get(change.id)
@@ -197,7 +203,7 @@ function moveCuotas(
     }
     if (existing === undefined) {
       return change.holdsPurchase
-        ? newResumen(change.monthStart, change.cents)
+        ? newResumen(change.monthStart, change.cents, change.currency)
         : { id: change.id, delete: true as const }
     }
     const next = applyResumenChange(existing, change, before.id)
@@ -775,13 +781,14 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         cuotas: input.cuotas,
         purchaseDate: input.purchaseDate,
         comments: input.comments,
+        currency: input.currency,
         createdAt,
         paidResumenIds: [],
       }
       // Every Resumen is built before any write, mirroring the real
       // adapter's all-or-nothing transaction.
       const resumenes = cuotasOf(input).map((cuota): Pendiente => {
-        const id = resumenIdFor(input.cardId, cuota.monthStart)
+        const id = resumenIdFor(input.cardId, cuota.monthStart, input.currency)
         const existing = state.pendientes.get(id)
         if (existing?.status === 'paid') {
           throw new ResumenAlreadyPaidError(card.name, cuota.monthStart)
@@ -800,7 +807,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
           id,
           householdId: input.householdId,
           categoryId: input.resumenCategoryId,
-          name: card.name,
+          name: resumenNameFor(card.name, input.currency),
           dueDate: new Date(
             cuota.monthStart.getFullYear(),
             cuota.monthStart.getMonth(),
@@ -814,6 +821,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
           paidAt: null,
           createdAt,
           cardId: input.cardId,
+          currency: input.currency,
           purchaseIds: [purchase.id],
         }
       })
@@ -850,12 +858,13 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         cuotas: input.cuotas,
         purchaseDate: input.purchaseDate,
         comments: input.comments,
+        currency: input.currency,
       }
-      moveCuotas(state, before, after, (monthStart, cents) => ({
-        id: resumenIdFor(card.id, monthStart),
+      moveCuotas(state, before, after, (monthStart, cents, currency) => ({
+        id: resumenIdFor(card.id, monthStart, currency),
         householdId: input.householdId,
         categoryId: input.resumenCategoryId,
-        name: card.name,
+        name: resumenNameFor(card.name, currency),
         dueDate: new Date(
           monthStart.getFullYear(),
           monthStart.getMonth(),
@@ -869,6 +878,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         paidAt: null,
         createdAt: new Date(),
         cardId: card.id,
+        currency,
         purchaseIds: [before.id],
       }))
       state.cardPurchases.set(after.id, after)

@@ -4,7 +4,7 @@ import {
   parseTimestamp,
 } from '@/lib/firestore/documentParsing'
 import { parseStringList } from '@/lib/pendientes/converters'
-import { parseCurrency } from '@/lib/money'
+import { parseCardCurrency, parseCurrency } from '@/lib/money'
 import type { Card, CardPurchase } from './types'
 
 export function parseCardDocument(input: {
@@ -23,7 +23,7 @@ export function parseCardDocument(input: {
     householdId: parseRequiredString(household_id, 'household_id'),
     name: parseRequiredString(name, 'name').trim(),
     // Every card written before currencies existed is in pesos.
-    currency: parseCurrency(currency),
+    currency: parseCardCurrency(currency),
     createdAt: parseTimestamp(created_at, 'created_at'),
   }
 }
@@ -57,6 +57,9 @@ export function parseCardPurchaseDocument(input: {
     cuotas: d.cuotas,
     purchaseDate: parseTimestamp(d.purchase_date, 'purchase_date'),
     comments: typeof d.comments === 'string' ? d.comments : '',
+    // Every purchase written before a card could hold two currencies is in
+    // pesos, which is what its card held.
+    currency: parseCurrency(d.currency),
     createdAt: parseTimestamp(d.created_at, 'created_at'),
     // Absent until one of its Resúmenes is paid.
     paidResumenIds:

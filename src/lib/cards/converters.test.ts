@@ -97,9 +97,20 @@ describe('parseCardPurchaseDocument', () => {
       cuotas: 3,
       purchaseDate: new Date(2026, 8, 5),
       comments: '',
+      currency: 'ARS',
       createdAt,
       paidResumenIds: [],
     })
+  })
+
+  it('reads a dollar purchase, and a currency-less one as pesos', () => {
+    expect(
+      parseCardPurchaseDocument({
+        id: 'p-1',
+        data: { ...data, currency: 'USD' },
+      }).currency,
+    ).toBe('USD')
+    expect(parseCardPurchaseDocument({ id: 'p-1', data }).currency).toBe('ARS')
   })
 
   it('reads the paid Resúmenes that lock it', () => {

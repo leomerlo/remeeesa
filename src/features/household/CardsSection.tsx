@@ -13,12 +13,24 @@ import {
   renameCard,
   updateCardCurrency,
 } from '@/lib/cards'
-import { DEFAULT_CURRENCY } from '@/lib/money'
-import type { Currency } from '@/lib/money'
+import { DEFAULT_CURRENCY, parseCardCurrency } from '@/lib/money'
+import type { CardCurrency } from '@/lib/money'
 import type { Card } from '@/lib/cards'
 import type { HouseholdsDb } from '@/lib/households'
 import { pendientesQueryKey } from '@/features/pendientes/queryKeys'
 import { cardsQueryKey } from './cardsQueryKey'
+
+// The three things a card can be, in the order they are offered. "$ y US$"
+// is the ordinary Argentine credit card: billed in pesos, plus a separate
+// dollar total for whatever the bank bills in dollars.
+const CARD_CURRENCY_OPTIONS: readonly {
+  readonly value: CardCurrency
+  readonly label: string
+}[] = [
+  { value: 'ARS', label: '$' },
+  { value: 'USD', label: 'US$' },
+  { value: 'BOTH', label: '$ y US$' },
+]
 
 export type CardsSectionProps = {
   readonly db: HouseholdsDb
@@ -33,7 +45,7 @@ export function CardsSection({
   // Fixed when the card is created and never edited afterwards: its past
   // Resúmenes are already denominated, so changing it would rewrite what
   // they meant.
-  const [currency, setCurrency] = useState<Currency>(DEFAULT_CURRENCY)
+  const [currency, setCurrency] = useState<CardCurrency>(DEFAULT_CURRENCY)
   const [error, setError] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const queryKey = cardsQueryKey({ householdId })
@@ -117,12 +129,15 @@ export function CardsSection({
             value={currency}
             disabled={mutation.isPending}
             onChange={(event) => {
-              setCurrency(event.target.value === 'USD' ? 'USD' : 'ARS')
+              setCurrency(parseCardCurrency(event.target.value))
             }}
             className="w-auto shrink-0 text-sm"
           >
-            <option value="ARS">$</option>
-            <option value="USD">US$</option>
+            {CARD_CURRENCY_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </Select>
           <Input
             id="new-card-name"
@@ -165,7 +180,7 @@ function CardRow({
   // Separate from the rename: changing the currency is a one-tap switch on
   // the row, not something to open a form for.
   const currencyMutation = useMutation({
-    mutationFn: (currency: Currency) =>
+    mutationFn: (currency: CardCurrency) =>
       updateCardCurrency({ db, householdId, cardId: card.id, currency }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
@@ -217,22 +232,23 @@ function CardRow({
           </span>
           {/* Editable, not fixed: every card that existed before currencies
               did reads as pesos, which is right for most of them and wrong
-              for the dollar one. Changing it only changes the card -- the
-              expenses a paid Resumen already wrote keep the currency
-              stamped on them. */}
+              for the dollar one -- and "$ y US$" is the real case of a card
+              the bank bills in both. Changing it only changes the card:
+              every purchase and Resumen keeps the currency stamped on it. */}
           <Select
             aria-label={`Moneda de ${card.name}`}
             value={card.currency}
             disabled={currencyMutation.isPending}
             onChange={(event) => {
-              currencyMutation.mutate(
-                event.target.value === 'USD' ? 'USD' : 'ARS',
-              )
+              currencyMutation.mutate(parseCardCurrency(event.target.value))
             }}
             className="w-auto shrink-0 text-xs"
           >
-            <option value="ARS">$</option>
-            <option value="USD">US$</option>
+            {CARD_CURRENCY_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </Select>
         </span>
         <Button

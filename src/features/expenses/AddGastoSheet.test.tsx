@@ -9,6 +9,7 @@ import {
   listExpensesInMonth,
 } from '@/lib/expenses'
 import { createCard } from '@/lib/cards'
+import type { CardCurrency } from '@/lib/money'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { listPendientes } from '@/lib/pendientes'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
@@ -27,7 +28,8 @@ async function renderForm(
   options: {
     readonly showRecurringOptions?: boolean
     readonly defaultDueDate?: Date
-    readonly cardNames?: readonly string[]
+    // A plain name is a peso card; pass a pair for anything else.
+    readonly cardNames?: readonly (string | readonly [string, CardCurrency])[]
   } = {},
 ) {
   const db = createMemoryHouseholdsDb().asUser('user-1')
@@ -37,8 +39,10 @@ async function renderForm(
     name: 'Casa Verde',
     monthlyBudget: 100,
   })
-  for (const cardName of options.cardNames ?? []) {
-    await createCard({ db, householdId: household.id, name: cardName })
+  for (const entry of options.cardNames ?? []) {
+    const [name, currency] =
+      typeof entry === 'string' ? ([entry, 'ARS'] as const) : entry
+    await createCard({ db, householdId: household.id, name, currency })
   }
   renderWithProviders(
     <MemoryRouter>
@@ -580,5 +584,73 @@ describe('AddGastoSheet (unified add flow)', () => {
 
       expect(await screen.findByText('Ingresá un monto')).toBeInTheDocument()
     })
+  })
+})
+
+// A card the bank bills in both currencies does not decide for you: the
+// peso consumo and the dollar one go on the same card, and each lands in
+// that card's Resumen of its own currency.
+describe('AddGastoSheet on a card that holds both currencies', () => {
+  async function pickCard(name: string): Promise<void> {
+    const paidWith = screen.getByLabelText('Pagó con')
+    await within(paidWith).findByRole('option', { name })
+    fireEvent.change(paidWith, {
+      target: {
+        value: within(paidWith)
+          .getByRole('option', { name })
+          .getAttribute('value'),
+      },
+    })
+  }
+
+  it('leaves the currency open to choose', async () => {
+    await renderForm({ cardNames: [['Amex', 'BOTH']] })
+
+    await pickCard('Amex')
+
+    const currency = screen.getByLabelText('Moneda')
+    expect(
+      [...currency.querySelectorAll('option')].map((option) => option.value),
+    ).toEqual(['ARS', 'USD'])
+  })
+
+  it('fixes the currency on a card that holds only one', async () => {
+    await renderForm({ cardNames: [['Mercury', 'USD']] })
+
+    await pickCard('Mercury')
+
+    expect(screen.queryByLabelText('Moneda')).not.toBeInTheDocument()
+    expect(screen.getByText('US$')).toBeInTheDocument()
+  })
+
+  it('records a dollar consumo and warns it stays out of the budget', async () => {
+    const { db, householdId } = await renderForm({
+      cardNames: [['Amex', 'BOTH']],
+    })
+
+    fillCommon({ name: 'Hosting', category: 'Servicios' })
+    fireEvent.change(screen.getByLabelText('Precio'), {
+      target: { value: '50' },
+    })
+    await pickCard('Amex')
+    fireEvent.change(screen.getByLabelText('Moneda'), {
+      target: { value: 'USD' },
+    })
+    expect(
+      screen.getByText(
+        'Los gastos en dólares se registran pero no se descuentan del presupuesto del mes.',
+      ),
+    ).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar compra' }))
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
+    })
+    // Its own Resumen, named apart from the card's peso one and marked as
+    // the dollar bill it is.
+    const resumenes = await listPendientes({ db, householdId })
+    expect(
+      resumenes.map((resumen) => [resumen.name, resumen.currency]),
+    ).toEqual([['Amex US$', 'USD']])
   })
 })

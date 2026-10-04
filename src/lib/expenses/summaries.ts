@@ -1,4 +1,5 @@
-import { countedByBudget } from '@/lib/money'
+import { countedByBudget, DEFAULT_CURRENCY } from '@/lib/money'
+import type { Currency } from '@/lib/money'
 import { colorForCategoryName } from './categoryColor'
 import type { Category, Expense } from './types'
 
@@ -39,6 +40,10 @@ export function summarizeByCategory(input: {
   readonly pendientes?: readonly {
     readonly categoryId: string
     readonly expectedAmount: number | null
+    // Absent on anything written before a card could hold two currencies,
+    // which was a peso one. A dollar Pendiente is left out of this peso
+    // breakdown, like every other dollar amount.
+    readonly currency?: Currency
   }[]
 }): readonly CategorySummary[] {
   const categoryById = new Map(
@@ -64,7 +69,13 @@ export function summarizeByCategory(input: {
   for (const expense of countedByBudget(input.expenses)) {
     add(expense.categoryId, expense.price)
   }
-  for (const pendiente of input.pendientes ?? []) {
+  const countedPendientes = countedByBudget(
+    (input.pendientes ?? []).map((pendiente) => ({
+      ...pendiente,
+      currency: pendiente.currency ?? DEFAULT_CURRENCY,
+    })),
+  )
+  for (const pendiente of countedPendientes) {
     if (pendiente.expectedAmount !== null) {
       add(pendiente.categoryId, pendiente.expectedAmount)
     }

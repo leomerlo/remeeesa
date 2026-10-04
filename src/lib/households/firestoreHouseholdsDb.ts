@@ -1,4 +1,5 @@
 import { DEFAULT_CURRENCY } from '@/lib/money'
+import type { Currency } from '@/lib/money'
 import {
   arrayRemove,
   collection,
@@ -32,6 +33,7 @@ import {
   cuotasOf,
   resumenChanges,
   resumenIdFor,
+  resumenNameFor,
 } from '@/lib/cards/cuotas'
 import type { CardPurchase } from '@/lib/cards/types'
 import type { Expense } from '@/lib/expenses/types'
@@ -238,6 +240,7 @@ function newResumenDocument(input: {
   readonly monthStart: Date
   readonly amount: number
   readonly purchaseId: string
+  readonly currency: Currency
   readonly now: Timestamp
 }): Record<string, unknown> {
   const dueDate = new Date(
@@ -249,7 +252,7 @@ function newResumenDocument(input: {
     ...pendienteToDocument({
       householdId: input.householdId,
       categoryId: input.resumenCategoryId,
-      name: input.cardName,
+      name: resumenNameFor(input.cardName, input.currency),
       dueDate,
       expectedAmount: input.amount,
       recurring: false,
@@ -262,6 +265,9 @@ function newResumenDocument(input: {
     due_date: toFirestorePendienteDate(dueDate),
     created_at: input.now,
     card_id: input.cardId,
+    // What this Resumen settles in, and therefore what paying it records.
+    // Written here rather than read back off the card, which may hold both.
+    currency: input.currency,
     purchase_ids: [input.purchaseId],
   }
 }
@@ -339,6 +345,7 @@ async function moveCardPurchaseCuotas(input: {
             monthStart: change.monthStart,
             amount: change.cents / 100,
             purchaseId: before.id,
+            currency: change.currency,
             now,
           }),
         )
@@ -1624,7 +1631,7 @@ export function createFirestoreHouseholdsDb(
             ref: doc(
               firestore,
               'pendientes',
-              resumenIdFor(input.cardId, cuota.monthStart),
+              resumenIdFor(input.cardId, cuota.monthStart, input.currency),
             ),
           }))
 
@@ -1668,6 +1675,7 @@ export function createFirestoreHouseholdsDb(
               // the previous day (and month) for a member further west.
               purchase_date: toFirestoreExpenseDate(input.purchaseDate),
               comments: input.comments,
+              currency: input.currency,
               created_at: now,
             })
             cuotas.forEach((cuota, index) => {
@@ -1695,6 +1703,7 @@ export function createFirestoreHouseholdsDb(
                   monthStart: cuota.monthStart,
                   amount: cuota.amount,
                   purchaseId: purchaseRef.id,
+                  currency: input.currency,
                   now,
                 }),
               )
@@ -1712,6 +1721,7 @@ export function createFirestoreHouseholdsDb(
               cuotas: input.cuotas,
               purchaseDate: input.purchaseDate,
               comments: input.comments,
+              currency: input.currency,
               createdAt,
               paidResumenIds: [],
             }
@@ -1752,6 +1762,7 @@ export function createFirestoreHouseholdsDb(
                   cuotas: input.cuotas,
                   purchaseDate: input.purchaseDate,
                   comments: input.comments,
+                  currency: input.currency,
                 },
                 cardName,
                 resumenCategoryId: input.resumenCategoryId,
@@ -1770,6 +1781,7 @@ export function createFirestoreHouseholdsDb(
               cuotas: input.cuotas,
               purchase_date: toFirestoreExpenseDate(input.purchaseDate),
               comments: input.comments,
+              currency: input.currency,
             })
             return edited
           })
