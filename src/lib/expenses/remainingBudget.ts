@@ -1,4 +1,4 @@
-import { countedByBudget } from '@/lib/money'
+import { countedByBudget, DEFAULT_CURRENCY } from '@/lib/money'
 import type { Currency } from '@/lib/money'
 // Argentine peso formatting: thousands separator "." and decimal "," (e.g.
 // $224.300,50) -- no built-in Intl currency style here, since 'ARS' inserts
@@ -67,11 +67,26 @@ export function computeSpentThisMonth(
 // Pendiente regardless of due date (an overdue bill from three months ago
 // stays actionable until paid), so "how much would paying everything owed
 // take out of this budget" reads the same full list.
+//
+// Dollar Pendientes -- the dollar Resumen of a card billed in both
+// currencies -- are left out, the same as every other dollar amount: this
+// is a number of pesos being taken off a budget of pesos. A Pendiente
+// written before a card could hold two currencies carries none, and was a
+// peso one.
 export function computePendingCommitted(
-  pendientes: readonly { expectedAmount: number | null }[],
+  pendientes: readonly {
+    expectedAmount: number | null
+    currency?: Currency
+  }[],
 ): number {
+  const counted = countedByBudget(
+    pendientes.map((pendiente) => ({
+      ...pendiente,
+      currency: pendiente.currency ?? DEFAULT_CURRENCY,
+    })),
+  )
   let sum = 0
-  for (const pendiente of pendientes) {
+  for (const pendiente of counted) {
     if (pendiente.expectedAmount !== null) {
       sum += pendiente.expectedAmount
     }

@@ -78,8 +78,9 @@ service cloud.firestore {
         && data.household_id.size() > 0
         && data.name is string
         && data.name.matches('.*\\S.*')
-        // Absent on every card written before currencies existed.
-        && (!('currency' in data) || data.currency in ['ARS', 'USD'])
+        // Absent on every card written before currencies existed. 'BOTH'
+        // is a card the bank bills in pesos and in dollars.
+        && (!('currency' in data) || data.currency in ['ARS', 'USD', 'BOTH'])
         && data.created_at is timestamp;
     }
 
@@ -224,7 +225,7 @@ service cloud.firestore {
     // from creating a Pendiente that is already marked paid. Editing, deleting,
     // and marking a pendiente paid are handled by later tickets in this feature.
     function isValidPendiente(data) {
-      return data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'auto_debit', 'status', 'paid_expense_id', 'paid_at', 'created_at', 'card_id', 'purchase_ids'])
+      return data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'recurring', 'auto_debit', 'status', 'paid_expense_id', 'paid_at', 'created_at', 'card_id', 'currency', 'purchase_ids'])
         && data.household_id is string
         && data.household_id.size() > 0
         && data.category_id is string
@@ -239,6 +240,9 @@ service cloud.firestore {
         // direct dot-access on a missing key fails closed, hence the
         // membership check first.
         && (!('auto_debit' in data) || data.auto_debit is bool)
+        // Only a Resumen carries one, and only since a card could hold two
+        // currencies; absent everywhere else.
+        && (!('currency' in data) || data.currency in ['ARS', 'USD'])
         && data.status == 'pending'
         && data.paid_expense_id == null
         && data.paid_at == null
@@ -247,14 +251,26 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/categories/$(data.category_id)).data.household_id == data.household_id;
     }
 
-    // A Resumen is a Pendiente keyed `{cardId}_{YYYY-MM}` (8 chars of suffix)
-    // whose card is in the same household. purchase_ids lists the purchases
-    // with a cuota in it; rules cannot sum them, so expected_amount is only
-    // checked for shape (by isValidPendiente).
+    // A Resumen is a Pendiente keyed `{cardId}_{YYYY-MM}` (8 chars of
+    // suffix), or `{cardId}_{YYYY-MM}_USD` (12) for the dollar Resumen of a
+    // card billed in both currencies. Its card is in the same household.
+    // purchase_ids lists the purchases with a cuota in it; rules cannot sum
+    // them, so expected_amount is only checked for shape (by
+    // isValidPendiente).
+    function resumenCardId(pendienteId) {
+      return pendienteId.matches('^.+_[0-9]{4}-[0-9]{2}_USD$')
+        ? pendienteId[0:pendienteId.size() - 12]
+        : pendienteId[0:pendienteId.size() - 8];
+    }
+
+    function isResumenId(pendienteId) {
+      return pendienteId.matches('^.+_[0-9]{4}-[0-9]{2}(_USD)?$');
+    }
+
     function isValidResumen(pendienteId, data) {
       return data.card_id is string
-        && pendienteId.matches('^.+_[0-9]{4}-[0-9]{2}$')
-        && pendienteId[0:pendienteId.size() - 8] == data.card_id
+        && isResumenId(pendienteId)
+        && resumenCardId(pendienteId) == data.card_id
         && data.purchase_ids is list
         && data.purchase_ids.size() == 1
         && data.expected_amount is number
@@ -267,8 +283,8 @@ service cloud.firestore {
     // tx.get one before creating it -- allowed only for a card of the
     // caller's own household.
     function isOwnResumenId(pendienteId) {
-      return pendienteId.matches('^.+_[0-9]{4}-[0-9]{2}$')
-        && isMemberOf(get(/databases/$(database)/documents/cards/$(pendienteId[0:pendienteId.size() - 8])).data.household_id);
+      return isResumenId(pendienteId)
+        && isMemberOf(get(/databases/$(database)/documents/cards/$(resumenCardId(pendienteId))).data.household_id);
     }
 
     // Logging, editing or deleting a card purchase moves its cuota in or out
@@ -525,7 +541,7 @@ service cloud.firestore {
         // household cannot squat on one of this household's card months.
         && (('card_id' in request.resource.data)
           ? isValidResumen(pendienteId, request.resource.data)
-          : !pendienteId.matches('^.+_[0-9]{4}-[0-9]{2}$'));
+          : !isResumenId(pendienteId));
       allow update: if isMemberOf(resource.data.household_id)
         && (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenMarkPaid() || isResumenRename());
       allow delete: if isMemberOf(resource.data.household_id)
@@ -536,7 +552,7 @@ service cloud.firestore {
     // whole number of cents; the 0.5 slack makes "at least one cent per
     // cuota" exact instead of tripping on 0.03 < 3 * 0.01 in doubles.
     function isValidCardPurchase(data) {
-      return data.keys().hasOnly(['household_id', 'card_id', 'category_id', 'member_id', 'author_display_name', 'name', 'total', 'cuotas', 'purchase_date', 'comments', 'created_at', 'paid_resumen_ids'])
+      return data.keys().hasOnly(['household_id', 'card_id', 'category_id', 'member_id', 'author_display_name', 'name', 'total', 'cuotas', 'purchase_date', 'comments', 'currency', 'created_at', 'paid_resumen_ids'])
         && data.household_id is string
         && data.household_id.size() > 0
         && data.card_id is string
@@ -554,6 +570,8 @@ service cloud.firestore {
         && data.purchase_date is timestamp
         && expenseDateNotInFuture(data.purchase_date)
         && data.comments is string
+        // Absent on every purchase written before a card could hold two.
+        && (!('currency' in data) || data.currency in ['ARS', 'USD'])
         && data.created_at is timestamp
         && get(/databases/$(database)/documents/cards/$(data.card_id)).data.household_id == data.household_id
         && get(/databases/$(database)/documents/categories/$(data.category_id)).data.household_id == data.household_id;
@@ -569,7 +587,7 @@ service cloud.firestore {
     function isValidCardPurchaseEdit() {
       return isUnlockedCardPurchase()
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['card_id', 'category_id', 'name', 'total', 'cuotas', 'purchase_date', 'comments'])
+          .hasOnly(['card_id', 'category_id', 'name', 'total', 'cuotas', 'purchase_date', 'comments', 'currency'])
         && isValidCardPurchase(request.resource.data);
     }
 

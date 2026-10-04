@@ -1,3 +1,5 @@
+import type { Currency } from '@/lib/money'
+
 export type PendienteStatus = 'pending' | 'paid'
 
 export type Pendiente = {
@@ -24,6 +26,10 @@ export type Pendiente = {
   // sum of the cuotas in purchaseIds that land in its month.
   readonly cardId?: string
   readonly purchaseIds?: readonly string[]
+  // Set only on a Resumen: which of the card's currencies this one settles.
+  // A both-currencies card has two Resúmenes per month, and this is what
+  // tells them apart -- including what currency paying it records.
+  readonly currency?: Currency
   // Every Expense paying a Resumen created (one per cuota, plus the ajuste);
   // paidExpenseId is the first of them.
   readonly paidExpenseIds?: readonly string[]

@@ -1,4 +1,4 @@
-import type { Currency } from '@/lib/money'
+import type { CardCurrency, Currency } from '@/lib/money'
 import type { Card, CardPurchase } from '@/lib/cards/types'
 import type { Pendiente } from '@/lib/pendientes/types'
 import type { Category, Expense } from '@/lib/expenses/types'
@@ -261,9 +261,9 @@ export type HouseholdsDb = {
     readonly amountPaid: number
     readonly paymentDate: Date
     readonly tarjetaCategoryId: string
-    // The card's own currency, stamped on every Expense the payment
-    // creates. A dollar card's Resumen settles in dollars, and those
-    // expenses are recorded without ever reaching the budget.
+    // The Resumen's own currency, stamped on every Expense the payment
+    // creates. A dollar Resumen settles in dollars, and those expenses are
+    // recorded without ever reaching the budget.
     readonly currency: Currency
   }): Promise<{
     readonly pendiente: Pendiente
@@ -273,7 +273,7 @@ export type HouseholdsDb = {
   createCard(input: {
     readonly householdId: string
     readonly name: string
-    readonly currency: Currency
+    readonly currency: CardCurrency
   }): Promise<Card>
   // One batch: the card's name and the name of every Resumen of the card,
   // whatever its status. Rejects with CardNotFoundError for a card outside
@@ -289,7 +289,7 @@ export type HouseholdsDb = {
   updateCardCurrency(input: {
     readonly householdId: string
     readonly cardId: string
-    readonly currency: Currency
+    readonly currency: CardCurrency
   }): Promise<Card>
   // One transaction: writes the purchase and adds each of its cuotas to the
   // card's Resumen of that month (a Pendiente with id resumenIdFor, created
@@ -307,6 +307,9 @@ export type HouseholdsDb = {
     readonly cuotas: number
     readonly purchaseDate: Date
     readonly comments: string
+    // The purchase's currency, which also picks which of the card's
+    // Resúmenes of each month its cuotas land in -- see resumenIdFor.
+    readonly currency: Currency
   }): Promise<CardPurchase>
   // One transaction: rewrites the purchase and moves its cuotas between
   // Resúmenes (see resumenChanges), creating a missing one in
@@ -327,6 +330,7 @@ export type HouseholdsDb = {
     readonly cuotas: number
     readonly purchaseDate: Date
     readonly comments: string
+    readonly currency: Currency
   }): Promise<CardPurchase>
   // Same transaction and rejections as updateCardPurchase, with no cuotas
   // after.

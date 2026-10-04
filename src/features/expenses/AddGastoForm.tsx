@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { DEFAULT_CURRENCY } from '@/lib/money'
+import { currenciesOf, DEFAULT_CURRENCY } from '@/lib/money'
 import type { Currency } from '@/lib/money'
 import { CategoryCombobox } from './CategoryCombobox'
 import {
@@ -232,8 +232,11 @@ export function AddGastoForm({
   const [date, setDate] = useState(initialFields.date)
   const [amount, setAmount] = useState(initialFields.amount)
   // Pesos by default: a dollar gasto is the exception, and the budget only
-  // ever counts pesos -- see lib/money/currency.
-  const [currency, setCurrency] = useState<Currency>(DEFAULT_CURRENCY)
+  // ever counts pesos -- see lib/money/currency. Editing a card purchase
+  // starts at the currency it was saved in instead.
+  const [currency, setCurrency] = useState<Currency>(
+    editPurchase?.purchase.currency ?? DEFAULT_CURRENCY,
+  )
   const [recurring, setRecurring] = useState(initialFields.recurring)
   const [autoDebit, setAutoDebit] = useState(initialFields.autoDebit)
   // Checked by default: adding a gasto usually means logging something that
@@ -254,13 +257,19 @@ export function AddGastoForm({
   })
   const cards = cardsQuery.data ?? []
   const isCard = cardId !== ''
-  // Paying with a card makes this a CardPurchase, and the card's own
-  // currency governs it -- picking a different one here would be a choice
-  // the purchase cannot honour. Off a card, the choice is the user's.
+  // Paying with a card narrows the choice to what the card holds. A card
+  // billed in one currency decides for you -- picking the other would be a
+  // choice the purchase cannot honour -- but a card billed in both leaves
+  // the choice open, the same as off a card. Per direct feedback.
   const cardCurrency = cards.find((card) => card.id === cardId)?.currency
-  const effectiveCurrency: Currency = isCard
-    ? (cardCurrency ?? DEFAULT_CURRENCY)
-    : currency
+  // Off a card both are on offer, as they always were.
+  const offered = isCard
+    ? currenciesOf(cardCurrency ?? DEFAULT_CURRENCY)
+    : currenciesOf('BOTH')
+  // A card that holds one currency overrides whatever the picker last had.
+  const narrowedTo = offered.length === 1 ? offered[0] : undefined
+  const effectiveCurrency: Currency = narrowedTo ?? currency
+  const picksCurrency = narrowedTo === undefined
 
   async function invalidateGastoViews(): Promise<void> {
     await queryClient.invalidateQueries({ queryKey: categoriesKey })
@@ -287,6 +296,7 @@ export function AddGastoForm({
           cuotas: Number(cuotas),
           purchaseDate: fields.date,
           comments: editPurchase.purchase.comments,
+          currency: effectiveCurrency,
         })
         return
       }
@@ -304,6 +314,7 @@ export function AddGastoForm({
           cuotas: Number(cuotas),
           purchaseDate: fields.date,
           comments: '',
+          currency: effectiveCurrency,
         })
         return
       }
@@ -525,25 +536,28 @@ export function AddGastoForm({
                 qualifies. Pesos is the default and the usual case. With a
                 card chosen it stops being a choice: the card's own currency
                 is shown instead. */}
-            {isCard ? (
+            {picksCurrency ? (
+              <Select
+                aria-label="Moneda"
+                value={effectiveCurrency}
+                onChange={(event) => {
+                  setCurrency(event.target.value === 'USD' ? 'USD' : 'ARS')
+                }}
+                className="w-auto shrink-0 text-sm"
+              >
+                {offered.map((option) => (
+                  <option key={option} value={option}>
+                    {option === 'USD' ? 'US$' : '$'}
+                  </option>
+                ))}
+              </Select>
+            ) : (
               <span
                 aria-hidden="true"
                 className="border-input bg-muted text-muted-foreground flex h-12 shrink-0 items-center rounded-lg border px-3 text-sm"
               >
                 {effectiveCurrency === 'USD' ? 'US$' : '$'}
               </span>
-            ) : (
-              <Select
-                aria-label="Moneda"
-                value={currency}
-                onChange={(event) => {
-                  setCurrency(event.target.value === 'USD' ? 'USD' : 'ARS')
-                }}
-                className="w-auto shrink-0 text-sm"
-              >
-                <option value="ARS">$</option>
-                <option value="USD">US$</option>
-              </Select>
             )}
             <div className="relative min-w-0 flex-1">
               <FormattedAmountInput

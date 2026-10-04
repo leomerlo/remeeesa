@@ -1274,3 +1274,161 @@ describe('markResumenPaid', () => {
     ).toBe('pending')
   })
 })
+
+// A real Argentine credit card is billed in pesos and, separately, in
+// dollars. The two totals cannot be added together, so the card keeps one
+// Resumen per currency per month and each is settled on its own.
+describe('a card that holds both currencies', () => {
+  async function bothSetup() {
+    const s = await setup()
+    const amex = await createCard({
+      db: s.db,
+      householdId: s.householdId,
+      name: 'Amex',
+      currency: 'BOTH',
+    })
+    return { ...s, amex }
+  }
+
+  it('keeps the peso and the dollar consumos in separate Resúmenes', async () => {
+    const s = await bothSetup()
+
+    await purchase(s, {
+      cardId: s.amex.id,
+      name: 'Supermercado',
+      total: 300,
+      cuotas: 1,
+    })
+    await purchase(s, {
+      cardId: s.amex.id,
+      name: 'Hosting',
+      total: 50,
+      cuotas: 1,
+      currency: 'USD',
+    })
+
+    const october = await resumenesIn(s, 2026, 9)
+    expect(
+      october
+        .map((resumen) => ({
+          name: resumen.name,
+          currency: resumen.currency,
+          amount: resumen.expectedAmount,
+        }))
+        .sort((left, right) => left.name.localeCompare(right.name)),
+    ).toEqual([
+      { name: 'Amex', currency: 'ARS', amount: 300 },
+      { name: 'Amex US$', currency: 'USD', amount: 50 },
+    ])
+  })
+
+  it('leaves the dollar Resumen out of the peso budget', async () => {
+    const s = await bothSetup()
+
+    await purchase(s, {
+      cardId: s.amex.id,
+      total: 50,
+      cuotas: 1,
+      currency: 'USD',
+    })
+
+    // The whole 1000 is still there: a dollar bill commits no pesos.
+    expect(await remainingIn(s, 2026, 9)).toBe(1000)
+  })
+
+  it('leaves the dollar Resumen out of "Tarjetas el mes que viene"', async () => {
+    const s = await bothSetup()
+
+    await purchase(s, {
+      cardId: s.amex.id,
+      name: 'Supermercado',
+      total: 300,
+      cuotas: 1,
+    })
+    await purchase(s, {
+      cardId: s.amex.id,
+      name: 'Hosting',
+      total: 50,
+      cuotas: 1,
+      currency: 'USD',
+    })
+    const pendientes = await listPendientes({
+      db: s.db,
+      householdId: s.householdId,
+    })
+
+    expect(cardsDueNextMonthTotal(pendientes, TODAY)).toBe(300)
+  })
+
+  it('records the expenses of a paid dollar Resumen in dollars', async () => {
+    const s = await bothSetup()
+    // Bought in August, so the one cuota lands in September's Resumen,
+    // which today (the 20th) is already payable.
+    await purchase(s, {
+      cardId: s.amex.id,
+      name: 'Hosting',
+      total: 50,
+      cuotas: 1,
+      purchaseDate: new Date(2026, 7, 5),
+      currency: 'USD',
+    })
+    const [resumen] = await resumenesIn(s, 2026, 8)
+
+    await markResumenPaid({
+      db: s.db,
+      householdId: s.householdId,
+      resumenId: resumen?.id ?? '',
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      amountPaid: 50,
+      paymentDate: new Date(2026, 8, 10),
+    })
+
+    const expenses = await listExpensesInMonth({
+      db: s.db,
+      householdId: s.householdId,
+      ...monthRange(2026, 8),
+    })
+    expect(expenses.map((expense) => expense.currency)).toEqual(['USD'])
+    // Recorded, and still not counted.
+    expect(await remainingIn(s, 2026, 8)).toBe(1000)
+  })
+
+  it('moves the cuotas between Resúmenes when an edit changes the currency', async () => {
+    const s = await bothSetup()
+    const created = await purchase(s, {
+      cardId: s.amex.id,
+      name: 'Hosting',
+      total: 300,
+      cuotas: 1,
+    })
+
+    await updateCardPurchase({
+      db: s.db,
+      householdId: s.householdId,
+      purchaseId: created.id,
+      cardId: s.amex.id,
+      categoryId: s.comidaId,
+      name: 'Hosting',
+      total: 300,
+      cuotas: 1,
+      purchaseDate: new Date(2026, 8, 5),
+      comments: '',
+      currency: 'USD',
+    })
+
+    const october = await resumenesIn(s, 2026, 9)
+    expect(
+      october.map((resumen) => [resumen.name, resumen.expectedAmount]),
+    ).toEqual([['Amex US$', 300]])
+  })
+
+  it('refuses a currency the card does not hold', async () => {
+    const s = await setup()
+
+    // s.visa was created without a currency, so it is a peso card.
+    await expect(purchase(s, { currency: 'USD' })).rejects.toThrow(
+      'Visa no admite consumos en esa moneda.',
+    )
+  })
+})
