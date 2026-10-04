@@ -87,7 +87,7 @@ function Sheet({
           <Dialog.Close
             data-slot="sheet-close"
             className={cn(
-              'hover:bg-muted focus-visible:border-ring focus-visible:ring-ring/50 absolute right-3 flex h-11 w-11 items-center justify-center rounded-full outline-none focus-visible:ring-3 lg:top-3',
+              'hover:bg-muted focus-visible:border-ring focus-visible:ring-ring/50 absolute right-3 flex size-[46px] items-center justify-center rounded-full outline-none focus-visible:ring-3 lg:top-3 lg:size-9',
               variant === 'panel'
                 ? 'top-[max(0.75rem,env(safe-area-inset-top))]'
                 : 'top-3',

@@ -685,7 +685,7 @@ export function AddGastoForm({
           <div className="flex w-full flex-col gap-4">
             {showRecurringOptions ? (
               <>
-                <div className="flex w-full items-center gap-3">
+                <div className="flex min-h-[46px] w-full items-center gap-3 lg:min-h-0">
                   <Switch
                     id="gasto-recurring"
                     checked={recurring}
@@ -693,7 +693,7 @@ export function AddGastoForm({
                   />
                   <Label htmlFor="gasto-recurring">Recurrente</Label>
                 </div>
-                <div className="flex w-full items-center gap-3">
+                <div className="flex min-h-[46px] w-full items-center gap-3 lg:min-h-0">
                   <Switch
                     id="gasto-auto-debit"
                     checked={autoDebit}
@@ -705,7 +705,7 @@ export function AddGastoForm({
               </>
             ) : null}
 
-            <div className="flex w-full items-center gap-3">
+            <div className="flex min-h-[46px] w-full items-center gap-3 lg:min-h-0">
               <Switch
                 id="gasto-mark-paid"
                 checked={markPaid}

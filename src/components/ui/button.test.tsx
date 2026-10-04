@@ -7,34 +7,49 @@ import { Button } from './button'
 // accessibility invariant, not decorative styling, so asserting the size
 // tokens here is testing a requirement.
 //
-// The invariant changed. Every size used to set h-11 (44px). Heights are
-// gone: a text button is as tall as its padding makes it, which is 36px on
-// a phone -- above WCAG 2.2's 24px target minimum, below the 44px a thumb
-// is usually given, and chosen on purpose because a row of 44px buttons
-// read as oversized beside everything around it. What stayed at 44 is the
-// icon-only controls, which are exactly the ones with no label to aim at.
+// The invariant: 46px tall on a phone, 36px from `lg`. It is a floor, not
+// a height -- padding still decides, and a button whose content needs more
+// simply gets taller. Both are clear of WCAG 2.2's 24px target minimum;
+// the phone gets the thumb-sized one because that is what a thumb aims at,
+// and a desktop row of 46px buttons read as enormous beside everything
+// around it. Per direct feedback.
 describe('Button size variants', () => {
   it.each([['default'], ['xs'], ['sm'], ['lg']] as const)(
-    'size="%s" is sized by its padding, with no fixed height',
+    'size="%s" is 46px tall on a phone and sized by its padding from lg',
     (size) => {
       render(<Button size={size}>Label</Button>)
 
       const button = screen.getByRole('button', { name: 'Label' })
+      expect(button).toHaveClass('min-h-[46px]', 'lg:min-h-0')
       // 18px either side on every size and every variant, with an icon or
       // without -- the icon-adjusted paddings this replaced left a button
       // with an icon visibly tighter than its neighbour without one.
       expect(button).toHaveClass('px-4.5')
-      expect(button.className).not.toMatch(/\bh-\d/)
+      // A floor, not a height: nothing pins it, so a two-line label
+      // grows. Anchored to a class boundary so `min-h-0` does not read as
+      // one.
+      expect(button.className).not.toMatch(/(?:^|\s)h-\d/)
     },
   )
 
-  it.each([
-    ['icon', 'size-11'],
-    ['icon-lg', 'size-12'],
-  ] as const)('size="%s" keeps the 44px touch target', (size, token) => {
-    render(<Button size={size}>Label</Button>)
+  it.each([['icon'], ['icon-xs'], ['icon-sm'], ['icon-lg']] as const)(
+    'size="%s" is a 46px square on a phone',
+    (size) => {
+      render(<Button size={size}>Label</Button>)
 
-    expect(screen.getByRole('button', { name: 'Label' })).toHaveClass(token)
+      expect(screen.getByRole('button', { name: 'Label' })).toHaveClass(
+        'size-[46px]',
+      )
+    },
+  )
+
+  // The one exception: the icon buttons that are only ever chrome -- a
+  // carousel's arrows, the month pager's -- sit beside a line of text
+  // rather than in a row of actions, and at 46px they dwarfed it.
+  it('keeps the chrome icon buttons at 36px', () => {
+    render(<Button size="icon-mini">Label</Button>)
+
+    expect(screen.getByRole('button', { name: 'Label' })).toHaveClass('size-9')
   })
 
   it('carries its size onto the composed element with asChild', () => {

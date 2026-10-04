@@ -666,7 +666,7 @@ function PendienteFormBody({
               the bank takes it on the due date, so it settles itself rather
               than waiting for someone to press Pagar. */}
           <div className="flex w-full flex-col gap-4">
-            <div className="flex w-full items-center gap-3">
+            <div className="flex min-h-[46px] w-full items-center gap-3 lg:min-h-0">
               <Switch
                 id="pendiente-recurring"
                 checked={recurring}
@@ -674,7 +674,7 @@ function PendienteFormBody({
               />
               <Label htmlFor="pendiente-recurring">Recurrente</Label>
             </div>
-            <div className="flex w-full items-center gap-3">
+            <div className="flex min-h-[46px] w-full items-center gap-3 lg:min-h-0">
               <Switch
                 id="pendiente-auto-debit"
                 checked={autoDebit}
@@ -695,7 +695,7 @@ function PendienteFormBody({
             payment (per direct feedback -- there was no way back from a
             mistaken "Ya lo pagué"). */}
         <div className="flex w-full flex-col gap-2">
-          <div className="flex w-full items-center gap-3">
+          <div className="flex min-h-[46px] w-full items-center gap-3 lg:min-h-0">
             <Switch
               id="pendiente-mark-paid"
               checked={markPaid}

@@ -507,7 +507,7 @@ function ExpenseFormBody({
             predates pendienteId, or one logged as a plain Gasto that
             should have gone through Pendientes. */}
         {isEditing && editExpense.pendienteId === null ? (
-          <div className="flex w-full items-center gap-3">
+          <div className="flex min-h-[46px] w-full items-center gap-3 lg:min-h-0">
             <Switch
               id="expense-is-service"
               checked={isService}

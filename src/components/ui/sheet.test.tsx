@@ -60,7 +60,7 @@ describe('Sheet', () => {
     expect(overlay).toHaveClass('backdrop-blur-[6px]', 'bg-black/50')
   })
 
-  it('has a close control with a 44x44 (h-11 w-11) hit area', () => {
+  it('has a close control with the same hit area every button has', () => {
     render(
       <Sheet open onOpenChange={() => {}} title="Sheet title">
         <p>Sheet body</p>
@@ -68,7 +68,8 @@ describe('Sheet', () => {
     )
 
     const closeButton = screen.getByRole('button', { name: 'Cerrar' })
-    expect(closeButton).toHaveClass('h-11', 'w-11')
+    // 46px on a phone, 36px from `lg` -- the same floor as Button's.
+    expect(closeButton).toHaveClass('size-[46px]', 'lg:size-9')
   })
 
   it('calls onOpenChange(false) exactly once when the close control is clicked', () => {
