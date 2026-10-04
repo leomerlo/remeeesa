@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { useFirebase } from '@/lib/firebaseContext'
 import { createFirestoreHouseholdsDb, getMembership } from '@/lib/households'
@@ -28,9 +29,6 @@ export function useCurrentMembership({
     () => householdsDb ?? createFirestoreHouseholdsDb(firebase.db),
     [householdsDb, firebase.db],
   )
-  const [membership, setMembership] = useState<
-    HouseholdMember | null | undefined
-  >(undefined)
 
   useEffect(() => {
     if (currentUserIdProp !== undefined) {
@@ -59,29 +57,38 @@ export function useCurrentMembership({
     }
   }, [currentUserIdProp, firebase.auth])
 
-  useEffect(() => {
-    if (typeof currentUserId !== 'string') {
-      return
-    }
-    let cancelled = false
-    void (async () => {
-      try {
-        const member = await getMembership({ db, userId: currentUserId })
-        if (!cancelled) {
-          setMembership(member)
-        }
-      } catch {
-        if (!cancelled) {
-          setMembership(null)
-        }
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [currentUserId, db])
+  // Through the query cache rather than a one-shot effect, so that signing
+  // up can tell it to look again.
+  //
+  // It used to read the membership once, when the user id first appeared,
+  // and keep whatever came back. On a brand-new account that read lands
+  // between the account existing and the household being written, so it
+  // got null -- and the app sat with no navigation at all until the page
+  // was reloaded. Nobody who was already signed up would ever see it;
+  // every jsdom test hands the membership in ready-made. Found by the
+  // end-to-end suite, on its first run.
+  const membershipQuery = useQuery({
+    queryKey: currentMembershipQueryKey(currentUserId ?? null),
+    queryFn: () =>
+      typeof currentUserId === 'string'
+        ? getMembership({ db, userId: currentUserId })
+        : Promise.resolve(null),
+    enabled: typeof currentUserId === 'string',
+  })
 
-  return typeof currentUserId === 'string' ? membership : null
+  return typeof currentUserId === 'string'
+    ? // undefined while it is still being read, which is what keeps the
+      // nav from flashing in and out on a reload.
+      (membershipQuery.data ?? (membershipQuery.isPending ? undefined : null))
+    : null
+}
+
+// Invalidated when a household is created, so the shell picks it up without
+// a reload.
+export function currentMembershipQueryKey(
+  userId: string | null,
+): readonly ['current-membership', string | null] {
+  return ['current-membership', userId]
 }
 
 export function useShowNav(input: UseShowNavInput): boolean {

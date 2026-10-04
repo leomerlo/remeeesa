@@ -16,6 +16,9 @@ coverage/
 .env
 .env.*
 !.env.example
+# The e2e config points at the local emulators and holds no secret: it has
+# to be in the repo for the suite to run anywhere.
+!.env.e2e
 .DS_Store
 
 # Editor directories and files
@@ -40,3 +43,7 @@ coverage/
 
 # Local scheduler artifact, not part of the project
 .claude/scheduled_tasks.lock
+
+# Playwright's per-failure traces and screenshots.
+test-results/
+playwright-report/

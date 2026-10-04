@@ -4,11 +4,13 @@ import { Lock, Mail } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { createFirestoreHouseholdsDb } from '@/lib/households'
+import { createFirestoreHouseholdsDb, getMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { authorDisplayNameFromAuth } from '@/lib/displayName'
 import { useFirebase } from '@/lib/firebaseContext'
 import { AuthHero } from './AuthHero'
+import { useQueryClient } from '@tanstack/react-query'
+import { currentMembershipQueryKey } from '@/features/navigation'
 import { finalizeHouseholdSignup } from './finalizeHouseholdSignup'
 import { useHouseholdDraft } from './HouseholdDraftContext'
 import { markReturningUser } from './returningUserStorage'
@@ -44,6 +46,7 @@ export function SignupForm({
   onAlreadyHaveAccount,
   onNoAccount,
 }: SignupFormProps): ReactElement {
+  const queryClient = useQueryClient()
   const firebase = useFirebase()
   const { draft, clearDraft } = useHouseholdDraft()
   const auth = signupAuth ?? createFirebaseSignupAuth(firebase.auth)
@@ -100,6 +103,18 @@ export function SignupForm({
           return
         }
         clearDraft()
+        // Handed to the cache, not asked for again: the shell reads the
+        // membership the instant the account exists, which is before this
+        // household is written, so it has already resolved to "no
+        // membership" by the time we get here. Invalidating or refetching
+        // depends on that query being mounted and on when it settles;
+        // writing the answer in cannot miss. Without it the app sits with
+        // no navigation until a reload -- which is what a brand-new user
+        // used to get.
+        queryClient.setQueryData(
+          currentMembershipQueryKey(userId),
+          await getMembership({ db, userId }),
+        )
         onFinished?.({ householdCreated: true })
       } catch {
         setError('No se pudo guardar el hogar')

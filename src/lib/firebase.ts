@@ -1,6 +1,11 @@
 import { getApp, getApps, initializeApp } from 'firebase/app'
-import { browserLocalPersistence, getAuth, setPersistence } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
+import {
+  browserLocalPersistence,
+  connectAuthEmulator,
+  getAuth,
+  setPersistence,
+} from 'firebase/auth'
+import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore'
 import type { FirebaseApp } from 'firebase/app'
 import type { Auth } from 'firebase/auth'
 import type { Firestore } from 'firebase/firestore'
@@ -63,9 +68,22 @@ export function readFirebaseEnv(source: Record<string, unknown>): FirebaseEnv {
   return { apiKey, authDomain, projectId, appId }
 }
 
+// Ports from firebase.json. Only ever reached when the app is told to use
+// the emulators, which production never is -- see createFirebaseClient.
+const EMULATOR_HOST = '127.0.0.1'
+const FIRESTORE_EMULATOR_PORT = 8080
+const AUTH_EMULATOR_PORT = 9099
+
 export function createFirebaseClient(
   env: FirebaseEnv,
-  options?: { readonly appName?: string },
+  options?: {
+    readonly appName?: string
+    // Point the client at the local emulators instead of the real project.
+    // Set only by the end-to-end suite, through a build-time env var, so
+    // there is no way for a production bundle to carry it: Vite inlines
+    // the literal `false` and the branch below is dropped entirely.
+    readonly useEmulators?: boolean
+  },
 ): AppFirebaseClient {
   const appName = options?.appName ?? FIREBASE_APP_NAME
   const config = {
@@ -82,10 +100,20 @@ export function createFirebaseClient(
   // Auth tokens live in localStorage keyed by app name. A stable name lets
   // onAuthStateChanged restore the signed-in user after a full page reload.
   void setPersistence(auth, browserLocalPersistence)
+  const db = getFirestore(app)
 
-  return {
-    app,
-    auth,
-    db: getFirestore(app),
+  if (options?.useEmulators === true) {
+    // Both are idempotent per app instance, and the app name is stable, so
+    // a re-render never reconnects.
+    connectAuthEmulator(
+      auth,
+      `http://${EMULATOR_HOST}:${String(AUTH_EMULATOR_PORT)}`,
+      {
+        disableWarnings: true,
+      },
+    )
+    connectFirestoreEmulator(db, EMULATOR_HOST, FIRESTORE_EMULATOR_PORT)
   }
+
+  return { app, auth, db }
 }
