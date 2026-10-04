@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
 import { Home } from 'lucide-react'
 import { Logo } from '@/components/Logo'
+import { AddGastoSheet } from '@/features/expenses'
 import { householdQueryKey } from '@/features/household'
 import { useFirebase } from '@/lib/firebaseContext'
 import { createFirestoreHouseholdsDb, getHousehold } from '@/lib/households'
@@ -33,6 +34,7 @@ export function AppHeader({
   householdsDb,
 }: AppHeaderProps): ReactElement | null {
   const firebase = useFirebase()
+  const [isAddGastoOpen, setIsAddGastoOpen] = useState(false)
   const membership = useCurrentMembership({ currentUserId, householdsDb })
   const db = useMemo(
     () => householdsDb ?? createFirestoreHouseholdsDb(firebase.db),
@@ -62,10 +64,27 @@ export function AppHeader({
       {/* Smaller than a page title on purpose: it shares a line with the
           wordmark on a phone, and it is a label for where you are rather
           than a heading for what you are reading. */}
-      <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-foreground lg:text-base">
+      <span className="flex min-w-0 flex-1 items-center gap-1.5 text-sm font-semibold text-foreground lg:flex-none lg:text-base">
         <Home className="size-4 shrink-0" aria-hidden="true" />
         <span className="truncate">{householdQuery.data?.name ?? 'Hogar'}</span>
       </span>
+      {/* Desktop only, and pushed to the far edge. On a monitor the one
+          thing you came to do should be reachable from every screen, not
+          only from the two that happen to carry the button -- and there is
+          room for it up here that a phone does not have. Per direct
+          feedback. The phone keeps its in-page buttons: a thumb reaches the
+          bottom of the screen, not the top. */}
+      <div className="ml-auto hidden lg:block">
+        <AddGastoSheet
+          open={isAddGastoOpen}
+          onOpenChange={setIsAddGastoOpen}
+          triggerClassName="px-5"
+          db={db}
+          householdId={membership.householdId}
+          memberId={membership.userId}
+          authorDisplayName={membership.displayName}
+        />
+      </div>
     </header>
   )
 }

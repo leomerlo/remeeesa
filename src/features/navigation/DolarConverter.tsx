@@ -25,7 +25,10 @@ export function DolarConverter(): ReactElement {
   const amount = Number(value)
 
   return (
-    <div className="border-border mt-auto flex flex-col gap-2 border-t pt-4">
+    // It lives inside the dark nav, so it cannot inherit the page's own
+    // border and muted colours -- a hairline meant for a white card is
+    // invisible here, and muted grey text on near-black is unreadable.
+    <div className="mt-auto flex flex-col gap-2 border-t border-white/15 pt-4">
       <div className="flex items-center justify-between">
         <label htmlFor="dolar-input" className="text-sm font-medium">
           {reversed ? 'Dólar blue a pesos' : 'Pesos a dólar blue'}
@@ -34,6 +37,7 @@ export function DolarConverter(): ReactElement {
           type="button"
           variant="ghost"
           size="icon"
+          className="text-nav-foreground hover:bg-white/8 hover:text-nav-foreground-active"
           aria-label="Invertir conversión"
           onClick={() => {
             setReversed(!reversed)
@@ -45,11 +49,12 @@ export function DolarConverter(): ReactElement {
       </div>
       <FormattedAmountInput
         id="dolar-input"
+        className="text-nav-foreground-active border-white/20 placeholder:text-nav-foreground"
         placeholder={reversed ? 'USD' : 'ARS'}
         value={value}
         onChange={setValue}
       />
-      <p className="text-muted-foreground text-xs" aria-live="polite">
+      <p className="text-nav-foreground text-xs" aria-live="polite">
         {rate.isError
           ? 'Cotización no disponible'
           : rate.data === undefined

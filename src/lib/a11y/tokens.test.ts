@@ -81,6 +81,14 @@ describe('colour tokens meet WCAG AA', () => {
     // "Vencimientos que se acercan" is white on a flat fill of the danger
     // colour, and so is the budget card once the month is spent.
     ['due-soon text on its card', '--text-on-error', '--surface-due-soon'],
+    // The nav is its own dark surface at every width, so its text is read
+    // against that rather than against the page.
+    ['nav label on the nav', '--text-nav', '--surface-nav'],
+    [
+      'the current destination on the nav',
+      '--text-nav-active',
+      '--surface-nav',
+    ],
     ['error text on a card', '--text-error', '--surface-card'],
     [
       'destructive label on its button',
