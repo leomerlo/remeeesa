@@ -701,6 +701,19 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       state.cards.set(card.id, card)
       return card
     },
+    async updateCardCurrency(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const existing = state.cards.get(input.cardId)
+      if (
+        existing === undefined ||
+        existing.householdId !== input.householdId
+      ) {
+        throw new CardNotFoundError()
+      }
+      const updated: Card = { ...existing, currency: input.currency }
+      state.cards.set(existing.id, updated)
+      return updated
+    },
     async renameCard(input) {
       assertMemberOf(state, userId, input.householdId)
       const card = state.cards.get(input.cardId)

@@ -7,7 +7,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { createCard, listCards, renameCard } from '@/lib/cards'
+import {
+  createCard,
+  listCards,
+  renameCard,
+  updateCardCurrency,
+} from '@/lib/cards'
 import { DEFAULT_CURRENCY } from '@/lib/money'
 import type { Currency } from '@/lib/money'
 import type { Card } from '@/lib/cards'
@@ -157,6 +162,25 @@ function CardRow({
     setError(null)
   }
 
+  // Separate from the rename: changing the currency is a one-tap switch on
+  // the row, not something to open a form for.
+  const currencyMutation = useMutation({
+    mutationFn: (currency: Currency) =>
+      updateCardCurrency({ db, householdId, cardId: card.id, currency }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: cardsQueryKey({ householdId }),
+      })
+    },
+    onError: (caught: unknown) => {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'No se pudo cambiar la moneda. Volvé a intentar.',
+      )
+    },
+  })
+
   const mutation = useMutation({
     mutationFn: (name: string) =>
       renameCard({ db, householdId, cardId: card.id, name }),
@@ -187,17 +211,29 @@ function CardRow({
   if (draft === null) {
     return (
       <li className="flex items-center justify-between gap-2">
-        <span className="flex min-w-0 items-center gap-2">
+        <span className="flex min-w-0 flex-1 items-center gap-2">
           <span className="text-foreground truncate text-sm font-medium">
             {card.name}
           </span>
-          {/* Only the dollar ones are marked: pesos are the default and
-              labelling every card would say nothing. */}
-          {card.currency === 'USD' ? (
-            <span className="bg-muted text-muted-foreground shrink-0 rounded-full px-2 py-0.5 text-xs font-medium">
-              US$
-            </span>
-          ) : null}
+          {/* Editable, not fixed: every card that existed before currencies
+              did reads as pesos, which is right for most of them and wrong
+              for the dollar one. Changing it only changes the card -- the
+              expenses a paid Resumen already wrote keep the currency
+              stamped on them. */}
+          <Select
+            aria-label={`Moneda de ${card.name}`}
+            value={card.currency}
+            disabled={currencyMutation.isPending}
+            onChange={(event) => {
+              currencyMutation.mutate(
+                event.target.value === 'USD' ? 'USD' : 'ARS',
+              )
+            }}
+            className="w-auto shrink-0 text-xs"
+          >
+            <option value="ARS">$</option>
+            <option value="USD">US$</option>
+          </Select>
         </span>
         <Button
           type="button"

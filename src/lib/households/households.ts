@@ -85,6 +85,7 @@ export const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
   listCards: 'cargar las tarjetas',
   createCard: 'guardar la tarjeta',
   renameCard: 'renombrar la tarjeta',
+  updateCardCurrency: 'cambiar la moneda de la tarjeta',
   createCardPurchase: 'guardar la compra con tarjeta',
   updateCardPurchase: 'guardar los cambios de la compra',
   deleteCardPurchase: 'eliminar la compra',

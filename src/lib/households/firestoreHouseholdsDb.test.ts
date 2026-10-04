@@ -685,10 +685,10 @@ describe('updatePendiente/deletePendiente adapter', () => {
 })
 
 describe('firestore.rules cards', () => {
-  it('lets household members read, create and rename cards, never delete', () => {
+  it('lets household members read, create, rename and re-denominate cards, never delete', () => {
     const block = rules.slice(rules.indexOf('match /cards/{cardId} {'))
     expect(block.slice(0, block.indexOf('\n    }\n'))).toMatch(
-      /allow read: if isMemberOf\(resource\.data\.household_id\);\s*\n\s*allow create: if isMemberOf\(request\.resource\.data\.household_id\)\s*\n\s*&& isValidCard\(request\.resource\.data\);\s*\n\s*allow update: if isMemberOf\(resource\.data\.household_id\)\s*\n\s*&& request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\.hasOnly\(\['name'\]\)\s*\n\s*&& isValidCard\(request\.resource\.data\);\s*$/,
+      /allow read: if isMemberOf\(resource\.data\.household_id\);\s*\n\s*allow create: if isMemberOf\(request\.resource\.data\.household_id\)\s*\n\s*&& isValidCard\(request\.resource\.data\);\s*\n\s*allow update: if isMemberOf\(resource\.data\.household_id\)\s*\n\s*&& request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\.hasOnly\(\['name', 'currency'\]\)\s*\n\s*&& isValidCard\(request\.resource\.data\);\s*$/,
     )
   })
 
