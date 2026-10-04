@@ -212,6 +212,23 @@ export function HomePage({
           <PendienteDueSoonBanner
             db={db}
             householdId={membership.householdId}
+            memberId={currentUserId}
+            authorDisplayName={authorDisplayName}
+            onMarkPaid={(pendiente, categoryName) => {
+              // The same sheet Cuentas por pagar opens, with "Ya lo pagué"
+              // already ticked: tapping what is about to come due is how
+              // you settle it.
+              setEditPendiente({
+                pendienteId: pendiente.id,
+                name: pendiente.name,
+                categoryName,
+                dueDate: pendiente.dueDate,
+                expectedAmount: pendiente.expectedAmount,
+                recurring: pendiente.recurring,
+                autoDebit: pendiente.autoDebit,
+                defaultMarkPaid: true,
+              })
+            }}
           />
         </div>
         <div className="home-main order-2 flex w-full flex-col gap-8 lg:order-none lg:col-span-9 lg:col-start-1 lg:row-span-2 lg:row-start-1">

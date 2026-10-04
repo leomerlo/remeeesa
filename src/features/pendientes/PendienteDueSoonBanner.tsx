@@ -10,20 +10,30 @@ import { formatAmount, listCategories } from '@/lib/expenses'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import { formatDate } from '@/lib/format'
 import { listPendientes, pendientesDueSoon } from '@/lib/pendientes'
+import type { Pendiente } from '@/lib/pendientes'
 import type { HouseholdsDb } from '@/lib/households'
 import { cn } from '@/lib/utils'
+import { ResumenSheet, resumenLabel } from './ResumenSheet'
 import { pendientesQueryKey } from './queryKeys'
 
 export type PendienteDueSoonBannerProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
+  // Who pays a Resumen opened from here.
+  readonly memberId: string
+  readonly authorDisplayName: string
+  // Opens the edit sheet with "Ya lo pagué" pre-checked, the same way
+  // Cuentas por pagar does. A card's Resumen never goes through it -- it
+  // has its own sheet, opened here.
+  readonly onMarkPaid?: (pendiente: Pendiente, categoryName: string) => void
 }
 
 // Home's first content under the page title, above the month navigator and
 // everything else -- there's no push notification in this app, so this is
 // the only place a Pendiente's approaching due date surfaces on its own,
-// without the user going to look for it. Purely informational: no tap
-// action, nothing to dismiss, no unread state to track.
+// without the user going to look for it. Tapping one is the way to pay it
+// -- per direct feedback, if it is the thing about to come due, the obvious
+// thing to want is to settle it. Nothing to dismiss, no unread state.
 //
 // One full-width row at a time (matching Cuentas por pagar / Últimos
 // movimientos' own row width, not a chip), paged by swipe with dot
@@ -39,7 +49,11 @@ export type PendienteDueSoonBannerProps = {
 export function PendienteDueSoonBanner({
   db,
   householdId,
+  memberId,
+  authorDisplayName,
+  onMarkPaid,
 }: PendienteDueSoonBannerProps): ReactElement | null {
+  const [openResumen, setOpenResumen] = useState<Pendiente | null>(null)
   const pendientesQuery = useQuery({
     queryKey: pendientesQueryKey({ householdId }),
     queryFn: async () => {
@@ -154,7 +168,22 @@ export function PendienteDueSoonBanner({
                   None of its colours come from the category: whatever is
                   about to come due should read as one thing, not as five
                   differently-tinted things. */}
-              <div className="card-surface-error bg-card flex w-full items-start gap-3 rounded-2xl p-4">
+              <button
+                type="button"
+                aria-label={
+                  pendiente.cardId === undefined
+                    ? `Marcar pagado ${pendiente.name}`
+                    : `Ver ${resumenLabel(pendiente)}`
+                }
+                onClick={() => {
+                  if (pendiente.cardId === undefined) {
+                    onMarkPaid?.(pendiente, categoryName)
+                    return
+                  }
+                  setOpenResumen(pendiente)
+                }}
+                className="card-surface-error bg-card flex w-full items-start gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
+              >
                 <span
                   aria-hidden="true"
                   className="bg-error-surface flex size-11 shrink-0 items-center justify-center rounded-full"
@@ -164,22 +193,20 @@ export function PendienteDueSoonBanner({
                     aria-hidden="true"
                   />
                 </span>
-                {/* Stacked, with the figure last and largest. Name and
-                    category on one line, the due date under it, the amount
-                    on its own row at the bottom -- in a 3-column sidebar the
-                    old name-left/amount-right line gave the figure whatever
-                    width the name left over, which was usually not enough
-                    for it. Last and alone, it gets the whole row. Per
-                    direct feedback. */}
+                {/* Everything stacked, the figure last and largest. The
+                    badge used to share a line with the name, which in a
+                    3-column sidebar on a laptop left the name about four
+                    characters and a "Tarj…". Per direct feedback: stack
+                    that too. */}
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="truncate font-medium">
-                      {pendiente.name}
-                    </span>
-                    <span className="bg-muted text-muted-foreground shrink-0 rounded px-1.5 py-0.5 text-xs font-medium">
-                      {categoryName}
-                    </span>
-                  </div>
+                  <span className="font-medium">{pendiente.name}</span>
+                  <span // Wraps rather than truncates: on its own line in a narrow
+                    // sidebar column, "Tarjeta de crédito" cut to "Tarjeta de…"
+                    // says less than two short lines do.
+                    className="bg-muted text-muted-foreground w-fit max-w-full rounded px-1.5 py-0.5 text-xs font-medium"
+                  >
+                    {categoryName}
+                  </span>
                   <span className="text-error text-xs font-medium">
                     Vence {formatDate(pendiente.dueDate)}
                   </span>
@@ -196,7 +223,7 @@ export function PendienteDueSoonBanner({
                     </span>
                   ) : null}
                 </div>
-              </div>
+              </button>
             </li>
           )
         })}
@@ -228,6 +255,18 @@ export function PendienteDueSoonBanner({
           ))}
         </div>
       ) : null}
+      {/* A card bill opens to its cuotas, never the generic Pendiente
+          form -- the same split Cuentas por pagar makes. */}
+      <ResumenSheet
+        db={db}
+        householdId={householdId}
+        memberId={memberId}
+        authorDisplayName={authorDisplayName}
+        resumen={openResumen}
+        onClose={() => {
+          setOpenResumen(null)
+        }}
+      />
     </section>
   )
 }

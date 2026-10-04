@@ -471,25 +471,6 @@ async function seedCasa(
       ...(compra.currency === undefined ? {} : { currency: compra.currency }),
     })
   }
-  // The budget is set last, from what the month actually came to: every
-  // scenario runs the same movements and only the ceiling moves, so the
-  // heat on the card is the one thing that differs between them.
-  const pendientes = await listPendientes({ db, householdId })
-  const spent = computeSpentThisMonth(
-    await listExpensesInMonth({ db, householdId, ...currentMonthRange() }),
-  )
-  const { monthStart, monthEnd } = currentMonthRange()
-  const committed = computePendingCommitted(
-    pendientesDueInMonth(pendientes, monthStart, monthEnd),
-  )
-  await updateHouseholdBudget({
-    db,
-    householdId,
-    monthlyBudget:
-      Math.round((spent + committed) / (options.percentUsed / 100) / 1000) *
-      1000,
-  })
-
   const visaResumen = (await listPendientes({ db, householdId })).find(
     (pendiente) =>
       pendiente.cardId === visa.id &&
@@ -519,6 +500,32 @@ async function seedCasa(
       paymentDate: today,
     })
   }
+
+  // The budget is set last, from what the month actually came to: every
+  // scenario runs the same movements and only the ceiling moves, so the
+  // heat on the card is the one thing that differs between them.
+  //
+  // After the Visa payment, not before: paying a Resumen turns its cuotas
+  // into expenses, so a budget worked out beforehand left every scenario
+  // ten points hotter than it said it was.
+  const { monthStart, monthEnd } = currentMonthRange()
+  const spent = computeSpentThisMonth(
+    await listExpensesInMonth({ db, householdId, monthStart, monthEnd }),
+  )
+  const committed = computePendingCommitted(
+    pendientesDueInMonth(
+      await listPendientes({ db, householdId }),
+      monthStart,
+      monthEnd,
+    ),
+  )
+  await updateHouseholdBudget({
+    db,
+    householdId,
+    monthlyBudget:
+      Math.round((spent + committed) / (options.percentUsed / 100) / 1000) *
+      1000,
+  })
 }
 
 export async function seedDemoHousehold(input: {
