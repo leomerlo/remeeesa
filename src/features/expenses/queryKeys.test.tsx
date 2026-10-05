@@ -1,12 +1,13 @@
 import { QueryClient } from '@tanstack/react-query'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { useState } from 'react'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
 import { createExpense, listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
+import { MemoryRouter } from 'react-router-dom'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { AddExpenseForm } from './AddExpenseForm'
 import type { EditExpenseTarget } from './AddExpenseForm'
@@ -18,6 +19,16 @@ import {
 } from './queryKeys'
 import { RecentExpensesList } from './RecentExpensesList'
 import { RemainingBudgetDisplay } from './RemainingBudgetDisplay'
+
+// The edit form links to Ajustes when the household has no payment method
+// written down, so it needs a router around it -- exactly as it has in the
+// app, where it only ever renders inside one.
+function renderInRouter(
+  ui: ReactNode,
+  options?: Parameters<typeof renderWithProviders>[1],
+): ReturnType<typeof renderWithProviders> {
+  return renderWithProviders(<MemoryRouter>{ui}</MemoryRouter>, options)
+}
 
 // Wires RecentExpensesList's tap-to-edit row into AddExpenseForm's edit
 // mode, the same pairing HomePage does -- delete now lives inside the edit
@@ -56,6 +67,8 @@ function RecentExpensesListWithEdit(props: {
             memberId: expense.memberId,
             pendienteId: expense.pendienteId,
             isService: expense.isService,
+            currency: expense.currency,
+            paymentMethodId: expense.paymentMethodId,
           })
         }}
       />
@@ -115,7 +128,7 @@ describe('expenses prefix invalidation', () => {
       defaultOptions: { queries: { retry: false } },
     })
 
-    renderWithProviders(
+    renderInRouter(
       <>
         <RemainingBudgetDisplay db={db} householdId={household.id} />
         <RecentExpensesList db={db} householdId={household.id} />
@@ -199,7 +212,7 @@ describe('expenses prefix invalidation', () => {
       defaultOptions: { queries: { retry: false } },
     })
 
-    renderWithProviders(
+    renderInRouter(
       <RecentExpensesListWithEdit
         db={db}
         householdId={household.id}

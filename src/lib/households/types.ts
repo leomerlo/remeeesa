@@ -190,6 +190,11 @@ export type HouseholdsDb = {
     readonly memberId: string
     readonly authorDisplayName: string
     readonly isService: boolean
+    // Both correctable after the fact: the method a gasto was paid with and
+    // the currency it is in are picked at the moment it is logged, which is
+    // exactly when they are easiest to get wrong.
+    readonly currency: Currency
+    readonly paymentMethodId: string | null
   }): Promise<Expense>
   deleteExpense(input: {
     readonly householdId: string
@@ -227,6 +232,17 @@ export type HouseholdsDb = {
     readonly name: string
     readonly dueDate: Date
     readonly expectedAmount: number | null
+    readonly recurring: boolean
+    readonly autoDebit: boolean
+  }): Promise<Pendiente>
+  // Recurrence on its own, and the only write a *paid* Pendiente accepts
+  // besides being unpaid again: what these two decide -- whether this bill
+  // comes back next month -- is still ahead even once this month's copy is
+  // settled. Deliberately not folded into updatePendiente, which keeps a
+  // paid Pendiente's name, amount and due date frozen.
+  setPendienteRecurrence(input: {
+    readonly householdId: string
+    readonly pendienteId: string
     readonly recurring: boolean
     readonly autoDebit: boolean
   }): Promise<Pendiente>

@@ -7,6 +7,7 @@ import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { SheetFooter, SheetScrollArea } from '@/components/ui/sheet'
 import {
   categoriesQueryKey,
   CategoryCombobox,
@@ -312,6 +313,7 @@ function PendienteFormBody({
           dueDate: fields.dueDate,
           expectedAmount: fields.expectedAmount,
           recurring: fields.recurring,
+          autoDebit: fields.autoDebit,
         })
         if (shouldMarkPaid) {
           // fields.expectedAmount === null is caught before mutate() is
@@ -573,17 +575,14 @@ function PendienteFormBody({
       {/* Only this part scrolls -- the action buttons below stay pinned at
           the bottom of the sheet regardless of how tall the field list
           gets, so Guardar/Agregar never requires scrolling to reach. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto overscroll-contain">
-        {/* The Sheet's own title is visually hidden (it exists only for the
-            dialog's accessible name), which left this opening onto a bare
-            "Nombre" field with nothing saying what screen it was. */}
-        <h2 className="text-title font-semibold">
-          {isEditing
-            ? isPaidPendiente
-              ? 'Servicio pagado'
-              : 'Editar servicio'
-            : 'Agregar Servicio'}
-        </h2>
+      <SheetScrollArea>
+        {/* The Sheet draws a real header row carrying this form's title,
+            so there is no heading here -- except the one thing that header
+            cannot know: that this one is already paid, and therefore
+            frozen. */}
+        {isPaidPendiente ? (
+          <h2 className="text-title font-semibold">Servicio pagado</h2>
+        ) : null}
 
         {/* Frozen once paid -- a paid Pendiente's fields are frozen at the
             rules level too (isValidPendienteUpdate requires status ==
@@ -729,9 +728,9 @@ function PendienteFormBody({
         {alertMessage !== null ? (
           <AlertMessage>{alertMessage}</AlertMessage>
         ) : null}
-      </div>
+      </SheetScrollArea>
 
-      <div className="border-border-subtle shrink-0 border-t pt-4">
+      <SheetFooter>
         {confirmingDelete ? (
           <div
             role="alertdialog"
@@ -826,7 +825,7 @@ function PendienteFormBody({
             ) : null}
           </div>
         )}
-      </div>
+      </SheetFooter>
     </form>
   )
 }

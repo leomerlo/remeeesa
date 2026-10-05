@@ -406,7 +406,7 @@ describe('firestore.rules pendiente category repoint', () => {
     expect(rules).toContain('function isPendienteCategoryRepoint()')
     expect(rules).toContain("hasOnly(['category_id'])")
     expect(rules).toContain(
-      '&& (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenAmountLoad() || isValidResumenMarkPaid() || isResumenRename());',
+      '&& (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isPendienteRecurrenceEdit() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenAmountLoad() || isValidResumenMarkPaid() || isResumenRename());',
     )
   })
 
@@ -482,7 +482,7 @@ describe('firestore.rules expenses', () => {
     expect(rules).not.toContain('request.time.month')
     expect(rules).not.toContain('request.time.day')
     expect(rules).toContain(
-      "hasOnly(['name', 'price', 'category_id', 'comments', 'expense_date', 'member_id', 'author_display_name', 'is_service'])",
+      "hasOnly(['name', 'price', 'category_id', 'comments', 'expense_date', 'member_id', 'author_display_name', 'is_service', 'currency', 'payment_method_id'])",
     )
     expect(rules).toMatch(
       /!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'created_at'\]\)/,
@@ -560,7 +560,7 @@ describe('firestore.rules pendientes', () => {
       /function isValidPendienteUpdate\(\) \{[\s\S]*?!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'status', 'paid_expense_id', 'paid_at', 'created_at'\]\)/,
     )
     expect(rules).toMatch(
-      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\) \|\| isValidResumenAmountLoad\(\) \|\| isValidResumenMarkPaid\(\) \|\| isResumenRename\(\)\);/,
+      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isPendienteRecurrenceEdit\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\) \|\| isValidResumenAmountLoad\(\) \|\| isValidResumenMarkPaid\(\) \|\| isResumenRename\(\)\);/,
     )
   })
 
@@ -632,7 +632,7 @@ describe('firestore.rules pendientes mark-paid', () => {
 
   it('ORs isValidPendienteMarkPaid into the pendiente update rule alongside isValidPendienteUpdate', () => {
     expect(rules).toMatch(
-      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\) \|\| isValidResumenAmountLoad\(\) \|\| isValidResumenMarkPaid\(\) \|\| isResumenRename\(\)\);/,
+      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isPendienteRecurrenceEdit\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\) \|\| isValidResumenAmountLoad\(\) \|\| isValidResumenMarkPaid\(\) \|\| isResumenRename\(\)\);/,
     )
   })
 })

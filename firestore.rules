@@ -231,7 +231,7 @@ service cloud.firestore {
 
     function isValidExpenseUpdate() {
       return request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'price', 'category_id', 'comments', 'expense_date', 'member_id', 'author_display_name', 'is_service'])
+          .hasOnly(['name', 'price', 'category_id', 'comments', 'expense_date', 'member_id', 'author_display_name', 'is_service', 'currency', 'payment_method_id'])
         && !request.resource.data.diff(resource.data).affectedKeys()
           .hasAny(['household_id', 'created_at'])
         && request.resource.data.household_id == resource.data.household_id
@@ -244,6 +244,17 @@ service cloud.firestore {
           || request.resource.data.comments == null)
         && request.resource.data.expense_date is timestamp
         && request.resource.data.is_service is bool
+        // Both are fixable after the fact: a gasto logged in the wrong
+        // currency, or against the wrong payment method, used to need
+        // deleting and re-adding. Stricter than create on purpose -- the
+        // method has to be a real card of this same household.
+        && (!('currency' in request.resource.data)
+          || request.resource.data.currency in ['ARS', 'USD'])
+        && (!('payment_method_id' in request.resource.data)
+          || request.resource.data.payment_method_id == null
+          || (request.resource.data.payment_method_id is string
+            && exists(/databases/$(database)/documents/cards/$(request.resource.data.payment_method_id))
+            && get(/databases/$(database)/documents/cards/$(request.resource.data.payment_method_id)).data.household_id == resource.data.household_id))
         && exists(/databases/$(database)/documents/categories/$(request.resource.data.category_id))
         && get(/databases/$(database)/documents/categories/$(request.resource.data.category_id)).data.household_id == resource.data.household_id;
     }
@@ -389,6 +400,21 @@ service cloud.firestore {
         && request.resource.data.category_id is string
         && exists(/databases/$(database)/documents/categories/$(request.resource.data.category_id))
         && get(/databases/$(database)/documents/categories/$(request.resource.data.category_id)).data.household_id == resource.data.household_id;
+    }
+
+    // Recurrence outlives the payment. The edit form for a servicio's gasto
+    // offers Recurrente and Débito automático whatever state it is in, and
+    // what those two decide -- whether this bill comes back next month -- is
+    // still ahead even once this month's copy is paid. isValidPendienteUpdate
+    // freezes a paid Pendiente wholesale, so these two keys get their own
+    // narrow door, the same shape as isPendienteCategoryRepoint.
+    function isPendienteRecurrenceEdit() {
+      return !('card_id' in resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['recurring', 'auto_debit'])
+        && request.resource.data.recurring is bool
+        && (!('auto_debit' in request.resource.data)
+            || request.resource.data.auto_debit is bool);
     }
 
     // Resúmenes are excluded: their amount is the sum of their cuotas, and
@@ -597,7 +623,7 @@ service cloud.firestore {
           ? isValidResumen(pendienteId, request.resource.data)
           : !isResumenId(pendienteId));
       allow update: if isMemberOf(resource.data.household_id)
-        && (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenAmountLoad() || isValidResumenMarkPaid() || isResumenRename());
+        && (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isPendienteRecurrenceEdit() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenAmountLoad() || isValidResumenMarkPaid() || isResumenRename());
       allow delete: if isMemberOf(resource.data.household_id)
         && resource.data.status == 'pending';
     }

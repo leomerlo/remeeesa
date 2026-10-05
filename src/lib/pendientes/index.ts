@@ -15,6 +15,7 @@ export {
   listPendientesForMonth,
   listRecurrentesToCarry,
   markPendientePaid,
+  setPendienteRecurrence,
   unmarkPendientePaid,
   updatePendiente,
 } from './pendientes'
@@ -28,3 +29,8 @@ export {
   parsePendienteDocument,
   toFirestorePendienteDate,
 } from './converters'
+export {
+  convertExpenseToPendiente,
+  GastoAlreadyServicioError,
+  GastoNotConvertibleCurrencyError,
+} from './convertGasto'

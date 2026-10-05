@@ -347,6 +347,8 @@ export function HomePage({
                         memberId: expense.memberId,
                         pendienteId: expense.pendienteId,
                         isService: expense.isService,
+                        currency: expense.currency,
+                        paymentMethodId: expense.paymentMethodId,
                       })
                     }}
                     onEditPurchase={(purchase, categoryName) => {

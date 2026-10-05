@@ -211,6 +211,61 @@ describe('expenses', () => {
     )
   })
 
+  // Both are chosen at the moment a gasto is logged, which is when they
+  // are easiest to get wrong. Before this the only fix was deleting the
+  // gasto and adding it again. Per direct feedback.
+  it('lets the currency and the payment method be corrected afterwards', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'cards', 'card-1'), cardDocument())
+    })
+    const db = asMember()
+    await setDoc(doc(db, 'expenses', 'expense-1'), expenseDocument())
+
+    await assertSucceeds(
+      updateDoc(doc(db, 'expenses', 'expense-1'), {
+        currency: 'USD',
+        payment_method_id: 'card-1',
+      }),
+    )
+    // Back to cash, which is what null has always meant here.
+    await assertSucceeds(
+      updateDoc(doc(db, 'expenses', 'expense-1'), {
+        payment_method_id: null,
+      }),
+    )
+  })
+
+  it('refuses a payment method that belongs to another household', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore(), 'cards', 'card-elsewhere'),
+        cardDocument({ household_id: 'household-2' }),
+      )
+    })
+    const db = asMember()
+    await setDoc(doc(db, 'expenses', 'expense-1'), expenseDocument())
+
+    await assertFails(
+      updateDoc(doc(db, 'expenses', 'expense-1'), {
+        payment_method_id: 'card-elsewhere',
+      }),
+    )
+    await assertFails(
+      updateDoc(doc(db, 'expenses', 'expense-1'), {
+        payment_method_id: 'card-that-does-not-exist',
+      }),
+    )
+  })
+
+  it('refuses a currency it does not know, on update too', async () => {
+    const db = asMember()
+    await setDoc(doc(db, 'expenses', 'expense-1'), expenseDocument())
+
+    await assertFails(
+      updateDoc(doc(db, 'expenses', 'expense-1'), { currency: 'EUR' }),
+    )
+  })
+
   it('refuses a price of zero and an unknown currency', async () => {
     const db = asMember()
 
@@ -225,6 +280,93 @@ describe('expenses', () => {
         doc(db, 'expenses', 'expense-eur'),
         expenseDocument({ currency: 'EUR' }),
       ),
+    )
+  })
+})
+
+// Recurrence outlives the payment: whether a bill comes back next month is
+// a question about next month, so it stays editable from the gasto's own
+// edit form even after the bill is paid. Everything else on a paid
+// Pendiente stays frozen.
+describe('recurrence on a paid pendiente', () => {
+  const PENDIENTE = 'pendiente-1'
+
+  async function seedPaidPendiente(): Promise<void> {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'pendientes', PENDIENTE), {
+        household_id: HOUSEHOLD,
+        category_id: 'cat-1',
+        name: 'Internet',
+        due_date: Timestamp.fromDate(new Date(2026, 9, 10)),
+        expected_amount: 5000,
+        recurring: false,
+        auto_debit: false,
+        status: 'paid',
+        paid_expense_id: 'expense-1',
+        paid_at: Timestamp.now(),
+        created_at: Timestamp.now(),
+      })
+    })
+  }
+
+  it('lets recurrence and automatic debit be set on one already paid', async () => {
+    await seedPaidPendiente()
+
+    await assertSucceeds(
+      updateDoc(doc(asMember(), 'pendientes', PENDIENTE), {
+        recurring: true,
+        auto_debit: true,
+      }),
+    )
+  })
+
+  it('still refuses every other field on one already paid', async () => {
+    await seedPaidPendiente()
+    const db = asMember()
+
+    await assertFails(
+      updateDoc(doc(db, 'pendientes', PENDIENTE), { name: 'Otro' }),
+    )
+    await assertFails(
+      updateDoc(doc(db, 'pendientes', PENDIENTE), { expected_amount: 9000 }),
+    )
+    // Not even alongside a legitimate recurrence change.
+    await assertFails(
+      updateDoc(doc(db, 'pendientes', PENDIENTE), {
+        recurring: true,
+        expected_amount: 9000,
+      }),
+    )
+  })
+
+  it('refuses it on a card Resumen, which does not repeat', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore()
+      await setDoc(doc(db, 'cards', 'card-1'), cardDocument())
+      await setDoc(doc(db, 'pendientes', 'card-1_2026-10'), {
+        household_id: HOUSEHOLD,
+        category_id: 'cat-tarjeta',
+        name: 'Visa',
+        due_date: Timestamp.fromDate(new Date(2026, 9, 10)),
+        expected_amount: null,
+        estimated_amount: 5000,
+        recurring: false,
+        auto_debit: false,
+        status: 'pending',
+        paid_expense_id: null,
+        paid_at: null,
+        created_at: Timestamp.now(),
+        card_id: 'card-1',
+        currency: 'ARS',
+        purchase_ids: ['purchase-1'],
+      })
+    })
+
+    await assertFails(
+      updateDoc(doc(asMember(), 'pendientes', 'card-1_2026-10'), {
+        recurring: true,
+        auto_debit: true,
+      }),
     )
   })
 })

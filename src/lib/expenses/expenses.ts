@@ -133,6 +133,11 @@ export async function updateExpense(input: {
   // only ever offered by the edit form) when the Expense isn't already
   // linked to a real Pendiente via pendienteId.
   readonly isService?: boolean
+  // What a gasto is in and what paid for it. Picked at the moment it is
+  // logged -- which is exactly when they are easiest to get wrong -- so both
+  // are correctable here rather than by deleting and re-adding.
+  readonly currency?: Currency
+  readonly paymentMethodId?: string | null
   readonly now?: Date
 }): Promise<Expense> {
   const now = input.now ?? new Date()
@@ -165,6 +170,14 @@ export async function updateExpense(input: {
       ? parseAuthorDisplayName(input.authorDisplayName)
       : existing.authorDisplayName
   const isService = input.isService ?? existing.isService
+  const currency = input.currency ?? existing.currency
+  // `?? existing` would read a deliberate null as "leave it alone", and
+  // null is the real value for cash -- the method every household has
+  // without writing it down. Only an absent key means "unchanged".
+  const paymentMethodId =
+    input.paymentMethodId !== undefined
+      ? input.paymentMethodId
+      : existing.paymentMethodId
 
   return input.db.updateExpense({
     householdId: input.householdId,
@@ -177,6 +190,8 @@ export async function updateExpense(input: {
     memberId,
     authorDisplayName,
     isService,
+    currency,
+    paymentMethodId,
   })
 }
 

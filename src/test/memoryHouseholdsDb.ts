@@ -687,6 +687,8 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         memberId: input.memberId,
         authorDisplayName: input.authorDisplayName,
         isService: input.isService,
+        currency: input.currency,
+        paymentMethodId: input.paymentMethodId,
       }
       state.expenses.set(input.expenseId, updated)
       return updated
@@ -1087,6 +1089,30 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         dueDate: input.dueDate,
         expectedAmount: input.expectedAmount,
         recurring: input.recurring,
+        autoDebit: input.autoDebit,
+      }
+      state.pendientes.set(input.pendienteId, updated)
+      return updated
+    },
+    async setPendienteRecurrence(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const existing = state.pendientes.get(input.pendienteId)
+      if (
+        existing === undefined ||
+        existing.householdId !== input.householdId
+      ) {
+        throw new PendienteNotFoundError()
+      }
+      // Mirrors firestore.rules' isPendienteRecurrenceEdit() excluding
+      // Resúmenes: a card's monthly bill does not repeat, it is rebuilt
+      // from the purchases that land in it.
+      if (existing.cardId !== undefined) {
+        throw new Error('A Resumen has no recurrence')
+      }
+      const updated: Pendiente = {
+        ...existing,
+        recurring: input.recurring,
+        autoDebit: input.autoDebit,
       }
       state.pendientes.set(input.pendienteId, updated)
       return updated

@@ -3,6 +3,7 @@ import {
   createHouseholdWithMembership,
   HouseholdAccessDeniedError,
 } from '@/lib/households'
+import type { HouseholdsDb } from '@/lib/households'
 import {
   createExpense,
   findOrCreateCategory,
@@ -22,6 +23,7 @@ import {
   carryRecurrentes,
   listRecurrentesToCarry,
   markPendientePaid,
+  setPendienteRecurrence,
   updatePendiente,
 } from './pendientes'
 
@@ -2027,5 +2029,107 @@ describe('listRecurrentesToCarry / carryRecurrentes', () => {
       ['Internet', false],
       ['Luz', true],
     ])
+  })
+})
+
+// Recurrence is the one thing about a Pendiente that outlives its payment:
+// whether the bill comes back next month is a question about next month.
+// updatePendiente freezes everything on a paid one, so this has its own
+// narrow operation -- and its own narrow door in firestore.rules.
+describe('setPendienteRecurrence', () => {
+  async function seedPaid(): Promise<{
+    readonly db: HouseholdsDb
+    readonly householdId: string
+    readonly pendienteId: string
+  }> {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa',
+      monthlyBudget: 100000,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const category = categories[0]
+    if (category === undefined) {
+      throw new Error('expected a seeded category')
+    }
+    const paidOn = new Date(2026, 7, 10, 12)
+    const pendiente = await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: category.id,
+      name: 'Internet',
+      dueDate: paidOn,
+      expectedAmount: 5000,
+    })
+    await markPendientePaid({
+      db,
+      householdId: household.id,
+      pendienteId: pendiente.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 5000,
+      paymentDate: paidOn,
+    })
+    return { db, householdId: household.id, pendienteId: pendiente.id }
+  }
+
+  it('turns recurrence on for a pendiente that is already paid', async () => {
+    const { db, householdId, pendienteId } = await seedPaid()
+
+    const updated = await setPendienteRecurrence({
+      db,
+      householdId,
+      pendienteId,
+      recurring: true,
+      autoDebit: true,
+    })
+
+    expect(updated).toEqual(
+      expect.objectContaining({
+        recurring: true,
+        autoDebit: true,
+        // Changed what happens next month, not the payment.
+        status: 'paid',
+      }),
+    )
+  })
+
+  it('takes débito automático with it when recurrence is switched off', async () => {
+    const { db, householdId, pendienteId } = await seedPaid()
+    await setPendienteRecurrence({
+      db,
+      householdId,
+      pendienteId,
+      recurring: true,
+      autoDebit: true,
+    })
+
+    const updated = await setPendienteRecurrence({
+      db,
+      householdId,
+      pendienteId,
+      recurring: false,
+      autoDebit: true,
+    })
+
+    expect(updated).toEqual(
+      expect.objectContaining({ recurring: false, autoDebit: false }),
+    )
+  })
+
+  it('reports a pendiente that is no longer there', async () => {
+    const { db, householdId } = await seedPaid()
+
+    await expect(
+      setPendienteRecurrence({
+        db,
+        householdId,
+        pendienteId: 'gone',
+        recurring: true,
+        autoDebit: false,
+      }),
+    ).rejects.toThrow(PendienteNotFoundError)
   })
 })

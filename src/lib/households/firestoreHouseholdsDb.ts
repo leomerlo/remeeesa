@@ -1039,6 +1039,8 @@ export function createFirestoreHouseholdsDb(
             member_id: input.memberId,
             author_display_name: input.authorDisplayName,
             is_service: input.isService,
+            currency: input.currency,
+            payment_method_id: input.paymentMethodId,
           })
           return {
             ...current,
@@ -1050,6 +1052,8 @@ export function createFirestoreHouseholdsDb(
             memberId: input.memberId,
             authorDisplayName: input.authorDisplayName,
             isService: input.isService,
+            currency: input.currency,
+            paymentMethodId: input.paymentMethodId,
           }
         },
         {
@@ -1203,6 +1207,7 @@ export function createFirestoreHouseholdsDb(
             due_date: toFirestorePendienteDate(input.dueDate),
             expected_amount: input.expectedAmount,
             recurring: input.recurring,
+            auto_debit: input.autoDebit,
           })
           return {
             ...current,
@@ -1211,12 +1216,47 @@ export function createFirestoreHouseholdsDb(
             dueDate: input.dueDate,
             expectedAmount: input.expectedAmount,
             recurring: input.recurring,
+            autoDebit: input.autoDebit,
           }
         },
         {
           pendienteId: input.pendienteId,
           householdId: input.householdId,
           categoryId: input.categoryId,
+        },
+      )
+    },
+    async setPendienteRecurrence(input) {
+      return withHouseholdAccess(
+        'setPendienteRecurrence',
+        async () => {
+          const pendienteRef = doc(firestore, 'pendientes', input.pendienteId)
+          const existing = await getDoc(pendienteRef)
+          if (
+            !existing.exists() ||
+            existing.data().household_id !== input.householdId
+          ) {
+            throw new PendienteNotFoundError()
+          }
+          const current = parsePendienteDocument({
+            id: existing.id,
+            data: existing.data(),
+          })
+          // Exactly the two keys isPendienteRecurrenceEdit() opens, and no
+          // status check: this is the one write a paid Pendiente accepts.
+          await updateDoc(pendienteRef, {
+            recurring: input.recurring,
+            auto_debit: input.autoDebit,
+          })
+          return {
+            ...current,
+            recurring: input.recurring,
+            autoDebit: input.autoDebit,
+          }
+        },
+        {
+          pendienteId: input.pendienteId,
+          householdId: input.householdId,
         },
       )
     },

@@ -159,6 +159,36 @@ export async function updatePendiente(input: {
   })
 }
 
+// Recurrence alone, which is the one thing about a Pendiente that stays
+// editable after it is paid: whether this bill comes back next month is a
+// question about next month, not about the payment. Everything else on a
+// paid Pendiente is frozen -- see updatePendiente.
+export async function setPendienteRecurrence(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly pendienteId: string
+  readonly recurring: boolean
+  readonly autoDebit: boolean
+}): Promise<Pendiente> {
+  // Not getPendienteOrThrow: that one refuses a paid Pendiente, and a paid
+  // Pendiente is exactly what this is for.
+  const existing = await input.db.getPendiente({
+    householdId: input.householdId,
+    pendienteId: input.pendienteId,
+  })
+  if (existing === null) {
+    throw new PendienteNotFoundError()
+  }
+  return input.db.setPendienteRecurrence({
+    householdId: input.householdId,
+    pendienteId: input.pendienteId,
+    recurring: input.recurring,
+    // A one-off is never on automatic debit, so switching Recurrente off
+    // takes Débito automático with it wherever the call came from.
+    autoDebit: input.recurring && input.autoDebit,
+  })
+}
+
 export async function markPendientePaid(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
