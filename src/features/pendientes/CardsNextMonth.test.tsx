@@ -1,7 +1,12 @@
 import { QueryClient } from '@tanstack/react-query'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createCard, createCardPurchase } from '@/lib/cards'
+import {
+  cardsDueNextMonth,
+  createCard,
+  createCardPurchase,
+  setResumenAmount,
+} from '@/lib/cards'
 import { listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
@@ -98,6 +103,53 @@ describe('CardsNextMonth', () => {
     expect(
       within(dialog).queryByRole('button', { name: /Pagar/ }),
     ).not.toBeInTheDocument()
+  })
+
+  // Her screen: a card's heading read US$13,99 with US$13,99 and US$97
+  // listed under it. The heading was showing the bill the household had
+  // loaded by hand, in a sheet whose whole subject is the estimate -- so
+  // the figure and the movements right below it disagreed, and the
+  // movements were right. The heading is now the sum of what is listed.
+  it('heads each card with the sum of the consumos listed under it', async () => {
+    const { db, householdId, buy } = await setup()
+    await buy('Visa Flor', 97, new Date(2026, 8, 1))
+    await buy('Visa Flor', 13.99, new Date(2026, 8, 2))
+    // The bill arrives and is loaded by hand -- which used to replace the
+    // estimate in the heading.
+    const [resumen] = cardsDueNextMonth(
+      await db.listPendientes({ householdId }),
+      new Date(),
+    )
+    if (resumen === undefined) {
+      throw new Error('expected a Resumen due next month')
+    }
+    await setResumenAmount({
+      db,
+      householdId,
+      resumenId: resumen.id,
+      amount: 13.99,
+    })
+
+    renderWithProviders(<CardsNextMonth db={db} householdId={householdId} />)
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: /Tarjetas el mes que viene/,
+      }),
+    )
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Tarjetas el mes que viene',
+    })
+    const section = await within(dialog).findByRole('region', {
+      name: /^Visa Flor de/,
+    })
+
+    // The sum of the two consumos listed under it, not the bill.
+    expect(within(section).getByText('$110,99')).toBeInTheDocument()
+    // The loaded bill is not hidden -- it is said, next to what it is
+    // being compared with. Per direct feedback: la diferencia se muestra.
+    expect(section).toHaveTextContent(
+      'Resumen cargado: $13,99 · $97 menos de lo que cargaste.',
+    )
   })
 
   it('renders nothing when no card is due next month', async () => {

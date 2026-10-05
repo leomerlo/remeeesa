@@ -453,11 +453,13 @@ export function cardsDueNextMonthTotals(
   // never disagree about which bills are in it.
   for (const resumen of cardsDueNextMonth(pendientes, today)) {
     const currency = resumen.currency ?? DEFAULT_CURRENCY
-    // The bill once it has been loaded, the estimate until then. Next
-    // month's statement has almost never arrived yet, so this is nearly
-    // always the estimate -- which is exactly what this figure is for:
-    // what the cards are going to ask for, as far as the household knows.
-    const amount = resumen.expectedAmount ?? resumen.estimatedAmount ?? 0
+    // Always the estimate: what the household has logged onto these cards
+    // for next month. It used to prefer the bill once one had been loaded
+    // by hand, which made this figure disagree with the consumos it opens
+    // into -- a card headed "US$13,99" over US$13,99 and US$97. The loaded
+    // bill is not lost: the sheet says it, beside the estimate it is being
+    // compared with. Per direct feedback.
+    const amount = resumen.estimatedAmount ?? 0
     cents.set(currency, (cents.get(currency) ?? 0) + Math.round(amount * 100))
   }
   return CURRENCY_ORDER.flatMap((currency) => {

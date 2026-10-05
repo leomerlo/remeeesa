@@ -13,6 +13,19 @@ import type { HouseholdsDb } from '@/lib/households'
 import type { Pendiente } from '@/lib/pendientes'
 import { pendientesQueryKey } from './queryKeys'
 
+// What to say under a card whose statement has already been loaded by
+// hand. Same shape as the Resumen's own detail: the bill, then how far the
+// household's own record was from it.
+function resumenLoadedLine(resumen: Pendiente, estimated: number): string {
+  const currency = resumen.currency ?? 'ARS'
+  const expected = resumen.expectedAmount ?? 0
+  const difference = Math.round(expected * 100 - estimated * 100) / 100
+  const loaded = `Resumen cargado: ${formatAmount(expected, currency)}`
+  return difference === 0
+    ? `${loaded} · igual a lo que cargaste.`
+    : `${loaded} · ${formatAmount(Math.abs(difference), currency)} ${difference > 0 ? 'más' : 'menos'} de lo que cargaste.`
+}
+
 export type CardsNextMonthSheetProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
@@ -84,29 +97,48 @@ export function CardsNextMonthSheet({
               : 'No se pudieron cargar los consumos'}
           </AlertMessage>
         ) : (
-          resumenes.map((resumen, index) => (
-            <section
-              key={resumen.id}
-              aria-label={`${resumen.name} de ${formatMonthLabel(resumen.dueDate)}`}
-              className="flex flex-col gap-3"
-            >
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-foreground font-semibold">
-                  {resumen.name}
-                </span>
-                <span className="money text-foreground text-lg">
-                  {formatAmount(
-                    resumen.expectedAmount ?? resumen.estimatedAmount ?? 0,
-                    resumen.currency ?? 'ARS',
-                  )}
-                </span>
-              </div>
-              <ul
-                aria-label={`Consumos de ${resumen.name}`}
+          resumenes.map((resumen, index) => {
+            const cuotas = detail.data.perResumen[index] ?? []
+            // Added up from the movements listed right below it, not read
+            // off the Resumen's stored total: this figure's whole job is to
+            // be what that list comes to, so it is computed from the list.
+            const estimated =
+              cuotas.reduce(
+                (cents, { cuota }) => cents + Math.round(cuota.amount * 100),
+                0,
+              ) / 100
+            return (
+              <section
+                key={resumen.id}
+                aria-label={`${resumen.name} de ${formatMonthLabel(resumen.dueDate)}`}
                 className="flex flex-col gap-3"
               >
-                {(detail.data.perResumen[index] ?? []).map(
-                  ({ purchase, cuota }: ResumenCuota) => {
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-foreground font-semibold">
+                    {resumen.name}
+                  </span>
+                  {/* The estimate -- which is what every row below it adds
+                    up to. It used to show the bill once one had been
+                    loaded by hand, so the figure and its own movements
+                    disagreed. Per direct feedback. */}
+                  <span className="money text-foreground text-lg">
+                    {formatAmount(estimated, resumen.currency ?? 'ARS')}
+                  </span>
+                </div>
+                {/* Said rather than substituted: the household loaded this
+                  one by hand, and the gap between it and the estimate is
+                  the thing worth seeing. Per direct feedback -- la
+                  diferencia se muestra y nada más. */}
+                {resumen.expectedAmount === null ? null : (
+                  <p className="text-muted-foreground text-xs">
+                    {resumenLoadedLine(resumen, estimated)}
+                  </p>
+                )}
+                <ul
+                  aria-label={`Consumos de ${resumen.name}`}
+                  className="flex flex-col gap-3"
+                >
+                  {cuotas.map(({ purchase, cuota }: ResumenCuota) => {
                     const category = detail.data.categories.find(
                       (candidate) => candidate.id === purchase.categoryId,
                     )
@@ -140,11 +172,11 @@ export function CardsNextMonthSheet({
                         </span>
                       </li>
                     )
-                  },
-                )}
-              </ul>
-            </section>
-          ))
+                  })}
+                </ul>
+              </section>
+            )
+          })
         )}
       </SheetScrollArea>
     </Sheet>

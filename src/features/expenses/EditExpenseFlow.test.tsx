@@ -551,6 +551,65 @@ describe('EditExpenseFlow', () => {
     })
   })
 
+  // A household's credit cards are deliberately not offered here: what you
+  // pay with credit does not leave this month, it lands in next month's
+  // Resumen, so moving a saved gasto onto one would be a different record
+  // rather than an edit. They used to just be absent, which read as a list
+  // missing half the cards. Per direct feedback.
+  it('says why the credit cards are not among the methods offered', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100000,
+    })
+    await createCard({
+      db,
+      householdId: household.id,
+      name: 'Visa Flor',
+      kind: 'credito',
+      currency: 'BOTH',
+      brand: 'visa',
+    })
+    await createCard({
+      db,
+      householdId: household.id,
+      name: 'Mercado Pago',
+      kind: 'cuenta',
+      currency: 'ARS',
+      brand: 'mercadopago',
+    })
+    await seedCurrentMonthExpense({
+      db,
+      householdId: household.id,
+      name: 'Luz',
+      price: 36800,
+    })
+
+    renderInRouter(
+      <EditExpenseHarness
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar Luz' }))
+
+    const methods = await screen.findByLabelText('Método de pago')
+    expect(
+      within(methods).getByRole('option', { name: 'Mercado Pago' }),
+    ).toBeInTheDocument()
+    expect(
+      within(methods).queryByRole('option', { name: 'Visa Flor' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByText(/tarjetas de crédito no están en esta lista/i),
+    ).toBeInTheDocument()
+  })
+
   // Recurrente replaced the old "Marcar como servicio" switch, which only
   // ever set a flag: the gasto showed up under Servicios but never came
   // back the following month, because recurrence lives on a Pendiente and

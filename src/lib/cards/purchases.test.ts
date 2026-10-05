@@ -858,7 +858,10 @@ describe('cardsDueNextMonthTotals', () => {
       categoryId: 'c',
       name: 'Visa',
       dueDate: new Date(2026, 9, 10),
-      expectedAmount: 100,
+      // A Resumen that has not been loaded by hand owes nothing yet; what
+      // it carries is the estimate, and that is what this figure adds up.
+      expectedAmount: null,
+      estimatedAmount: 100,
       recurring: false,
       autoDebit: false,
       status: 'pending',
@@ -874,8 +877,8 @@ describe('cardsDueNextMonthTotals', () => {
   it("sums the unpaid Resúmenes due in the calendar month after today's", () => {
     const totals = cardsDueNextMonthTotals(
       [
-        resumen({ expectedAmount: 10.1 }),
-        resumen({ expectedAmount: 20.2, cardId: 'card-2' }),
+        resumen({ estimatedAmount: 10.1 }),
+        resumen({ estimatedAmount: 20.2, cardId: 'card-2' }),
         // Not next month.
         resumen({ dueDate: new Date(2026, 8, 10) }),
         resumen({ dueDate: new Date(2026, 10, 10) }),
@@ -890,10 +893,22 @@ describe('cardsDueNextMonthTotals', () => {
     expect(totals).toEqual([{ currency: 'ARS', total: 30.3 }])
   })
 
+  // It used to prefer the bill the household had loaded by hand, which
+  // made this figure disagree with the consumos it opens into. Per direct
+  // feedback: a card headed "US$13,99" over US$13,99 and US$97.
+  it('keeps adding the estimate even once a bill has been loaded by hand', () => {
+    expect(
+      cardsDueNextMonthTotals(
+        [resumen({ estimatedAmount: 110.99, expectedAmount: 13.99 })],
+        new Date(2026, 8, 30),
+      ),
+    ).toEqual([{ currency: 'ARS', total: 110.99 }])
+  })
+
   it('rolls December into January of the next year', () => {
     expect(
       cardsDueNextMonthTotals(
-        [resumen({ dueDate: new Date(2027, 0, 10), expectedAmount: 5 })],
+        [resumen({ dueDate: new Date(2027, 0, 10), estimatedAmount: 5 })],
         new Date(2026, 11, 31),
       ),
     ).toEqual([{ currency: 'ARS', total: 5 }])

@@ -791,18 +791,9 @@ function PendienteFormBody({
             </Button>
             {isEditing ? (
               <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={mutation.isPending}
-                  className="w-full"
-                  onClick={() => {
-                    setError(null)
-                    onEditFinished?.()
-                  }}
-                >
-                  Cancelar edición
-                </Button>
+                {/* No "Cancelar edición": the sheet's own header has a
+                    close control, and a second way out of the same screen
+                    only made the footer longer. Per direct feedback. */}
                 {/* Deleting a paid Pendiente isn't offered -- both the
                     domain layer and firestore.rules reject it (see
                     deletePendiente), and "Deshacer pago" above is the way

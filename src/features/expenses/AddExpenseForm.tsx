@@ -263,6 +263,12 @@ function ExpenseFormBody({
   const methods = (cardsQuery.data ?? []).filter(
     (card) => card.kind !== 'credito',
   )
+  // Left out above, but said below: a list that silently drops half a
+  // household's cards reads as broken. Per direct feedback -- "faltan
+  // métodos de pago en la lista".
+  const hidesCredit = (cardsQuery.data ?? []).some(
+    (card) => card.kind === 'credito',
+  )
   const method = methods.find((card) => card.id === cardId)
 
   // The Pendiente behind a servicio: where its recurrence lives, and the
@@ -649,6 +655,14 @@ function ExpenseFormBody({
                     (option) => option.value === method.kind,
                   )?.detail ?? '')}
             </p>
+            {hidesCredit ? (
+              <p className="text-muted-foreground text-xs">
+                Tus tarjetas de crédito no están en esta lista: lo que se paga
+                con crédito no sale este mes, va al resumen del mes que viene.
+                Para pasarlo a una, borrá esto y cargalo de nuevo eligiendo la
+                tarjeta.
+              </p>
+            ) : null}
             {cardsQuery.isSuccess && methods.length === 0 ? (
               <Link
                 to="/household"
@@ -893,18 +907,9 @@ function ExpenseFormBody({
             </Button>
             {isEditing ? (
               <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={mutation.isPending}
-                  className="w-full"
-                  onClick={() => {
-                    setError(null)
-                    onEditFinished?.()
-                  }}
-                >
-                  Cancelar edición
-                </Button>
+                {/* No "Cancelar edición": the sheet's own header has a
+                    close control, and a second way out of the same screen
+                    only made the footer longer. Per direct feedback. */}
                 <Button
                   type="button"
                   variant="destructive-outline"

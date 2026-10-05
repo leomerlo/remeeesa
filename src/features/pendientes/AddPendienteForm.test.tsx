@@ -790,7 +790,13 @@ describe('EditPendienteFlow', () => {
     expect(await listPendientes({ db, householdId })).toHaveLength(1)
   })
 
-  it('discards edits and leaves the pendiente unchanged via "Cancelar edición"', async () => {
+  // The footer used to carry "Cancelar edición" beside Guardar. It was a
+  // second way out of a screen the sheet's own header already closes, and
+  // it is gone -- per direct feedback. Dismissing without saving is
+  // covered where the sheet actually is (AddExpenseSheet, PendientesPage);
+  // what this holds is that the footer offers nothing but the two actions
+  // that change something, and that an unsaved edit changes nothing.
+  it('offers only saving and deleting, and writes nothing until one is pressed', async () => {
     const { db, householdId } = await seedPendingPendiente({ name: 'Alquiler' })
 
     renderWithProviders(
@@ -803,14 +809,19 @@ describe('EditPendienteFlow', () => {
     fireEvent.change(screen.getByLabelText('Nombre'), {
       target: { value: 'Cambio descartado' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Cancelar edición' }))
 
     expect(
-      screen.queryByRole('button', { name: 'Guardar cambios' }),
+      screen.queryByRole('button', { name: 'Cancelar edición' }),
     ).not.toBeInTheDocument()
-    expect(screen.getByText('Alquiler')).toBeInTheDocument()
-    const listed = await listPendientes({ db, householdId })
-    expect(listed).toEqual([expect.objectContaining({ name: 'Alquiler' })])
+    expect(
+      screen.getByRole('button', { name: 'Guardar cambios' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Eliminar servicio' }),
+    ).toBeInTheDocument()
+    expect(await listPendientes({ db, householdId })).toEqual([
+      expect.objectContaining({ name: 'Alquiler' }),
+    ])
   })
 
   it('closes the edit form with no alert when the pendiente was deleted elsewhere before saving', async () => {

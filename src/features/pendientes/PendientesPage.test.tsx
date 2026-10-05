@@ -523,7 +523,7 @@ describe('PendientesPage', () => {
     expect(screen.getByText('Alquiler')).toBeInTheDocument()
   })
 
-  it('restores focus to the row that opened the sheet when Cancelar edición is clicked', async () => {
+  it('restores focus to the row that opened the sheet when the sheet is closed', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -556,7 +556,7 @@ describe('PendientesPage', () => {
     fireEvent.click(payButton)
 
     await screen.findByLabelText('Monto esperado')
-    fireEvent.click(screen.getByRole('button', { name: 'Cancelar edición' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }))
 
     await waitFor(() => {
       expect(screen.queryByLabelText('Monto esperado')).not.toBeInTheDocument()
