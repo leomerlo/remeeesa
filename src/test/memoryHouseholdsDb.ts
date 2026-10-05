@@ -1028,6 +1028,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         expectedAmount: input.expectedAmount,
         recurring: input.recurring ?? false,
         autoDebit: input.autoDebit ?? false,
+        currency: input.currency ?? DEFAULT_CURRENCY,
         status: 'pending',
         paidExpenseId: null,
         paidAt: null,
@@ -1112,6 +1113,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         expectedAmount: input.expectedAmount,
         recurring: input.recurring,
         autoDebit: input.autoDebit,
+        currency: input.currency,
       }
       state.pendientes.set(input.pendienteId, updated)
       return updated
@@ -1197,7 +1199,8 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         // paid.
         isService: existing.recurring,
         subcategory: null,
-        currency: DEFAULT_CURRENCY,
+        // The bill's own currency: a dollar bill paid is a dollar gasto.
+        currency: existing.currency ?? DEFAULT_CURRENCY,
         createdAt,
       }
       const updated: Pendiente = {

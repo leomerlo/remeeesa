@@ -63,6 +63,8 @@ describe('createPendiente', () => {
       recurring: false,
       autoDebit: false,
       status: 'pending',
+      // Pesos unless the caller says otherwise.
+      currency: 'ARS',
       paidExpenseId: null,
       paidAt: null,
       createdAt: expect.any(Date),
@@ -1393,6 +1395,7 @@ describe('memoryHouseholdsDb updatePendiente/deletePendiente (bypassing the doma
         expectedAmount: pendiente.expectedAmount,
         recurring: false,
         autoDebit: false,
+        currency: 'ARS',
       }),
     ).rejects.toThrow(PendienteAlreadyPaidError)
   })

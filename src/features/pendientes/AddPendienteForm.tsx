@@ -42,7 +42,8 @@ import {
 } from '@/lib/cards'
 import { Select } from '@/components/ui/select'
 import { cardsQueryKey } from '@/features/household/cardsQueryKey'
-import { cardAccepts } from '@/lib/money'
+import { cardAccepts, DEFAULT_CURRENCY } from '@/lib/money'
+import type { Currency } from '@/lib/money'
 import { pendientesQueryKey } from './queryKeys'
 
 export type EditPendienteTarget = {
@@ -53,6 +54,9 @@ export type EditPendienteTarget = {
   readonly expectedAmount: number | null
   readonly recurring: boolean
   readonly autoDebit: boolean
+  // Pesos unless it says otherwise. A dollar bill is recorded and shown in
+  // dollars and counted against no peso budget.
+  readonly currency?: Currency
   // Pre-checks "Ya lo pagué" -- set by entry points whose whole purpose is
   // paying (Home's "Cuentas por pagar" cards, PendientesList's "Pagar"
   // button), so the toggle already reflects that intent rather than making
@@ -290,6 +294,9 @@ function PendienteFormBody({
   const [paymentDate, setPaymentDate] = useState(
     localDateInputValue(new Date()),
   )
+  const [currency, setCurrency] = useState<Currency>(
+    editPendiente?.currency ?? DEFAULT_CURRENCY,
+  )
   // '' is cash: the method every household has without writing it down.
   const [payMethodId, setPayMethodId] = useState('')
   const [payCuotas, setPayCuotas] = useState('1')
@@ -297,10 +304,10 @@ function PendienteFormBody({
     queryKey: cardsQueryKey({ householdId }),
     queryFn: () => listCards({ db, householdId }),
   })
-  // A bill is in pesos (a Pendiente carries no currency of its own), so a
-  // credit card that cannot be billed in pesos cannot pay one.
+  // A credit card can only settle a bill the bank can bill it in: a card
+  // the bank does not bill in dollars cannot pay a dollar subscription.
   const payMethods = (cardsQuery.data ?? []).filter(
-    (card) => card.kind !== 'credito' || cardAccepts(card.currency, 'ARS'),
+    (card) => card.kind !== 'credito' || cardAccepts(card.currency, currency),
   )
   const payMethod = payMethods.find((card) => card.id === payMethodId)
   // The one that changes what paying means: with credit nothing leaves the
@@ -338,6 +345,7 @@ function PendienteFormBody({
         finalAmount: input.finalAmount,
         cuotas: Number(payCuotas),
         paymentDate: input.paymentDate,
+        currency,
       })
       return
     }
@@ -375,6 +383,7 @@ function PendienteFormBody({
           expectedAmount: fields.expectedAmount,
           recurring: fields.recurring,
           autoDebit: fields.autoDebit,
+          currency,
         })
         if (shouldMarkPaid) {
           // fields.expectedAmount === null is caught before mutate() is
@@ -396,6 +405,7 @@ function PendienteFormBody({
         dueDate: fields.dueDate,
         expectedAmount: fields.expectedAmount,
         recurring: fields.recurring,
+        currency,
       })
       if (shouldMarkPaid) {
         // Same "fields.expectedAmount === null is caught before mutate()"
@@ -670,22 +680,39 @@ function PendienteFormBody({
               left a large empty box at the top of an empty form. */}
           <div className="flex w-full flex-col gap-2">
             <Label htmlFor="pendiente-expected-amount">Monto esperado</Label>
-            <div className="relative">
-              <span
-                aria-hidden="true"
-                className="text-muted-foreground pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
+            {/* A bill can be in dollars -- a subscription, something
+                billed abroad. The currency sits with the amount because
+                that is what it qualifies, same as on a gasto. Per direct
+                feedback. */}
+            <div className="flex w-full items-center gap-2">
+              <Select
+                aria-label="Moneda"
+                value={currency}
+                disabled={isPaidPendiente}
+                onChange={(event) => {
+                  setCurrency(event.target.value === 'USD' ? 'USD' : 'ARS')
+                }}
+                className="w-auto shrink-0 text-sm"
               >
-                $
-              </span>
-              <FormattedAmountInput
-                id="pendiente-expected-amount"
-                name="pendiente-expected-amount"
-                className="pl-8"
-                value={expectedAmount}
-                onChange={setExpectedAmount}
-                autoComplete="off"
-              />
+                <option value="ARS">$</option>
+                <option value="USD">US$</option>
+              </Select>
+              <div className="relative min-w-0 flex-1">
+                <FormattedAmountInput
+                  id="pendiente-expected-amount"
+                  name="pendiente-expected-amount"
+                  value={expectedAmount}
+                  onChange={setExpectedAmount}
+                  autoComplete="off"
+                />
+              </div>
             </div>
+            {currency === 'USD' ? (
+              <p className="text-muted-foreground text-xs">
+                Las cuentas en dólares se registran pero no se descuentan del
+                presupuesto del mes.
+              </p>
+            ) : null}
           </div>
 
           <div className="flex w-full flex-col gap-2">

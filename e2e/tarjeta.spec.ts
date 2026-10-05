@@ -195,3 +195,58 @@ test('a servicio paid with a credit card leaves this month alone and lands in ne
     page.getByRole('list', { name: 'Consumos de Visa Flor' }),
   ).toContainText('Luz')
 })
+
+// A bill in dollars: a subscription, something billed abroad. Recorded and
+// shown in dollars, counted against no peso budget. Per direct feedback --
+// this was the top of her list.
+test('a servicio in dollars is owed, paid and counted in dollars', async ({
+  page,
+}) => {
+  await signUpWithHousehold(page, { budget: '500000' })
+
+  await page.getByRole('button', { name: 'Agregar gasto' }).first().click()
+  const sheet = page.getByRole('dialog', { name: 'Agregar gasto' })
+  await sheet.getByLabel('Nombre').fill('Skool')
+  await sheet.getByLabel('Precio').fill('97')
+  const category = sheet.getByLabel('Categoría').first()
+  await category.fill('Herramientas digitales')
+  await category.press('Escape')
+  await sheet.getByLabel('Ya lo pagué').click()
+  await sheet.getByRole('button', { name: 'Agregar servicio' }).click()
+  await expect(sheet).toBeHidden({ timeout: 20000 })
+
+  // Logged in pesos by mistake; the currency is fixable on the bill itself.
+  await page.getByRole('link', { name: /Servicios/ }).click()
+  await page
+    .getByRole('list', { name: 'Servicios por pagar' })
+    .getByRole('button', { name: 'Editar Skool' })
+    .click()
+  const edit = page.getByRole('dialog', { name: 'Editar servicio' })
+  await edit.getByLabel('Moneda').selectOption('USD')
+  await expect(edit).toContainText('no se descuentan del presupuesto del mes')
+  await edit.getByRole('button', { name: 'Guardar cambios' }).click()
+  await expect(edit).toBeHidden({ timeout: 20000 })
+
+  // Owed in dollars, so the peso budget is whole again.
+  await expect(page.getByText('US$97').first()).toBeVisible()
+  await page.getByRole('link', { name: /Inicio/ }).click()
+  await expect(page.getByRole('status', { name: /^Te quedan/ })).toContainText(
+    '$500.000',
+  )
+
+  // Paying it writes a dollar gasto, and still commits no pesos.
+  await page.getByRole('link', { name: /Servicios/ }).click()
+  await page
+    .getByRole('list', { name: 'Servicios por pagar' })
+    .getByRole('button', { name: 'Marcar pagado Skool' })
+    .click()
+  const pay = page.getByRole('dialog', { name: 'Editar servicio' })
+  await pay.getByRole('button', { name: 'Guardar y marcar pagado' }).click()
+  await expect(pay).toBeHidden({ timeout: 20000 })
+
+  await page.getByRole('link', { name: /Inicio/ }).click()
+  await expect(page.getByRole('status', { name: /^Te quedan/ })).toContainText(
+    '$500.000',
+  )
+  await expect(page.getByText('US$97').first()).toBeVisible()
+})

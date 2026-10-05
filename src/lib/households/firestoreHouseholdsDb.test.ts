@@ -554,7 +554,7 @@ describe('firestore.rules pendientes', () => {
     expect(rules).toContain('function isValidPendienteUpdate()')
     expect(rules).toContain("resource.data.status == 'pending'")
     expect(rules).toMatch(
-      /function isValidPendienteUpdate\(\) \{[\s\S]*?request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasOnly\(\['name', 'category_id', 'due_date', 'expected_amount', 'recurring', 'auto_debit'\]\)/,
+      /function isValidPendienteUpdate\(\) \{[\s\S]*?request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasOnly\(\['name', 'category_id', 'due_date', 'expected_amount', 'recurring', 'auto_debit', 'currency'\]\)/,
     )
     expect(rules).toMatch(
       /function isValidPendienteUpdate\(\) \{[\s\S]*?!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'status', 'paid_expense_id', 'paid_purchase_id', 'paid_at', 'created_at'\]\)/,
@@ -1292,6 +1292,7 @@ describe('every field the converters write is a field the rules allow', () => {
         paidExpenseId: null,
         paidAt: null,
         createdAt: new Date(),
+        currency: 'ARS',
       }),
     )
 

@@ -32,5 +32,4 @@ export {
 export {
   convertExpenseToPendiente,
   GastoAlreadyServicioError,
-  GastoNotConvertibleCurrencyError,
 } from './convertGasto'

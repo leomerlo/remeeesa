@@ -12,7 +12,6 @@ import type { Currency } from '@/lib/money'
 import {
   convertExpenseToPendiente,
   GastoAlreadyServicioError,
-  GastoNotConvertibleCurrencyError,
 } from './convertGasto'
 import { createPendiente, getPendiente, markPendientePaid } from './pendientes'
 
@@ -180,9 +179,10 @@ describe('convertExpenseToPendiente', () => {
     ).toEqual([])
   })
 
-  // A Pendiente carries no currency of its own, so there is nowhere for the
-  // dollars to go: US$120 would silently become $120 of this month.
-  it('refuses a gasto in dollars, leaving it untouched', async () => {
+  // This used to be refused outright: a Pendiente had no currency of its
+  // own, so US$120 would have become $120 of this month's budget. Bills
+  // carry a currency now. Per direct feedback -- dollars first.
+  it('turns a dollar gasto into a dollar bill, counted against no peso budget', async () => {
     const { db, householdId, categoryId } = await setUp()
     const expenseId = await seedGasto({
       db,
@@ -191,26 +191,27 @@ describe('convertExpenseToPendiente', () => {
       currency: 'USD',
     })
 
-    await expect(
-      convertExpenseToPendiente({
-        db,
-        householdId,
-        expenseId,
-        recurring: true,
-        autoDebit: false,
-        markPaid: true,
-        memberId: 'user-1',
-        authorDisplayName: 'Ada',
-      }),
-    ).rejects.toThrow(GastoNotConvertibleCurrencyError)
+    const created = await convertExpenseToPendiente({
+      db,
+      householdId,
+      expenseId,
+      recurring: true,
+      autoDebit: false,
+      markPaid: true,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+    })
 
-    const expenses = await listExpensesInMonth({
+    expect(created.currency).toBe('USD')
+    const [converted] = await listExpensesInMonth({
       db,
       householdId,
       monthStart: MONTH_START,
       monthEnd: MONTH_END,
     })
-    expect(expenses.map((expense) => expense.id)).toEqual([expenseId])
+    // The gasto the payment wrote is in dollars too, not quietly in pesos.
+    expect(converted?.currency).toBe('USD')
+    expect(converted?.price).toBe(12000)
   })
 
   it('refuses a gasto that already has a Pendiente behind it', async () => {

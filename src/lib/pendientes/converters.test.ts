@@ -29,6 +29,9 @@ describe('parsePendienteDocument', () => {
       recurring: false,
       autoDebit: false,
       status: 'pending',
+      // Pesos when the document says nothing, which is what every bill
+      // written before a bill could be in dollars was.
+      currency: 'ARS',
       paidExpenseId: null,
       paidAt: null,
       createdAt: new Date('2026-08-31T12:00:00.000Z'),
@@ -449,8 +452,10 @@ describe('pendienteToDocument', () => {
         paidExpenseId: null,
         paidAt: null,
         createdAt,
+        currency: 'ARS',
       }),
     ).toEqual({
+      currency: 'ARS',
       household_id: 'h1',
       category_id: 'c1',
       name: 'Alquiler',

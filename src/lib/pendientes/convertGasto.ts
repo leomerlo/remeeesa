@@ -1,4 +1,3 @@
-import { DEFAULT_CURRENCY } from '@/lib/money'
 import {
   deleteExpense,
   ExpenseNotFoundError,
@@ -7,20 +6,6 @@ import {
 import type { HouseholdsDb } from '@/lib/households/types'
 import { createPendiente, markPendientePaid } from './pendientes'
 import type { Pendiente } from './types'
-
-// Asking a plain gasto to be recurrent, or to go back to being owed, when
-// the money it records is in dollars. A Pendiente carries no currency of its
-// own -- only a card Resumen does -- so converting one would quietly turn
-// US$120 into $120 of this month's budget. Refused instead of rounded off.
-export class GastoNotConvertibleCurrencyError extends Error {
-  override readonly name = 'GastoNotConvertibleCurrencyError'
-
-  constructor() {
-    super(
-      'Un gasto en dólares no puede ser recurrente ni volver a quedar impago: los servicios se llevan solo en pesos.',
-    )
-  }
-}
 
 // The gasto is already a servicio -- it has a real Pendiente behind it, and
 // that Pendiente is where recurrence and "¿ya se pagó?" live. Changing them
@@ -67,10 +52,6 @@ export async function convertExpenseToPendiente(input: {
   if (existing.pendienteId !== null) {
     throw new GastoAlreadyServicioError()
   }
-  if (existing.currency !== DEFAULT_CURRENCY) {
-    throw new GastoNotConvertibleCurrencyError()
-  }
-
   const created = await createPendiente({
     db: input.db,
     householdId: input.householdId,
@@ -82,6 +63,9 @@ export async function convertExpenseToPendiente(input: {
     expectedAmount: existing.price,
     recurring: input.recurring,
     autoDebit: input.autoDebit,
+    // A dollar gasto becomes a dollar bill. This used to be refused
+    // outright, because a Pendiente had no currency to put it in.
+    currency: existing.currency,
   })
 
   if (input.markPaid) {

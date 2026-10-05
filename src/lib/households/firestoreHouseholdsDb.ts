@@ -265,6 +265,7 @@ function newResumenDocument(input: {
       paidExpenseId: null,
       paidAt: null,
       createdAt: input.now.toDate(),
+      currency: input.currency,
     }),
     due_date: toFirestorePendienteDate(dueDate),
     created_at: input.now,
@@ -1098,6 +1099,7 @@ export function createFirestoreHouseholdsDb(
               paidExpenseId: null,
               paidAt: null,
               createdAt,
+              currency: input.currency ?? DEFAULT_CURRENCY,
             }),
             due_date: toFirestorePendienteDate(input.dueDate),
             created_at: now,
@@ -1115,6 +1117,7 @@ export function createFirestoreHouseholdsDb(
             paidExpenseId: null,
             paidAt: null,
             createdAt,
+            currency: input.currency ?? DEFAULT_CURRENCY,
           }
         },
         { householdId: input.householdId, categoryId: input.categoryId },
@@ -1208,6 +1211,7 @@ export function createFirestoreHouseholdsDb(
             expected_amount: input.expectedAmount,
             recurring: input.recurring,
             auto_debit: input.autoDebit,
+            currency: input.currency,
           })
           return {
             ...current,
@@ -1217,6 +1221,7 @@ export function createFirestoreHouseholdsDb(
             expectedAmount: input.expectedAmount,
             recurring: input.recurring,
             autoDebit: input.autoDebit,
+            currency: input.currency,
           }
         },
         {
@@ -1333,7 +1338,11 @@ export function createFirestoreHouseholdsDb(
                 // feedback.
                 isService: current.recurring,
                 subcategory: null,
-                currency: DEFAULT_CURRENCY,
+                // The bill's own currency: a dollar bill paid is a dollar
+                // gasto, recorded and shown in dollars and counted against
+                // no peso budget. It used to be pesos whatever the bill
+                // was.
+                currency: current.currency ?? DEFAULT_CURRENCY,
                 // What settled it, when it was one of the methods the
                 // household wrote down. Never a credit one: that settles
                 // next month and goes through markPendientePaidWithCard.
@@ -1380,7 +1389,7 @@ export function createFirestoreHouseholdsDb(
                 // feedback.
                 isService: current.recurring,
                 subcategory: null,
-                currency: DEFAULT_CURRENCY,
+                currency: current.currency ?? DEFAULT_CURRENCY,
                 paymentMethodId: input.paymentMethodId ?? null,
                 createdAt,
               },

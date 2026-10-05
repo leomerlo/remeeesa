@@ -310,13 +310,6 @@ function ExpenseFormBody({
   const effectiveCurrency: Currency = narrowedTo ?? currency
   const picksCurrency = narrowedTo === undefined
 
-  // Turning Recurrente on, or "Ya lo pagué" off, asks for a Pendiente --
-  // and a Pendiente carries no currency of its own, so a dollar gasto has
-  // nowhere to put its dollars. Caught before anything is written.
-  const wantsPendiente = (!isServicio && recurring) || !markPaid
-  const blockedByCurrency =
-    wantsPendiente && effectiveCurrency !== DEFAULT_CURRENCY
-
   async function invalidateExpenseViews(): Promise<void> {
     // Categories are a separate entity from expenses, so they keep their
     // own exact-key invalidation. The expenses prefix invalidates every
@@ -555,11 +548,6 @@ function ExpenseFormBody({
   function onSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault()
     try {
-      if (blockedByCurrency) {
-        throw new Error(
-          'Un gasto en dólares no puede ser recurrente ni volver a quedar impago: los servicios se llevan solo en pesos.',
-        )
-      }
       const fields = parseExpenseFields({
         name,
         price,

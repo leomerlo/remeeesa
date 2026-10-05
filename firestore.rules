@@ -423,7 +423,7 @@ service cloud.firestore {
       return resource.data.status == 'pending'
         && !('card_id' in resource.data)
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'category_id', 'due_date', 'expected_amount', 'recurring', 'auto_debit'])
+          .hasOnly(['name', 'category_id', 'due_date', 'expected_amount', 'recurring', 'auto_debit', 'currency'])
         && !request.resource.data.diff(resource.data).affectedKeys()
           .hasAny(['household_id', 'status', 'paid_expense_id', 'paid_purchase_id', 'paid_at', 'created_at'])
         && request.resource.data.household_id == resource.data.household_id
@@ -436,6 +436,11 @@ service cloud.firestore {
         && request.resource.data.recurring is bool
         && (!('auto_debit' in request.resource.data)
             || request.resource.data.auto_debit is bool)
+        // A bill can be in dollars, and the currency is correctable the
+        // same way a gasto's is -- it is picked when the bill is written
+        // down, which is when it is easiest to get wrong.
+        && (!('currency' in request.resource.data)
+            || request.resource.data.currency in ['ARS', 'USD'])
         && exists(/databases/$(database)/documents/categories/$(request.resource.data.category_id))
         && get(/databases/$(database)/documents/categories/$(request.resource.data.category_id)).data.household_id == resource.data.household_id;
     }

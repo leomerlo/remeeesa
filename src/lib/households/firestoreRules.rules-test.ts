@@ -289,6 +289,71 @@ describe('expenses', () => {
 // a question about next month, so it stays editable from the gasto's own
 // edit form even after the bill is paid. Everything else on a paid
 // Pendiente stays frozen.
+// A bill can be in dollars, and like a gasto's, its currency is
+// correctable -- it is picked when the bill is written down, which is when
+// it is easiest to get wrong. Per direct feedback.
+describe('a bill in dollars', () => {
+  const PENDIENTE = 'pendiente-usd'
+
+  async function seedBill(currency?: string): Promise<void> {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'pendientes', PENDIENTE), {
+        household_id: HOUSEHOLD,
+        category_id: 'cat-1',
+        name: 'Skool',
+        due_date: Timestamp.fromDate(new Date(2026, 9, 10)),
+        expected_amount: 97,
+        recurring: true,
+        auto_debit: false,
+        status: 'pending',
+        paid_expense_id: null,
+        paid_at: null,
+        created_at: Timestamp.now(),
+        ...(currency === undefined ? {} : { currency }),
+      })
+    })
+  }
+
+  it('is created in dollars', async () => {
+    await assertSucceeds(
+      setDoc(doc(asMember(), 'pendientes', PENDIENTE), {
+        household_id: HOUSEHOLD,
+        category_id: 'cat-1',
+        name: 'Skool',
+        due_date: Timestamp.fromDate(new Date(2026, 9, 10)),
+        expected_amount: 97,
+        recurring: true,
+        auto_debit: false,
+        status: 'pending',
+        currency: 'USD',
+        paid_expense_id: null,
+        paid_at: null,
+        created_at: Timestamp.now(),
+      }),
+    )
+  })
+
+  it('lets a pending bill be moved to the other currency', async () => {
+    await seedBill()
+
+    await assertSucceeds(
+      updateDoc(doc(asMember(), 'pendientes', PENDIENTE), {
+        currency: 'USD',
+      }),
+    )
+  })
+
+  it('refuses a currency it does not know', async () => {
+    await seedBill('USD')
+
+    await assertFails(
+      updateDoc(doc(asMember(), 'pendientes', PENDIENTE), {
+        currency: 'EUR',
+      }),
+    )
+  })
+})
+
 // Paying a bill with a credit card: nothing leaves the household today, so
 // there is no Expense to point at. The bill links to the CardPurchase the
 // payment created instead, and the two are written in the same commit --

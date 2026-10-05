@@ -1,3 +1,5 @@
+import { DEFAULT_CURRENCY } from '@/lib/money'
+import type { Currency } from '@/lib/money'
 import type { HouseholdsDb } from '@/lib/households/types'
 import {
   currentMonthRange,
@@ -35,6 +37,7 @@ export async function createPendiente(input: {
   readonly expectedAmount: number | null
   readonly recurring?: boolean
   readonly autoDebit?: boolean
+  readonly currency?: Currency
 }): Promise<Pendiente> {
   return input.db.createPendiente({
     householdId: input.householdId,
@@ -44,6 +47,7 @@ export async function createPendiente(input: {
     expectedAmount: parseExpectedAmount(input.expectedAmount),
     recurring: input.recurring,
     autoDebit: input.autoDebit,
+    currency: input.currency,
   })
 }
 
@@ -126,6 +130,7 @@ export async function updatePendiente(input: {
   readonly expectedAmount?: number | null
   readonly recurring?: boolean
   readonly autoDebit?: boolean
+  readonly currency?: Currency
 }): Promise<Pendiente> {
   const existing = await getPendienteOrThrow({
     db: input.db,
@@ -146,6 +151,7 @@ export async function updatePendiente(input: {
       : existing.expectedAmount
   const recurring = input.recurring ?? existing.recurring
   const autoDebit = input.autoDebit ?? existing.autoDebit
+  const currency = input.currency ?? existing.currency ?? DEFAULT_CURRENCY
 
   return input.db.updatePendiente({
     householdId: input.householdId,
@@ -156,6 +162,7 @@ export async function updatePendiente(input: {
     expectedAmount,
     recurring,
     autoDebit,
+    currency,
   })
 }
 
@@ -321,8 +328,9 @@ export async function listRecurrentesToCarry(input: {
     }))
 }
 
-// Creates each picked bill one month on: same name, category, amount and
-// débito automático, due the same day of the month (see nextCycleDueDate).
+// Creates each picked bill one month on: same name, category, amount,
+// currency and débito automático, due the same day of the month (see
+// nextCycleDueDate).
 // Not atomic -- if one write fails the others still land, and reopening the
 // list shows those as already there.
 export async function carryRecurrentes(input: {
@@ -341,6 +349,8 @@ export async function carryRecurrentes(input: {
         expectedAmount: pendiente.expectedAmount,
         recurring: true,
         autoDebit: pendiente.autoDebit,
+        // A dollar subscription is still a dollar one next month.
+        currency: pendiente.currency,
       }),
     ),
   )

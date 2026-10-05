@@ -226,6 +226,7 @@ export function HomePage({
                 expectedAmount: pendiente.expectedAmount,
                 recurring: pendiente.recurring,
                 autoDebit: pendiente.autoDebit,
+                currency: pendiente.currency,
                 defaultMarkPaid: true,
               })
             }}
@@ -317,6 +318,7 @@ export function HomePage({
                     expectedAmount: pendiente.expectedAmount,
                     recurring: pendiente.recurring,
                     autoDebit: pendiente.autoDebit,
+                    currency: pendiente.currency,
                     defaultMarkPaid: true,
                   })
                 }}

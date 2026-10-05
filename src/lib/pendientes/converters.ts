@@ -1,4 +1,5 @@
 import { parseCurrency } from '@/lib/money'
+import type { Currency } from '@/lib/money'
 import { Timestamp } from 'firebase/firestore'
 import {
   isRecord,
@@ -103,6 +104,12 @@ export function parsePendienteDocument(input: {
     autoDebit:
       auto_debit === undefined ? false : parseBoolean(auto_debit, 'auto_debit'),
     status: parsePendienteStatus(status),
+    // Any Pendiente may carry one, not just a Resumen: a bill can be in
+    // dollars (a subscription, a service billed abroad). Absent means
+    // pesos, which is what every bill written before this was. It used to
+    // be read only inside the Resumen branch below, so a dollar bill came
+    // back as a peso one. Per direct feedback.
+    currency: parseCurrency(currency),
     paidExpenseId: parseNullableString(paid_expense_id, 'paid_expense_id'),
     // Absent on every Pendiente not paid with a credit card, which is
     // almost all of them -- so it is left off rather than written as null.
@@ -128,9 +135,6 @@ export function parsePendienteDocument(input: {
           estimatedAmount: isLegacyResumen
             ? (parseNullableNumber(expected_amount, 'expected_amount') ?? 0)
             : (parseNullableNumber(estimated_amount, 'estimated_amount') ?? 0),
-          // A Resumen written before a card could hold two currencies is a
-          // peso one, which is what its card was.
-          currency: parseCurrency(currency),
           // Absent until the Resumen is first paid.
           ...(paid_expense_ids === undefined
             ? {}
@@ -169,6 +173,7 @@ export function pendienteToDocument(input: {
   readonly paidExpenseId: string | null
   readonly paidAt: Date | null
   readonly createdAt: Date
+  readonly currency: Currency
 }): {
   readonly household_id: string
   readonly category_id: string
@@ -181,6 +186,7 @@ export function pendienteToDocument(input: {
   readonly paid_expense_id: string | null
   readonly paid_at: Date | null
   readonly created_at: Date
+  readonly currency: Currency
 } {
   return {
     household_id: input.householdId,
@@ -191,6 +197,7 @@ export function pendienteToDocument(input: {
     recurring: input.recurring,
     auto_debit: input.autoDebit,
     status: input.status,
+    currency: input.currency,
     paid_expense_id: input.paidExpenseId,
     paid_at: input.paidAt,
     created_at: input.createdAt,

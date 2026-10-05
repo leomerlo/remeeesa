@@ -173,6 +173,7 @@ export function PendientesPage({
             expectedAmount: pendiente.expectedAmount,
             recurring: pendiente.recurring,
             autoDebit: pendiente.autoDebit,
+            currency: pendiente.currency,
             // Without it a paid row opened as an editable pending one, and
             // "Eliminar servicio" was refused and swallowed: the sheet
             // closed and the bill stayed. Paid, the only action offered is
@@ -193,6 +194,7 @@ export function PendientesPage({
             expectedAmount: pendiente.expectedAmount,
             recurring: pendiente.recurring,
             autoDebit: pendiente.autoDebit,
+            currency: pendiente.currency,
             defaultMarkPaid: true,
           })
         }}
