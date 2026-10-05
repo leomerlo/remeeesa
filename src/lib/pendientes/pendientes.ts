@@ -197,6 +197,10 @@ export async function markPendientePaid(input: {
   readonly authorDisplayName: string
   readonly finalAmount: number
   readonly paymentDate: Date
+  // What settled it, when it was one of the methods the household wrote
+  // down. Null for cash. Never a credit one -- that settles next month and
+  // goes through markPendientePaidWithCard instead.
+  readonly paymentMethodId?: string | null
 }): Promise<{
   pendiente: Pendiente
   expense: Expense
@@ -208,6 +212,7 @@ export async function markPendientePaid(input: {
     authorDisplayName: parseAuthorDisplayName(input.authorDisplayName),
     finalAmount: parseExpensePrice(input.finalAmount),
     paymentDate: parseExpenseDate(input.paymentDate),
+    paymentMethodId: input.paymentMethodId ?? null,
   })
 }
 

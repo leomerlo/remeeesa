@@ -34,6 +34,15 @@ import {
 } from '@/lib/expenses'
 import type { Category } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
+import {
+  listCards,
+  markPendientePaidWithCard,
+  MAX_CUOTAS,
+  parseCuotas,
+} from '@/lib/cards'
+import { Select } from '@/components/ui/select'
+import { cardsQueryKey } from '@/features/household/cardsQueryKey'
+import { cardAccepts } from '@/lib/money'
 import { pendientesQueryKey } from './queryKeys'
 
 export type EditPendienteTarget = {
@@ -281,6 +290,23 @@ function PendienteFormBody({
   const [paymentDate, setPaymentDate] = useState(
     localDateInputValue(new Date()),
   )
+  // '' is cash: the method every household has without writing it down.
+  const [payMethodId, setPayMethodId] = useState('')
+  const [payCuotas, setPayCuotas] = useState('1')
+  const cardsQuery = useQuery({
+    queryKey: cardsQueryKey({ householdId }),
+    queryFn: () => listCards({ db, householdId }),
+  })
+  // A bill is in pesos (a Pendiente carries no currency of its own), so a
+  // credit card that cannot be billed in pesos cannot pay one.
+  const payMethods = (cardsQuery.data ?? []).filter(
+    (card) => card.kind !== 'credito' || cardAccepts(card.currency, 'ARS'),
+  )
+  const payMethod = payMethods.find((card) => card.id === payMethodId)
+  // The one that changes what paying means: with credit nothing leaves the
+  // household today, it goes onto the card and arrives in that card's
+  // Resumen. Per direct feedback.
+  const paysWithCredit = payMethod?.kind === 'credito'
   const [error, setError] = useState<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const today = localDateInputValue(new Date())
@@ -290,6 +316,41 @@ function PendienteFormBody({
     // exact-key invalidation, same convention as the expense form.
     await queryClient.invalidateQueries({ queryKey: categoriesKey })
     await queryClient.invalidateQueries({ queryKey: pendientesKey })
+  }
+
+  // How a bill gets settled, which is one of two different things. Credit
+  // books a purchase into next month's Resumen and leaves this month
+  // alone; everything else is money already gone, recorded as a gasto with
+  // the method on it.
+  async function settlePendiente(input: {
+    readonly pendienteId: string
+    readonly finalAmount: number
+    readonly paymentDate: Date
+  }): Promise<void> {
+    if (paysWithCredit && payMethod !== undefined) {
+      await markPendientePaidWithCard({
+        db,
+        householdId,
+        pendienteId: input.pendienteId,
+        cardId: payMethod.id,
+        memberId,
+        authorDisplayName,
+        finalAmount: input.finalAmount,
+        cuotas: Number(payCuotas),
+        paymentDate: input.paymentDate,
+      })
+      return
+    }
+    await markPendientePaid({
+      db,
+      householdId,
+      pendienteId: input.pendienteId,
+      memberId,
+      authorDisplayName,
+      finalAmount: input.finalAmount,
+      paymentDate: input.paymentDate,
+      paymentMethodId: payMethodId === '' ? null : payMethodId,
+    })
   }
 
   const mutation = useMutation({
@@ -319,12 +380,8 @@ function PendienteFormBody({
           // fields.expectedAmount === null is caught before mutate() is
           // called (see onSubmit) -- parsedPaymentDate is likewise never
           // null here, both guarded by the same `markPaid` flag.
-          await markPendientePaid({
-            db,
-            householdId,
+          await settlePendiente({
             pendienteId: editPendiente.pendienteId,
-            memberId,
-            authorDisplayName,
             finalAmount: fields.expectedAmount ?? 0,
             paymentDate: parsedPaymentDate ?? new Date(),
           })
@@ -344,12 +401,8 @@ function PendienteFormBody({
         // Same "fields.expectedAmount === null is caught before mutate()"
         // guard as the editing branch above -- markPaid can't reach here
         // with a null amount or a null paymentDate.
-        await markPendientePaid({
-          db,
-          householdId,
+        await settlePendiente({
           pendienteId: created.id,
-          memberId,
-          authorDisplayName,
           finalAmount: fields.expectedAmount ?? 0,
           paymentDate: parsedPaymentDate ?? new Date(),
         })
@@ -536,6 +589,10 @@ function PendienteFormBody({
       if (markPaid && fields.expectedAmount === null) {
         throw new Error('Ingresá un monto para marcarlo como pagado')
       }
+      // Before mutate: a rejected payment must not leave a new category.
+      if (markPaid && paysWithCredit) {
+        parseCuotas(Number(payCuotas), fields.expectedAmount ?? 0)
+      }
       const parsedPaymentDate = markPaid
         ? parsePaymentDateInput(paymentDate)
         : null
@@ -709,18 +766,70 @@ function PendienteFormBody({
                 : 'Se va a deshacer el pago y se va a borrar el gasto que generó.'}
             </p>
           ) : markPaid ? (
-            <div className="flex w-full flex-col gap-2">
-              <Label htmlFor="pendiente-payment-date">Fecha de pago</Label>
-              <Input
-                id="pendiente-payment-date"
-                name="pendiente-payment-date"
-                type="date"
-                value={paymentDate}
-                max={today}
-                onChange={(event) => {
-                  setPaymentDate(event.target.value)
-                }}
-              />
+            /* Its own group, at the field spacing the rest of the form
+               uses: at the toggle's tighter gap these three read as
+               footnotes to the switch rather than as fields. */
+            <div className="flex w-full flex-col gap-4 pt-2">
+              {/* With what. Credit is the one that changes what paying
+                  means: the bill goes onto the card and leaves the
+                  household when that card's resumen is paid, not today.
+                  Per direct feedback -- pagar la Luz con la Visa. */}
+              <div className="flex w-full flex-col gap-2">
+                <Label htmlFor="pendiente-paid-with">Pagado con</Label>
+                <Select
+                  id="pendiente-paid-with"
+                  name="pendiente-paid-with"
+                  value={payMethodId}
+                  onChange={(event) => {
+                    setPayMethodId(event.target.value)
+                  }}
+                >
+                  <option value="">Efectivo</option>
+                  {payMethods.map((card) => (
+                    <option key={card.id} value={card.id}>
+                      {card.name}
+                    </option>
+                  ))}
+                </Select>
+                <p className="text-muted-foreground text-xs">
+                  {paysWithCredit
+                    ? `No sale de este mes: va al resumen de ${payMethod?.name ?? ''} del mes que viene.`
+                    : 'Sale este mes, como cualquier gasto.'}
+                </p>
+              </div>
+
+              {paysWithCredit ? (
+                <div className="flex w-full flex-col gap-2">
+                  <Label htmlFor="pendiente-pay-cuotas">Cuotas</Label>
+                  <Input
+                    id="pendiente-pay-cuotas"
+                    name="pendiente-pay-cuotas"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={MAX_CUOTAS}
+                    step={1}
+                    value={payCuotas}
+                    onChange={(event) => {
+                      setPayCuotas(event.target.value)
+                    }}
+                  />
+                </div>
+              ) : null}
+
+              <div className="flex w-full flex-col gap-2">
+                <Label htmlFor="pendiente-payment-date">Fecha de pago</Label>
+                <Input
+                  id="pendiente-payment-date"
+                  name="pendiente-payment-date"
+                  type="date"
+                  value={paymentDate}
+                  max={today}
+                  onChange={(event) => {
+                    setPaymentDate(event.target.value)
+                  }}
+                />
+              </div>
             </div>
           ) : null}
         </div>

@@ -257,13 +257,38 @@ export type HouseholdsDb = {
     readonly authorDisplayName: string
     readonly finalAmount: number
     readonly paymentDate: Date
+    // What paid it, when it was one of the methods the household wrote
+    // down. Null for cash. Never a credit method: that one settles next
+    // month and goes through markPendientePaidWithCard instead.
+    readonly paymentMethodId?: string | null
   }): Promise<{
     pendiente: Pendiente
     expense: Expense
   }>
-  // Reverses markPendientePaid or markResumenPaid: restores status to
-  // 'pending' and deletes every Expense that payment created (a Resumen's
-  // also unlock its purchases).
+  // Paying a bill with a credit card. One transaction, all or nothing: it
+  // books a CardPurchase on that card, lands its cuotas in the card's
+  // Resúmenes, and marks the bill paid through paid_purchase_id -- with no
+  // Expense anywhere, because no money left this month. It arrives when
+  // that Resumen is paid, like every other consumo.
+  markPendientePaidWithCard(input: {
+    readonly householdId: string
+    readonly pendienteId: string
+    readonly cardId: string
+    readonly resumenCategoryId: string
+    readonly memberId: string
+    readonly authorDisplayName: string
+    readonly finalAmount: number
+    readonly cuotas: number
+    readonly paymentDate: Date
+    readonly currency: Currency
+  }): Promise<{
+    pendiente: Pendiente
+    purchase: CardPurchase
+  }>
+  // Reverses markPendientePaid, markPendientePaidWithCard or
+  // markResumenPaid: restores status to 'pending' and deletes whatever that
+  // payment created -- every Expense, or the CardPurchase and its cuotas (a
+  // Resumen's also unlock its purchases).
   unmarkPendientePaid(input: {
     readonly householdId: string
     readonly pendienteId: string

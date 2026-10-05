@@ -154,6 +154,54 @@ export async function createCardPurchase(input: {
   })
 }
 
+// Paying a bill with a credit card. What leaves the household is nothing,
+// today: the bill goes onto the card and arrives in that card's Resumen,
+// which is the month the money actually goes. So this books a CardPurchase
+// and marks the bill paid through it -- no Expense anywhere, because none
+// has happened. Per direct feedback: pagás la Luz con la Visa y eso sale el
+// mes que viene, no hoy.
+//
+// Only credit does this. Cash, a balance and debit are money that has
+// already gone, so they stay markPendientePaid, which records the method on
+// the Expense it writes.
+export async function markPendientePaidWithCard(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly pendienteId: string
+  readonly cardId: string
+  readonly memberId: string
+  readonly authorDisplayName: string
+  readonly finalAmount: number
+  readonly cuotas: number
+  readonly paymentDate: Date
+  readonly currency?: Currency
+}): Promise<{
+  readonly pendiente: Pendiente
+  readonly purchase: CardPurchase
+}> {
+  const finalAmount = parseExpensePrice(input.finalAmount)
+  const cuotas = parseCuotas(input.cuotas, finalAmount)
+  const paymentDate = parseExpenseDate(input.paymentDate)
+  const authorDisplayName = parseAuthorDisplayName(input.authorDisplayName)
+  const currency = await assertCardAccepts(input.db, input)
+  const resumenCategory = await input.db.findOrCreateCategory({
+    householdId: input.householdId,
+    name: RESUMEN_CATEGORY_NAME,
+  })
+  return input.db.markPendientePaidWithCard({
+    householdId: input.householdId,
+    pendienteId: input.pendienteId,
+    cardId: input.cardId,
+    resumenCategoryId: resumenCategory.id,
+    memberId: input.memberId,
+    authorDisplayName,
+    finalAmount,
+    cuotas,
+    paymentDate,
+    currency,
+  })
+}
+
 // The currency the purchase will be saved in, once the card is known to
 // hold it. Pesos when the caller said nothing, which is what every call
 // written before a card could hold two currencies meant.

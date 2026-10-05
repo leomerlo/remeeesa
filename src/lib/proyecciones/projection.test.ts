@@ -55,13 +55,11 @@ describe('a household projection', () => {
   it('is read back by another member of the same household', async () => {
     const { memory, db, householdId } = await setup()
     const invite = await db.getOrCreateInvite({ householdId })
-    await memory
-      .asUser('user-2')
-      .joinHousehold({
-        userId: 'user-2',
-        token: invite.token,
-        displayName: 'Leo',
-      })
+    await memory.asUser('user-2').joinHousehold({
+      userId: 'user-2',
+      token: invite.token,
+      displayName: 'Leo',
+    })
     await db.saveProjection({
       householdId,
       monthStart: OCTOBER,

@@ -1334,6 +1334,10 @@ export function createFirestoreHouseholdsDb(
                 isService: current.recurring,
                 subcategory: null,
                 currency: DEFAULT_CURRENCY,
+                // What settled it, when it was one of the methods the
+                // household wrote down. Never a credit one: that settles
+                // next month and goes through markPendientePaidWithCard.
+                paymentMethodId: input.paymentMethodId ?? null,
                 createdAt,
               }),
               expense_date: toFirestoreExpenseDate(input.paymentDate),
@@ -1377,9 +1381,7 @@ export function createFirestoreHouseholdsDb(
                 isService: current.recurring,
                 subcategory: null,
                 currency: DEFAULT_CURRENCY,
-                // Paying a bill is not itself paid with a method the app
-                // knows: what settles it is money the household already had.
-                paymentMethodId: null,
+                paymentMethodId: input.paymentMethodId ?? null,
                 createdAt,
               },
             }
@@ -1388,6 +1390,163 @@ export function createFirestoreHouseholdsDb(
         {
           pendienteId: input.pendienteId,
           householdId: input.householdId,
+        },
+      )
+    },
+    async markPendientePaidWithCard(input) {
+      return withHouseholdAccess(
+        'markPendientePaidWithCard',
+        async () => {
+          const memberId = await awaitAuthenticatedUserId(firestore)
+          const pendienteRef = doc(firestore, 'pendientes', input.pendienteId)
+          const cardRef = doc(firestore, 'cards', input.cardId)
+          // Minted outside the callback so a retried transaction keeps one
+          // id -- same reason as createCardPurchase.
+          const purchaseRef = doc(collection(firestore, 'card_purchases'))
+          const now = Timestamp.now()
+          const createdAt = now.toDate()
+
+          return runTransaction(firestore, async (tx) => {
+            const pendienteSnap = await tx.get(pendienteRef)
+            if (
+              !pendienteSnap.exists() ||
+              pendienteSnap.data().household_id !== input.householdId
+            ) {
+              throw new PendienteNotFoundError()
+            }
+            const current = parsePendienteDocument({
+              id: pendienteSnap.id,
+              data: pendienteSnap.data(),
+            })
+            // A card's own monthly bill is not something you put on a card.
+            if (current.cardId !== undefined) {
+              throw new PendienteNotFoundError()
+            }
+            if (current.status !== 'pending') {
+              throw new PendienteAlreadyPaidError()
+            }
+            const cardSnap = await tx.get(cardRef)
+            if (
+              !cardSnap.exists() ||
+              cardSnap.data().household_id !== input.householdId
+            ) {
+              throw new CardNotFoundError()
+            }
+            const card = parseCardDocument({
+              id: cardSnap.id,
+              data: cardSnap.data(),
+            })
+            const cuotas = cuotasOf({
+              total: input.finalAmount,
+              cuotas: input.cuotas,
+              purchaseDate: input.paymentDate,
+            }).map((cuota) => ({
+              ...cuota,
+              ref: doc(
+                firestore,
+                'pendientes',
+                resumenIdFor(input.cardId, cuota.monthStart, input.currency),
+              ),
+            }))
+            // Every read before any write, as transactions require.
+            const resumenSnaps = await Promise.all(
+              cuotas.map((cuota) => tx.get(cuota.ref)),
+            )
+            const existing = resumenSnaps.map((snap) =>
+              snap.exists()
+                ? parsePendienteDocument({ id: snap.id, data: snap.data() })
+                : null,
+            )
+            cuotas.forEach((cuota, index) => {
+              if (existing[index]?.status === 'paid') {
+                throw new ResumenAlreadyPaidError(card.name, cuota.monthStart)
+              }
+            })
+
+            tx.set(purchaseRef, {
+              household_id: input.householdId,
+              card_id: input.cardId,
+              // The bill's own category, so it reads as what it is inside
+              // the Resumen rather than as an anonymous consumo.
+              category_id: current.categoryId,
+              member_id: memberId,
+              author_display_name: input.authorDisplayName,
+              name: current.name,
+              total: input.finalAmount,
+              cuotas: input.cuotas,
+              purchase_date: toFirestoreExpenseDate(input.paymentDate),
+              comments: '',
+              currency: input.currency,
+              created_at: now,
+            })
+            cuotas.forEach((cuota, index) => {
+              const resumen = existing[index]
+              if (resumen !== null && resumen !== undefined) {
+                tx.update(cuota.ref, {
+                  estimated_amount:
+                    Math.round(
+                      ((resumen.estimatedAmount ?? 0) + cuota.amount) * 100,
+                    ) / 100,
+                  purchase_ids: [
+                    ...(resumen.purchaseIds ?? []),
+                    purchaseRef.id,
+                  ],
+                })
+                return
+              }
+              tx.set(
+                cuota.ref,
+                newResumenDocument({
+                  householdId: input.householdId,
+                  resumenCategoryId: input.resumenCategoryId,
+                  cardId: input.cardId,
+                  cardName: card.name,
+                  monthStart: cuota.monthStart,
+                  amount: cuota.amount,
+                  purchaseId: purchaseRef.id,
+                  currency: input.currency,
+                  now,
+                }),
+              )
+            })
+            // No paid_expense_id: nothing left the household today.
+            tx.update(pendienteRef, {
+              status: 'paid',
+              paid_purchase_id: purchaseRef.id,
+              paid_at: toFirestorePendienteDate(input.paymentDate),
+            })
+
+            return {
+              pendiente: {
+                ...current,
+                status: 'paid' as const,
+                paidExpenseId: null,
+                paidPurchaseId: purchaseRef.id,
+                paidAt: input.paymentDate,
+              },
+              purchase: {
+                id: purchaseRef.id,
+                householdId: input.householdId,
+                cardId: input.cardId,
+                categoryId: current.categoryId,
+                memberId,
+                authorDisplayName: input.authorDisplayName,
+                name: current.name,
+                total: input.finalAmount,
+                cuotas: input.cuotas,
+                purchaseDate: input.paymentDate,
+                comments: '',
+                currency: input.currency,
+                createdAt,
+                paidResumenIds: [],
+              },
+            }
+          })
+        },
+        {
+          householdId: input.householdId,
+          pendienteId: input.pendienteId,
+          cardId: input.cardId,
         },
       )
     },
@@ -1427,6 +1586,23 @@ export function createFirestoreHouseholdsDb(
             const paidExpenseIds =
               current.paidExpenseIds ??
               (current.paidExpenseId === null ? [] : [current.paidExpenseId])
+            // Paid with a credit card: what that payment created is a
+            // purchase sitting in a Resumen, so undoing it takes the
+            // purchase back out of that Resumen. It reads, so it runs
+            // before any write below. A purchase whose Resumen has itself
+            // been paid is frozen and this refuses, rather than leaving a
+            // consumo behind with nothing owing it.
+            const paidPurchaseId = current.paidPurchaseId ?? null
+            if (paidPurchaseId !== null) {
+              await moveCardPurchaseCuotas({
+                firestore,
+                tx,
+                householdId: input.householdId,
+                purchaseId: paidPurchaseId,
+                after: () => null,
+              })
+              tx.delete(doc(firestore, 'card_purchases', paidPurchaseId))
+            }
             for (const expenseId of paidExpenseIds) {
               tx.delete(doc(firestore, 'expenses', expenseId))
             }
@@ -1435,6 +1611,7 @@ export function createFirestoreHouseholdsDb(
               status: 'pending',
               paid_expense_id: null,
               paid_at: null,
+              ...(paidPurchaseId === null ? {} : { paid_purchase_id: null }),
               ...(isResumen ? { paid_expense_ids: [] } : {}),
             })
             // A Resumen's purchases unlock (unless another paid Resumen

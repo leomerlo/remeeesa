@@ -425,7 +425,7 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['name', 'category_id', 'due_date', 'expected_amount', 'recurring', 'auto_debit'])
         && !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['household_id', 'status', 'paid_expense_id', 'paid_at', 'created_at'])
+          .hasAny(['household_id', 'status', 'paid_expense_id', 'paid_purchase_id', 'paid_at', 'created_at'])
         && request.resource.data.household_id == resource.data.household_id
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
@@ -470,6 +470,28 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/expenses/$(request.resource.data.paid_expense_id)).data.household_id == resource.data.household_id;
     }
 
+    // Paying a bill with a credit card. Nothing leaves the household today,
+    // so there is no Expense to point at: what the payment created is a
+    // CardPurchase, sitting in that card's Resumen, and that is what this
+    // links to. paid_expense_id stays null -- the money arrives when the
+    // Resumen is paid, like every other consumo. Per direct feedback.
+    //
+    // Resúmenes are excluded: a card's own monthly bill is not something
+    // you put on a card.
+    function isValidPendienteMarkPaidWithCard() {
+      return resource.data.status == 'pending'
+        && !('card_id' in resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paid_purchase_id', 'paid_at'])
+        && request.resource.data.status == 'paid'
+        && request.resource.data.get('paid_expense_id', null) == null
+        && request.resource.data.get('paid_purchase_id', null) is string
+        && request.resource.data.paid_purchase_id.size() > 0
+        && (!('paid_at' in resource.data) || resource.data.paid_at == null)
+        && request.resource.data.paid_at is timestamp
+        && existsAfter(/databases/$(database)/documents/card_purchases/$(request.resource.data.paid_purchase_id))
+        && getAfter(/databases/$(database)/documents/card_purchases/$(request.resource.data.paid_purchase_id)).data.household_id == resource.data.household_id;
+    }
+
     // Reverse of isValidPendienteMarkPaid -- undoes a mistaken mark-paid.
     // Only the exact fields mark-paid touched move back: status,
     // paid_expense_id, paid_at. resource.data.status must still be 'paid'
@@ -481,14 +503,22 @@ service cloud.firestore {
     // list, so only the first Expense is checked to be gone.
     function isValidPendienteUnmarkPaid() {
       return resource.data.status == 'paid'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paid_expense_id', 'paid_expense_ids', 'paid_at'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paid_expense_id', 'paid_expense_ids', 'paid_purchase_id', 'paid_at'])
         && request.resource.data.status == 'pending'
         && request.resource.data.paid_expense_id == null
         && request.resource.data.get('paid_expense_ids', []) == []
         && request.resource.data.paid_at == null
         && (!('paid_expense_id' in resource.data)
           || resource.data.paid_expense_id == null
-          || !existsAfter(/databases/$(database)/documents/expenses/$(resource.data.paid_expense_id)));
+          || !existsAfter(/databases/$(database)/documents/expenses/$(resource.data.paid_expense_id)))
+        // Same rule for a bill paid with a credit card: the purchase that
+        // payment created has to be gone by the end of this commit, not
+        // merely unlinked -- otherwise a consumo would be left in a
+        // Resumen with nothing owing it.
+        && request.resource.data.get('paid_purchase_id', null) == null
+        && (!('paid_purchase_id' in resource.data)
+          || resource.data.paid_purchase_id == null
+          || !existsAfter(/databases/$(database)/documents/card_purchases/$(resource.data.paid_purchase_id)));
     }
 
     // Paying a Resumen: one Expense per cuota plus the ajuste, all listed in
@@ -623,7 +653,7 @@ service cloud.firestore {
           ? isValidResumen(pendienteId, request.resource.data)
           : !isResumenId(pendienteId));
       allow update: if isMemberOf(resource.data.household_id)
-        && (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isPendienteCategoryRepoint() || isPendienteRecurrenceEdit() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenAmountLoad() || isValidResumenMarkPaid() || isResumenRename());
+        && (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isValidPendienteMarkPaidWithCard() || isPendienteCategoryRepoint() || isPendienteRecurrenceEdit() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenAmountLoad() || isValidResumenMarkPaid() || isResumenRename());
       allow delete: if isMemberOf(resource.data.household_id)
         && resource.data.status == 'pending';
     }

@@ -224,6 +224,64 @@ function moveCuotas(
   }
 }
 
+// Where a new purchase's cuotas land: one Resumen per month it reaches,
+// created if the card has none for that month yet. Every Resumen is built
+// before any is written, mirroring the real adapter's all-or-nothing
+// transaction -- so a paid one leaves the store untouched.
+function landCuotas(input: {
+  readonly state: MemoryState
+  readonly purchase: CardPurchase
+  readonly cardName: string
+  readonly resumenCategoryId: string
+  readonly createdAt: Date
+}): readonly Pendiente[] {
+  const { state, purchase } = input
+  return cuotasOf(purchase).map((cuota): Pendiente => {
+    const id = resumenIdFor(
+      purchase.cardId,
+      cuota.monthStart,
+      purchase.currency,
+    )
+    const existing = state.pendientes.get(id)
+    if (existing?.status === 'paid') {
+      throw new ResumenAlreadyPaidError(input.cardName, cuota.monthStart)
+    }
+    if (existing !== undefined) {
+      return {
+        ...existing,
+        estimatedAmount:
+          Math.round(((existing.estimatedAmount ?? 0) + cuota.amount) * 100) /
+          100,
+        purchaseIds: [...(existing.purchaseIds ?? []), purchase.id],
+      }
+    }
+    return {
+      id,
+      householdId: purchase.householdId,
+      categoryId: input.resumenCategoryId,
+      name: resumenNameFor(input.cardName, purchase.currency),
+      dueDate: new Date(
+        cuota.monthStart.getFullYear(),
+        cuota.monthStart.getMonth(),
+        RESUMEN_DUE_DAY,
+      ),
+      // Null, not the estimate: a Resumen owes nothing until the statement
+      // arrives and somebody loads what it says.
+      expectedAmount: null,
+      estimatedAmount: cuota.amount,
+      recurring: false,
+      autoDebit: false,
+      status: 'pending',
+      paidExpenseId: null,
+      paidAt: null,
+      createdAt: input.createdAt,
+      cardId: purchase.cardId,
+      currency: purchase.currency,
+      purchaseIds: [purchase.id],
+    }
+  })
+}
+
 function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
   return {
     async createHouseholdAndMembership(input) {
@@ -871,48 +929,12 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         createdAt,
         paidResumenIds: [],
       }
-      // Every Resumen is built before any write, mirroring the real
-      // adapter's all-or-nothing transaction.
-      const resumenes = cuotasOf(input).map((cuota): Pendiente => {
-        const id = resumenIdFor(input.cardId, cuota.monthStart, input.currency)
-        const existing = state.pendientes.get(id)
-        if (existing?.status === 'paid') {
-          throw new ResumenAlreadyPaidError(card.name, cuota.monthStart)
-        }
-        if (existing !== undefined) {
-          return {
-            ...existing,
-            estimatedAmount:
-              Math.round(
-                ((existing.estimatedAmount ?? 0) + cuota.amount) * 100,
-              ) / 100,
-            purchaseIds: [...(existing.purchaseIds ?? []), purchase.id],
-          }
-        }
-        return {
-          id,
-          householdId: input.householdId,
-          categoryId: input.resumenCategoryId,
-          name: resumenNameFor(card.name, input.currency),
-          dueDate: new Date(
-            cuota.monthStart.getFullYear(),
-            cuota.monthStart.getMonth(),
-            RESUMEN_DUE_DAY,
-          ),
-          // Null, not the estimate: a Resumen owes nothing until the
-          // statement arrives and somebody loads what it says.
-          expectedAmount: null,
-          estimatedAmount: cuota.amount,
-          recurring: false,
-          autoDebit: false,
-          status: 'pending',
-          paidExpenseId: null,
-          paidAt: null,
-          createdAt,
-          cardId: input.cardId,
-          currency: input.currency,
-          purchaseIds: [purchase.id],
-        }
+      const resumenes = landCuotas({
+        state,
+        purchase,
+        cardName: card.name,
+        resumenCategoryId: input.resumenCategoryId,
+        createdAt,
       })
       state.cardPurchases.set(purchase.id, purchase)
       for (const resumen of resumenes) {
@@ -1163,7 +1185,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         householdId: input.householdId,
         categoryId: existing.categoryId,
         memberId: input.memberId,
-        paymentMethodId: null,
+        paymentMethodId: input.paymentMethodId ?? null,
         authorDisplayName: input.authorDisplayName,
         name: existing.name,
         price: input.finalAmount,
@@ -1280,6 +1302,77 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       }
       return { pendiente: updated, expenses }
     },
+    async markPendientePaidWithCard(input) {
+      assertMemberOf(state, userId, input.householdId)
+      if (input.memberId !== userId) {
+        throw new HouseholdAccessDeniedError()
+      }
+      const existing = state.pendientes.get(input.pendienteId)
+      if (
+        existing === undefined ||
+        existing.householdId !== input.householdId
+      ) {
+        throw new PendienteNotFoundError()
+      }
+      // A card's own monthly bill is not something you put on a card.
+      if (existing.cardId !== undefined) {
+        throw new Error('A Resumen cannot be paid with a card')
+      }
+      if (existing.status !== 'pending') {
+        throw new PendienteAlreadyPaidError()
+      }
+      const card = state.cards.get(input.cardId)
+      if (card === undefined || card.householdId !== input.householdId) {
+        throw new CardNotFoundError()
+      }
+      if (
+        state.categories.get(input.resumenCategoryId)?.householdId !==
+        input.householdId
+      ) {
+        throw new Error('Category not found')
+      }
+      const createdAt = new Date()
+      const purchase: CardPurchase = {
+        id: crypto.randomUUID(),
+        householdId: input.householdId,
+        cardId: input.cardId,
+        // The bill's own category, so it reads as "Luz" under Servicios in
+        // the Resumen it lands in rather than as an anonymous consumo.
+        categoryId: existing.categoryId,
+        memberId: input.memberId,
+        authorDisplayName: input.authorDisplayName,
+        name: existing.name,
+        total: input.finalAmount,
+        cuotas: input.cuotas,
+        purchaseDate: input.paymentDate,
+        comments: '',
+        currency: input.currency,
+        createdAt,
+        paidResumenIds: [],
+      }
+      const resumenes = landCuotas({
+        state,
+        purchase,
+        cardName: card.name,
+        resumenCategoryId: input.resumenCategoryId,
+        createdAt,
+      })
+      const updated: Pendiente = {
+        ...existing,
+        status: 'paid',
+        // No Expense: the money has not left yet, and will leave through
+        // the card's Resumen.
+        paidExpenseId: null,
+        paidPurchaseId: purchase.id,
+        paidAt: input.paymentDate,
+      }
+      state.cardPurchases.set(purchase.id, purchase)
+      for (const resumen of resumenes) {
+        state.pendientes.set(resumen.id, resumen)
+      }
+      state.pendientes.set(input.pendienteId, updated)
+      return { pendiente: updated, purchase }
+    },
     async unmarkPendientePaid(input) {
       assertMemberOf(state, userId, input.householdId)
       const existing = state.pendientes.get(input.pendienteId)
@@ -1298,10 +1391,28 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         (existing.paidExpenseId === null ? [] : [existing.paidExpenseId])) {
         state.expenses.delete(expenseId)
       }
+      // Paid with a credit card: what that payment created is a purchase
+      // sitting in a Resumen, so undoing it takes the purchase out of that
+      // Resumen as well. A purchase whose Resumen has itself been paid is
+      // frozen -- ownUnlockedPurchase says so rather than leaving a consumo
+      // behind with nothing owing it.
+      const paidPurchaseId = existing.paidPurchaseId ?? null
+      if (paidPurchaseId !== null) {
+        const purchase = ownUnlockedPurchase(
+          state,
+          input.householdId,
+          paidPurchaseId,
+        )
+        moveCuotas(state, purchase, null, () => {
+          throw new Error('undoing a payment creates no Resumen')
+        })
+        state.cardPurchases.delete(purchase.id)
+      }
       const updated: Pendiente = {
         ...existing,
         status: 'pending',
         paidExpenseId: null,
+        ...(paidPurchaseId === null ? {} : { paidPurchaseId: null }),
         paidAt: null,
         ...(existing.cardId === undefined ? {} : { paidExpenseIds: [] }),
       }

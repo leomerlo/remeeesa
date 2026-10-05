@@ -81,6 +81,7 @@ export const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
   setPendienteRecurrence: 'guardar si el pendiente es recurrente',
   deletePendiente: 'eliminar el pendiente',
   markPendientePaid: 'marcar el pendiente como pagado',
+  markPendientePaidWithCard: 'pagar el pendiente con la tarjeta',
   unmarkPendientePaid: 'deshacer el pago del pendiente',
   setResumenAmount: 'cargar el monto del resumen',
   markResumenPaid: 'pagar el resumen',

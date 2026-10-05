@@ -19,6 +19,7 @@ import {
   markPendientePaid,
 } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
+import { cardsDueNextMonth, createCard, listResumenCuotas } from '@/lib/cards'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { AddPendienteForm } from './AddPendienteForm'
@@ -788,6 +789,72 @@ describe('EditPendienteFlow', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('Alquiler')).toBeInTheDocument()
     expect(await listPendientes({ db, householdId })).toHaveLength(1)
+  })
+
+  // Paying the Luz with the Visa: the money does not leave this month, it
+  // goes onto the card and arrives in that card's resumen. Per direct
+  // feedback -- until this, the pay flow could only ever spend now.
+  it('pays a bill with a credit card, booking it into next month instead of spending now', async () => {
+    const { db, householdId } = await seedPendingPendiente({
+      name: 'Luz',
+      expectedAmount: 36800,
+    })
+    await createCard({
+      db,
+      householdId,
+      name: 'Visa Flor',
+      kind: 'credito',
+      currency: 'ARS',
+      brand: 'visa',
+    })
+
+    renderWithProviders(
+      <EditPendienteHarness db={db} householdId={householdId} />,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar Luz' }))
+    fireEvent.click(screen.getByLabelText('Ya lo pagué'))
+    fireEvent.change(await screen.findByLabelText('Pagado con'), {
+      target: {
+        value: (await db.listCards({ householdId }))[0]?.id ?? '',
+      },
+    })
+    expect(
+      screen.getByText(/va al resumen de Visa Flor del mes que viene/i),
+    ).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Guardar y marcar pagado' }),
+    )
+
+    // Gone from the bills still to pay -- the only pending Pendiente left
+    // is the card's own resumen, which this payment created.
+    await waitFor(async () => {
+      const pending = await listPendientes({ db, householdId })
+      expect(pending.map((candidate) => candidate.name)).toEqual(['Visa Flor'])
+    })
+    // Nothing spent this month...
+    expect(
+      await listExpensesInMonth({
+        db,
+        householdId,
+        monthStart: new Date(2026, 8, 1),
+        monthEnd: new Date(2026, 9, 1),
+      }),
+    ).toEqual([])
+    // ...and the bill is sitting in next month's resumen as a consumo.
+    const [resumen] = cardsDueNextMonth(
+      await db.listPendientes({ householdId }),
+      new Date(),
+    )
+    if (resumen === undefined) {
+      throw new Error('expected a Resumen due next month')
+    }
+    expect(resumen.estimatedAmount).toBe(36800)
+    expect(
+      (await listResumenCuotas({ db, householdId, resumen })).map(
+        ({ purchase }) => purchase.name,
+      ),
+    ).toEqual(['Luz'])
   })
 
   // The footer used to carry "Cancelar edición" beside Guardar. It was a

@@ -69,6 +69,7 @@ export function parsePendienteDocument(input: {
     card_id,
     purchase_ids,
     paid_expense_ids,
+    paid_purchase_id,
     estimated_amount,
     currency,
   } = input.data
@@ -103,6 +104,16 @@ export function parsePendienteDocument(input: {
       auto_debit === undefined ? false : parseBoolean(auto_debit, 'auto_debit'),
     status: parsePendienteStatus(status),
     paidExpenseId: parseNullableString(paid_expense_id, 'paid_expense_id'),
+    // Absent on every Pendiente not paid with a credit card, which is
+    // almost all of them -- so it is left off rather than written as null.
+    ...(paid_purchase_id === undefined
+      ? {}
+      : {
+          paidPurchaseId: parseNullableString(
+            paid_purchase_id,
+            'paid_purchase_id',
+          ),
+        }),
     // Missing (not just null) on any Pendiente doc written before this field
     // existed -- treated the same as "never paid", matching every other
     // field this session has widened with a legacy-doc fallback.

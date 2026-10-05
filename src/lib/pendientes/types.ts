@@ -25,6 +25,13 @@ export type Pendiente = {
   readonly autoDebit: boolean
   readonly status: PendienteStatus
   readonly paidExpenseId: string | null
+  // Set instead of paidExpenseId when this bill was paid with a credit
+  // card: the money does not leave this month, it goes onto the card and
+  // arrives in that card's Resumen, so what the payment created is a
+  // CardPurchase and not an Expense. Absent on every other Pendiente --
+  // which is almost all of them. Per direct feedback: pagar la Luz con la
+  // Visa no es plata que salió hoy.
+  readonly paidPurchaseId?: string | null
   // Set to the payment date when markPendientePaid runs, otherwise null.
   // Lets a paid Pendiente be found by *when it was paid* (e.g. "paid this
   // month") without having to look up its linked Expense.

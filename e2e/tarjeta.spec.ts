@@ -132,3 +132,66 @@ test('next month inherits this month’s budget', async ({ page }) => {
     page.getByRole('button', { name: 'Editar presupuesto del mes' }),
   ).toBeVisible()
 })
+
+// Paying a bill with a credit card. The money does not leave this month:
+// the bill goes onto the card and arrives in that card's resumen. Per
+// direct feedback -- "pagar la Luz con la Visa".
+test('a servicio paid with a credit card leaves this month alone and lands in next month’s resumen', async ({
+  page,
+}) => {
+  await signUpWithHousehold(page, { budget: '400000' })
+
+  await page.getByRole('link', { name: /Ajustes/ }).click()
+  await page
+    .getByRole('region', { name: 'Métodos de pago' })
+    .getByRole('button', { name: 'Agregar', exact: true })
+    .click()
+  const method = page.getByRole('dialog', { name: 'Agregar método' })
+  await method.getByLabel('Nombre').fill('Visa Flor')
+  await method.getByLabel('Tipo').selectOption('credito')
+  await method.getByRole('button', { name: 'Agregar método' }).click()
+  await expect(method).toBeHidden({ timeout: 20000 })
+
+  // A bill for later: owed, and counted against the month before it is paid.
+  await page.getByRole('link', { name: /Inicio/ }).click()
+  await page.getByRole('button', { name: 'Agregar gasto' }).first().click()
+  const sheet = page.getByRole('dialog', { name: 'Agregar gasto' })
+  await sheet.getByLabel('Nombre').fill('Luz')
+  await sheet.getByLabel('Precio').fill('36800')
+  const category = sheet.getByLabel('Categoría').first()
+  await category.fill('Servicios')
+  await category.press('Escape')
+  await sheet.getByLabel('Ya lo pagué').click()
+  await sheet.getByRole('button', { name: 'Agregar servicio' }).click()
+  await expect(sheet).toBeHidden({ timeout: 20000 })
+  await expect(page.getByRole('status', { name: /^Te quedan/ })).toContainText(
+    '$363.200',
+  )
+
+  // Paid with the Visa: it stops being owed, and nothing is spent now.
+  await page.getByRole('link', { name: /Servicios/ }).click()
+  await page
+    .getByRole('list', { name: 'Servicios por pagar' })
+    .getByRole('button', { name: 'Editar Luz' })
+    .click()
+  const pay = page.getByRole('dialog', { name: 'Editar servicio' })
+  await pay.getByLabel('Ya lo pagué').click()
+  await pay.getByLabel('Pagado con').selectOption({ label: 'Visa Flor' })
+  await expect(pay).toContainText(
+    'va al resumen de Visa Flor del mes que viene',
+  )
+  await pay.getByRole('button', { name: 'Guardar y marcar pagado' }).click()
+  await expect(pay).toBeHidden({ timeout: 20000 })
+
+  await page.getByRole('link', { name: /Inicio/ }).click()
+  // The whole budget is back: the money leaves when the resumen is paid.
+  await expect(page.getByRole('status', { name: /^Te quedan/ })).toContainText(
+    '$400.000',
+  )
+  const banner = page.getByRole('button', { name: /Tarjetas el mes que viene/ })
+  await expect(banner).toContainText('$36.800')
+  await banner.click()
+  await expect(
+    page.getByRole('list', { name: 'Consumos de Visa Flor' }),
+  ).toContainText('Luz')
+})

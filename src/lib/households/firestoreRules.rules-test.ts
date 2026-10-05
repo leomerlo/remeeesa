@@ -10,6 +10,7 @@ import {
   doc,
   setDoc,
   updateDoc,
+  writeBatch,
   Timestamp,
 } from 'firebase/firestore'
 import type { Firestore } from 'firebase/firestore'
@@ -288,6 +289,165 @@ describe('expenses', () => {
 // a question about next month, so it stays editable from the gasto's own
 // edit form even after the bill is paid. Everything else on a paid
 // Pendiente stays frozen.
+// Paying a bill with a credit card: nothing leaves the household today, so
+// there is no Expense to point at. The bill links to the CardPurchase the
+// payment created instead, and the two are written in the same commit --
+// which is the only reason the rules can check the purchase is real.
+describe('paying a bill with a credit card', () => {
+  const PENDIENTE = 'pendiente-1'
+  const PURCHASE = 'purchase-1'
+
+  async function seedPendingBill(): Promise<void> {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore()
+      await setDoc(doc(db, 'cards', 'card-1'), cardDocument())
+      await setDoc(doc(db, 'pendientes', PENDIENTE), {
+        household_id: HOUSEHOLD,
+        category_id: 'cat-1',
+        name: 'Luz',
+        due_date: Timestamp.fromDate(new Date(2026, 9, 10)),
+        expected_amount: 36800,
+        recurring: true,
+        auto_debit: false,
+        status: 'pending',
+        paid_expense_id: null,
+        paid_at: null,
+        created_at: Timestamp.now(),
+      })
+    })
+  }
+
+  function purchaseDocument(overrides: Record<string, unknown> = {}) {
+    return {
+      household_id: HOUSEHOLD,
+      card_id: 'card-1',
+      category_id: 'cat-1',
+      member_id: ME,
+      author_display_name: 'Ada',
+      name: 'Luz',
+      total: 36800,
+      cuotas: 1,
+      purchase_date: Timestamp.now(),
+      comments: '',
+      currency: 'ARS',
+      created_at: Timestamp.now(),
+      ...overrides,
+    }
+  }
+
+  it('links the bill to the purchase written in the same commit', async () => {
+    await seedPendingBill()
+    const db = asMember()
+    const batch = writeBatch(db)
+    batch.set(doc(db, 'card_purchases', PURCHASE), purchaseDocument())
+    batch.update(doc(db, 'pendientes', PENDIENTE), {
+      status: 'paid',
+      paid_purchase_id: PURCHASE,
+      paid_at: Timestamp.now(),
+    })
+
+    await assertSucceeds(batch.commit())
+  })
+
+  // Without this a member could mark any bill paid by naming an id that
+  // does not exist, and the money would simply never show up anywhere.
+  it('refuses a purchase id that no commit creates', async () => {
+    await seedPendingBill()
+    const db = asMember()
+
+    await assertFails(
+      updateDoc(doc(db, 'pendientes', PENDIENTE), {
+        status: 'paid',
+        paid_purchase_id: 'invented',
+        paid_at: Timestamp.now(),
+      }),
+    )
+  })
+
+  it('refuses a purchase belonging to another household', async () => {
+    await seedPendingBill()
+    const db = asMember()
+    const batch = writeBatch(db)
+    batch.set(
+      doc(db, 'card_purchases', PURCHASE),
+      purchaseDocument({ household_id: 'household-2' }),
+    )
+    batch.update(doc(db, 'pendientes', PENDIENTE), {
+      status: 'paid',
+      paid_purchase_id: PURCHASE,
+      paid_at: Timestamp.now(),
+    })
+
+    await assertFails(batch.commit())
+  })
+
+  // Undoing it has to take the purchase with it: a consumo left in a
+  // Resumen with nothing owing it is money that shows up twice.
+  it('undoes the payment only when the purchase goes too', async () => {
+    await seedPendingBill()
+    const db = asMember()
+    const first = writeBatch(db)
+    first.set(doc(db, 'card_purchases', PURCHASE), purchaseDocument())
+    first.update(doc(db, 'pendientes', PENDIENTE), {
+      status: 'paid',
+      paid_purchase_id: PURCHASE,
+      paid_at: Timestamp.now(),
+    })
+    await first.commit()
+
+    await assertFails(
+      updateDoc(doc(db, 'pendientes', PENDIENTE), {
+        status: 'pending',
+        paid_purchase_id: null,
+        paid_at: null,
+      }),
+    )
+
+    const undo = writeBatch(db)
+    undo.delete(doc(db, 'card_purchases', PURCHASE))
+    undo.update(doc(db, 'pendientes', PENDIENTE), {
+      status: 'pending',
+      paid_purchase_id: null,
+      paid_at: null,
+    })
+    await assertSucceeds(undo.commit())
+  })
+
+  it('refuses it on a card Resumen, which is not something you put on a card', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore()
+      await setDoc(doc(db, 'cards', 'card-1'), cardDocument())
+      await setDoc(doc(db, 'pendientes', 'card-1_2026-10'), {
+        household_id: HOUSEHOLD,
+        category_id: 'cat-tarjeta',
+        name: 'Visa',
+        due_date: Timestamp.fromDate(new Date(2026, 9, 10)),
+        expected_amount: null,
+        estimated_amount: 5000,
+        recurring: false,
+        auto_debit: false,
+        status: 'pending',
+        paid_expense_id: null,
+        paid_at: null,
+        created_at: Timestamp.now(),
+        card_id: 'card-1',
+        currency: 'ARS',
+        purchase_ids: ['purchase-9'],
+      })
+    })
+    const db = asMember()
+    const batch = writeBatch(db)
+    batch.set(doc(db, 'card_purchases', PURCHASE), purchaseDocument())
+    batch.update(doc(db, 'pendientes', 'card-1_2026-10'), {
+      status: 'paid',
+      paid_purchase_id: PURCHASE,
+      paid_at: Timestamp.now(),
+    })
+
+    await assertFails(batch.commit())
+  })
+})
+
 describe('recurrence on a paid pendiente', () => {
   const PENDIENTE = 'pendiente-1'
 
