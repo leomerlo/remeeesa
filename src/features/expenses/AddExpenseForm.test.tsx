@@ -872,7 +872,7 @@ describe('AddExpenseForm', () => {
     submitExpense()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'No se pudo guardar la categoría. Volvé a intentar.',
+      /No se pudo guardar\ la\ categoría\. La base rechazó el permiso/,
     )
   })
 
@@ -913,7 +913,7 @@ describe('AddExpenseForm', () => {
     submitExpense()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'No se pudo agregar el gasto. Volvé a intentar.',
+      /No se pudo agregar\ el\ gasto\. La base rechazó el permiso/,
     )
   })
 
@@ -946,7 +946,7 @@ describe('AddExpenseForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'No se pudo cargar las categorías. Volvé a intentar.',
+      /No se pudo cargar\ las\ categorías\. La base rechazó el permiso/,
     )
   })
 })

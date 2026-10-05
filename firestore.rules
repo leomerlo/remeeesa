@@ -110,7 +110,7 @@ service cloud.firestore {
         && (!('kind' in data) || data.kind in ['efectivo', 'cuenta', 'debito', 'credito'])
         // Absent on every card written before brands existed, which read
         // as 'otra'. It is only ever the mark drawn on the card.
-        && (!('brand' in data) || data.brand in ['visa', 'mastercard', 'amex', 'otra'])
+        && (!('brand' in data) || data.brand in ['visa', 'mastercard', 'amex', 'mercadopago', 'otra'])
         && data.created_at is timestamp;
     }
 

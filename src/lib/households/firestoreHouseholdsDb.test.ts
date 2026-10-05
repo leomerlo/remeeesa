@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import rules from '../../../firestore.rules?raw'
+import { CARD_BRANDS, PAYMENT_METHOD_KINDS } from '@/lib/cards'
+import {
+  categoryToDocument,
+  expenseToDocument,
+} from '@/lib/expenses/converters'
+import { pendienteToDocument } from '@/lib/pendientes/converters'
 import adapterSource from './firestoreHouseholdsDb.ts?raw'
 import indexes from '../../../firestore.indexes.json'
 import {
@@ -40,12 +46,16 @@ describe('mapHouseholdFirestoreError', () => {
         'createExpense',
       ),
     ).toThrow(FirestoreDeniedError)
-    expect(() =>
-      mapHouseholdFirestoreError(
-        { code: 'permission-denied' },
-        'createExpense',
-      ),
-    ).toThrow('No se pudo agregar el gasto. Volvé a intentar.')
+    expect(
+      () =>
+        mapHouseholdFirestoreError(
+          { code: 'permission-denied' },
+          'createExpense',
+        ),
+      // A refused write says so, says that retrying will not help, and
+      // names itself -- "volvé a intentar" was a lie here, and every
+      // failure in the app read the same. Per direct feedback.
+    ).toThrow(/No se pudo agregar el gasto\. La base rechazó el permiso/)
   })
 
   it('includes the Firebase message when permission-denied has one', () => {
@@ -57,7 +67,7 @@ describe('mapHouseholdFirestoreError', () => {
         },
         'findOrCreateCategory',
       ),
-    ).toThrow('No se pudo guardar la categoría. Volvé a intentar.')
+    ).toThrow(/No se pudo guardar la categoría\. La base rechazó el permiso/)
   })
 
   it('rethrows firestore/permission-denied as FirestoreDeniedError', () => {
@@ -178,6 +188,30 @@ describe('the adapter persists per-month budgets', () => {
     expect(body).toContain('estimated_amount:')
     expect(body).not.toContain('expected_amount:')
   })
+
+  // Every value the app can write has to be a value the rules accept, and
+  // the two lists live in different files. 'mercadopago' was added to the
+  // app's brands and never to the rules, so adding a Mercado Pago account
+  // was refused outright in production -- with a message that said only
+  // "volvé a intentar". Derived from the app's own constants so the next
+  // brand or kind cannot drift the same way.
+  it.each(CARD_BRANDS.map((brand) => brand.value))(
+    'lets a card be branded %s',
+    (brand) => {
+      const fn = ruleFunction('isValidCard')
+
+      expect(fn).toContain(`'${brand}'`)
+    },
+  )
+
+  it.each(PAYMENT_METHOD_KINDS.map((kind) => kind.value))(
+    'lets a method be of kind %s',
+    (kind) => {
+      const fn = ruleFunction('isValidCard')
+
+      expect(fn).toContain(`'${kind}'`)
+    },
+  )
 
   it('creates a Resumen owing nothing, with its estimate', () => {
     const newResumen = adapterSource.slice(
@@ -1200,6 +1234,85 @@ describe('markResumenPaid adapter', () => {
     )
     expect(helper.indexOf('throw new CardPurchaseLockedError()')).toBeLessThan(
       helper.indexOf('refs.map((ref) => tx.get(ref))'),
+    )
+  })
+})
+
+// The other half of the same drift, and the one that actually shipped
+// twice: a field the app writes that the rules' `hasOnly` does not list is
+// refused in production and nowhere else, because every other test runs
+// against the in-memory adapter, which has no rules.
+//
+// The converters are the single source of truth for what a document is
+// made of, so this asks them rather than restating a list by hand: add a
+// field to one and this fails until the rules know about it.
+describe('every field the converters write is a field the rules allow', () => {
+  function allowedKeys(fn: string): readonly string[] {
+    const body = ruleFunction(fn)
+    const list = body.slice(body.indexOf('hasOnly(['), body.indexOf('])'))
+    return [...list.matchAll(/'([a-z_]+)'/g)].map((match) => match[1] ?? '')
+  }
+
+  it('for an expense', () => {
+    const written = Object.keys(
+      expenseToDocument({
+        householdId: 'h',
+        categoryId: 'c',
+        memberId: 'm',
+        authorDisplayName: 'Ada',
+        name: 'Pizza',
+        price: 10,
+        comments: '',
+        expenseDate: new Date(),
+        pendienteId: null,
+        isService: false,
+        subcategory: null,
+        currency: 'ARS',
+        paymentMethodId: null,
+        createdAt: new Date(),
+      }),
+    )
+
+    expect(allowedKeys('isValidExpense')).toEqual(
+      expect.arrayContaining(written),
+    )
+  })
+
+  it('for a pendiente', () => {
+    const written = Object.keys(
+      pendienteToDocument({
+        householdId: 'h',
+        categoryId: 'c',
+        name: 'Luz',
+        dueDate: new Date(),
+        expectedAmount: 100,
+        recurring: true,
+        autoDebit: false,
+        status: 'pending',
+        paidExpenseId: null,
+        paidAt: null,
+        createdAt: new Date(),
+      }),
+    )
+
+    expect(allowedKeys('isValidPendiente')).toEqual(
+      expect.arrayContaining(written),
+    )
+  })
+
+  it('for a category', () => {
+    const written = Object.keys(
+      categoryToDocument({
+        householdId: 'h',
+        name: 'Comida',
+        color: '#4e4c56',
+        monthlyBudget: 0,
+        createdAt: new Date(),
+      }),
+    )
+
+    expect(allowedKeys('isValidCategory')).toEqual(
+      expect.arrayContaining(written),
     )
   })
 })

@@ -98,6 +98,19 @@ export const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
   getCardPurchases: 'cargar las compras del resumen',
 }
 
+// What the household should do about it, which is not the same for every
+// failure. A refused write is the one that matters: "volvé a intentar" is
+// a lie there -- the same write will be refused every time, and the usual
+// cause is a tab that has been open since before the last deploy, sending
+// a shape the rules no longer accept. That exact pair cost a day of
+// "no se pudo guardar" with nothing to act on. Per direct feedback: los
+// errores no dicen qué falla.
+function adviceFor(code: string): string {
+  return code === 'permission-denied'
+    ? 'La base rechazó el permiso, así que reintentar no lo arregla. Recargá la página (Ctrl/Cmd + Shift + R) por si quedó abierta una versión vieja de la app.'
+    : 'Volvé a intentar.'
+}
+
 export class FirestoreDeniedError extends Error {
   override readonly name = 'FirestoreDeniedError'
   readonly operation: string
@@ -115,7 +128,12 @@ export class FirestoreDeniedError extends Error {
   }) {
     const action =
       FIRESTORE_OPERATION_ACTIONS[input.operation] ?? input.operation
-    super(`No se pudo ${action}. Volvé a intentar.`)
+    // The operation's own name rides along in brackets: it is the one
+    // thing that says *which* write was refused, and without it every
+    // failure in the app reads the same.
+    super(
+      `No se pudo ${action}. ${adviceFor(input.code)} [${input.operation}/${input.code}]`,
+    )
     this.operation = input.operation
     this.code = input.code
     this.detail = input.detail

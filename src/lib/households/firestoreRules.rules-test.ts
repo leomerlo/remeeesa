@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore'
 import type { Firestore } from 'firebase/firestore'
 import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest'
+import { CARD_BRANDS, PAYMENT_METHOD_KINDS } from '@/lib/cards'
 
 // firestore.rules, actually executed.
 //
@@ -143,6 +144,23 @@ describe('cards', () => {
 
     await assertFails(deleteDoc(doc(asOutsider(), 'cards', 'card-1')))
     await assertSucceeds(deleteDoc(doc(db, 'cards', 'card-1')))
+  })
+
+  // Every method the form can actually build, executed. 'mercadopago' was
+  // in the app's brand list and not in the rules', so adding a Mercado
+  // Pago account was refused in production -- the whole point of running
+  // these against a real Firestore rather than reading the file.
+  it.each(
+    CARD_BRANDS.flatMap((brand) =>
+      PAYMENT_METHOD_KINDS.map((kind) => [brand.value, kind.value] as const),
+    ),
+  )('accepts a %s card of kind %s', async (brand, kind) => {
+    await assertSucceeds(
+      setDoc(
+        doc(asMember(), 'cards', `card-${brand}-${kind}`),
+        cardDocument({ brand, kind }),
+      ),
+    )
   })
 
   it('refuses a blank name and an unknown kind', async () => {

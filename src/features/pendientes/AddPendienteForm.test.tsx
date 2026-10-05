@@ -481,7 +481,7 @@ describe('AddPendienteForm', () => {
     submitPendiente()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'No se pudo guardar la categoría. Volvé a intentar.',
+      /No se pudo guardar\ la\ categoría\. La base rechazó el permiso/,
     )
   })
 
@@ -522,7 +522,7 @@ describe('AddPendienteForm', () => {
     submitPendiente()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'No se pudo agregar el pendiente. Volvé a intentar.',
+      /No se pudo agregar\ el\ pendiente\. La base rechazó el permiso/,
     )
   })
 
@@ -556,7 +556,7 @@ describe('AddPendienteForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Agregar Servicio' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'No se pudo cargar las categorías. Volvé a intentar.',
+      /No se pudo cargar\ las\ categorías\. La base rechazó el permiso/,
     )
   })
 })
