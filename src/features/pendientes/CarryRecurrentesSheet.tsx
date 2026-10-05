@@ -5,7 +5,7 @@ import { Repeat } from 'lucide-react'
 import { AlertMessage } from '@/components/ui/alert-message'
 import { Button } from '@/components/ui/button'
 import { LoadingIndicator } from '@/components/ui/loading-indicator'
-import { Sheet } from '@/components/ui/sheet'
+import { Sheet, SheetFooter, SheetScrollArea } from '@/components/ui/sheet'
 import { formatAmount } from '@/lib/expenses'
 import { formatMonthLabel } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
@@ -130,11 +130,10 @@ function CarryRecurrentesForm({
       noValidate
       onSubmit={onSubmit}
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto overscroll-contain">
+      <SheetScrollArea className="gap-4">
         <div className="flex flex-col gap-1">
-          <h2 className="text-title font-semibold">
-            Traer servicios del mes pasado
-          </h2>
+          {/* No heading: the Sheet's header row already carries this exact
+              title. */}
           <p className="text-muted-foreground text-sm">
             Elegí cuáles de {formatMonthLabel(previousMonth)} se repiten en{' '}
             {formatMonthLabel(monthStart)}.
@@ -193,9 +192,9 @@ function CarryRecurrentesForm({
             está».
           </AlertMessage>
         ) : null}
-      </div>
+      </SheetScrollArea>
 
-      <div className="shrink-0 pt-6">
+      <SheetFooter>
         <Button
           type="submit"
           className="w-full"
@@ -205,7 +204,7 @@ function CarryRecurrentesForm({
             ? 'Traer 1 servicio'
             : `Traer ${String(picked.length)} servicios`}
         </Button>
-      </div>
+      </SheetFooter>
     </form>
   )
 }

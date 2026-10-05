@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { Sheet } from './sheet'
+import { Sheet, SheetFooter, SheetScrollArea } from './sheet'
 
 describe('Sheet', () => {
   it('does not render children when closed', () => {
@@ -71,7 +71,7 @@ describe('Sheet', () => {
     // 46px on a phone and 44 on a monitor: bigger than an ordinary icon
     // button, because it is the way out of a screen-filling form. Per
     // direct feedback.
-    expect(closeButton).toHaveClass('size-[46px]', 'lg:size-11')
+    expect(closeButton).toHaveClass('size-[46px]')
   })
 
   it('calls onOpenChange(false) exactly once when the close control is clicked', () => {
@@ -335,5 +335,47 @@ describe('Sheet', () => {
     // The `open` prop was never updated by the parent, so the sheet must
     // remain visible: it should not manage its own open/closed state.
     expect(screen.getByText('Sheet body')).toBeInTheDocument()
+  })
+})
+
+// The two bands every Sheet-hosted form is built from. Same deliberate
+// exception as button.test.tsx: this is a layout invariant -- the action
+// has to stay reachable on a phone with the keyboard up -- not decoration.
+// Per direct feedback: header and footer fixed, content scrolling, in every
+// modal that has both.
+describe('Sheet bands', () => {
+  function renderBands() {
+    return render(
+      <Sheet open onOpenChange={() => {}} title="Sheet title">
+        <form className="flex h-full min-h-0 w-full flex-col">
+          <SheetScrollArea>
+            <p>Field</p>
+          </SheetScrollArea>
+          <SheetFooter>
+            <button type="submit">Guardar</button>
+          </SheetFooter>
+        </form>
+      </Sheet>,
+    )
+  }
+
+  it('gives the fields the leftover height and the only scroll', () => {
+    renderBands()
+
+    const area = screen.getByText('Field').parentElement
+    // flex-1 over min-h-0: without the floor removed a flex child refuses
+    // to shrink below its content, and the region simply overflows instead
+    // of scrolling.
+    expect(area).toHaveClass('flex-1', 'min-h-0', 'overflow-y-auto')
+    // So dragging past the end never chains into the page behind it.
+    expect(area).toHaveClass('overscroll-contain')
+  })
+
+  it('keeps the actions out of the scroll, under a line of their own', () => {
+    renderBands()
+
+    const footer = screen.getByRole('button', { name: 'Guardar' }).parentElement
+    expect(footer).toHaveClass('shrink-0', 'border-t')
+    expect(footer?.className).not.toMatch(/overflow-y-auto/)
   })
 })

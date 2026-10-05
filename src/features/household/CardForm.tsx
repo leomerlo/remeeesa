@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
+import { SheetFooter, SheetScrollArea } from '@/components/ui/sheet'
 import {
   CARD_BRANDS,
   PAYMENT_METHOD_KINDS,
@@ -87,98 +88,106 @@ export function CardForm({
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex h-full min-h-0 flex-col gap-6 overflow-x-hidden overflow-y-auto overscroll-contain"
+      className="flex h-full min-h-0 w-full flex-col"
     >
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="card-name">Nombre</Label>
-        <Input
-          id="card-name"
-          value={name}
-          disabled={pending}
-          autoFocus
-          placeholder="Visa Flor"
-          onChange={(event) => {
-            setName(event.target.value)
-          }}
-        />
-        <p className="text-muted-foreground text-xs">
-          Como la llamás vos. Es el nombre que van a llevar sus resúmenes.
-        </p>
-      </div>
+      {/* The fields scroll; the action below stays put. */}
+      <SheetScrollArea>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="card-name">Nombre</Label>
+          <Input
+            id="card-name"
+            value={name}
+            disabled={pending}
+            autoFocus
+            placeholder="Visa Flor"
+            onChange={(event) => {
+              setName(event.target.value)
+            }}
+          />
+          <p className="text-muted-foreground text-xs">
+            Como la llamás vos. Es el nombre que van a llevar sus resúmenes.
+          </p>
+        </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="card-kind">Tipo</Label>
-        <Select
-          id="card-kind"
-          value={kind}
-          disabled={pending}
-          onChange={(event) => {
-            setKind(parsePaymentMethodKind(event.target.value))
-          }}
-        >
-          {PAYMENT_METHOD_KINDS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </Select>
-        {/* What picking it means for the month, said here rather than
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="card-kind">Tipo</Label>
+          <Select
+            id="card-kind"
+            value={kind}
+            disabled={pending}
+            onChange={(event) => {
+              setKind(parsePaymentMethodKind(event.target.value))
+            }}
+          >
+            {PAYMENT_METHOD_KINDS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+          {/* What picking it means for the month, said here rather than
             learned by watching the budget move. */}
-        <p className="text-muted-foreground text-xs">
-          {PAYMENT_METHOD_KINDS.find((option) => option.value === kind)?.detail}
-        </p>
-      </div>
+          <p className="text-muted-foreground text-xs">
+            {
+              PAYMENT_METHOD_KINDS.find((option) => option.value === kind)
+                ?.detail
+            }
+          </p>
+        </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="card-brand">Marca</Label>
-        <Select
-          id="card-brand"
-          value={brand}
-          disabled={pending}
-          onChange={(event) => {
-            setBrand(parseCardBrand(event.target.value))
-          }}
-        >
-          {CARD_BRANDS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </Select>
-      </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="card-brand">Marca</Label>
+          <Select
+            id="card-brand"
+            value={brand}
+            disabled={pending}
+            onChange={(event) => {
+              setBrand(parseCardBrand(event.target.value))
+            }}
+          >
+            {CARD_BRANDS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+        </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="card-currency">Moneda</Label>
-        <Select
-          id="card-currency"
-          value={effectiveCurrency}
-          disabled={pending}
-          onChange={(event) => {
-            setCurrency(parseCardCurrency(event.target.value))
-          }}
-        >
-          {currencyOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </Select>
-        <p className="text-muted-foreground text-xs">
-          {kind === 'credito'
-            ? '«Pesos y dólares» es la tarjeta que el banco te factura en las dos: lleva un resumen por moneda y el de dólares no toca el presupuesto.'
-            : 'Lo que cargues con este método va a estar en esta moneda. Los gastos en dólares se registran pero no se descuentan del presupuesto.'}
-        </p>
-      </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="card-currency">Moneda</Label>
+          <Select
+            id="card-currency"
+            value={effectiveCurrency}
+            disabled={pending}
+            onChange={(event) => {
+              setCurrency(parseCardCurrency(event.target.value))
+            }}
+          >
+            {currencyOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+          <p className="text-muted-foreground text-xs">
+            {kind === 'credito'
+              ? '«Pesos y dólares» es la tarjeta que el banco te factura en las dos: lleva un resumen por moneda y el de dólares no toca el presupuesto.'
+              : 'Lo que cargues con este método va a estar en esta moneda. Los gastos en dólares se registran pero no se descuentan del presupuesto.'}
+          </p>
+        </div>
 
-      {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
+        {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
+      </SheetScrollArea>
 
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending
-          ? 'Guardando…'
-          : card === undefined
-            ? 'Agregar método'
-            : 'Guardar'}
-      </Button>
+      <SheetFooter>
+        <Button type="submit" className="w-full" disabled={pending}>
+          {pending
+            ? 'Guardando…'
+            : card === undefined
+              ? 'Agregar método'
+              : 'Guardar'}
+        </Button>
+      </SheetFooter>
     </form>
   )
 }

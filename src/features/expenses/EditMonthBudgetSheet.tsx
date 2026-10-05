@@ -6,7 +6,7 @@ import { AlertMessage } from '@/components/ui/alert-message'
 import { Button } from '@/components/ui/button'
 import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import { Label } from '@/components/ui/label'
-import { Sheet } from '@/components/ui/sheet'
+import { Sheet, SheetFooter, SheetScrollArea } from '@/components/ui/sheet'
 import { formatMonthLabel } from '@/lib/format'
 import {
   getHousehold,
@@ -135,48 +135,56 @@ export function EditMonthBudgetSheet({
           hasBudget ? 'Editar presupuesto del mes' : 'Poner presupuesto del mes'
         }
       >
-        <form onSubmit={onSubmit} className="flex w-full flex-col gap-6">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-title font-semibold">
-              Presupuesto de {formatMonthLabel(monthStart)}
-            </h2>
-            <p className="text-muted-foreground text-sm">
-              Cuánto decidieron que puede costar este mes. Los demás quedan con
-              el que tenían.
-            </p>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="month-budget">Presupuesto</Label>
-            <div className="relative">
-              <span
-                aria-hidden="true"
-                className="text-muted-foreground pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
-              >
-                $
-              </span>
-              <FormattedAmountInput
-                id="month-budget"
-                name="month-budget"
-                className="pl-8"
-                value={amount}
-                onChange={setDraft}
-                disabled={mutation.isPending}
-                autoFocus
-                autoComplete="off"
-              />
+        <form
+          onSubmit={onSubmit}
+          className="flex h-full min-h-0 w-full flex-col"
+        >
+          <SheetScrollArea>
+            <div className="flex flex-col gap-1">
+              <h2 className="text-title font-semibold">
+                Presupuesto de {formatMonthLabel(monthStart)}
+              </h2>
+              <p className="text-muted-foreground text-sm">
+                Cuánto decidieron que puede costar este mes. Los demás quedan
+                con el que tenían.
+              </p>
             </div>
-            <p className="text-muted-foreground text-xs">
-              Dejalo vacío si este mes no lleva presupuesto.
-            </p>
-          </div>
-          {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={mutation.isPending}
-          >
-            {mutation.isPending ? 'Guardando…' : 'Guardar'}
-          </Button>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="month-budget">Presupuesto</Label>
+              <div className="relative">
+                <span
+                  aria-hidden="true"
+                  className="text-muted-foreground pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
+                >
+                  $
+                </span>
+                <FormattedAmountInput
+                  id="month-budget"
+                  name="month-budget"
+                  className="pl-8"
+                  value={amount}
+                  onChange={setDraft}
+                  disabled={mutation.isPending}
+                  autoFocus
+                  autoComplete="off"
+                />
+              </div>
+              <p className="text-muted-foreground text-xs">
+                Dejalo vacío si este mes no lleva presupuesto.
+              </p>
+            </div>
+            {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
+          </SheetScrollArea>
+
+          <SheetFooter>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={mutation.isPending}
+            >
+              {mutation.isPending ? 'Guardando…' : 'Guardar'}
+            </Button>
+          </SheetFooter>
         </form>
       </Sheet>
     </>

@@ -94,7 +94,7 @@ function Sheet({
             </Dialog.Title>
             <Dialog.Close
               data-slot="sheet-close"
-              className="hover:bg-muted focus-visible:border-ring focus-visible:ring-ring/50 flex size-[46px] shrink-0 items-center justify-center rounded-full outline-none focus-visible:ring-3 lg:size-11"
+              className="hover:bg-muted focus-visible:border-ring focus-visible:ring-ring/50 flex size-[46px] shrink-0 items-center justify-center rounded-full outline-none focus-visible:ring-3"
             >
               <X className="size-6" aria-hidden="true" />
               <span className="sr-only">Cerrar</span>
@@ -128,4 +128,56 @@ function Sheet({
   )
 }
 
-export { Sheet }
+// A Sheet-hosted form is two bands, and these are them. The fields scroll;
+// the actions do not. A single scrolling block let a tall form's submit
+// button scroll out of view, which on a phone meant the one thing you
+// opened the sheet to press was the one thing you could not reach. Per
+// direct feedback: header and footer fixed, content scrolling, in every
+// modal that has both.
+//
+// The destructive confirmations are deliberately left out: those are a
+// question and its two answers, short by definition, with nothing to
+// scroll and no band to pin. Per direct feedback.
+function SheetScrollArea({
+  className,
+  children,
+}: {
+  readonly className?: string
+  readonly children: ReactNode
+}) {
+  return (
+    <div
+      data-slot="sheet-scroll-area"
+      // overscroll-contain so dragging past the end never chains into the
+      // page behind; overflow-x-hidden so a wide child cannot make the
+      // whole sheet scroll sideways.
+      className={cn(
+        'flex min-h-0 flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto overscroll-contain',
+        className,
+      )}
+    >
+      {children}
+    </div>
+  )
+}
+
+function SheetFooter({
+  className,
+  children,
+}: {
+  readonly className?: string
+  readonly children: ReactNode
+}) {
+  return (
+    <div
+      data-slot="sheet-footer"
+      // The line is what makes it read as a footer rather than as the last
+      // thing in the list above it.
+      className={cn('border-border-subtle shrink-0 border-t pt-4', className)}
+    >
+      {children}
+    </div>
+  )
+}
+
+export { Sheet, SheetFooter, SheetScrollArea }

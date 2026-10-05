@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
 import { CategoryBadge } from '@/components/CategoryBadge'
 import { AlertMessage } from '@/components/ui/alert-message'
-import { Sheet } from '@/components/ui/sheet'
+import { Sheet, SheetScrollArea } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { listResumenCuotas } from '@/lib/cards'
 import type { ResumenCuota } from '@/lib/cards'
@@ -60,7 +60,7 @@ export function CardsNextMonthSheet({
       onOpenChange={onOpenChange}
       title="Tarjetas el mes que viene"
     >
-      <div className="flex min-h-0 flex-col gap-6 overflow-y-auto overscroll-contain">
+      <SheetScrollArea>
         <p className="text-muted-foreground text-sm">
           Lo que fuiste cargando con cada tarjeta y cae en el resumen del mes
           que viene. Es una estimación: la cuenta real la cargás cuando te llega
@@ -146,7 +146,7 @@ export function CardsNextMonthSheet({
             </section>
           ))
         )}
-      </div>
+      </SheetScrollArea>
     </Sheet>
   )
 }

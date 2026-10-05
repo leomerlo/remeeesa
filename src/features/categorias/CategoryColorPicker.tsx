@@ -37,7 +37,7 @@ export function CategoryColorPicker({
             onClick={() => {
               onChange(color)
             }}
-            className="focus-visible:ring-ring/50 flex size-[46px] items-center justify-center rounded-full outline-none focus-visible:ring-3 disabled:opacity-50 bg-[var(--swatch-color)] lg:size-9"
+            className="focus-visible:ring-ring/50 flex size-[46px] items-center justify-center rounded-full outline-none focus-visible:ring-3 disabled:opacity-50 bg-[var(--swatch-color)]"
             style={cssVars({ '--swatch-color': color })}
           >
             {selected ? (

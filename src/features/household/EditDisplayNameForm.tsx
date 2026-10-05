@@ -5,6 +5,7 @@ import type { FormEvent, ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { SheetFooter, SheetScrollArea } from '@/components/ui/sheet'
 import { updateMemberDisplayName } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { membersQueryKey } from './membersQueryKey'
@@ -59,9 +60,13 @@ export function EditDisplayNameForm({
   }
 
   return (
-    <form className="flex w-full flex-col gap-2" onSubmit={onSubmit}>
-      <Label htmlFor="member-display-name">Tu nombre</Label>
-      <div className="flex w-full items-center gap-2">
+    <form className="flex h-full min-h-0 w-full flex-col" onSubmit={onSubmit}>
+      {/* One field, but the same two bands as every other sheet: the action
+          belongs at the bottom of the sheet, not beside the input. It used
+          to sit next to the field, where it was the one control in the app
+          that moved when the field did. Per direct feedback. */}
+      <SheetScrollArea className="gap-2">
+        <Label htmlFor="member-display-name">Tu nombre</Label>
         <Input
           id="member-display-name"
           name="member-display-name"
@@ -72,16 +77,14 @@ export function EditDisplayNameForm({
           }}
           autoComplete="name"
         />
-        <Button
-          type="submit"
-          variant="outline"
-          disabled={mutation.isPending}
-          className="shrink-0"
-        >
+        {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
+      </SheetScrollArea>
+
+      <SheetFooter>
+        <Button type="submit" disabled={mutation.isPending} className="w-full">
           Guardar nombre
         </Button>
-      </div>
-      {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
+      </SheetFooter>
     </form>
   )
 }

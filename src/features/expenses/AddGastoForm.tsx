@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { SheetFooter, SheetScrollArea } from '@/components/ui/sheet'
 import { currenciesOf, DEFAULT_CURRENCY } from '@/lib/money'
 import type { Currency } from '@/lib/money'
 import { CategoryCombobox } from './CategoryCombobox'
@@ -507,7 +508,7 @@ export function AddGastoForm({
       {/* Only this part scrolls -- the action button below stays pinned at
           the bottom of the sheet regardless of how tall the field list
           gets. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto overscroll-contain">
+      <SheetScrollArea>
         <div className="flex w-full flex-col gap-2">
           <Label htmlFor="gasto-name">Nombre</Label>
           <Input
@@ -722,9 +723,9 @@ export function AddGastoForm({
         {alertMessage !== null ? (
           <AlertMessage>{alertMessage}</AlertMessage>
         ) : null}
-      </div>
+      </SheetScrollArea>
 
-      <div className="border-border-subtle shrink-0 border-t pt-4">
+      <SheetFooter>
         {confirmingDelete ? (
           <div
             role="alertdialog"
@@ -781,7 +782,7 @@ export function AddGastoForm({
             ) : null}
           </div>
         )}
-      </div>
+      </SheetFooter>
     </form>
   )
 }

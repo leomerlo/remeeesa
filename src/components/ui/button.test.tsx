@@ -7,20 +7,20 @@ import { Button } from './button'
 // accessibility invariant, not decorative styling, so asserting the size
 // tokens here is testing a requirement.
 //
-// The invariant: 46px tall on a phone, 36px from `lg`. It is a floor, not
-// a height -- padding still decides, and a button whose content needs more
-// simply gets taller. Both are clear of WCAG 2.2's 24px target minimum;
-// the phone gets the thumb-sized one because that is what a thumb aims at,
-// and a desktop row of 46px buttons read as enormous beside everything
-// around it. Per direct feedback.
+// The invariant: 46px tall, at every width. It is a floor, not a height --
+// padding still decides, and a button whose content needs more simply gets
+// taller. Well clear of WCAG 2.2's 24px target minimum. The sizes used to
+// drop a step from `lg`, on the theory that a pointer needs less reach than
+// a thumb; per direct feedback the bigger one is the one that looks right,
+// so it is now the only one.
 describe('Button size variants', () => {
   it.each([['default'], ['xs'], ['sm'], ['lg']] as const)(
-    'size="%s" is 46px tall on a phone and sized by its padding from lg',
+    'size="%s" is 46px tall at every width',
     (size) => {
       render(<Button size={size}>Label</Button>)
 
       const button = screen.getByRole('button', { name: 'Label' })
-      expect(button).toHaveClass('min-h-[46px]', 'lg:min-h-0')
+      expect(button).toHaveClass('min-h-[46px]')
       // 18px either side on every size and every variant, with an icon or
       // without -- the icon-adjusted paddings this replaced left a button
       // with an icon visibly tighter than its neighbour without one.
@@ -33,7 +33,7 @@ describe('Button size variants', () => {
   )
 
   it.each([['icon'], ['icon-xs'], ['icon-sm'], ['icon-lg']] as const)(
-    'size="%s" is a 46px square on a phone',
+    'size="%s" is a 46px square at every width',
     (size) => {
       render(<Button size={size}>Label</Button>)
 

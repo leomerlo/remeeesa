@@ -65,42 +65,38 @@ const buttonVariants = cva(
         'destructive-outline':
           'border-error bg-transparent text-error hover:bg-error-surface active:bg-error-surface-hover',
       },
-      // Every size drops one step at `lg`. 44px is the size a thumb needs;
-      // a pointer does not, and at that height a row of buttons on a
-      // monitor reads as enormous next to everything around it. Per direct
-      // feedback -- the phone gets 46px, the desktop 36px, both clear of
-      // WCAG 2.2's 24px target minimum.
+      // 46px on every size, every shape and every width -- phone and
+      // desktop alike. The sizes used to drop a step at `lg`, on the
+      // theory that a pointer needs less reach than a thumb; per direct
+      // feedback the bigger one is simply the one that looks right, so it
+      // is now the only one. Well clear of WCAG 2.2's 24px minimum.
+      // `icon-mini` is the one exception, and was never part of it: it has
+      // always been 36px at every width, phone included.
       size: {
         // px-4.5 is 18px, the same on every size and every variant, with an
         // icon or without: the icon-adjusted paddings this replaced left a
         // button with an icon visibly tighter than its neighbour without
         // one. Per direct feedback.
         //
-        // 46px tall on a phone, every size and every shape -- round, with
-        // a label, with an icon. Per direct feedback. It is a floor, not a
-        // height: padding still decides, and a button whose content needs
-        // more than 46px simply gets taller. 36px from `lg`, where a
-        // pointer does not need the reach and a row of 46px buttons reads
-        // as enormous next to everything around it.
-        //
-        // py-1.5 over a 20px line and a 2px border is the 36px the desktop
-        // gets; the floor is what lifts the phone off it.
-        default: 'min-h-[46px] gap-2 px-4.5 py-1.5 lg:min-h-0',
-        xs: "min-h-[46px] gap-2 px-4.5 py-1.5 text-xs lg:min-h-0 [&_svg:not([class*='size-'])]:size-3",
-        sm: "min-h-[46px] gap-2 px-4.5 py-1.5 text-sm lg:min-h-0 [&_svg:not([class*='size-'])]:size-3.5",
-        lg: 'min-h-[46px] gap-2 px-4.5 py-2.5 lg:min-h-0 lg:py-2',
+        // 46px tall, every size and every shape -- round, with a label,
+        // with an icon. It is a floor, not a height: padding still
+        // decides, and a button whose content needs more than 46px simply
+        // gets taller.
+        default: 'min-h-[46px] gap-2 px-4.5 py-1.5',
+        xs: "min-h-[46px] gap-2 px-4.5 py-1.5 text-xs [&_svg:not([class*='size-'])]:size-3",
+        sm: "min-h-[46px] gap-2 px-4.5 py-1.5 text-sm [&_svg:not([class*='size-'])]:size-3.5",
+        lg: 'min-h-[46px] gap-2 px-4.5 py-2.5',
         // Square, so the padding that makes the others their height would
         // make these oblong: these set a size and drop the padding instead.
-        icon: 'size-[46px] p-0 lg:size-9',
+        icon: 'size-[46px] p-0',
         // The icon buttons that are only ever chrome: a carousel's arrows, a
         // month pager's. 36px at every width, phone included -- these sit
         // beside a line of text rather than in a row of actions, and at
         // full size they dwarfed it.
         'icon-mini': "size-9 p-0 [&_svg:not([class*='size-'])]:size-4",
-        'icon-xs':
-          "size-[46px] p-0 lg:size-9 [&_svg:not([class*='size-'])]:size-3",
-        'icon-sm': 'size-[46px] p-0 lg:size-9',
-        'icon-lg': 'size-[46px] p-0 lg:size-10',
+        'icon-xs': "size-[46px] p-0 [&_svg:not([class*='size-'])]:size-3",
+        'icon-sm': 'size-[46px] p-0',
+        'icon-lg': 'size-[46px] p-0',
       },
     },
     defaultVariants: {

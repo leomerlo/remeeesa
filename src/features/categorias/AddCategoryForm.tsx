@@ -5,6 +5,7 @@ import type { FormEvent, ReactElement } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { SheetFooter, SheetScrollArea } from '@/components/ui/sheet'
 import { categoriesQueryKey } from '@/features/expenses'
 import {
   findOrCreateCategory,
@@ -118,7 +119,7 @@ export function AddCategoryForm({
     <form onSubmit={handleSubmit} className="flex h-full min-h-0 flex-col">
       {/* Only this part scrolls -- the submit button below stays pinned at
           the bottom of the sheet regardless of field-list height. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto overscroll-contain">
+      <SheetScrollArea>
         <div className="flex flex-col gap-2">
           <Label htmlFor="new-category-name">Nombre</Label>
           <Input
@@ -167,13 +168,13 @@ export function AddCategoryForm({
         </div>
 
         {error !== null ? <AlertMessage>{error}</AlertMessage> : null}
-      </div>
+      </SheetScrollArea>
 
-      <div className="shrink-0 pt-6">
+      <SheetFooter>
         <Button type="submit" className="w-full" disabled={mutation.isPending}>
           Agregar categoría
         </Button>
-      </div>
+      </SheetFooter>
     </form>
   )
 }

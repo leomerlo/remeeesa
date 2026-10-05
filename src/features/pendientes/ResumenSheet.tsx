@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Sheet } from '@/components/ui/sheet'
+import { Sheet, SheetFooter, SheetScrollArea } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   categoriesQueryKey,
@@ -73,15 +73,25 @@ export function ResumenSheet({
     >
       {resumen === null ? null : (
         <>
-          <ResumenDetail db={db} householdId={householdId} resumen={resumen} />
-          <ResumenPayment
-            db={db}
-            householdId={householdId}
-            memberId={memberId}
-            authorDisplayName={authorDisplayName}
-            resumen={resumen}
-            onDone={onClose}
-          />
+          {/* The statement scrolls; what you do about it stays put at the
+              bottom of the sheet. */}
+          <SheetScrollArea className="gap-4">
+            <ResumenDetail
+              db={db}
+              householdId={householdId}
+              resumen={resumen}
+            />
+          </SheetScrollArea>
+          <SheetFooter>
+            <ResumenPayment
+              db={db}
+              householdId={householdId}
+              memberId={memberId}
+              authorDisplayName={authorDisplayName}
+              resumen={resumen}
+              onDone={onClose}
+            />
+          </SheetFooter>
         </>
       )}
     </Sheet>
@@ -111,7 +121,7 @@ function ResumenDetail({
   })
 
   return (
-    <div className="flex min-h-0 flex-col gap-4 overflow-y-auto overscroll-contain">
+    <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <p className="text-title font-semibold">{resumen.name}</p>
         <p className="text-muted-foreground text-sm">
@@ -269,7 +279,7 @@ function ResumenAmountForm({
   return (
     <form
       aria-label="Cargar el resumen"
-      className="flex shrink-0 flex-col gap-4 pt-6"
+      className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault()
         setError(null)
@@ -390,7 +400,7 @@ function ResumenPayment({
 
   if (resumen.status === 'paid') {
     return (
-      <div className="flex shrink-0 flex-col gap-3 pt-6">
+      <div className="flex flex-col gap-3">
         <p className="text-muted-foreground text-sm">
           {`Pagado el ${formatDate(resumen.paidAt ?? resumen.dueDate)}. Deshacer el pago borra los gastos que generó.`}
         </p>
@@ -437,7 +447,7 @@ function ResumenPayment({
     <form
       onSubmit={onSubmit}
       aria-label="Pagar resumen"
-      className="flex shrink-0 flex-col gap-4 pt-6"
+      className="flex flex-col gap-4"
     >
       <div className="flex w-full flex-col gap-2">
         <Label htmlFor="resumen-amount">Monto pagado</Label>

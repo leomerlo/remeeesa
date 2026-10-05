@@ -195,7 +195,7 @@ export function MemberList({
       >
         <div className="flex w-full flex-col gap-4">
           <div className="flex flex-col gap-1">
-            <h2 className="text-title font-semibold">Invitar a alguien</h2>
+            {/* No heading: the Sheet's header row already says this. */}
             <p className="text-muted-foreground text-sm">
               Generá un link y mandáselo. Quien lo abra entra a este hogar y ve
               los mismos gastos que vos.
