@@ -1893,10 +1893,16 @@ export function createFirestoreHouseholdsDb(
             cuotas.forEach((cuota, index) => {
               const resumen = existing[index]
               if (resumen !== null && resumen !== undefined) {
+                // The estimate, never the bill: a consumo moves what the
+                // household has logged, and only loading the statement
+                // sets what is owed. This was still writing
+                // expected_amount after the two were told apart, which the
+                // rules refuse -- so logging a purchase onto a month that
+                // already had a Resumen failed outright in production.
                 tx.update(cuota.ref, {
-                  expected_amount:
+                  estimated_amount:
                     Math.round(
-                      ((resumen.expectedAmount ?? 0) + cuota.amount) * 100,
+                      ((resumen.estimatedAmount ?? 0) + cuota.amount) * 100,
                     ) / 100,
                   purchase_ids: [
                     ...(resumen.purchaseIds ?? []),

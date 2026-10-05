@@ -44,12 +44,35 @@ describe('pendientesDueSoon', () => {
     expect(pendientesDueSoon([dueIn7Days], now)).toEqual([])
   })
 
-  it('excludes an already-overdue pendiente', () => {
-    const overdue = pendiente({
-      id: 'overdue',
-      dueDate: new Date(2026, 8, 9),
+  // A bill three days late is more urgent than one due on Friday, so it
+  // belongs here too -- and leads, because the list is oldest first. Per
+  // direct feedback; these used to be left out.
+  it('includes an already-overdue pendiente, ahead of what is still coming', () => {
+    const overdue = pendiente({ id: 'overdue', dueDate: new Date(2026, 8, 9) })
+    const longOverdue = pendiente({
+      id: 'long-overdue',
+      dueDate: new Date(2026, 6, 2),
     })
-    expect(pendientesDueSoon([overdue], now)).toEqual([])
+    const dueFriday = pendiente({
+      id: 'friday',
+      dueDate: new Date(2026, 8, 14),
+    })
+
+    expect(
+      pendientesDueSoon([dueFriday, overdue, longOverdue], now).map(
+        (p) => p.id,
+      ),
+    ).toEqual(['long-overdue', 'overdue', 'friday'])
+  })
+
+  it('still leaves out one that was already paid, however late it was', () => {
+    const paidLate = pendiente({
+      id: 'paid-late',
+      dueDate: new Date(2026, 7, 1),
+      status: 'paid',
+      paidExpenseId: 'expense-1',
+    })
+    expect(pendientesDueSoon([paidLate], now)).toEqual([])
   })
 
   it('excludes a pendiente already marked paid, even if its due date is close', () => {

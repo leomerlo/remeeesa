@@ -157,6 +157,38 @@ describe('the adapter persists per-month budgets', () => {
     )
   })
 
+  // The same class of bug, and it did reach production: every cuota path
+  // moves the *estimate*, and only loading a statement sets what is owed.
+  // createCardPurchase merged a cuota into an existing Resumen by writing
+  // expected_amount, which the rules refuse -- so logging a purchase onto
+  // a month that already had a Resumen failed outright, while the memory
+  // adapter (which has no rules) stayed green.
+  it.each([
+    ['async createCardPurchase', 'async updateCardPurchase'],
+    [
+      'async function moveCardPurchaseCuotas',
+      'export function createFirestoreHouseholdsDb',
+    ],
+  ])('moves the estimate and not the bill in %s', (from, to) => {
+    const body = adapterSource.slice(
+      adapterSource.indexOf(from),
+      adapterSource.indexOf(to),
+    )
+
+    expect(body).toContain('estimated_amount:')
+    expect(body).not.toContain('expected_amount:')
+  })
+
+  it('creates a Resumen owing nothing, with its estimate', () => {
+    const newResumen = adapterSource.slice(
+      adapterSource.indexOf('function newResumenDocument'),
+    )
+    const body = newResumen.slice(0, newResumen.indexOf('\n}\n'))
+
+    expect(body).toContain('expectedAmount: null')
+    expect(body).toContain('estimated_amount: input.amount')
+  })
+
   it('rewrites the currency when a purchase is edited', () => {
     const body = adapterSource.slice(
       adapterSource.indexOf('async updateCardPurchase'),

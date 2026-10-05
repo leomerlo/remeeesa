@@ -8,7 +8,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatAmount, listCategories } from '@/lib/expenses'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
-import { formatDate } from '@/lib/format'
+import { dueDateLabel } from '@/lib/format'
 import { listPendientes, pendientesDueSoon } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import type { HouseholdsDb } from '@/lib/households'
@@ -122,8 +122,10 @@ export function PendienteDueSoonBanner({
   return (
     <section aria-labelledby="due-soon-heading" className="w-full">
       <div className="flex items-center justify-between gap-2">
+        {/* Not "que se acercan" any more: what is already late is in here
+            too, and it leads. Per direct feedback. */}
         <h2 id="due-soon-heading" className="text-title font-semibold">
-          Vencimientos que se acercan
+          Vencimientos
         </h2>
         {dueSoon.length > 1 ? (
           <CarouselArrows
@@ -207,8 +209,12 @@ export function PendienteDueSoonBanner({
                   >
                     {categoryName}
                   </span>
+                  {/* "Venció" once the date has passed -- the shared label
+                      every other list uses. Overdue bills are in here now,
+                      and one of them saying "Vence" would read as still to
+                      come. */}
                   <span className="text-error text-xs font-medium">
-                    Vence {formatDate(pendiente.dueDate)}
+                    {dueDateLabel(pendiente.dueDate)}
                   </span>
                   {pendiente.expectedAmount !== null ? (
                     <span className="money text-error text-xl">
