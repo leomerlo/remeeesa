@@ -283,15 +283,11 @@
   --text-info: var(--color-blue-700);
   /* The same four, declared again for the light theme (the dark block
      repeats them below: these hues read correctly on either ground). See
-     that block for what each one means and why the stops are this deep. */
-  --stat-violet-from: #7c3aed;
-  --stat-violet-to: #4c1d95;
-  --stat-sky-from: #0277b4;
-  --stat-sky-to: #0c4a6e;
-  --stat-red-from: #c2410c;
-  --stat-red-to: #be185d;
-  --stat-pink-from: #db2777;
-  --stat-pink-to: #831843;
+     that block for what each one means and why they are this deep. */
+  --stat-violet: #7c3aed;
+  --stat-sky: #0277b4;
+  --stat-red: #c2410c;
+  --stat-pink: #db2777;
   --text-on-stat: var(--color-grey-white);
 
   --surface-due-soon: var(--color-rose-500);
@@ -414,30 +410,28 @@
   --border-warning: var(--color-amber-500);
 
   /* ---- The four coloured cards -------------------------------------
-     The headline figures do not sit on white: each is a card filled with a
-     gradient in one of four hues, which is the signature of the reference
-     visual system this app was moved onto. The four are not decoration --
-     they are a ladder:
+     The headline figures do not sit on white: each is a card filled in one
+     of four hues. The four are not decoration -- they are a ladder:
 
        violeta  neutral. A figure that is just a fact (what the month cost).
        celeste  ok.      Budget with room left in it.
        naranja  not ok.  Budget getting tight; it warms toward the pink.
        fucsia   danger.  Budget spent, or past it.
 
-     Every stop is deep enough that white clears AA *at the light end too*,
-     not only over the dark end where the gradient finishes -- a gradient is
-     only as readable as its lightest point. Measured in a11y/tokens.test:
-     5.70, 4.88, 4.60 and 5.18 respectively. They sit a shade deeper than
-     the reference's light-theme gradients for exactly that reason; three of
-     the four are its own dark-theme stops, unchanged. */
-  --stat-violet-from: #7c3aed;
-  --stat-violet-to: #4c1d95;
-  --stat-sky-from: #0277b4;
-  --stat-sky-to: #0c4a6e;
-  --stat-red-from: #c2410c;
-  --stat-red-to: #be185d;
-  --stat-pink-from: #db2777;
-  --stat-pink-to: #831843;
+     Flat, one colour each. They used to be two-stop gradients, which is the
+     signature of the reference visual system this app was moved onto; per
+     direct feedback the movement pulled the eye away from the figure the
+     card exists to show ("el gradient me dispersa"), and a figure is the
+     one thing on a card that should hold still.
+
+     Each is the gradient's own light stop, which is the one that had to
+     clear AA for white in the first place -- a gradient is only as readable
+     as its lightest point, so dropping the dark half takes nothing away.
+     Measured in a11y/tokens.test: 5.70, 4.88, 4.60 and 5.18. */
+  --stat-violet: #7c3aed;
+  --stat-sky: #0277b4;
+  --stat-red: #c2410c;
+  --stat-pink: #db2777;
   --text-on-stat: var(--color-grey-white);
 }
 
@@ -503,30 +497,14 @@
   /* Inputs and other controls: softer than they were, but clearly a step
      tighter than the cards holding them. */
   --radius-lg: var(--radius-control);
-  /* The four coloured cards, as gradient utilities. Named for the hue, not
-     the meaning: a component picks the one its state calls for (see the
-     ladder in the token block above), so the meaning lives at the call
-     site where the state actually is. */
-  --background-image-stat-violet: linear-gradient(
-    135deg,
-    var(--stat-violet-from) 0%,
-    var(--stat-violet-to) 100%
-  );
-  --background-image-stat-sky: linear-gradient(
-    135deg,
-    var(--stat-sky-from) 0%,
-    var(--stat-sky-to) 100%
-  );
-  --background-image-stat-red: linear-gradient(
-    135deg,
-    var(--stat-red-from) 0%,
-    var(--stat-red-to) 100%
-  );
-  --background-image-stat-pink: linear-gradient(
-    135deg,
-    var(--stat-pink-from) 0%,
-    var(--stat-pink-to) 100%
-  );
+  /* The four coloured cards. Named for the hue, not the meaning: a
+     component picks the one its state calls for (see the ladder in the
+     token block above), so the meaning lives at the call site where the
+     state actually is. `bg-stat-violet` and friends resolve from here. */
+  --color-stat-violet: var(--stat-violet);
+  --color-stat-sky: var(--stat-sky);
+  --color-stat-red: var(--stat-red);
+  --color-stat-pink: var(--stat-pink);
   --color-on-stat: var(--text-on-stat);
   --color-trend: var(--trend-line);
   --color-info: var(--text-info);

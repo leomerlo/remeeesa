@@ -181,7 +181,7 @@ export function RemainingBudgetDisplay({
     <div
       // The card's own colour says how much of the budget is gone before
       // any of it is read: celeste while there is room, naranja once it is
-      // getting tight, fucsia with no margin left. One of three gradient
+      // getting tight, fucsia with no margin left. One of three coloured
       // cards rather than a computed colour -- see lib/expenses/budgetHeat.
       className={cn(
         // Only the fill animates between tones. transition-colors also

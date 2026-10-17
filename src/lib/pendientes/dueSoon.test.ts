@@ -95,3 +95,44 @@ describe('pendientesDueSoon', () => {
     expect(pendientesDueSoon([], now)).toEqual([])
   })
 })
+
+// A card's Resumen is the one Pendiente that can be on screen while owing
+// nothing: until the statement is loaded by hand it is an estimate, and an
+// estimate is not something that falls due. It already has its own place
+// ("Tarjetas el mes que viene"), and showing it here too put the same card
+// on Home twice. Per direct feedback.
+describe('a card Resumen among the bills falling due', () => {
+  const now = new Date(2026, 8, 8)
+
+  it('leaves out one whose statement has not been loaded', () => {
+    const resumen = pendiente({
+      id: 'card-1_2026-09',
+      name: 'Visa',
+      cardId: 'card-1',
+      expectedAmount: null,
+      estimatedAmount: 120000,
+      recurring: false,
+    })
+
+    expect(pendientesDueSoon([resumen], now)).toEqual([])
+  })
+
+  it('keeps one whose real amount has been loaded -- that is owed', () => {
+    const resumen = pendiente({
+      id: 'card-1_2026-09',
+      name: 'Visa',
+      cardId: 'card-1',
+      expectedAmount: 131500,
+      estimatedAmount: 120000,
+      recurring: false,
+    })
+
+    expect(pendientesDueSoon([resumen], now).map((p) => p.id)).toEqual([
+      'card-1_2026-09',
+    ])
+  })
+
+  it('leaves an ordinary bill alone', () => {
+    expect(pendientesDueSoon([pendiente({})], now)).toHaveLength(1)
+  })
+})

@@ -521,7 +521,10 @@ describe('HomePage', () => {
     // Home's only trigger is precisely what this month hides.
   })
 
-  it('shows "Tarjetas el mes que viene" for next month, whichever month is viewed', async () => {
+  // It used to be pinned to the real calendar month, so paging Home left
+  // the same number on screen whatever month you were looking at. Per
+  // direct feedback: tiene que mostrar la data del mes que corresponde.
+  it('moves "Tarjetas el mes que viene" with the month being viewed', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -561,9 +564,13 @@ describe('HomePage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Mes anterior' }))
 
-    expect(
-      screen.getByRole('button', { name: /Tarjetas el mes que viene/ }),
-    ).toHaveTextContent('$80')
+    // Seen from last month, "next month" is this one -- and the cuota does
+    // not land until the one after, so there is nothing to show.
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('button', { name: /Tarjetas el mes que viene/ }),
+      ).not.toBeInTheDocument()
+    })
   })
   it('refreshes the recent list and "Tarjetas el mes que viene" after logging a card purchase', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')

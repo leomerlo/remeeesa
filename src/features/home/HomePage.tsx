@@ -298,7 +298,11 @@ export function HomePage({
             <div className="flex w-full flex-col gap-8">
               {/* Always next calendar month, not the viewed one: it is the card
               bill coming up, said before it arrives. */}
-              <CardsNextMonth db={db} householdId={membership.householdId} />
+              <CardsNextMonth
+                db={db}
+                householdId={membership.householdId}
+                monthStart={monthStart}
+              />
               <PorPagarSection
                 db={db}
                 householdId={membership.householdId}

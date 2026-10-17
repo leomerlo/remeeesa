@@ -3,7 +3,7 @@
 // close to the edge the household is before the numbers are read.
 //
 // It used to interpolate one flat colour along a charcoal-to-rose ramp.
-// It now picks one of three gradient cards instead -- the ladder the whole
+// It now picks one of three coloured cards instead -- the ladder the whole
 // visual system is built on (see the --stat-* tokens in src/index.css):
 //
 //   celeste  ok.       There is room left in the month.
@@ -24,8 +24,8 @@
 // step is also a thing that can be said in words, which is what the
 // aria-label on the card now says.
 //
-// Every gradient here carries white at 4.5:1 or better at *both* of its
-// stops; src/lib/a11y/tokens.test.ts asserts that for all four.
+// Every fill here carries white at 4.5:1 or better;
+// src/lib/a11y/tokens.test.ts asserts that for all four.
 
 export type BudgetTone = 'sky' | 'pink' | 'red'
 
@@ -45,7 +45,7 @@ export function budgetTone(percentUsed: number): BudgetTone {
   return percentUsed >= BUDGET_TIGHT_AT ? 'pink' : 'sky'
 }
 
-// The gradient class for a tone. Spelled out rather than built by
+// The fill class for a tone. Spelled out rather than built by
 // interpolation so Tailwind's scanner can see every one of them. No shadow:
 // nothing in this app casts one (see src/index.css).
 const TONE_CLASS: Readonly<Record<BudgetTone, string>> = {

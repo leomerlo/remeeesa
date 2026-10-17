@@ -1,6 +1,6 @@
 export type { Pendiente, PendienteStatus } from './types'
 export type { RecurrenteToCarry } from './pendientes'
-export { DUE_SOON_WINDOW_DAYS, pendientesDueSoon } from './dueSoon'
+export { DUE_SOON_WINDOW_DAYS, isBillToPay, pendientesDueSoon } from './dueSoon'
 export { pendientesDueInMonth } from './pendingForMonth'
 export { autoDebitsToSettle } from './autoDebit'
 export {

@@ -21,11 +21,16 @@ import { pendientesQueryKey } from './queryKeys'
 export type CardsNextMonthProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
+  // The month Home is showing. The figure is for the month after it, so
+  // paging Home moves this with it -- it used to be pinned to the real
+  // calendar month and showed the same number whatever month was on
+  // screen. Per direct feedback.
+  readonly monthStart: Date
 }
 
 // Home's "Tarjetas el mes que viene": what the cards will ask for in the
-// calendar month after today, whichever month Home is showing -- the bill
-// that should never catch the household by surprise.
+// calendar month after the one being looked at -- the bill that should
+// never catch the household by surprise.
 //
 // Same queryKey and { pendientes, categories } shape as
 // PendienteDueSoonBanner, so the two share one fetch.
@@ -37,6 +42,7 @@ const ResumenIcon = iconForCategoryName(RESUMEN_CATEGORY_NAME)
 export function CardsNextMonth({
   db,
   householdId,
+  monthStart,
 }: CardsNextMonthProps): ReactElement | null {
   const [isOpen, setIsOpen] = useState(false)
   const pendientesQuery = useQuery({
@@ -58,9 +64,14 @@ export function CardsNextMonth({
   // One figure per currency: a card billed in both settles each as its own
   // resumen, and a month whose only bill is a dollar one used to show
   // nothing here at all. Per direct feedback.
-  const today = new Date()
-  const totals = cardsDueNextMonthTotals(pendientesQuery.data.pendientes, today)
-  const resumenes = cardsDueNextMonth(pendientesQuery.data.pendientes, today)
+  const totals = cardsDueNextMonthTotals(
+    pendientesQuery.data.pendientes,
+    monthStart,
+  )
+  const resumenes = cardsDueNextMonth(
+    pendientesQuery.data.pendientes,
+    monthStart,
+  )
   if (totals.length === 0) {
     return null
   }

@@ -121,27 +121,26 @@ describe('colour tokens meet WCAG AA', () => {
     })
   }
 
-  // A gradient card is only as readable as its *lightest* point. Checking
-  // the fill as a whole is not possible -- it is not one colour -- so both
-  // stops are checked, and the light one is the one that can fail. This is
-  // why these four sit deeper than the gradients they were taken from: a
-  // card you can only read at the bottom is not a card you can read.
-  const statGradients = [
-    ['violeta (neutral)', '--stat-violet-from', '--stat-violet-to'],
-    ['celeste (ok)', '--stat-sky-from', '--stat-sky-to'],
-    ['fucsia (getting tight)', '--stat-pink-from', '--stat-pink-to'],
-    ['rojo (at the limit)', '--stat-red-from', '--stat-red-to'],
+  // The four coloured cards are flat now, one colour each -- they used to
+  // be two-stop gradients and the check had to cover both ends, since a
+  // gradient is only as readable as its lightest point. Each kept that
+  // light stop, so these are the same numbers measured before.
+  const statCards = [
+    ['violeta (neutral)', '--stat-violet'],
+    ['celeste (ok)', '--stat-sky'],
+    ['fucsia (getting tight)', '--stat-pink'],
+    ['rojo (at the limit)', '--stat-red'],
   ] as const
 
-  for (const [what, from, to] of statGradients) {
+  for (const [what, fill] of statCards) {
     for (const [theme, read] of [
       ['light', light],
       ['dark', dark],
     ] as const) {
-      it(`${theme}: white on the ${what} card, at both ends`, () => {
-        const ink = read('--text-on-stat')
-        expect(contrastRatio(ink, read(from))).toBeGreaterThanOrEqual(AA_TEXT)
-        expect(contrastRatio(ink, read(to))).toBeGreaterThanOrEqual(AA_TEXT)
+      it(`${theme}: white on the ${what} card`, () => {
+        expect(
+          contrastRatio(read('--text-on-stat'), read(fill)),
+        ).toBeGreaterThanOrEqual(AA_TEXT)
       })
     }
   }
@@ -175,15 +174,15 @@ describe('the budget card keeps its colours in step with the tokens', () => {
   // The hero card picks its fill in TS, by name, so the names it picks are
   // a second copy of something that lives in the stylesheet. This is what
   // stops a renamed token leaving the card with no background at all --
-  // which would fail silently, since a missing gradient utility renders as
-  // nothing rather than as an error.
-  it('only ever names gradients the stylesheet actually declares', () => {
+  // which would fail silently, since a missing utility renders as nothing
+  // rather than as an error.
+  it('only ever names fills the stylesheet actually declares', () => {
     for (const percent of [0, 50, 75, 95, 140]) {
       const [background] = budgetToneClass(budgetTone(percent)).split(' ')
       const hue = background?.replace('bg-stat-', '')
       expect(
-        declarations(lightSource).has(`--stat-${String(hue)}-from`),
-        `${String(background)} has no --stat-${String(hue)}-from token`,
+        declarations(lightSource).has(`--stat-${String(hue)}`),
+        `${String(background)} has no --stat-${String(hue)} token`,
       ).toBe(true)
     }
   })

@@ -65,12 +65,53 @@ describe('CardsNextMonth', () => {
     // Lands in September, this month: not counted.
     await buy('Visa', 999, new Date(2026, 7, 6))
 
-    renderWithProviders(<CardsNextMonth db={db} householdId={householdId} />)
+    renderWithProviders(
+      <CardsNextMonth
+        db={db}
+        householdId={householdId}
+        monthStart={new Date(2026, 8, 1)}
+      />,
+    )
 
     const card = await screen.findByRole('button', {
       name: /Tarjetas el mes que viene/,
     })
     expect(card).toHaveTextContent('$150,50')
+  })
+
+  // It used to be pinned to the real calendar month, so paging Home to
+  // another month left this showing the same number over and over. Per
+  // direct feedback: tiene que mostrar la data del mes que corresponde.
+  it('follows the month Home is showing, not today', async () => {
+    const { db, householdId, buy } = await setup()
+    // Lands in October's Resumen -- next month, seen from September.
+    await buy('Visa', 100, new Date(2026, 8, 5))
+    // Lands in September's -- next month, seen from August.
+    await buy('Master', 70, new Date(2026, 7, 6))
+
+    const { unmount } = renderWithProviders(
+      <CardsNextMonth
+        db={db}
+        householdId={householdId}
+        monthStart={new Date(2026, 8, 1)}
+      />,
+    )
+    expect(
+      await screen.findByRole('button', { name: /Tarjetas el mes que viene/ }),
+    ).toHaveTextContent('$100')
+    unmount()
+
+    // Paging Home back a month: the same data, a different figure.
+    renderWithProviders(
+      <CardsNextMonth
+        db={db}
+        householdId={householdId}
+        monthStart={new Date(2026, 7, 1)}
+      />,
+    )
+    expect(
+      await screen.findByRole('button', { name: /Tarjetas el mes que viene/ }),
+    ).toHaveTextContent('$70')
   })
 
   // The figure is a summary of movements, so the obvious thing to want is
@@ -81,7 +122,13 @@ describe('CardsNextMonth', () => {
     await buy('Visa', 100, new Date(2026, 8, 5))
     await buy('Master', 50.5, new Date(2026, 8, 6))
 
-    renderWithProviders(<CardsNextMonth db={db} householdId={householdId} />)
+    renderWithProviders(
+      <CardsNextMonth
+        db={db}
+        householdId={householdId}
+        monthStart={new Date(2026, 8, 1)}
+      />,
+    )
 
     fireEvent.click(
       await screen.findByRole('button', {
@@ -130,7 +177,13 @@ describe('CardsNextMonth', () => {
       amount: 13.99,
     })
 
-    renderWithProviders(<CardsNextMonth db={db} householdId={householdId} />)
+    renderWithProviders(
+      <CardsNextMonth
+        db={db}
+        householdId={householdId}
+        monthStart={new Date(2026, 8, 1)}
+      />,
+    )
     fireEvent.click(
       await screen.findByRole('button', {
         name: /Tarjetas el mes que viene/,
@@ -160,7 +213,11 @@ describe('CardsNextMonth', () => {
       defaultOptions: { queries: { retry: false } },
     })
     const { container } = renderWithProviders(
-      <CardsNextMonth db={db} householdId={householdId} />,
+      <CardsNextMonth
+        db={db}
+        householdId={householdId}
+        monthStart={new Date(2026, 8, 1)}
+      />,
       { queryClient },
     )
 

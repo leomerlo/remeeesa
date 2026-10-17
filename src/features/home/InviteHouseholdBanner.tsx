@@ -73,13 +73,13 @@ export function InviteHouseholdBanner({
     <section
       aria-labelledby="invite-banner-title"
       // An ordinary white card, like every other card in the app -- the
-      // colour is in the disc, not the surface. A gradient banner would
+      // colour is in the disc, not the surface. A filled banner would
       // have had to hold a read-only URL field and its label, and dark
       // controls on a violet fill is exactly the contrast trap the app's
       // coloured cards avoid by carrying nothing but figures.
       className="bg-card card-surface flex w-full flex-col gap-5 rounded-3xl p-6 lg:flex-row lg:items-center lg:gap-8"
     >
-      {/* Violet: the one gradient of the four the budget ladder never uses,
+      {/* Violet: the one fill of the four the budget ladder never uses,
           so colour on Home that is *not* about how the month is going
           cannot be mistaken for the budget turning a corner. */}
       <span

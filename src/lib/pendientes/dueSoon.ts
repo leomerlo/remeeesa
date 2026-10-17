@@ -1,5 +1,18 @@
 import type { Pendiente } from './types'
 
+// A card's Resumen is not a bill to pay until its statement has been loaded
+// by hand: nothing is owed on an estimate, so it commits no money and
+// belongs in none of the lists of what the household has to pay. It already
+// has its own place on screen -- "Tarjetas el mes que viene" -- and showing
+// it in both made the same card appear twice. Per direct feedback: solo
+// tiene que aparecer ahí.
+//
+// Once the real amount is loaded it is an ordinary bill: owed, counted, and
+// paid from wherever it is listed.
+export function isBillToPay(pendiente: Pendiente): boolean {
+  return pendiente.cardId === undefined || pendiente.expectedAmount !== null
+}
+
 // How far out "approaching" reaches -- an unpaid Pendiente due today through
 // 6 days from now (a 7-day window) counts as due soon. Matches the user's
 // own framing of the Home banner: "siempre dentro de una semana de vencer".
@@ -28,7 +41,9 @@ export function pendientesDueSoon(
   return pendientes
     .filter(
       (pendiente) =>
-        pendiente.status === 'pending' && pendiente.dueDate < windowEnd,
+        pendiente.status === 'pending' &&
+        pendiente.dueDate < windowEnd &&
+        isBillToPay(pendiente),
     )
     .toSorted((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
 }

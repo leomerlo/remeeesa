@@ -461,15 +461,20 @@ export async function markResumenPaid(input: {
   })
 }
 
-// Every card bill of the month after today's -- the ones "Tarjetas el mes
-// que viene" adds up. Returned whole rather than summed so the screen can
-// open them and show what each one is made of.
+// Every card bill of the month after the given one -- the ones "Tarjetas el
+// mes que viene" adds up. Returned whole rather than summed so the screen
+// can open them and show what each one is made of.
+//
+// `from` is the month being looked at, not today: the figure used to be
+// pinned to the real calendar month, so paging Home to another month left
+// it showing the same number over and over. Per direct feedback -- tiene
+// que mostrar la data del mes que corresponde.
 export function cardsDueNextMonth(
   pendientes: readonly Pendiente[],
-  today: Date,
+  from: Date,
 ): readonly Pendiente[] {
   const { monthStart, monthEnd } = currentMonthRange(
-    new Date(today.getFullYear(), today.getMonth() + 1, 1),
+    new Date(from.getFullYear(), from.getMonth() + 1, 1),
   )
   return pendientesDueInMonth(pendientes, monthStart, monthEnd).filter(
     (pendiente) => pendiente.cardId !== undefined,
@@ -481,8 +486,8 @@ export type CardsDueTotal = {
   readonly total: number
 }
 
-// Home's "Tarjetas el mes que viene": always the calendar month after today,
-// whichever month is on screen.
+// Home's "Tarjetas el mes que viene": the calendar month after the one being
+// looked at, so paging Home moves this figure with it.
 //
 // One figure per currency, pesos first, and only the ones that are actually
 // owed. It used to return a single peso number with the dollar Resumen
@@ -494,12 +499,12 @@ export type CardsDueTotal = {
 // together.
 export function cardsDueNextMonthTotals(
   pendientes: readonly Pendiente[],
-  today: Date,
+  from: Date,
 ): readonly CardsDueTotal[] {
   const cents = new Map<Currency, number>()
   // The same list the sheet opens, so the figure and what it opens into can
   // never disagree about which bills are in it.
-  for (const resumen of cardsDueNextMonth(pendientes, today)) {
+  for (const resumen of cardsDueNextMonth(pendientes, from)) {
     const currency = resumen.currency ?? DEFAULT_CURRENCY
     // Always the estimate: what the household has logged onto these cards
     // for next month. It used to prefer the bill once one had been loaded
