@@ -284,10 +284,10 @@
   /* The same four, declared again for the light theme (the dark block
      repeats them below: these hues read correctly on either ground). See
      that block for what each one means and why they are this deep. */
-  --stat-violet: #7c3aed;
+  --stat-violet: #6428cb;
   --stat-sky: #0277b4;
   --stat-red: #c2410c;
-  --stat-pink: #db2777;
+  --stat-pink: #c21337;
   --text-on-stat: var(--color-grey-white);
 
   --surface-due-soon: var(--color-rose-500);
@@ -413,10 +413,15 @@
      The headline figures do not sit on white: each is a card filled in one
      of four hues. The four are not decoration -- they are a ladder:
 
-       violeta  neutral. A figure that is just a fact (what the month cost).
-       celeste  ok.      Budget with room left in it.
-       naranja  not ok.  Budget getting tight; it warms toward the pink.
-       fucsia   danger.  Budget spent, or past it.
+       violeta  neutral. A figure that is just a fact. The budget ladder
+                         never reaches for it (the invite banner does).
+       celeste  ok.      Under 70% of the budget used.
+       fucsia   warning. 70% to 95%: getting tight.
+       naranja  danger.  96% and up, including past the budget.
+
+     The order of the last two is fucsia then naranja, not the other way
+     round -- see budgetTone in lib/expenses/budgetHeat. This block used to
+     say the opposite.
 
      Flat, one colour each. They used to be two-stop gradients, which is the
      signature of the reference visual system this app was moved onto; per
@@ -424,14 +429,16 @@
      card exists to show ("el gradient me dispersa"), and a figure is the
      one thing on a card that should hold still.
 
-     Each is the gradient's own light stop, which is the one that had to
-     clear AA for white in the first place -- a gradient is only as readable
-     as its lightest point, so dropping the dark half takes nothing away.
-     Measured in a11y/tokens.test: 5.70, 4.88, 4.60 and 5.18. */
-  --stat-violet: #7c3aed;
+     Celeste and naranja are the gradient's own light stop, which is the one
+     that had to clear AA for white in the first place -- a gradient is only
+     as readable as its lightest point, so dropping the dark half took
+     nothing away. Violeta and fucsia were then deepened again, by hand,
+     once the cards were flat and the figure had to carry on its own.
+     Measured in a11y/tokens.test: 7.76, 4.88, 6.10 and 5.18. */
+  --stat-violet: #6428cb;
   --stat-sky: #0277b4;
   --stat-red: #c2410c;
-  --stat-pink: #db2777;
+  --stat-pink: #c21337;
   --text-on-stat: var(--color-grey-white);
 }
 
