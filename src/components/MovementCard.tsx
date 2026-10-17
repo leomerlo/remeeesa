@@ -91,9 +91,17 @@ export function MovementCard({
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           {/* Name and figure on one line: the name is what you scan for and
               the figure is what you came for, and side by side a column of
-              these lines both of them up. */}
+              these lines both of them up.
+
+              At --text-body, a step above the metadata under it. It used to
+              inherit the same size as the date and the category beside it,
+              which left a row with no hierarchy at all -- and since almost
+              everything on a screen is a row, left whole pages reading as
+              one flat wall. Per direct feedback. */}
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-foreground truncate font-bold">{title}</span>
+            <span className="text-body text-foreground truncate font-bold">
+              {title}
+            </span>
             {amount}
           </div>
           <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">

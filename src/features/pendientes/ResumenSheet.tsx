@@ -160,7 +160,7 @@ function ResumenDetail({
                 className="bg-muted/50 flex items-center justify-between gap-3 rounded-2xl p-3 text-sm"
               >
                 <div className="flex min-w-0 flex-col gap-1">
-                  <span className="text-foreground truncate font-medium">
+                  <span className="text-body text-foreground truncate font-medium">
                     {purchase.name}
                   </span>
                   <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">

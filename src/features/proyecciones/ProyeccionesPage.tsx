@@ -397,7 +397,7 @@ export function ProyeccionesPage({
                       })()}
                     </span>
                     <div className="flex min-w-0 flex-1 flex-col gap-1">
-                      <p className="text-foreground truncate font-bold">
+                      <p className="text-body text-foreground truncate font-bold">
                         {row.label}
                       </p>
                       {/* self-start, or the badge stretches to the column's

@@ -81,13 +81,22 @@
      "danger" colour everywhere it is not a message: the destructive
      button's fill, the "Vencimientos que se acercan" card, and the colour
      the budget card lands on once the month is nearly spent. */
-  --color-rose-50: #f6eaef;
-  --color-rose-100: #edd4de;
+  /* The two pale steps the error chip and its hover are made of. Lifted a
+     touch when the family moved to the crimson above: the new red is
+     lighter than the burgundy it replaced, and on the old hover tint its
+     own label came out at 4.38 -- under AA. Now 5.01. */
+  --color-rose-50: #fbf1f4;
+  --color-rose-100: #f7e4ea;
   --color-rose-200: #e5a9c1;
   --color-rose-300: #d77a9f;
   --color-rose-400: #c94b7c;
-  --color-rose-500: #b33667;
-  --color-rose-600: #952d56;
+  /* The error/overdue family, retuned onto the same crimson the budget
+     card's warning step uses, so "venció el 04/10" and a card at 80% are
+     the same red rather than a burgundy beside a fucsia. Per direct
+     feedback. 500 is the colour itself; 600 is the darker step a fill
+     hovers to. */
+  --color-rose-500: #c21337;
+  --color-rose-600: #9d0f2c;
   --color-rose-700: #7a2546;
   --color-rose-800: #5e1c36;
   --color-rose-900: #411727;
@@ -201,12 +210,16 @@
   --text-title: 1.0625rem; /* 17px -- section headers ("Por pagar") */
   --text-title--line-height: 1.3;
   --text-title--letter-spacing: -0.01em;
-  --text-body: 0.9375rem; /* 15px -- card titles, primary row text */
+  --text-body: 1rem; /* 16px -- card titles, primary row text */
   --text-body--line-height: 1.5;
-  /* 14px is the floor for every piece of text in the app, per direct
-     feedback: at 13px the grey metadata under each row was unreadable.
-     Nothing in the scale, and nothing built on it, may go below this. */
-  --text-caption: 0.875rem; /* 14px -- muted metadata (category - date) */
+  /* 15px is the floor for every piece of text in the app, per direct
+     feedback. It was 14, and 14 ended up being almost the whole page: on
+     Histórico 99 of 118 rendered texts sat on the floor, the name of each
+     movement among them, at the same size as the date beside it. The floor
+     moved up a step and the primary row text moved to --text-body, so the
+     two are a step apart again. Nothing in the scale, and nothing built on
+     it, may go below this. */
+  --text-caption: 0.9375rem; /* 15px -- muted metadata (category - date) */
   --text-caption--line-height: 1.4;
 
   /* No elevation. Nothing in this app casts a shadow -- not the cards, not
@@ -311,7 +324,7 @@
   --text-action: var(--color-grey-900);
   --text-disabled: var(--color-grey-300);
   --text-success: var(--color-jade-800);
-  --text-error: var(--color-rose-600);
+  --text-error: var(--color-rose-500);
   --text-warning: var(--color-amber-700);
 
   /* Icon — identical mapping to Text */
@@ -322,7 +335,7 @@
   --icon-action: var(--color-grey-900);
   --icon-disabled: var(--color-grey-300);
   --icon-success: var(--color-jade-800);
-  --icon-error: var(--color-rose-600);
+  --icon-error: var(--color-rose-500);
   --icon-warning: var(--color-amber-700);
 
   /* Border */
@@ -493,12 +506,15 @@
   --color-on-error: var(--text-on-error);
   --color-warning: var(--text-warning);
   --color-warning-surface: var(--surface-warning);
-  /* Tailwind's own text-xs is 12px. Nothing in this app may render below
-     14px (see --text-caption), and text-xs is the utility a component
-     reaches for by reflex, so it is repointed at the floor rather than left
+  /* Tailwind's own text-xs is 12px and text-sm 14px. Nothing in this app
+     may render below 15px (see --text-caption), and these two are the
+     utilities a component reaches for by reflex -- between them they carry
+     most of the app -- so both are repointed at the floor rather than left
      as a way around it. */
-  --text-xs: 0.875rem;
-  --text-xs--line-height: 1.25rem;
+  --text-xs: 0.9375rem;
+  --text-xs--line-height: 1.3rem;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.4rem;
   --radius-2xl: var(--radius-card);
   --radius-3xl: var(--radius-card);
   /* Inputs and other controls: softer than they were, but clearly a step

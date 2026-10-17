@@ -431,7 +431,7 @@ export function CategoryBreakdown({
                           text at one weight, where the number that matters
                           was indistinguishable from the one it is measured
                           against. Per direct feedback. */}
-                      <span className="text-foreground truncate font-bold">
+                      <span className="text-body text-foreground truncate font-bold">
                         {row.name}
                       </span>
                       <div className="flex items-baseline gap-1.5">

@@ -5,7 +5,8 @@ import { budgetTone, budgetToneClass } from '@/lib/expenses'
 import { contrastRatio } from './contrast'
 
 // Guards the two accessibility rules this app committed to, per direct
-// feedback ("tamaño mínimo de tipografía 14px", "todo tiene que pasar
+// feedback ("tamaño mínimo de tipografía 14px", raised to 15 later when
+// the floor turned out to be carrying most of the page; "todo tiene que pasar
 // contrastes AA"). Both are properties of the token file and of how
 // components spend it, so both are checkable here rather than by eye on
 // every future change.
@@ -16,7 +17,7 @@ const css = readFileSync(join(process.cwd(), 'src/index.css'), 'utf8')
 
 const AA_TEXT = 4.5 // WCAG 1.4.3, normal-size text
 const AA_NON_TEXT = 3 // WCAG 1.4.11, UI components and meaningful graphics
-const MIN_FONT_PX = 14
+const MIN_FONT_PX = 15
 
 // The file declares the light theme at :root and the dark one inside a
 // [data-theme='dark'] block. Splitting on that block keeps a dark-only
@@ -199,7 +200,7 @@ describe('the budget card keeps its colours in step with the tokens', () => {
   })
 })
 
-describe('nothing renders below 14px', () => {
+describe('nothing renders below 15px', () => {
   const remToPx = (value: string): number | null => {
     const rem = /^([\d.]+)rem$/.exec(value.trim())
     if (rem !== null) {
@@ -209,7 +210,7 @@ describe('nothing renders below 14px', () => {
     return px === null ? null : Number(px[1])
   }
 
-  it('every font-size token in the scale is at least 14px', () => {
+  it('every font-size token in the scale is at least 15px', () => {
     const sizes = [...declarations(css).entries()].filter(
       ([name]) => /^--text-[a-z0-9-]+$/.test(name) && !name.endsWith('height'),
     )
@@ -225,7 +226,7 @@ describe('nothing renders below 14px', () => {
     }
   })
 
-  it('no component sets an arbitrary font size below 14px', () => {
+  it('no component sets an arbitrary font size below 15px', () => {
     // Tailwind's arbitrary-value syntax is the one way around the scale, so
     // it is checked against the source of every component rather than
     // against the token file.

@@ -274,7 +274,7 @@ export function RecentExpensesList({
               </span>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-foreground truncate font-bold">
+                  <span className="text-body text-foreground truncate font-bold">
                     {item.name}
                   </span>
                   <span
