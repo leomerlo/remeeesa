@@ -128,10 +128,22 @@ export function PorPagarSection({
 
   // Still unpaid *and* due this month -- the same narrowing the budget
   // cards apply to the pending total they show.
+  //
+  // Minus the card Resúmenes that are still only an estimate. Nothing is
+  // owed on one until the statement is loaded by hand, so it commits no
+  // money and this list is supposed to be exactly what the figures above
+  // it count -- an estimate sitting here contributed nothing and made the
+  // two disagree. It is also already on screen, in "Tarjetas el mes que
+  // viene", which is where an estimate belongs. Per direct feedback. A
+  // Resumen whose real amount *has* been loaded is an ordinary bill and
+  // stays: it is owed, it counts, and it is paid from here.
   const visiblePendientes = pendientesDueInMonth(
     pendientes,
     monthStart,
     monthEnd,
+  ).filter(
+    (pendiente) =>
+      pendiente.cardId === undefined || pendiente.expectedAmount !== null,
   )
 
   // Nothing outstanding: render nothing at all, not an empty box.

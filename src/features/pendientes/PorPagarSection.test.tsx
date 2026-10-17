@@ -3,14 +3,18 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ComponentProps, ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { createPendiente, markPendientePaid } from '@/lib/pendientes'
+import {
+  createPendiente,
+  listPendientes,
+  markPendientePaid,
+} from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import { listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
-import { createCard, createCardPurchase } from '@/lib/cards'
+import { createCard, createCardPurchase, setResumenAmount } from '@/lib/cards'
 import { PorPagarSection } from './PorPagarSection'
 
 // A card purchase dated the 1st of this month (never in the future) lands
@@ -577,6 +581,30 @@ describe('PorPagarSection', () => {
     expect(await screen.findByText('Gas')).toBeInTheDocument()
   })
 
+  // A Resumen only belongs in this list once its statement has been loaded
+  // by hand: until then nothing is owed on it, so it would sit here
+  // contributing nothing to the very figures this list is supposed to
+  // match. Per direct feedback -- it was showing twice, here and in
+  // "Tarjetas el mes que viene", which is where an estimate belongs.
+  it('leaves out a card Resumen that is still only an estimate', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    const { month } = await seedTwoCuotaResumen(db, householdId, categoryId)
+
+    const { container } = renderSection(
+      <Section
+        db={db}
+        householdId={householdId}
+        onMarkPaid={vi.fn()}
+        {...month}
+      />,
+    )
+
+    // It is the only bill that month, so the whole section goes.
+    await waitFor(() => {
+      expect(container.firstChild).toBeNull()
+    })
+  })
+
   it("opens a card's Resumen to its cuotas, never the Pendiente form", async () => {
     const { db, householdId, categoryId } = await seedHousehold()
     const { month, heladeraDate } = await seedTwoCuotaResumen(
@@ -584,6 +612,25 @@ describe('PorPagarSection', () => {
       householdId,
       categoryId,
     )
+    // The statement arrived and was loaded: now it is a bill like any
+    // other, and it belongs here.
+    // The Heladera's three cuotas make three Resúmenes; the one this test
+    // views is the month's.
+    const [resumen] = (await listPendientes({ db, householdId })).filter(
+      (candidate) =>
+        candidate.cardId !== undefined &&
+        candidate.dueDate >= month.monthStart &&
+        candidate.dueDate <= month.monthEnd,
+    )
+    if (resumen === undefined) {
+      throw new Error('expected a Resumen')
+    }
+    await setResumenAmount({
+      db,
+      householdId,
+      resumenId: resumen.id,
+      amount: 230,
+    })
     const onMarkPaid = vi.fn()
 
     renderSection(
@@ -598,7 +645,7 @@ describe('PorPagarSection', () => {
     const card = await screen.findByRole('button', {
       name: /^Ver Resumen Visa de /,
     })
-    expect(card).toHaveTextContent('220')
+    expect(card).toHaveTextContent('230')
     fireEvent.click(card)
     expect(onMarkPaid).not.toHaveBeenCalled()
 
