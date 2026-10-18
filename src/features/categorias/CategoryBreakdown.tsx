@@ -284,8 +284,24 @@ export function CategoryBreakdown({
                 if (entry.categoryId !== tarjetaId) {
                   return (
                     <li key={entry.categoryId}>
+                      {/* Built with URLSearchParams rather than
+                          interpolated: a category's id is its name run
+                          through encodeURIComponent, so "Herramientas
+                          digitales" carries a literal %20 *inside the id*.
+                          Dropped into a query string raw, the browser
+                          decodes it on the way back out and Histórico
+                          filters on an id that does not exist -- no rows,
+                          and a chip with no name in it. Single-word
+                          categories happened to survive, which is why it
+                          went unnoticed. Per direct feedback. */}
                       <Link
-                        to={`/historico?month=${monthParam}&category=${entry.categoryId}`}
+                        to={{
+                          pathname: '/historico',
+                          search: new URLSearchParams({
+                            month: monthParam,
+                            category: entry.categoryId,
+                          }).toString(),
+                        }}
                         className="hover:bg-muted/50 flex min-w-0 flex-1 items-center justify-between gap-2 p-4 transition-colors"
                       >
                         {row()}

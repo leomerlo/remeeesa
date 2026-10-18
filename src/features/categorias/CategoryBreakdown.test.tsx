@@ -2,6 +2,7 @@ import { fireEvent, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import {
   createExpense,
+  findOrCreateCategory,
   listCategories,
   updateCategoryBudget,
 } from '@/lib/expenses'
@@ -241,6 +242,41 @@ describe('CategoryBreakdown', () => {
     ).toBeInTheDocument()
     expect(container.querySelector('svg')).toBeNull()
   })
+
+  // A category's id is `householdId_name` run through encodeURIComponent,
+  // so any name with a space or an accent carries %20 / %C3%A9 *inside the
+  // id*. Dropped into a query string raw, the browser decodes those when it
+  // parses, and Histórico ends up filtering on an id that does not exist:
+  // no rows, and a chip with no name in it. Single-word categories were
+  // fine, which is why this went unnoticed -- the demo's are all single
+  // words. Per direct feedback: "me manda al filtro con cualquier cosa".
+  it.each([
+    ['Herramientas digitales'],
+    ['Uber / Cabi'],
+    ['Tarjeta de crédito'],
+  ])(
+    'links to Histórico with an id that survives the URL: %s',
+    async (name) => {
+      const { db, householdId } = await seedHousehold()
+      const category = await findOrCreateCategory({ db, householdId, name })
+      await seed({
+        db,
+        householdId,
+        categoryId: category.id,
+        name: 'Canva',
+        price: 12,
+      })
+
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
+
+      const link = await screen.findByRole('link', { name: new RegExp(name) })
+      const href = link.getAttribute('href') ?? ''
+      const parsed = new URLSearchParams(
+        new URL(href, 'http://localhost').search,
+      ).get('category')
+      expect(parsed).toBe(category.id)
+    },
+  )
 
   it('lists categories by amount descending, with each share of the month', async () => {
     const { db, householdId, byName } = await seedHousehold()

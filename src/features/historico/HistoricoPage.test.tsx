@@ -4,6 +4,7 @@ import type { ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import {
   createExpense,
+  findOrCreateCategory,
   formatCurrency,
   listCategories,
   updateExpense,
@@ -675,6 +676,50 @@ describe('HistoricoPage', () => {
     expect(await screen.findByText('Alquiler')).toBeInTheDocument()
     expect(screen.queryByText('Cine')).not.toBeInTheDocument()
     expect(screen.queryByText('Otro mes')).not.toBeInTheDocument()
+  })
+
+  // The case above happens to use a single-word category, whose id carries
+  // no percent-escapes. A category's id is its name run through
+  // encodeURIComponent, so "Herramientas digitales" has a literal %20 in
+  // it, and a link that drops that into a query string raw comes back
+  // decoded -- an id that matches nothing. Per direct feedback.
+  it('opens on a category whose id carries percent-escapes', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    const digitales = await findOrCreateCategory({
+      db,
+      householdId,
+      name: 'Herramientas digitales',
+    })
+    await seed({
+      db,
+      householdId,
+      categoryId: digitales.id,
+      name: 'Canva',
+      date: new Date(2026, 7, 3),
+    })
+    await seed({
+      db,
+      householdId,
+      categoryId,
+      name: 'Alquiler',
+      date: new Date(2026, 7, 4),
+    })
+
+    renderPage(
+      <HistoricoPage currentUserId="user-1" householdsDb={db} />,
+      `/historico?${new URLSearchParams({
+        month: '2026-08',
+        category: digitales.id,
+      }).toString()}`,
+    )
+
+    // The chip names the category rather than falling back to the bare
+    // word, which is what a filter on a non-existent id looked like.
+    expect(
+      await screen.findByRole('button', { name: /^Herramientas digitales/ }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Canva')).toBeInTheDocument()
+    expect(screen.queryByText('Alquiler')).not.toBeInTheDocument()
   })
 })
 
