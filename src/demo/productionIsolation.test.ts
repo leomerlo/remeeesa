@@ -65,12 +65,21 @@ describe('production isolation', () => {
     expect(offenders.map((path) => relative(SRC, path))).toEqual([])
   })
 
-  it('keeps demo.html out of the production build inputs', () => {
+  it('keeps demo.html out of every build input', () => {
     const config = readFileSync(join(process.cwd(), 'vite.config.ts'), 'utf8')
 
-    // Adding a rollup/rolldown `input` map is the one change that would
-    // start emitting demo.html into dist/.
+    // Naming demo.html as an input is the one change that would start
+    // emitting it into dist/.
     expect(config).not.toContain('demo.html')
-    expect(config).not.toMatch(/rollupOptions|rolldownOptions/)
+
+    // This used to ban `rollupOptions` outright, as a proxy for the same
+    // thing -- there was nothing else an input map could have been for.
+    // The beta entry (docs/adr/0007) is now exactly that something else, so
+    // the ban narrowed to what it always meant: whatever HTML the config
+    // names as an input, demo.html is not among it.
+    const inputs = [...config.matchAll(/new URL\('\.\/([\w.-]+\.html)'/g)].map(
+      (match) => match[1],
+    )
+    expect(inputs).not.toContain('demo.html')
   })
 })
