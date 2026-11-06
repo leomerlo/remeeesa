@@ -272,10 +272,18 @@ export type RecurrenteToCarry = {
   readonly alreadyThere: boolean
 }
 
-// "Pasar recurrentes": last month's recurring bills, for a member to pick
-// which ones come into the viewed month. Nothing carries over on its own --
-// per direct feedback, after paying, undoing and paying again left one bill
-// twice in the following month.
+// "Traer del mes pasado": every bill of the month before the viewed one,
+// for a member to pick which ones come into it. Nothing carries over on
+// its own -- per direct feedback, after paying, undoing and paying again
+// left one bill twice in the following month.
+//
+// *Every* bill, not only the ones flagged recurring. The flag is set when a
+// bill is first written down, with the toggle off by default, so a Luz
+// logged in a hurry is a one-off as far as the app is concerned however
+// monthly it is in real life -- and this sheet, the one place that would
+// have fixed it, was the one place that could not see it. The screen marks
+// the recurring ones and leaves the rest for the member to tick. Per direct
+// feedback: en noviembre no me está marcando nada de octubre.
 export async function listRecurrentesToCarry(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
@@ -300,7 +308,12 @@ export async function listRecurrentesToCarry(input: {
       ...viewed,
     }),
   ])
-  const all = [...pending, ...paidPrevious, ...paidViewed]
+  // A card's Resumen is left out: it is not written down by anyone, it is
+  // rebuilt each month from the purchases that land in it, so carrying one
+  // forward would invent a bill nobody owes.
+  const all = [...pending, ...paidPrevious, ...paidViewed].filter(
+    (pendiente) => pendiente.cardId === undefined,
+  )
   const isDueIn = (
     pendiente: Pendiente,
     range: { monthStart: Date; monthEnd: Date },
@@ -312,11 +325,7 @@ export async function listRecurrentesToCarry(input: {
   // One row per bill: the same name twice last month is still one bill.
   const byName = new Map<string, Pendiente>()
   for (const pendiente of all) {
-    if (
-      pendiente.recurring &&
-      isDueIn(pendiente, previous) &&
-      !byName.has(pendiente.name)
-    ) {
+    if (isDueIn(pendiente, previous) && !byName.has(pendiente.name)) {
       byName.set(pendiente.name, pendiente)
     }
   }

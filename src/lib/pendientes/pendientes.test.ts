@@ -1947,7 +1947,12 @@ describe('listRecurrentesToCarry / carryRecurrentes', () => {
     return { db, householdId, add, pay }
   }
 
-  it("lists last month's recurring bills, paid or not, soonest first", async () => {
+  // Every bill of last month, not only the ones flagged recurring: that
+  // flag is set a month earlier with the toggle off by default, so this
+  // sheet was blind to exactly the bills a household most wanted to carry.
+  // The flag survives on each row, for the screen to tick by. Per direct
+  // feedback.
+  it("lists last month's bills, paid or not, soonest first", async () => {
     const { db, householdId, add, pay } = await seed()
     await add('Luz', new Date(2026, 6, 20))
     const internet = await add('Internet', new Date(2026, 6, 5))
@@ -1966,10 +1971,16 @@ describe('listRecurrentesToCarry / carryRecurrentes', () => {
 
     expect(rows.map((row) => row.pendiente.name)).toEqual([
       'Internet',
+      'Osde',
       'Luz',
       'Gas',
     ])
     expect(rows.every((row) => !row.alreadyThere)).toBe(true)
+    // Osde was never marked recurring; it is offered, and says so, so the
+    // screen can leave it unticked.
+    expect(
+      rows.find((row) => row.pendiente.name === 'Osde')?.pendiente.recurring,
+    ).toBe(false)
   })
 
   it('keeps one already in the viewed month on the list, flagged', async () => {

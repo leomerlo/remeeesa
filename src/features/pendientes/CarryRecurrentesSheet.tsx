@@ -84,9 +84,11 @@ function CarryRecurrentesForm({
     ],
     queryFn: () => listRecurrentesToCarry({ db, householdId, monthStart }),
   })
-  // Which ones were *unticked*: every bill starts ticked, since most of them
-  // come back every month, and this needs no syncing once the rows load.
-  const [unticked, setUnticked] = useState<ReadonlySet<string>>(new Set())
+  // Which ones the member flipped, rather than which are ticked: a row
+  // starts ticked when the bill is marked recurring and unticked when it is
+  // not, so this holds the exceptions and needs no syncing once the rows
+  // load. XOR of the two below is what a row actually shows.
+  const [flipped, setFlipped] = useState<ReadonlySet<string>>(new Set())
   const mutation = useMutation({
     mutationFn: (
       pendientes: Parameters<typeof carryRecurrentes>[0]['pendientes'],
@@ -100,9 +102,15 @@ function CarryRecurrentesForm({
   })
 
   const rows = rowsQuery.data ?? []
+  const isTicked = (row: (typeof rows)[number]): boolean =>
+    row.pendiente.recurring !== flipped.has(row.pendiente.id)
   const picked = rows
-    .filter((row) => !row.alreadyThere && !unticked.has(row.pendiente.id))
+    .filter((row) => !row.alreadyThere && isTicked(row))
     .map((row) => row.pendiente)
+  // The ones the app already knows repeat lead; the rest follow under their
+  // own heading, there to be ticked rather than to be scrolled past.
+  const recurrentes = rows.filter((row) => row.pendiente.recurring)
+  const resto = rows.filter((row) => !row.pendiente.recurring)
   const previousMonth = new Date(
     monthStart.getFullYear(),
     monthStart.getMonth() - 1,
@@ -110,7 +118,7 @@ function CarryRecurrentesForm({
   )
 
   function toggle(id: string): void {
-    setUnticked((current) => {
+    setFlipped((current) => {
       const next = new Set(current)
       if (!next.delete(id)) {
         next.add(id)
@@ -122,6 +130,46 @@ function CarryRecurrentesForm({
   function onSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault()
     mutation.mutate(picked)
+  }
+
+  function list(group: typeof rows, label: string): ReactElement | null {
+    return group.length === 0 ? null : (
+      <ul aria-label={label} className="flex flex-col">
+        {group.map((row) => {
+          const { pendiente, alreadyThere } = row
+          return (
+            <li key={pendiente.id}>
+              <label
+                className={`flex min-h-11 items-center gap-3 py-2 ${alreadyThere ? 'text-muted-foreground' : ''}`}
+              >
+                <input
+                  type="checkbox"
+                  className="accent-primary size-5 shrink-0"
+                  checked={alreadyThere || isTicked(row)}
+                  disabled={alreadyThere || mutation.isPending}
+                  onChange={() => {
+                    toggle(pendiente.id)
+                  }}
+                />
+                <span className="min-w-0 flex-1 truncate">
+                  {pendiente.name}
+                </span>
+                <span className="shrink-0 text-sm">
+                  {alreadyThere
+                    ? 'Ya está'
+                    : pendiente.expectedAmount === null
+                      ? null
+                      : formatAmount(
+                          pendiente.expectedAmount,
+                          pendiente.currency ?? 'ARS',
+                        )}
+                </span>
+              </label>
+            </li>
+          )
+        })}
+      </ul>
+    )
   }
 
   return (
@@ -148,42 +196,30 @@ function CarryRecurrentesForm({
           </AlertMessage>
         ) : rows.length === 0 ? (
           <p className="text-muted-foreground text-sm">
-            No hay servicios que se repitan en {formatMonthLabel(previousMonth)}
-            .
+            No hay cuentas en {formatMonthLabel(previousMonth)} para traer.
           </p>
         ) : (
-          <ul aria-label="Servicios del mes pasado" className="flex flex-col">
-            {rows.map(({ pendiente, alreadyThere }) => (
-              <li key={pendiente.id}>
-                <label
-                  className={`flex min-h-11 items-center gap-3 py-2 ${alreadyThere ? 'text-muted-foreground' : ''}`}
-                >
-                  <input
-                    type="checkbox"
-                    className="accent-primary size-5 shrink-0"
-                    checked={alreadyThere || !unticked.has(pendiente.id)}
-                    disabled={alreadyThere || mutation.isPending}
-                    onChange={() => {
-                      toggle(pendiente.id)
-                    }}
-                  />
-                  <span className="min-w-0 flex-1 truncate">
-                    {pendiente.name}
-                  </span>
-                  <span className="shrink-0 text-sm">
-                    {alreadyThere
-                      ? 'Ya está'
-                      : pendiente.expectedAmount === null
-                        ? null
-                        : formatAmount(
-                            pendiente.expectedAmount,
-                            pendiente.currency ?? 'ARS',
-                          )}
-                  </span>
-                </label>
-              </li>
-            ))}
-          </ul>
+          <>
+            {list(recurrentes, 'Servicios del mes pasado')}
+            {/* The ones the app does not know repeat. They are here because
+                the flag is set a month earlier, with the toggle off by
+                default, so a bill that is monthly in real life can easily
+                not be marked as one -- and this sheet was the one place
+                that would have caught it. Unticked: nothing comes across
+                unless it is asked for. Per direct feedback. */}
+            {resto.length === 0 ? null : (
+              <div className="flex flex-col gap-1">
+                <span className="text-muted-foreground mt-2 text-xs font-semibold tracking-wide uppercase">
+                  No marcadas como recurrentes
+                </span>
+                <p className="text-muted-foreground text-xs">
+                  Tildá las que también se repiten. Al traerlas quedan marcadas,
+                  así el mes que viene ya vienen tildadas.
+                </p>
+                {list(resto, 'Otras cuentas del mes pasado')}
+              </div>
+            )}
+          </>
         )}
 
         {mutation.isError ? (
