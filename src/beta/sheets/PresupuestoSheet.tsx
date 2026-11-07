@@ -30,14 +30,6 @@ export function PresupuestoSheet({
   const [amount, setAmount] = useState(current > 0 ? String(current) : '')
   const { saving, failed, run } = useSave(onClose)
 
-  // Writing a budget is writing on the household document itself, so it is
-  // allowed only on a house the beta set up -- the onboarding's, or the
-  // demo's. On the real one it stays a form that opens and does not save,
-  // and says why.
-  const locked: string | null = session.sandbox.owns('household', household.id)
-    ? null
-    : 'El presupuesto es del hogar, no de la beta: la beta no lo escribe. Ponelo desde la app de siempre.'
-
   return (
     <Sheet
       title={current > 0 ? 'Cambiar el presupuesto' : 'Poner un presupuesto'}
@@ -48,7 +40,7 @@ export function PresupuestoSheet({
           label="Guardar"
           saving={saving}
           blocked={!moneyIsValid(amount, { required: false })}
-          locked={locked}
+          locked={null}
           failed={failed}
           onSave={() => {
             run(() =>

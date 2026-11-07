@@ -396,11 +396,6 @@
      has to do anything about. */
   .tag.paid { background: var(--green-50); color: var(--green-700); }
   .tag.soft { background: #ebe6f4; color: var(--ink-2); }
-  /* Written by the beta itself. Outlined rather than filled: it is a note
-     about where the row came from, not another state of the money, and the
-     filled badges beside it already mean something. */
-  .tag.test { background: #fff; color: var(--grape-700);
-              box-shadow: inset 0 0 0 1px var(--grape-600); }
   /* A bill in trouble keeps the plain white card and the category's own
      colour. The badge is the whole signal: tinting the row as well put a
      violet button on a red ground and the screen stopped reading as calm. */

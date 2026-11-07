@@ -12,7 +12,6 @@ import {
   updatePendiente,
 } from '@/lib/pendientes'
 import { DangerAction, Sheet, SheetFoot } from '../Sheet'
-import { NOT_MINE_NOTE } from '../sandboxDb'
 import { useSave } from '../useSave'
 import type { BetaSession } from '../data'
 import {
@@ -80,12 +79,12 @@ export function ServicioSheet({
   const priced = moneyIsValid(amount, { required: false })
   const blocked = !named || !priced || categoryId === ''
   const householdId = session.householdId ?? ''
+  // The only reason a form here refuses to save: the household has not
+  // finished loading, so there is nowhere to write yet.
   const locked: string | null =
-    bill !== null && !session.sandbox.owns('pendiente', bill.id)
-      ? NOT_MINE_NOTE
-      : householdId === ''
-        ? 'Todavía estamos leyendo el hogar. Probá de nuevo en un segundo.'
-        : null
+    householdId === ''
+      ? 'Todavía estamos leyendo el hogar. Probá de nuevo en un segundo.'
+      : null
 
   const onSave = (): void => {
     save.run(() => {
@@ -243,15 +242,10 @@ export function PagarSheet({
   const memberId = session.userId ?? ''
   const author = session.displayName ?? 'Alguien'
 
-  const locked: string | null = !session.sandbox.owns('pendiente', bill.id)
-    ? NOT_MINE_NOTE
-    : onCredit &&
-        method !== undefined &&
-        !session.sandbox.owns('card', method.id)
-      ? `Pagarlo con ${method.name} le tocaría el resumen, que ya existe. Para probar esto, agregá una tarjeta de prueba en Perfil y usá esa.`
-      : householdId === '' || memberId === ''
-        ? 'Todavía estamos leyendo el hogar. Probá de nuevo en un segundo.'
-        : null
+  const locked: string | null =
+    householdId === '' || memberId === ''
+      ? 'Todavía estamos leyendo el hogar. Probá de nuevo en un segundo.'
+      : null
 
   const onSave = (): void => {
     save.run(() => {

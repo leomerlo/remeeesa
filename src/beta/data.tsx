@@ -5,9 +5,6 @@ import { createFirestoreHouseholdsDb } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { useHouseholdMembership } from '@/lib/households'
 import { useFirebase } from '@/lib/firebaseContext'
-import { createOpenSandbox, createSandbox } from './sandbox'
-import type { Sandbox } from './sandbox'
-import { sandboxDb } from './sandboxDb'
 
 export type BetaSession = {
   // undefined while Firebase is still restoring the session, null when
@@ -16,9 +13,6 @@ export type BetaSession = {
   readonly householdId: string | null | undefined
   readonly displayName: string | null
   readonly db: HouseholdsDb
-  // What this browser's beta has written itself, and the only thing it is
-  // allowed to change or delete. See sandbox.ts.
-  readonly sandbox: Sandbox
   // Called once, by the onboarding, with the house it has just set up. The
   // membership underneath is read once per signed-in user and nothing about
   // the user changed, so without this the app would sit on the last step of
@@ -29,11 +23,8 @@ export type BetaSession = {
 // Set only by the beta's own demo page, which runs the whole interface on
 // the seeded in-memory household instead of Firestore. Unset everywhere
 // else, which is what makes the line below the only place a real database
-// is built. It is still wrapped in the same guard: the demo is where a
-// write that should not exist would be easiest to miss, and it is also
-// where the guard itself gets exercised by hand.
+// is built.
 const InjectedDb = createContext<HouseholdsDb | null>(null)
-const InjectedSandbox = createContext<Sandbox | null>(null)
 
 export function BetaDbProvider({
   db,
@@ -42,31 +33,24 @@ export function BetaDbProvider({
   readonly db: HouseholdsDb
   readonly children: ReactNode
 }): ReactElement {
-  // The demo household is invented from end to end by the seed, so all of
-  // it is the beta's to write: that is what makes the demo a place to try
-  // every form. The guard is still in the way on the path that matters --
-  // the one below, against the real Firestore.
-  const sandbox = useMemo(() => createOpenSandbox(), [])
-  const guarded = useMemo(() => sandboxDb(db, sandbox), [db, sandbox])
-  return (
-    <InjectedSandbox.Provider value={sandbox}>
-      <InjectedDb.Provider value={guarded}>{children}</InjectedDb.Provider>
-    </InjectedSandbox.Provider>
-  )
+  return <InjectedDb.Provider value={db}>{children}</InjectedDb.Provider>
 }
 
 // The one place the beta gets at the household, and the only place its
-// database is built -- so the read-only guard cannot be gone around by
-// reaching for createFirestoreHouseholdsDb somewhere else.
+// database is built.
+//
+// It writes, with nothing in the way. There was a guard here that let the
+// beta change only the rows it had invented itself; it is gone, on Flor's
+// word: "hacé la funcionalidad en mi base... yo cuando agrego, edito o
+// elimino, lo hago a conciencia." The app is the app. The rule that
+// replaced the guard is about who presses the buttons, which is not
+// something code can enforce and does not belong in it.
 export function useBetaSession(): BetaSession {
   const firebase = useFirebase()
   const injected = useContext(InjectedDb)
-  const injectedSandbox = useContext(InjectedSandbox)
-  const own = useMemo(() => createSandbox(), [])
-  const sandbox = injectedSandbox ?? own
   const live = useMemo(
-    () => sandboxDb(createFirestoreHouseholdsDb(firebase.db), sandbox),
-    [firebase.db, sandbox],
+    () => createFirestoreHouseholdsDb(firebase.db),
+    [firebase.db],
   )
   const db = injected ?? live
   const { currentUserId, membership } = useHouseholdMembership({
@@ -83,7 +67,6 @@ export function useBetaSession(): BetaSession {
         : (membership?.householdId ?? null)),
     displayName: membership?.displayName ?? null,
     db,
-    sandbox,
     adopt: setAdopted,
   }
 }

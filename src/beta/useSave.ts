@@ -1,6 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { NOT_MINE_NOTE, SandboxNotMineError } from './sandboxDb'
 
 // What a form does when its button is pressed: run the write, refresh
 // everything that was reading, close. One hook rather than one mutation per
@@ -42,7 +41,6 @@ export function useSave(onDone: () => void): {
 // app talks. Anything else falls through to its own message, which is better
 // than "algo salió mal" when it names the real problem.
 function saying(error: unknown): string {
-  if (error instanceof SandboxNotMineError) return NOT_MINE_NOTE
   if (!(error instanceof Error)) {
     return 'No se pudo guardar. Probá de nuevo.'
   }

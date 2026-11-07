@@ -233,7 +233,6 @@ export function Gastos({
                 purchase={item.purchase as CardPurchase}
                 categories={categories}
                 several={several}
-                mine={session.sandbox.invented('purchase', item.id)}
                 onEdit={() => setEditingPurchase(item.purchase ?? null)}
               />
             ) : (
@@ -241,7 +240,6 @@ export function Gastos({
                 expense={item.expense}
                 categories={categories}
                 several={several}
-                mine={session.sandbox.invented('expense', item.id)}
                 onEdit={() => setEditing(item.expense ?? null)}
               />
             )}

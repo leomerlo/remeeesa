@@ -1,7 +1,6 @@
 import {
   Check,
   ChevronRight,
-  FlaskConical,
   LineChart,
   Pencil,
   TriangleAlert,
@@ -49,7 +48,6 @@ export function ExpenseRow({
   expense,
   categories,
   several,
-  mine = false,
   onEdit,
 }: {
   readonly expense: Expense
@@ -57,7 +55,6 @@ export function ExpenseRow({
   readonly several: boolean
   // Written by the beta itself, which is the only kind of row it can edit
   // or delete. Marked so the difference is visible before you open it.
-  readonly mine?: boolean
   // Absent where the row is only being shown -- the three on Inicio are a
   // glance, not a place to work.
   readonly onEdit?: () => void
@@ -84,7 +81,6 @@ export function ExpenseRow({
         <span className="cat">{mark.name}</span>
         <span className="badges">
           <span className="tag ok">Pagado</span>
-          {mine ? <TestTag /> : null}
           {several ? (
             <span className="who">{expense.authorDisplayName}</span>
           ) : null}
@@ -100,13 +96,11 @@ export function PurchaseRow({
   purchase,
   categories,
   several,
-  mine = false,
   onEdit,
 }: {
   readonly purchase: CardPurchase
   readonly categories: readonly Category[]
   readonly several: boolean
-  readonly mine?: boolean
   readonly onEdit?: () => void
 }): ReactElement {
   const mark = categoryMark(categories, purchase.categoryId)
@@ -131,7 +125,6 @@ export function PurchaseRow({
         <span className="cat">{mark.name}</span>
         <span className="badges">
           <span className="tag credit">Con la tarjeta</span>
-          {mine ? <TestTag /> : null}
           {several ? (
             <span className="who">{purchase.authorDisplayName}</span>
           ) : null}
@@ -146,7 +139,6 @@ export function BillRow({
   categories,
   monthStart,
   now,
-  mine = false,
   onEdit,
   onPay,
 }: {
@@ -154,7 +146,6 @@ export function BillRow({
   readonly categories: readonly Category[]
   readonly monthStart: Date
   readonly now: Date
-  readonly mine?: boolean
   readonly onEdit?: () => void
   readonly onPay?: () => void
 }): ReactElement {
@@ -206,7 +197,6 @@ export function BillRow({
           {currency !== DEFAULT_CURRENCY ? (
             <span className="tag usd">En dólares</span>
           ) : null}
-          {mine ? <TestTag /> : null}
           {bill.recurring ? (
             <span className="tag soft">Todos los meses</span>
           ) : null}
@@ -240,15 +230,6 @@ export function BillRow({
 // A row this browser's beta wrote itself. It is the only kind it can change
 // or delete, so saying which ones they are is half the explanation of why
 // the pencil on the others does nothing.
-export function TestTag(): ReactElement {
-  return (
-    <span className="tag test">
-      <FlaskConical />
-      Prueba
-    </span>
-  )
-}
-
 export function AlertCard({
   kind,
   icon,

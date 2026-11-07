@@ -9,7 +9,6 @@ import { createCard, deleteCard, updateCard } from '@/lib/cards'
 import type { CardCurrency } from '@/lib/money'
 import { CardBrandMark } from '../CardBrandMark'
 import { DangerAction, Sheet, SheetFoot } from '../Sheet'
-import { NOT_MINE_NOTE } from '../sandboxDb'
 import { useSave } from '../useSave'
 import type { BetaSession } from '../data'
 import { OptionList, SelectField, TextField } from '../fields'
@@ -58,12 +57,12 @@ export function MetodoSheet({
   const blocked = !named || taken
   const save = useSave(onClose)
   const householdId = session.householdId ?? ''
+  // The only reason a form here refuses to save: the household has not
+  // finished loading, so there is nowhere to write yet.
   const locked: string | null =
-    method !== null && !session.sandbox.owns('card', method.id)
-      ? NOT_MINE_NOTE
-      : householdId === ''
-        ? 'Todavía estamos leyendo el hogar. Probá de nuevo en un segundo.'
-        : null
+    householdId === ''
+      ? 'Todavía estamos leyendo el hogar. Probá de nuevo en un segundo.'
+      : null
 
   const onSave = (): void => {
     save.run(() => {

@@ -228,7 +228,6 @@ export function Servicios({
                   categories={categories}
                   monthStart={monthStart}
                   now={now}
-                  mine={session.sandbox.invented('pendiente', bill.id)}
                   onEdit={() => setEditing(bill)}
                   onPay={() => setPaying(bill)}
                 />
@@ -248,7 +247,6 @@ export function Servicios({
                   categories={categories}
                   monthStart={monthStart}
                   now={now}
-                  mine={session.sandbox.invented('pendiente', bill.id)}
                   onEdit={() => setEditing(bill)}
                 />
               ))}

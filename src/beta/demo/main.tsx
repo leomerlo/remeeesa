@@ -19,10 +19,11 @@ import '../theme.css'
 // ever names this one, so nothing under here reaches a user.
 // src/demo/productionIsolation.test.ts holds that.
 //
-// It exists because the beta reads a real household and nothing else: with
-// no way in but Flor's own password, there was no way to look at a screen
-// at all. On the seeded household every screen can be seen, and every
-// figure on it can be checked against a total somebody worked out by hand.
+// It exists so a screen can be looked at without opening the real
+// household: on the seeded one every screen can be seen, every figure can
+// be checked against a total somebody worked out by hand, and anything can
+// be added, edited and deleted without it mattering -- the whole thing is
+// thrown away on reload.
 //
 //   npm run dev  →  http://localhost:5183/beta-demo.html
 //                   http://localhost:5183/beta-demo.html?seed=completa
@@ -48,9 +49,6 @@ void seedDemoHousehold({ db, scenario }).then(() => {
       })}
     >
       <QueryClientProvider client={new QueryClient()}>
-        {/* Wrapped in the read-only guard on the way in, exactly like the
-            live one -- a demo that could write would be the easiest place
-            for a write to slip past unnoticed. */}
         <BetaDbProvider db={db}>
           <HashRouter>
             <BetaRoutes />

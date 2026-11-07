@@ -256,7 +256,6 @@ export function Home({
                   purchase={move.purchase}
                   categories={categories}
                   several={several}
-                  mine={session.sandbox.invented('purchase', move.id)}
                 />
               ) : (
                 <ExpenseRow
@@ -264,7 +263,6 @@ export function Home({
                   expense={move.expense}
                   categories={categories}
                   several={several}
-                  mine={session.sandbox.invented('expense', move.id)}
                 />
               ),
             )}
@@ -285,7 +283,6 @@ export function Home({
                 <BillRow
                   key={bill.id}
                   bill={bill}
-                  mine={session.sandbox.invented('pendiente', bill.id)}
                   categories={categories}
                   monthStart={monthStart}
                   now={now}

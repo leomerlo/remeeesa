@@ -12,7 +12,6 @@ import { CATEGORY_COLOR_PALETTE } from '@/lib/expenses/categoryColor'
 import { cssVars } from '@/lib/cssVars'
 import { CategoryTile } from '../Tile'
 import { DangerAction, Sheet, SheetFoot } from '../Sheet'
-import { NOT_MINE_NOTE } from '../sandboxDb'
 import { useSave } from '../useSave'
 import type { BetaSession } from '../data'
 import {
@@ -68,12 +67,12 @@ export function CategoriaSheet({
   const blocked = !named || taken || !capped
   const save = useSave(onClose)
   const householdId = session.householdId ?? ''
+  // The only reason a form here refuses to save: the household has not
+  // finished loading, so there is nowhere to write yet.
   const locked: string | null =
-    category !== null && !session.sandbox.owns('category', category.id)
-      ? NOT_MINE_NOTE
-      : householdId === ''
-        ? 'Todavía estamos leyendo el hogar. Probá de nuevo en un segundo.'
-        : null
+    householdId === ''
+      ? 'Todavía estamos leyendo el hogar. Probá de nuevo en un segundo.'
+      : null
 
   // A category is three writes, not one: its name is its own document id,
   // so renaming moves the document, while the colour and the cap are plain

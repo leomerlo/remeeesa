@@ -5,8 +5,6 @@ import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import type { HouseholdsDb } from '@/lib/households'
 import { Onboarding } from './Onboarding'
-import { createSandbox } from './sandbox'
-import { sandboxDb } from './sandboxDb'
 import type { BetaSession } from './data'
 
 const USER = 'suegro'
@@ -17,7 +15,6 @@ function setUp(): {
   readonly adopt: ReturnType<typeof vi.fn>
 } {
   const raw = createMemoryHouseholdsDb().asUser(USER)
-  const sandbox = createSandbox(null)
   const adopt = vi.fn()
   return {
     raw,
@@ -26,8 +23,7 @@ function setUp(): {
       userId: USER,
       householdId: null,
       displayName: null,
-      db: sandboxDb(raw, sandbox),
-      sandbox,
+      db: raw,
       adopt,
     },
   }
@@ -114,21 +110,5 @@ describe('setting up a house for the first time', () => {
     // way: it shows what they spent instead of what is left.
     expect(household.monthlyBudget).toBe(0)
     expect(household.name).toBe('Nuestra casa')
-  })
-
-  it('owns the house it made, so its budget can be changed afterwards', async () => {
-    const { raw, session } = setUp()
-    render(session)
-
-    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Ahora no' }))
-
-    await waitFor(() => {
-      expect(screen.getByText('Listo, ya pueden empezar')).toBeInTheDocument()
-    })
-    const membership = await raw.getMembership(USER)
-    const householdId = membership?.householdId ?? ''
-    expect(session.sandbox.owns('household', householdId)).toBe(true)
   })
 })

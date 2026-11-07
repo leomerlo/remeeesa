@@ -4,8 +4,6 @@ import { createFirebaseStub } from '@/test/firebaseStub'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { Unirse } from './Unirse'
-import { createSandbox } from './sandbox'
-import { sandboxDb } from './sandboxDb'
 import type { BetaSession } from './data'
 
 const FLOR = 'flor'
@@ -25,15 +23,13 @@ describe('walking into a house with a code', () => {
     })
     const invite = await hers.getOrCreateInvite({ householdId: household.id })
 
-    const sandbox = createSandbox(null)
     const adopt = vi.fn()
     const forget = vi.fn()
     const session: BetaSession = {
       userId: LEO,
       householdId: null,
       displayName: null,
-      db: sandboxDb(base.asUser(LEO), sandbox),
-      sandbox,
+      db: base.asUser(LEO),
       adopt,
     }
 
@@ -63,13 +59,11 @@ describe('walking into a house with a code', () => {
 
   it('says so when the code is no good, instead of a silent nothing', async () => {
     const base = createMemoryHouseholdsDb()
-    const sandbox = createSandbox(null)
     const session: BetaSession = {
       userId: LEO,
       householdId: null,
       displayName: null,
-      db: sandboxDb(base.asUser(LEO), sandbox),
-      sandbox,
+      db: base.asUser(LEO),
       adopt: vi.fn(),
     }
 

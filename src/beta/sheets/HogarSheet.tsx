@@ -11,17 +11,6 @@ import { useSave } from '../useSave'
 import type { BetaSession } from '../data'
 
 // The household's name and who is in it.
-//
-// A house the beta set up is the beta's to name -- that is the one the
-// onboarding just made, and the one the demo runs on. The house Flor and
-// Leo already live in is not: renaming it would be writing over something
-// that was there before the beta existed, which is the line this does not
-// cross. So the form is the same either way, and it says which of the two
-// it is looking at.
-const HOUSEHOLD_IS_REAL =
-  'Este es el hogar de verdad, no uno de prueba. La beta no le cambia el ' +
-  'nombre ni toca a los integrantes: eso se hace desde la versión 1.'
-
 export function HogarSheet({
   open,
   onClose,
@@ -38,9 +27,6 @@ export function HogarSheet({
   const [name, setName] = useState(household.name)
   const named = name.trim() !== ''
   const { saving, failed, run } = useSave(onClose)
-  const locked: string | null = session.sandbox.owns('household', household.id)
-    ? null
-    : HOUSEHOLD_IS_REAL
 
   return (
     <Sheet
@@ -52,7 +38,7 @@ export function HogarSheet({
           label="Guardar"
           saving={saving}
           blocked={!named}
-          locked={locked}
+          locked={null}
           failed={failed}
           onSave={() => {
             run(() =>

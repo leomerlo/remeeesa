@@ -11,7 +11,6 @@ import { createExpense, deleteExpense, updateExpense } from '@/lib/expenses'
 import { createPendiente } from '@/lib/pendientes'
 import type { Currency } from '@/lib/money'
 import { DangerAction, Sheet, SheetFoot } from '../Sheet'
-import { NOT_MINE_NOTE } from '../sandboxDb'
 import { useSave } from '../useSave'
 import { kindOf } from '../format'
 import type { BetaSession } from '../data'
@@ -152,24 +151,12 @@ export function GastoSheet({
   const memberId = session.userId ?? ''
   const author = session.displayName ?? 'Alguien'
 
-  // Four ways this form can be one the beta will not write.
+  // The only reason this form refuses to save: the household has not
+  // finished loading, so there is nowhere to write yet.
   const locked: string | null =
-    expense !== null && !session.sandbox.owns('expense', expense.id)
-      ? NOT_MINE_NOTE
-      : purchase !== null && !session.sandbox.owns('purchase', purchase.id)
-        ? NOT_MINE_NOTE
-        : // A purchase does not only add a row: its cuotas go into that
-          // card's resúmenes, which for a real card are real rows. A card
-          // the beta made has no statements belonging to anybody else.
-          expense === null &&
-            purchase === null &&
-            onCredit &&
-            method !== undefined &&
-            !session.sandbox.owns('card', method.id)
-          ? `Comprar con ${method.name} le tocaría el resumen, que ya existe. Para probar esto, agregá una tarjeta de prueba en Perfil y usá esa.`
-          : householdId === '' || memberId === ''
-            ? 'Todavía estamos leyendo el hogar. Probá de nuevo en un segundo.'
-            : null
+    householdId === '' || memberId === ''
+      ? 'Todavía estamos leyendo el hogar. Probá de nuevo en un segundo.'
+      : null
 
   const onSave = (): void => {
     save.run(async () => {
