@@ -247,6 +247,140 @@ describe('PendientesList', () => {
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
   })
 
+  // A month starts with nothing in it, and the way to fill it -- last
+  // month's bills -- was an icon in the toolbar. The empty state now says
+  // how many are waiting and offers the same action in words. Per direct
+  // feedback: todas las acciones que el usuario tiene que hacer tienen que
+  // estar expuestas.
+  it("offers last month's bills from the empty state, counted", async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100000,
+    })
+    const categoryId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Servicios',
+    })
+    for (const name of ['Internet', 'Expensas']) {
+      await createPendiente({
+        db,
+        householdId: household.id,
+        categoryId,
+        name,
+        dueDate: new Date(2026, 7, 10),
+        expectedAmount: 50000,
+        recurring: true,
+      })
+    }
+    const onCarryFromLastMonth = vi.fn()
+
+    renderWithProviders(
+      <List
+        db={db}
+        householdId={household.id}
+        onCarryFromLastMonth={onCarryFromLastMonth}
+      />,
+    )
+
+    expect(
+      await screen.findByText(/Agosto de 2026 cargaste 2 cuentas/),
+    ).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Traer del mes pasado' }),
+    )
+    expect(onCarryFromLastMonth).toHaveBeenCalled()
+  })
+
+  // The case the empty state misses: next month's card estimate lands in
+  // the month on its own, so the screen is not empty even though nobody has
+  // put a single servicio in it.
+  it("offers last month's bills in a month that holds only card estimates", async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100000,
+    })
+    const categoryId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Servicios',
+    })
+    const { monthStart, monthEnd } = await seedResumen(
+      db,
+      household.id,
+      categoryId,
+    )
+    // Due in the month before the one on screen, so it is there to bring.
+    await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId,
+      name: 'Internet',
+      dueDate: new Date(2026, 8, 10),
+      expectedAmount: 50000,
+      recurring: true,
+    })
+    const onCarryFromLastMonth = vi.fn()
+
+    renderWithProviders(
+      <List
+        db={db}
+        householdId={household.id}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+        onCarryFromLastMonth={onCarryFromLastMonth}
+      />,
+    )
+
+    const prompt = await screen.findByRole('region', {
+      name: 'Traer servicios del mes pasado',
+    })
+    expect(
+      within(prompt).getByText(
+        'Todavía no cargaste servicios de Octubre de 2026',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      within(prompt).getByText(/Septiembre de 2026 cargaste 1 cuenta/),
+    ).toBeInTheDocument()
+    fireEvent.click(
+      within(prompt).getByRole('button', { name: 'Traer del mes pasado' }),
+    )
+    expect(onCarryFromLastMonth).toHaveBeenCalled()
+  })
+
+  it('keeps the empty state plain when last month has nothing to bring', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100000,
+    })
+    const onCarryFromLastMonth = vi.fn()
+
+    renderWithProviders(
+      <List
+        db={db}
+        householdId={household.id}
+        onCarryFromLastMonth={onCarryFromLastMonth}
+      />,
+    )
+
+    expect(
+      await screen.findByText(/lo que vuelve todos los meses va acá/),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Traer del mes pasado' }),
+    ).not.toBeInTheDocument()
+  })
+
   it('lists pending pendientes with name, category, due date, and amount, soonest due first', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({

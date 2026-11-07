@@ -149,6 +149,53 @@ describe('PendientesPage', () => {
     ).toBeInTheDocument()
   })
 
+  // The toolbar's icon and the empty state's button are the same door: the
+  // page holds whether the sheet is open so either one can open it.
+  it('opens "Traer del mes pasado" from the empty state', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100000,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const categoryId = categories[0]?.id
+    if (categoryId === undefined) {
+      throw new Error('expected a seeded category')
+    }
+    const { monthStart } = currentMonthRange()
+    await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId,
+      name: 'Internet',
+      dueDate: new Date(
+        monthStart.getFullYear(),
+        monthStart.getMonth() - 1,
+        10,
+      ),
+      expectedAmount: 50000,
+      recurring: true,
+    })
+
+    renderPendientesPage(
+      <PendientesPage currentUserId="user-1" householdsDb={db} />,
+    )
+
+    await screen.findByText(/cargaste 1 cuenta/)
+    const doors = screen.getAllByRole('button', {
+      name: 'Traer del mes pasado',
+    })
+    // The toolbar's comes first in the DOM; the empty state's is the one
+    // under test.
+    fireEvent.click(doors[doors.length - 1] as HTMLElement)
+
+    expect(
+      await screen.findByText('Traer servicios del mes pasado'),
+    ).toBeInTheDocument()
+  })
+
   it('opens the add-pendiente form from the empty state', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     await createHouseholdWithMembership({

@@ -5,12 +5,13 @@ import { TintedBadge } from '@/components/CategoryBadge'
 import { MovementCard } from '@/components/MovementCard'
 import { CardsSummaryCard } from './CardsSummaryCard'
 import { matchesSearch } from '@/lib/search/fuzzyMatch'
-import { Pencil, Plus } from 'lucide-react'
+import { Pencil, Plus, Repeat } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   isBillToPay,
   listPendientesForMonth,
+  listRecurrentesToCarry,
   pendientesDueInMonth,
 } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
@@ -75,6 +76,8 @@ export type PendientesListProps = {
   // button rather than one that does nothing.
   readonly onAddPendiente?: () => void
   readonly onClearQuery?: () => void
+  // Opens the page's "Traer del mes pasado" sheet from the empty state.
+  readonly onCarryFromLastMonth?: () => void
 }
 
 export function PendientesList({
@@ -90,6 +93,7 @@ export function PendientesList({
   onMarkPaid,
   onAddPendiente,
   onClearQuery,
+  onCarryFromLastMonth,
 }: PendientesListProps): ReactElement {
   // One month at a time, split in two: what is still owed for it, then what
   // was already paid in it. Reading a single list that mixed months and
@@ -109,6 +113,21 @@ export function PendientesList({
       ])
       return { pendientes, categories }
     },
+  })
+  // What last month has that could come into this one. Read here only to
+  // say so in the empty state: a new month starts with nothing and gives no
+  // hint that last month's bills are one tap away, while "Traer del mes
+  // pasado" sits in the toolbar as an icon. Per direct feedback: todas las
+  // acciones que el usuario tiene que hacer tienen que estar expuestas.
+  // Same query key as the sheet's own, so opening it costs no second read.
+  const toCarryQuery = useQuery({
+    queryKey: [
+      ...pendientesQueryKey({ householdId }),
+      'to-carry',
+      monthStart.getTime(),
+    ],
+    queryFn: () => listRecurrentesToCarry({ db, householdId, monthStart }),
+    enabled: !isSearching,
   })
 
   if (pendientesQuery.isPending) {
@@ -182,6 +201,35 @@ export function PendientesList({
       : pendientes
           .filter((pendiente) => pendiente.status === 'paid')
           .filter(matches)
+  const previousMonth = new Date(
+    monthStart.getFullYear(),
+    monthStart.getMonth() - 1,
+    1,
+  )
+  const toCarry = (toCarryQuery.data ?? []).filter((row) => !row.alreadyThere)
+  // Offered wherever the month has no bills of its own -- which is not the
+  // same as an empty screen: next month's card estimates appear by
+  // themselves, so a month nobody has filled in yet still has rows in it.
+  const carryButton =
+    isSearching ||
+    toCarry.length === 0 ||
+    onCarryFromLastMonth === undefined ? null : (
+      <Button
+        type="button"
+        onClick={() => {
+          onCarryFromLastMonth()
+        }}
+      >
+        <Repeat aria-hidden="true" />
+        {/* The same words as the toolbar button, so the two read as one
+            action. The count and the month are in the line above it. */}
+        Traer del mes pasado
+      </Button>
+    )
+  const carryLine = `En ${formatMonthLabel(previousMonth)} cargaste ${
+    toCarry.length === 1 ? '1 cuenta' : `${String(toCarry.length)} cuentas`
+  }. Traelas y ajustás los montos.`
+
   if (
     stillOwed.length === 0 &&
     waiting.length === 0 &&
@@ -215,20 +263,30 @@ export function PendientesList({
       <EmptyState
         illustration={ILLUSTRATIONS.saving}
         title="Ningún servicio este mes"
-        description="Alquiler, internet, expensas: lo que vuelve todos los meses va acá."
-        {...(onAddPendiente === undefined
+        description={
+          carryButton === null
+            ? 'Alquiler, internet, expensas: lo que vuelve todos los meses va acá.'
+            : carryLine
+        }
+        {...(carryButton === null && onAddPendiente === undefined
           ? {}
           : {
               action: (
-                <Button
-                  type="button"
-                  onClick={() => {
-                    onAddPendiente()
-                  }}
-                >
-                  <Plus aria-hidden="true" />
-                  Agregar un servicio
-                </Button>
+                <div className="flex flex-col items-stretch gap-2">
+                  {carryButton}
+                  {onAddPendiente === undefined ? null : (
+                    <Button
+                      type="button"
+                      variant={carryButton === null ? 'default' : 'outline'}
+                      onClick={() => {
+                        onAddPendiente()
+                      }}
+                    >
+                      <Plus aria-hidden="true" />
+                      Agregar un servicio
+                    </Button>
+                  )}
+                </div>
               ),
             })}
       />
@@ -413,6 +471,27 @@ export function PendientesList({
           </p>
         </section>
       )}
+      {/* A month nobody has filled in yet is rarely empty: next month's card
+          estimates land in it on their own, so the empty state below never
+          shows and "Traer del mes pasado" stayed an icon in the toolbar.
+          Per direct feedback: todas las acciones que el usuario tiene que
+          hacer tienen que estar expuestas. */}
+      {carryButton !== null &&
+      stillOwed.length === 0 &&
+      alreadyPaid.length === 0 ? (
+        <section
+          aria-label="Traer servicios del mes pasado"
+          className="bg-card card-surface flex flex-col items-start gap-3 rounded-2xl p-4"
+        >
+          <div className="flex flex-col gap-1">
+            <p className="font-semibold">
+              Todavía no cargaste servicios de {formatMonthLabel(monthStart)}
+            </p>
+            <p className="text-muted-foreground text-sm">{carryLine}</p>
+          </div>
+          {carryButton}
+        </section>
+      ) : null}
       {stillOwed.length > 0 ? (
         <section
           {...(showGroupLabels

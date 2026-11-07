@@ -30,6 +30,9 @@ export function PendientesPage({
     householdsDb,
   })
   const [isAddPendienteSheetOpen, setIsAddPendienteSheetOpen] = useState(false)
+  // Held here because two places open it: the toolbar button and the empty
+  // state of a month with nothing in it yet.
+  const [isCarrySheetOpen, setIsCarrySheetOpen] = useState(false)
   // Owned here rather than inside MonthPager so the list below moves with
   // it, the same way Home's MonthNavigator drives every section on that
   // page.
@@ -145,6 +148,8 @@ export function PendientesPage({
               db={db}
               householdId={membership.householdId}
               monthStart={monthStart}
+              open={isCarrySheetOpen}
+              onOpenChange={setIsCarrySheetOpen}
             />
           )
         }
@@ -163,6 +168,9 @@ export function PendientesPage({
         }}
         onClearQuery={() => {
           setQuery('')
+        }}
+        onCarryFromLastMonth={() => {
+          setIsCarrySheetOpen(true)
         }}
         onEditPendiente={(pendiente, categoryName) => {
           setEditPendiente({

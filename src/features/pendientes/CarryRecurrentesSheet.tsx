@@ -17,6 +17,12 @@ export type CarryRecurrentesSheetProps = {
   readonly householdId: string
   // The month being viewed -- bills come in from the month before it.
   readonly monthStart: Date
+  // Whether the sheet is open, when the page owns that. The button below is
+  // not the only way in any more: a month with nothing in it offers the same
+  // action from its empty state, so the two have to agree. Left out, the
+  // sheet keeps its own state and works on its own.
+  readonly open?: boolean
+  readonly onOpenChange?: (open: boolean) => void
 }
 
 // "Traer del mes pasado": last month's recurring bills as a checklist,
@@ -32,8 +38,12 @@ export function CarryRecurrentesSheet({
   db,
   householdId,
   monthStart,
+  open: openProp,
+  onOpenChange,
 }: CarryRecurrentesSheetProps): ReactElement {
-  const [open, setOpen] = useState(false)
+  const [openHere, setOpenHere] = useState(false)
+  const open = openProp ?? openHere
+  const setOpen = onOpenChange ?? setOpenHere
 
   return (
     <>
