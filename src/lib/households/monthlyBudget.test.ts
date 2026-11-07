@@ -62,10 +62,40 @@ describe('monthlyBudgetFor', () => {
   })
 
   // Leaving the budget alone is the common case, and means "same as before".
-  it('carries the last figure forward into a month that never set one', () => {
+  // A month already over is read at the figure it was lived against, even
+  // if it never set one of its own: rewriting it to nothing would make a
+  // month the household already reconciled look as if it never had a
+  // budget.
+  it('carries the last figure into a month that is already over', () => {
     const casa = household({ '2026-09': 5355000, '2026-10': 900000 })
 
-    expect(monthlyBudgetFor(casa, NOVEMBER)).toBe(900000)
+    expect(monthlyBudgetFor(casa, NOVEMBER, new Date(2026, 11, 4))).toBe(900000)
+  })
+
+  // ...but nothing is inherited into the month the household is standing
+  // in. What October could afford is not a decision anyone has made about
+  // November, and the card that reads a zero here asks for one. Per direct
+  // feedback: que esté en cero y diga todavía no cargaste nada este mes.
+  it('gives the current month nothing until it sets its own', () => {
+    const casa = household({ '2026-09': 5355000, '2026-10': 900000 })
+
+    expect(monthlyBudgetFor(casa, NOVEMBER, new Date(2026, 10, 6))).toBe(0)
+  })
+
+  it('gives a future month nothing either', () => {
+    const casa = household({ '2026-09': 5355000, '2026-10': 900000 })
+
+    expect(
+      monthlyBudgetFor(casa, new Date(2026, 11, 5), new Date(2026, 10, 6)),
+    ).toBe(0)
+  })
+
+  it('reads the current month at its own figure once it is set', () => {
+    const casa = household({ '2026-10': 900000, '2026-11': 1200000 })
+
+    expect(monthlyBudgetFor(casa, NOVEMBER, new Date(2026, 10, 6))).toBe(
+      1200000,
+    )
   })
 
   // Not today's figure: that one moves every time the budget is edited,
@@ -92,9 +122,10 @@ describe('monthlyBudgetFor', () => {
   it('crosses a year boundary in the right direction', () => {
     const casa = household({ '2026-12': 100, '2027-01': 200 })
 
-    expect(monthlyBudgetFor(casa, new Date(2026, 11, 5))).toBe(100)
-    expect(monthlyBudgetFor(casa, new Date(2027, 0, 5))).toBe(200)
-    expect(monthlyBudgetFor(casa, new Date(2027, 5, 5))).toBe(200)
+    const later = new Date(2027, 8, 1)
+    expect(monthlyBudgetFor(casa, new Date(2026, 11, 5), later)).toBe(100)
+    expect(monthlyBudgetFor(casa, new Date(2027, 0, 5), later)).toBe(200)
+    expect(monthlyBudgetFor(casa, new Date(2027, 5, 5), later)).toBe(200)
   })
 })
 

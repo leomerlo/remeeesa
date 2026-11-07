@@ -18,16 +18,33 @@ export function monthKey(date: Date): string {
 // presu, queda fijo para ese mes, y los meses pasados quedan con el
 // presupuesto que se le puso en ese momento."
 //
-// So each month that had one set carries its own figure, and a month with
-// none inherits the last one set before it -- leaving the budget alone
-// simply means it carries on unchanged, which is the common case. A month
-// earlier than every snapshot takes the earliest one rather than today's
-// figure: it is the oldest thing the household ever said, and unlike
-// today's figure it does not move when the budget is edited now.
+// So each month that had one set carries its own figure. A month earlier
+// than every snapshot takes the earliest one rather than today's figure:
+// it is the oldest thing the household ever said, and unlike today's it
+// does not move when the budget is edited now.
+//
+// A month in the *past* with none of its own inherits the last one set
+// before it: that is the number it was actually lived and measured
+// against, and rewriting it to nothing would make a month the household
+// already reconciled read as if it had never had a budget.
+//
+// From the current month on, nothing is inherited. A new month opens with
+// no budget and says so, because what last month could afford is not a
+// decision anybody has made about this one -- and the household works the
+// other way round, looking at what is already in use and at Proyecciones
+// before settling on a figure. Zero is how the app has always spelled "no
+// budget" (see parseMonthlyBudget), and the card that reads it offers the
+// form rather than counting down from nothing. Per direct feedback: me
+// gustaría que esté la opción de todavía no cargaste un presupuesto para
+// noviembre, cargalo.
 //
 // `monthlyBudget` on the household is the fallback for a household with no
 // snapshots at all -- every one of them, until this field existed.
-export function monthlyBudgetFor(household: Household, month: Date): number {
+export function monthlyBudgetFor(
+  household: Household,
+  month: Date,
+  now: Date = new Date(),
+): number {
   const keys = Object.keys(household.monthlyBudgets).sort()
   if (keys.length === 0) {
     return household.monthlyBudget
@@ -39,9 +56,20 @@ export function monthlyBudgetFor(household: Household, month: Date): number {
       inForce = key
     }
   }
-  // Before the household ever set one: the earliest it ever said.
-  const chosen = inForce ?? keys[0]
-  return household.monthlyBudgets[chosen as string] ?? household.monthlyBudget
+  if (inForce === undefined) {
+    // Before the household ever set one: the earliest it ever said.
+    return (
+      household.monthlyBudgets[keys[0] as string] ?? household.monthlyBudget
+    )
+  }
+  // Its own figure, whatever month it is.
+  if (inForce === target) {
+    return household.monthlyBudgets[inForce] ?? household.monthlyBudget
+  }
+  // Inherited -- allowed only for a month that is already over.
+  return target < monthKey(now)
+    ? (household.monthlyBudgets[inForce] ?? household.monthlyBudget)
+    : 0
 }
 
 // The snapshots with this month's figure written in, ready to store. Used

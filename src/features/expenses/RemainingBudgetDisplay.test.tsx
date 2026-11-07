@@ -89,9 +89,11 @@ describe('RemainingBudgetDisplay', () => {
       ).toBeInTheDocument()
     })
 
-    // Leaving the budget alone means "same as last month", which is the
-    // common case -- most months are never touched.
-    it('carries the last figure forward into a month that never set one', async () => {
+    // A new month opens with no budget and asks for one, rather than
+    // quietly running on last month's: what October could afford is not a
+    // decision anyone made about November, and the household settles it by
+    // looking at what is already in use. Per direct feedback.
+    it('asks for a budget on a month that never set one, naming it', async () => {
       const { db, household } = await seedHousehold(1000)
       await updateHouseholdBudget({
         db,
@@ -107,13 +109,19 @@ describe('RemainingBudgetDisplay', () => {
             householdId={household.id}
             monthStart={new Date(2026, 10, 1)}
             monthEnd={new Date(2026, 10, 30, 23, 59, 59, 999)}
+            onSetBudget={vi.fn()}
           />
         </MemoryRouter>,
       )
 
       expect(
-        await screen.findByText(wholeLine('En uso $0 de $900.000')),
+        await screen.findByText('Presupuesto de Noviembre de 2026'),
       ).toBeInTheDocument()
+      // The action is on screen, not hidden behind knowing to look.
+      expect(
+        screen.getByRole('button', { name: /presupuesto/i }),
+      ).toBeInTheDocument()
+      expect(screen.queryByText(/\$900\.000/)).not.toBeInTheDocument()
     })
   })
 
@@ -181,7 +189,7 @@ describe('RemainingBudgetDisplay', () => {
         </MemoryRouter>,
       )
 
-      expect(await screen.findByText('Presupuesto del mes')).toBeInTheDocument()
+      expect(await screen.findByText(/^Presupuesto de /)).toBeInTheDocument()
       expect(screen.getByText(/Todavía no pusieron uno/)).toBeInTheDocument()
       // It opens the month's own budget form, in place. It used to be a
       // link to Ajustes, which stopped being where a budget is set.
@@ -198,7 +206,7 @@ describe('RemainingBudgetDisplay', () => {
         </MemoryRouter>,
       )
 
-      expect(await screen.findByText('Presupuesto del mes')).toBeInTheDocument()
+      expect(await screen.findByText(/^Presupuesto de /)).toBeInTheDocument()
       expect(screen.queryByRole('button')).toBeNull()
     })
 
@@ -222,7 +230,7 @@ describe('RemainingBudgetDisplay', () => {
         </MemoryRouter>,
       )
 
-      await screen.findByText('Presupuesto del mes')
+      await screen.findByText(/^Presupuesto de /)
       // "-$2.500 restante" of a budget that does not exist, and a bar full
       // from the first gasto, are both lies.
       expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()

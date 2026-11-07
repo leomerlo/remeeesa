@@ -7,6 +7,7 @@ import { ILLUSTRATIONS } from '@/components/illustrations'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cssVars } from '@/lib/cssVars'
+import { formatMonthLabel } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { householdQueryKey } from '@/features/household'
 import {
@@ -135,7 +136,14 @@ export function RemainingBudgetDisplay({
         </span>
         <div className="flex min-w-0 flex-col items-center gap-3 lg:items-start">
           <div className="flex flex-col gap-1.5">
-            <p className="text-title font-semibold">Presupuesto del mes</p>
+            {/* Named, not "del mes": a new month opens with no budget
+                now, and the whole point of this card is that the person
+                knows a decision is waiting for *this* one. Per direct
+                feedback -- todas las acciones que el usuario tiene que
+                hacer tienen que estar expuestas. */}
+            <p className="text-title font-semibold">
+              Presupuesto de {formatMonthLabel(monthStart)}
+            </p>
             <p className="text-muted-foreground max-w-sm text-sm">
               Todavía no pusieron uno. Ponelo y cada gasto se descuenta de ahí.
             </p>
