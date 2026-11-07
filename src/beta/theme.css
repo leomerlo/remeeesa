@@ -1,0 +1,776 @@
+/* The beta's design system.
+ *
+ * Plain CSS, not Tailwind: the v1's utilities carry the v1's decisions, and
+ * the point of this entry is a surface designed from zero. Every value here
+ * was settled against the prototype in docs/beta-design.md -- the grape
+ * palette, the even type scale, the 4px spacing step, a hairline instead of
+ * a shadow, and one button size.
+ *
+ * Contrast is not a matter of taste here: every colour pair below was
+ * measured, and the ones that failed were changed rather than excused.
+ */
+  /* Single-theme on purpose: the app commits to a light ground.
+     Rules: shadow OR border, never both, always barely there -- the one
+     exception is an alert, whose 4px bar is what makes it an alert.
+     Nothing below 16px. Every colour pair is measured against WCAG AA. */
+  :root {
+    color-scheme: light;
+    --page: #f6f4fa;
+    --card: #ffffff;
+    --ink: #191426;
+    --ink-2: #5d5570;
+
+    /* Grape, as Flor picked it. Unlike the teal it replaced, this one is
+       dark enough that white sits on it at 8.1:1, so the filled button is
+       the brand colour itself with no deeper step needed. */
+    --grape: #4d1f8d;        /* white on it: 11.1:1 */
+    --grape-btn: #4d1f8d;
+    --grape-bright: #7b4cc4; /* dots only: decorative, never read */
+    --grape-600: #6b35b5;    /* outlines and the progress fill, 7.5:1 on white */
+    --grape-700: #4d1f8d;    /* small words: 11.1:1 on white, 9.1:1 on tint */
+    --grape-50: #ece7f6;
+
+    --red: #f4512f;
+    --red-solid: #d93a18;
+    --red-700: #c22f12;
+    --red-50: #ffe6e0;
+
+    --amber-bar: #f0b429;
+    --amber-700: #8a5200;
+    --amber-50: #ffeec6;
+
+    --green-50: #ddf5e6;  --green-700: #0b6b3a;
+    --info-50: #ddeefb;   --info-700: #14558f;
+    --violet-50: #e7e9fd; --violet-700: #2f3b9e;
+    --blue-50: #ddecfd;   --blue-700: #1b4f8f;
+    --rose-50: #ffe4ec;   --rose-700: #a02348;
+
+    --side: #1d1630;
+    --side-ink: #f1ecf9;
+    --side-ink-2: #a99fc0;
+    --side-active: #2e2348;
+    --side-active-ink: #c3aee6;
+
+    /* Type scale: even steps only. 14 is the floor; 12 exists for the rare
+       mini label and is used sparingly. */
+    --t-mini: 12px;
+    --t-xs: 14px;
+    --t-sm: 16px;
+    --t-md: 18px;
+    --t-lg: 20px;
+    --t-xl: 22px;
+    --t-2xl: 24px;
+    --t-3xl: 26px;
+    --t-4xl: 28px;
+
+    --r: 16px;
+    --hair: #e6e1ef;   /* the one line that lifts a card off the page */
+    --lift: 0 1px 2px rgba(26,16,48,.04), 0 10px 26px -14px rgba(26,16,48,.16);
+    --lift-nav: 0 -2px 24px -12px rgba(26,16,48,.22);
+    --gutter: max(18px, env(safe-area-inset-left, 0px));
+    --gutter-r: max(18px, env(safe-area-inset-right, 0px));
+  }
+
+  body { background: var(--page); color: var(--ink); margin: 0; font-size: var(--t-sm);
+         font-family: "Google Sans Flex", system-ui, -apple-system, sans-serif;
+         -webkit-font-smoothing: antialiased; }
+  * { box-sizing: border-box; }
+
+
+  /* ===== shell ===== */
+  .shell { min-height: 100vh; }
+  .app {
+    max-width: 460px; margin-inline: auto;
+    padding-left: var(--gutter); padding-right: var(--gutter-r);
+    padding-block: 0 calc(120px + env(safe-area-inset-bottom,0px));
+    display: grid; gap: 24px; align-content: start;
+  }
+  /* A band groups what reads as one thing -- the month's figure with its
+     three totals, the chart with the line that explains it -- so that the
+     24px between blocks can mean "a new block". */
+  .band { display: grid; gap: 12px; min-width: 0; }
+  .cols { display: grid; gap: 24px; min-width: 0; }
+  .col { display: grid; gap: 24px; align-content: start; min-width: 0; }
+
+  /* ===== header ===== */
+  .head { display: grid; gap: 16px; padding-top: 20px; }
+  .hello { font-size: var(--t-2xl); font-weight: 800; letter-spacing: -.025em; }
+  .hello span { display: block; margin-top: 4px; font-size: var(--t-sm); font-weight: 600;
+                color: var(--ink-2); letter-spacing: 0; line-height: 1.35;
+                max-width: 44ch; }
+  .page-title { font-size: var(--t-3xl); font-weight: 800; letter-spacing: -.03em; margin: 0; }
+  .month {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--card); border-radius: 999px; padding: 8px;
+    border: 1px solid var(--hair);
+  }
+  .month button {
+    appearance: none; border: 0; background: var(--grape-50); color: var(--grape-700);
+    font: inherit; font-size: var(--t-lg); font-weight: 700; line-height: 1;
+    width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
+  }
+  .month b { font-size: var(--t-md); font-weight: 700; letter-spacing: -.01em; }
+
+  /* ===== buttons ===== */
+  /* One button size in the whole app, on every screen width: the compact
+     one. 44px is the floor a thumb needs, and the padding keeps it reading
+     as small rather than as a slab. */
+  /* One button size everywhere, at 600 rather than 700 so it reads as a
+     control and not as a headline. Every button carries an icon; one that
+     spans its container centres its content. */
+  .btn { appearance: none; border: 0; cursor: pointer; font: inherit;
+         font-size: var(--t-sm); font-weight: 600; border-radius: 999px;
+         padding: 10px 20px; min-height: 44px; justify-self: start;
+         display: inline-flex; align-items: center; justify-content: center;
+         gap: 8px; line-height: 1.15; }
+  .btn svg { width: 18px; height: 18px; flex: none; }
+  .btn span { text-wrap: balance; }
+  .btn-primary { background: var(--grape-btn); color: #fff; }
+  .btn-secondary { background: transparent; color: var(--grape-700);
+                   border: 2px solid var(--grape-600); padding: 8px 16px; }
+  .btn-sm { }   /* kept as a no-op: every button is already this size */
+  .btn-block { justify-self: stretch; width: 100%; }
+
+  /* ===== cards ===== */
+  /* A hairline instead of a shadow: on a desktop full of cards the shadows
+     piled up and nothing read as a group. Shadow is kept only for things
+     that really float -- the sheet, the dropdown, the bottom bar. */
+  .card { background: var(--card); border-radius: var(--r);
+          border: 1px solid var(--hair); padding: 20px; min-width: 0; }
+  .hero { display: grid; gap: 12px; }
+  .hero .label { font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); }
+  .hero .figure { font-size: clamp(40px, 12vw, 54px); font-weight: 600;
+                  letter-spacing: -.035em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .chip { justify-self: start; display: inline-flex; align-items: center; gap: 6px;
+          background: var(--red-50); color: var(--red-700); border-radius: 999px;
+          padding: 6px 12px; font-size: var(--t-xs); font-weight: 700;
+          line-height: 1.25; font-variant-numeric: tabular-nums; }
+  .chip svg { width: 15px; height: 15px; flex: none; }
+  .chip.good { background: var(--green-50); color: var(--green-700); }
+  .chip.neutral { background: #ebe6f4; color: var(--ink-2); }
+  .delta { display: grid; gap: 8px; }
+  .delta p { margin: 0; font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); line-height: 1.35; }
+  .h-main { display: grid; gap: 8px; align-content: start; min-width: 0; }
+  .h-side { display: grid; gap: 12px; align-content: start; min-width: 0; }
+
+  /* Two segments: what already went out, and what is owed and will. */
+  /* The two segments touch: the spent cap is painted over the owed one, so
+     no track shows between them and neither end goes square. */
+  .track { height: 16px; border-radius: 999px; background: var(--grape-50);
+           display: flex; }
+  .fill { height: 100%; border-radius: 999px; background: var(--grape-600); }
+  .fill:first-child { position: relative; z-index: 1; margin-right: -8px; }
+  .fill.owed { background: var(--amber-bar); }
+  .fill.over { background: var(--red-solid); }
+  .legend { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+            font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); }
+  .legend b { color: var(--ink); font-weight: 800; font-variant-numeric: tabular-nums; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .perday { display: flex; align-items: center; gap: 8px; background: var(--grape-50);
+            color: var(--grape-700); border-radius: 16px; padding: 12px 16px;
+            font-size: var(--t-sm); font-weight: 700; line-height: 1.3; }
+
+  /* Pagado, Pendiente and Con la tarjeta are one card three times. On a
+     phone the third takes the full width; from 1040px the three sit side
+     by side under the month's own figure. */
+  .trio { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .trio > :nth-child(3) { grid-column: 1 / -1; }
+  .trio .card { padding: 16px; display: grid; gap: 4px; align-content: start;
+                text-align: left; }
+  .trio .amt { font-size: clamp(var(--t-lg), 6.2vw, var(--t-3xl)); font-weight: 600;
+               letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .trio .foot { font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); line-height: 1.3; }
+  .trio .out .cap { color: var(--green-700); }
+  .trio .wait .cap { color: var(--amber-700); }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .split .card { padding: 16px; display: grid; gap: 4px; align-content: start; }
+  .cap { display: inline-flex; align-items: center; gap: 8px; font-size: var(--t-sm); font-weight: 700; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+  .split .amt { font-size: clamp(var(--t-lg), 6.2vw, var(--t-3xl)); font-weight: 800;
+                letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .split .foot { font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); line-height: 1.3; }
+  .out .cap { color: var(--green-700); }
+  .wait .cap { color: var(--amber-700); }
+
+  /* the only one of the three you can open */
+  /* `border: 0` on a <button> was stripping the card's own hairline. */
+  .cardtot { appearance: none; border: 1px solid var(--hair); font: inherit;
+             cursor: pointer; position: relative; }
+  .cardtot .cap { color: var(--red-700); }
+  .cardtot .go { position: absolute; top: 16px; right: 16px; color: var(--ink-2); }
+
+  /* Present on every Home and quieter than the month's own figures, but
+     still plainly a thing you press: it reads as a card, not as a line of
+     text that happens to be underlined. */
+  .quiet { display: grid; grid-template-columns: auto 1fr auto; gap: 0 12px;
+           align-items: center; cursor: pointer; text-align: left; appearance: none;
+           border: 0; font: inherit; width: 100%; padding: 16px; }
+  .quiet .tile { background: var(--grape); color: #fff; }
+  .quiet .k { grid-column: 2; grid-row: 1; font-size: var(--t-sm); font-weight: 700; color: var(--ink); }
+  .quiet .v { grid-column: 2; grid-row: 2; font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); }
+  .quiet .go { grid-column: 3; grid-row: 1 / span 2; color: var(--ink-2); }
+  .quiet .tile { width: 40px; height: 40px; border-radius: 12px; }
+
+  /* One step at a time, with how far along you are. A list of four things
+     reads as homework; a step reads as something you are in the middle of. */
+  .step-card { display: grid; gap: 16px; justify-items: start; }
+  /* .tile spans two rows by default, which is right inside a list row and
+     wrong here: it was jumping above the progress bar. */
+  .step-card .tile { grid-row: auto; }
+  .step-card .field, .step-card .chips, .step-card .btn { justify-self: stretch; width: 100%; }
+  .step-top { display: grid; gap: 8px; }
+  .step-of { font-size: var(--t-mini); font-weight: 700; letter-spacing: .08em;
+             color: var(--grape-700); }
+  .step-bar { height: 6px; border-radius: 999px; background: var(--grape-50); overflow: hidden; }
+  .step-bar i { display: block; height: 100%; border-radius: 999px;
+                background: var(--grape); transition: width .3s ease; }
+  .step-card h3 { margin: 0; font-size: var(--t-xl); font-weight: 700;
+                  letter-spacing: -.02em; text-wrap: balance; }
+  .step-card p { margin: 0; font-size: var(--t-sm); font-weight: 600;
+                 color: var(--ink-2); line-height: 1.45; }
+  .step-card .btn { justify-self: stretch; width: 100%; }
+  .skip { appearance: none; border: 0; background: none; cursor: pointer; font: inherit;
+          font-size: var(--t-sm); font-weight: 600; color: var(--ink-2);
+          text-decoration: underline; justify-self: center; padding: 4px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip-pick { appearance: none; cursor: pointer; font: inherit; font-size: var(--t-sm);
+               font-weight: 600; border-radius: 999px; padding: 10px 16px;
+               min-height: 44px; background: var(--page); color: var(--ink);
+               border: 1px solid var(--hair); display: inline-flex; align-items: center;
+               gap: 8px; }
+  .chip-pick svg { width: 16px; height: 16px; }
+  .chip-pick[aria-pressed="true"] { background: var(--grape-50); color: var(--grape-700);
+                                    border-color: var(--grape-600); }
+  .chip-x { appearance: none; border: 0; background: none; cursor: pointer; padding: 0;
+            color: inherit; display: grid; place-items: center; margin-left: 4px; }
+  .chip-x svg { width: 14px; height: 14px; }
+  /* A pill stretched across two grid rows renders as a circle. The three
+     controls stack and the button hugs its own label. */
+  .addrow { display: grid; gap: 8px; }
+  .addrow input, .addrow select { width: 100%; }
+  .addrow .btn { justify-self: start; }
+  .step-card .opts { width: 100%; }
+
+  /* the one card a month with nothing in it shows */
+  .start { display: grid; gap: 12px; }
+  .start h3 { margin: 0; font-size: var(--t-lg); font-weight: 800; letter-spacing: -.02em; }
+  .start p { margin: 0; font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); line-height: 1.4; }
+  .start .btn { justify-self: stretch; width: 100%; }
+
+  /* alerts: the deliberate exception to shadow-or-border */
+  .alert { display: flex; gap: 16px; align-items: center;
+           border-left: 4px solid var(--bar); border-radius: var(--r); }
+  .alert p { margin: 0; font-size: var(--t-sm); font-weight: 600; line-height: 1.42; }
+  .alert-warn { --bar: var(--amber-bar); }
+  .alert-warn .tile { background: var(--amber-50); color: var(--amber-700); }
+  .alert-danger { --bar: var(--red-solid); }
+  .alert-danger .tile { background: var(--red-50); color: var(--red-700); }
+  .alert-info { --bar: var(--info-700); }
+  .alert-info .tile { background: var(--info-50); color: var(--info-700); }
+  .alert-ok { --bar: var(--green-700); }
+  .alert-ok .tile { background: var(--green-50); color: var(--green-700); }
+
+  /* ===== lists ===== */
+  .sec { display: grid; gap: 12px; min-width: 0; }
+  .sec h2 { margin: 0; font-size: var(--t-md); font-weight: 700; letter-spacing: -.015em;
+            display: flex; align-items: baseline; justify-content: space-between;
+            gap: 12px; padding-inline: 4px; }
+  .sec h2 a { color: var(--grape-700); font-size: var(--t-sm); font-weight: 700;
+              text-decoration: none; cursor: pointer; }
+  .daymark { font-size: var(--t-sm); font-weight: 700; color: var(--ink-2);
+             padding: 8px 4px 0; }
+
+  .row { display: grid; grid-template-columns: auto 1fr auto; align-items: center;
+         gap: 4px 12px; padding: 16px; }
+  .tap { cursor: pointer; }
+  .tile { grid-row: 1 / span 2; width: 48px; height: 48px; border-radius: 16px;
+          display: grid; place-items: center; flex: none;
+          background: var(--grape-50); color: var(--grape-700); }
+  .tile svg { width: 24px; height: 24px; stroke-width: 2.1; }
+  .gl svg { width: 24px; height: 24px; stroke-width: 2.1; }
+  .ic svg { width: 20px; height: 20px; stroke-width: 2.2; vertical-align: -4px; }
+  .row .name { grid-column: 2; grid-row: 1; font-size: var(--t-md); font-weight: 700;
+               letter-spacing: -.015em; min-width: 0; }
+  .row .amt { grid-column: 3; grid-row: 1; font-size: var(--t-lg); font-weight: 800;
+              letter-spacing: -.025em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .row .meta { grid-column: 2 / -1; grid-row: 2; display: grid; gap: 8px;
+               justify-items: start; }
+  .badges { display: flex; flex-wrap: wrap; gap: 6px; }
+  /* An action inside a row answers that row, so it is a step smaller than
+     a page-level button. On a bill it gets a footer of its own, divided
+     from the content and bled to the card's edges, as the v1 does it. */
+  .row .btn { font-size: var(--t-xs); padding: 8px 16px; min-height: 40px; gap: 6px; }
+  .row .btn svg { width: 16px; height: 16px; }
+  .rowfoot { grid-column: 1 / -1; grid-row: 3;
+             margin: 16px -16px -16px; padding: 16px;
+             border-top: 1px solid var(--hair); display: grid; }
+  /* .btn sets justify-self itself, so the container's justify-items loses. */
+  .rowfoot .btn { justify-self: end; }
+  /* A step under the row's name and a step over the badges: the date is
+     context, not a heading and not a label. */
+  .cat { font-size: var(--t-xs); font-weight: 600; color: var(--ink-2); }
+
+  /* Badges are the one place the mini step is used: they label something
+     else, they are never the thing you sit down to read. */
+  .tag { font-size: var(--t-mini); font-weight: 700; border-radius: 999px;
+         padding: 4px 10px; display: inline-flex; align-items: center; gap: 4px;
+         letter-spacing: .01em; line-height: 1.3; }
+  .tag svg { width: 13px; height: 13px; flex: none; }
+  .tag.ok { background: var(--green-50); color: var(--green-700); }
+  .tag.next { background: #ebe6f4; color: var(--ink-2); }
+  .tag.credit { background: var(--red-50); color: var(--red-700); }
+  /* The two states that mean "pay this" are the only high-contrast badges
+     on the screen: solid red at 4.6:1 with white, solid amber at 9.1:1
+     with ink. Everything else stays quiet so these two carry. */
+  .tag.due { background: var(--amber-bar); color: var(--ink); }
+  .tag.late { background: var(--red-solid); color: #fff; }
+  .tag.usd { background: var(--green-50); color: var(--green-700); }
+  .tag.soft { background: #ebe6f4; color: var(--ink-2); }
+  /* A bill in trouble keeps the plain white card and the category's own
+     colour. The badge is the whole signal: tinting the row as well put a
+     violet button on a red ground and the screen stopped reading as calm. */
+
+  /* ===== categories ===== */
+  .catrow { display: grid; grid-template-columns: auto 1fr auto; gap: 8px 12px;
+            align-items: center; padding: 16px; }
+  .catrow .name { grid-column: 2; font-size: var(--t-md); font-weight: 700; }
+  .catrow .amt { grid-column: 3; font-size: var(--t-md); font-weight: 800;
+                 font-variant-numeric: tabular-nums; }
+  .catrow .bar { grid-column: 2 / -1; height: 10px; border-radius: 999px;
+                 background: #ebe6f4; overflow: hidden; }
+  .catrow .bar i { display: block; height: 100%; border-radius: 999px; }
+  .catrow .sub { grid-column: 2 / -1; font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); }
+  .catrow .sub.over { color: var(--red-700); font-weight: 700; }
+
+  /* ===== profile ===== */
+  .plist { display: grid; }
+  .pitem { display: grid; grid-template-columns: auto 1fr auto; gap: 0 16px;
+           align-items: center; padding: 16px 0; cursor: pointer; }
+  .pitem + .pitem { border-top: 1px solid var(--hair); }
+  .pitem .k { grid-column: 2; grid-row: 1; font-size: var(--t-md); font-weight: 700;
+              line-height: 1.25; }
+  .pitem .v { grid-column: 2; grid-row: 2; font-size: var(--t-sm); font-weight: 600;
+              color: var(--ink-2); line-height: 1.3; }
+  /* An address with no spaces cannot shrink on its own, and pushed the
+     chevron past the screen edge. */
+  .pitem .k, .pitem .v { min-width: 0; overflow-wrap: anywhere; }
+  .pitem .go { grid-column: 3; grid-row: 1 / span 2; color: var(--ink-2); font-size: var(--t-xl); }
+
+  /* ===== empty states ===== */
+  /* Centred, including the action: an empty screen has one thing to say
+     and one thing to press. The ring breathes so the screen does not read
+     as broken, and stops for anyone who asked for less motion. */
+  .empty { display: grid; gap: 16px; justify-items: center; text-align: center;
+           padding: 40px 24px; }
+  .empty .orb { width: 88px; height: 88px; border-radius: 50%; position: relative;
+                display: grid; place-items: center; margin-bottom: 8px;
+                background: var(--grape-50); color: var(--grape-700); }
+  .empty .orb svg { width: 36px; height: 36px; stroke-width: 1.8; }
+  .empty .orb::before, .empty .orb::after {
+    content: ""; position: absolute; inset: 0; border-radius: 50%;
+    border: 2px solid var(--grape-50); animation: ring 2.8s ease-out infinite; }
+  .empty .orb::after { animation-delay: 1.4s; }
+  @keyframes ring { 0% { transform: scale(1); opacity: .9 }
+                    100% { transform: scale(1.5); opacity: 0 } }
+  @media (prefers-reduced-motion: reduce) {
+    .empty .orb::before, .empty .orb::after { animation: none; opacity: 0 }
+  }
+  .empty h3 { margin: 0; font-size: var(--t-xl); font-weight: 700; letter-spacing: -.02em;
+              text-wrap: balance; }
+  .empty p { margin: 0; font-size: var(--t-sm); font-weight: 600; color: var(--ink-2);
+             line-height: 1.45; max-width: 32ch; }
+  .empty .btn { justify-self: center; margin-top: 4px; }
+
+  /* ===== onboarding checklist ===== */
+  .step { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px;
+          align-items: center; padding: 16px 0; }
+  .step + .step { border-top: 1px solid var(--hair); }
+  .step .num { grid-row: 1 / span 2; width: 40px; height: 40px; border-radius: 50%;
+               display: grid; place-items: center; font-size: var(--t-md); font-weight: 800;
+               background: var(--grape-50); color: var(--grape-700); }
+  .step.done .num { background: var(--grape-btn); color: #fff; }
+  .step .k { font-size: var(--t-md); font-weight: 700; line-height: 1.25; }
+  .step .v { font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); line-height: 1.32; }
+  .step.done .k { color: var(--ink-2); text-decoration: line-through; }
+
+  /* The v1's shape: the ring on its own line and every category listed
+     underneath. A legend beside the ring stops working at five entries,
+     and a real household has a dozen. */
+  .donut { display: grid; gap: 20px; }
+  .donut .lead { font-size: var(--t-lg); font-weight: 700; letter-spacing: -.015em; }
+  .donut-top { display: grid; justify-items: center; }
+  .donut svg { width: 188px; height: 188px; display: block; }
+  .donut .hole { font-size: var(--t-md); font-weight: 800; fill: var(--ink);
+                 font-variant-numeric: tabular-nums; }
+  .donut .holesub { font-size: var(--t-mini); font-weight: 700; fill: var(--ink-2); }
+  .dlist { display: grid; gap: 4px; min-width: 0; }
+  .dline { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto;
+           gap: 12px; align-items: baseline; font-size: var(--t-sm); font-weight: 600;
+           padding: 8px 0; }
+  .dline i { width: 12px; height: 12px; border-radius: 50%; flex: none; align-self: center; }
+  .dline .nm { color: var(--ink); font-weight: 700; overflow-wrap: anywhere; }
+  .dline .pc { color: var(--ink-2); font-size: var(--t-xs); min-width: 40px;
+               text-align: right; font-variant-numeric: tabular-nums; }
+  .dline .amt { font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink); }
+  /* Ring on the left, the list beside it. */
+  @media (min-width: 760px) {
+    .donut { grid-template-columns: auto minmax(0, 1fr); align-items: center;
+             column-gap: 40px; }
+    .donut .lead { grid-column: 1 / -1; }
+    .donut-top { grid-column: 1; }
+    .donut svg { width: 208px; height: 208px; }
+    .dlist { grid-column: 2; }
+  }
+  /* The second column only once the card is wide enough to hold a long
+     name beside an amount. At 1180 each column came out 253px and
+     "Suscripciones" needed 110 of its 106 -- so it waits. */
+  @media (min-width: 1280px) {
+    .dlist { grid-template-columns: 1fr 1fr; column-gap: 64px; }
+  }
+
+  /* a card and its resumen */
+  .cardblk { display: grid; gap: 16px; }
+  .cardblk .ch { display: grid; grid-template-columns: auto 1fr auto; gap: 0 12px;
+                 align-items: center; }
+  .cardblk .ch .nm { grid-column: 2; grid-row: 1; font-size: var(--t-md); font-weight: 700; }
+  .cardblk .ch .no { grid-column: 2; grid-row: 2; font-size: var(--t-sm); font-weight: 600;
+                     color: var(--ink-2); }
+  /* Not a box inside a box: a rule and some air do the separating, so a
+     card holding two currencies reads as one thing with two parts. */
+  .resumen { padding-top: 20px; margin-top: 4px; display: grid; gap: 8px;
+             border-top: 1px solid var(--hair); }
+  .resumen .rh { display: flex; justify-content: space-between; align-items: baseline;
+                 gap: 12px; }
+  .resumen .rt { font-size: var(--t-sm); font-weight: 700; }
+  .resumen .rv { font-size: var(--t-xl); font-weight: 800; letter-spacing: -.02em;
+                 font-variant-numeric: tabular-nums; }
+  .cuota { display: grid; grid-template-columns: 1fr auto; gap: 0 12px;
+           padding: 12px 0 4px; }
+  .cuota .cn { font-size: var(--t-sm); font-weight: 700; }
+  .cuota .cm { font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); }
+  .cuota .ca { grid-column: 2; grid-row: 1 / span 2; align-self: center;
+               font-size: var(--t-sm); font-weight: 800; font-variant-numeric: tabular-nums; }
+
+  /* the projection: a row you can switch off or type over */
+  .prow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+          gap: 0 12px; align-items: center; padding: 12px 16px; }
+  .prow .sw { grid-column: 1; grid-row: 1 / span 2; }
+  .prow .nm { grid-column: 2; grid-row: 1; font-size: var(--t-md); font-weight: 700; }
+  .prow .sub { grid-column: 2; grid-row: 2; font-size: var(--t-sm); font-weight: 600;
+               color: var(--ink-2); line-height: 1.3; }
+  .prow .tg { grid-column: 1; grid-row: 1 / span 2; }
+  .prow input { grid-column: 3; grid-row: 1 / span 2; width: 112px; font: inherit;
+                font-size: var(--t-sm); font-weight: 800; text-align: right;
+                background: var(--page); border: 2px solid #e0d8ee; border-radius: 12px;
+                padding: 8px 12px; min-height: 44px; color: var(--ink);
+                font-variant-numeric: tabular-nums; }
+  .prow.off { opacity: .45; }
+  /* Bringing last month in is a checkbox: you are picking items off a
+     list. The projection is a toggle: you are switching a line on and off
+     to see what it does to the total. */
+  .prow .sw { appearance: none; border: 0; padding: 0; cursor: pointer;
+              width: 28px; height: 28px; border-radius: 8px; line-height: 0;
+              background: var(--grape); color: #fff; display: grid; place-items: center; }
+  .prow .sw svg { width: 18px; height: 18px; display: block; stroke-width: 3; }
+  .prow.off .sw { background: #ded8ea; color: #8a80a0; }
+
+  .prow .tg { appearance: none; border: 0; padding: 0; cursor: pointer;
+              width: 44px; height: 26px; border-radius: 999px; position: relative;
+              background: var(--grape); transition: background .15s ease; }
+  .prow .tg::after { content: ""; position: absolute; top: 3px; left: 3px;
+                     width: 20px; height: 20px; border-radius: 50%; background: #fff;
+                     transform: translateX(18px); transition: transform .15s ease; }
+  .prow.off .tg { background: #ded8ea; }
+  .prow.off .tg::after { transform: translateX(0); }
+
+  /* the category combobox: type, and the matches drop down with their own
+     colour disc, the way the v1 does it */
+  .combo { position: relative; }
+  .combo-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 6;
+                background: var(--card); border-radius: 12px; box-shadow: var(--lift);
+                padding: 4px; max-height: 232px; overflow-y: auto; }
+  .combo-opt { display: grid; grid-template-columns: auto 1fr; gap: 12px;
+               align-items: center; width: 100%; appearance: none; border: 0;
+               background: transparent; cursor: pointer; font: inherit;
+               font-size: var(--t-sm); font-weight: 700; color: var(--ink);
+               text-align: left; padding: 8px; border-radius: 8px; min-height: 48px; }
+  .combo-opt:hover, .combo-opt:focus-visible { background: var(--page); }
+  .combo-opt .tile { grid-row: auto; width: 32px; height: 32px; border-radius: 10px; }
+  .combo-opt .tile svg { width: 16px; height: 16px; }
+  .combo-opt.mk { color: var(--grape-700); }
+
+  /* the sign-in screen: no rail, no bar, one column */
+  body.auth .nav { display: none; }
+  /* Centred with `margin: auto` on the child rather than a centring
+     property on the flex container: when the card is taller than the
+     screen -- creating an account adds a field -- that keeps its top
+     reachable instead of clipping it. */
+  body.auth .shell { display: flex; min-height: 100vh; }
+  body.auth .app { max-width: 440px; margin: auto; padding-block: 24px; }
+  body.auth { background:
+    radial-gradient(900px 520px at 12% -8%, #ece3fb 0%, transparent 62%),
+    radial-gradient(760px 480px at 102% 8%, #e2ecfb 0%, transparent 58%),
+    var(--page); }
+  .auth-box { display: grid; gap: 20px; justify-items: center; padding-top: 24px; }
+  .auth-box img { height: 20px; width: auto; }
+  .auth-box h1 { margin: 0 0 4px; font-size: var(--t-xl); font-weight: 700;
+                 letter-spacing: -.02em; line-height: 1.2; text-align: center;
+                 text-wrap: balance; }
+  .auth-card { background: var(--card); border: 1px solid var(--hair);
+               border-radius: var(--r); padding: 20px; width: 100%;
+               display: grid; gap: 16px; }
+  .auth-box .btn { justify-self: stretch; width: 100%; }
+  .auth-alt { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px;
+              align-items: center; font-size: var(--t-mini); font-weight: 700;
+              color: var(--ink-2); letter-spacing: .08em; }
+  .auth-alt::before, .auth-alt::after { content: ""; height: 1px; background: var(--hair); }
+  .auth-foot { font-size: var(--t-sm); font-weight: 600; color: var(--ink-2);
+               text-align: center; }
+  .auth-foot button { appearance: none; border: 0; background: none; cursor: pointer;
+                      font: inherit; font-weight: 700; color: var(--grape-700);
+                      text-decoration: underline; padding: 0; }
+
+  /* the search field on Gastos */
+  .search { position: relative; }
+  .search input { font: inherit; font-size: var(--t-md); font-weight: 600;
+                  color: var(--ink); background: var(--card);
+                  border: 1px solid var(--hair); border-radius: 999px;
+                  padding: 12px 48px; min-height: 52px; width: 100%; }
+  .search .mag { position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+                 color: var(--ink-2); line-height: 0; }
+  .search .mag svg { width: 20px; height: 20px; }
+  .search .clr { position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+                 appearance: none; border: 0; background: var(--page); cursor: pointer;
+                 width: 36px; height: 36px; border-radius: 50%; color: var(--ink);
+                 display: grid; place-items: center; font: inherit; }
+
+  .link-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px;
+              align-items: center; }
+  .link-row code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+                   font-size: var(--t-sm); background: var(--page); border-radius: 12px;
+                   padding: 12px 16px; overflow-wrap: anywhere; color: var(--ink); }
+
+  /* A setting you flip inside a form, with what it means underneath. */
+  .swrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 16px;
+           align-items: center; }
+  .swrow .k { grid-column: 1; grid-row: 1; font-size: var(--t-md); font-weight: 700; }
+  .swrow .v { grid-column: 1; grid-row: 2; font-size: var(--t-sm); font-weight: 600;
+              color: var(--ink-2); line-height: 1.35; }
+  .swrow .tg { grid-column: 2; grid-row: 1 / span 2; appearance: none; border: 0;
+               padding: 0; cursor: pointer; width: 44px; height: 26px; border-radius: 999px;
+               position: relative; background: #ded8ea; transition: background .15s ease; }
+  .swrow .tg::after { content: ""; position: absolute; top: 3px; left: 3px;
+                      width: 20px; height: 20px; border-radius: 50%; background: #fff;
+                      transition: transform .15s ease; }
+  .swrow .tg[aria-checked="true"] { background: var(--grape); }
+  .swrow .tg[aria-checked="true"]::after { transform: translateX(18px); }
+  .swrow.off { opacity: .45; }
+  .swrow.off .tg { cursor: not-allowed; }
+
+  .btn-danger { background: transparent; color: var(--red-700);
+                border: 1px solid #f0c9bf; padding: 8px 17px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .hint { font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); line-height: 1.3; }
+  .hint.new { color: var(--grape-700); font-weight: 700; }
+
+  /* the category ABM: name, cap and a delete, in one row */
+  .abm { display: grid; gap: 8px; }
+  .abmrow { display: grid; grid-template-columns: auto 1fr auto; gap: 8px 12px;
+            align-items: center; background: var(--page); border-radius: 16px; padding: 12px; }
+  .abmrow .tile { grid-row: 1 / span 2; width: 40px; height: 40px; border-radius: 12px; }
+  .abmrow input { font: inherit; font-weight: 700; background: var(--card);
+                  border: 2px solid #e0d8ee; border-radius: 8px; padding: 8px 12px;
+                  min-height: 44px; width: 100%; color: var(--ink); }
+  .abmrow .nm { grid-column: 2; grid-row: 1; font-size: var(--t-sm); }
+  .abmrow .cp { grid-column: 2; grid-row: 2; font-size: var(--t-sm); }
+  .abmrow .del { grid-column: 3; grid-row: 1 / span 2; appearance: none; border: 0;
+                 cursor: pointer; background: var(--red-50); color: var(--red-700);
+                 width: 44px; height: 44px; border-radius: 50%;
+                 display: grid; place-items: center; }
+  .abmrow .del[disabled] { background: #ece7f4; color: #9b93ab; cursor: not-allowed; }
+  .abmrow .why { grid-column: 2 / -1; grid-row: 3; font-size: var(--t-xs); font-weight: 600;
+                 color: var(--ink-2); }
+
+  /* The dólar blue converter, carried over from the v1. It belongs in the
+     rail: it is a tool you reach for, not part of any one screen. Hidden on
+     a phone, where the rail does not exist. */
+  .dolar { display: none; }
+  .dolar .top { display: flex; align-items: center; justify-content: space-between;
+                gap: 8px; font-size: var(--t-xs); font-weight: 700; color: var(--side-ink-2); }
+  .dolar .rate { font-size: var(--t-md); font-weight: 800; color: var(--side-ink);
+                 font-variant-numeric: tabular-nums; }
+  .dolar .pair { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px;
+                 align-items: center; margin-top: 8px; }
+  .dolar input { font: inherit; font-size: var(--t-sm); font-weight: 700; width: 100%;
+                 background: #271d3f; border: 2px solid #3b2e58; color: var(--side-ink);
+                 border-radius: 12px; padding: 8px 8px; min-height: 44px; }
+  .dolar .swap { appearance: none; border: 0; cursor: pointer; font: inherit; background: #3b2e58;
+                 color: var(--side-active-ink); width: 32px; height: 32px;
+                 border-radius: 50%; display: grid; place-items: center; }
+  .dolar .edit { appearance: none; border: 0; cursor: pointer; font: inherit; background: transparent;
+                 color: var(--side-ink-2); width: 28px; height: 28px; padding: 0;
+                 border-radius: 50%; display: grid; place-items: center; }
+  .dolar .edit svg { width: 16px; height: 16px; }
+  .dolar .mine { font-size: var(--t-xs); font-weight: 700; color: var(--side-active-ink); }
+  .dolar .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .dolar .acts button { appearance: none; border: 0; cursor: pointer; font: inherit;
+                        font-size: var(--t-xs); font-weight: 700; border-radius: 999px;
+                        padding: 8px; min-height: 40px; }
+  .dolar .ok { background: var(--side-active-ink); color: #1d1630; }
+  .dolar .no { background: transparent; color: var(--side-ink-2); }
+
+  /* ===== nav ===== */
+  .nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+         background: var(--card); box-shadow: var(--lift-nav);
+         padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .nav-in { max-width: 460px; margin-inline: auto;
+            padding-left: var(--gutter); padding-right: var(--gutter-r);
+            display: grid; grid-template-columns: repeat(5, 1fr);
+            align-items: center; height: 80px; }
+  .brand { display: none; }
+  .tab { display: grid; justify-items: center; gap: 4px; font-size: var(--t-xs);
+         font-weight: 700; color: var(--ink-2); text-decoration: none;
+         min-width: 0; background: none; border: 0; cursor: pointer;
+         font-family: inherit; padding: 0; }
+  .tab .gl { font-size: var(--t-lg); line-height: 1; width: 40px; height: 32px;
+             display: grid; place-items: center; border-radius: 12px; }
+  .tab[aria-current] { color: var(--grape-700); }
+  .tab[aria-current] .gl { background: var(--grape-50); }
+
+  .add { order: 3; justify-self: center; appearance: none; border: 0; cursor: pointer;
+         position: relative; top: -20px; width: 64px; height: 64px; border-radius: 50%;
+         background: var(--grape-btn); color: #fff; display: grid; place-items: center;
+         box-shadow: 0 10px 22px -6px rgba(77,31,141,.5); font-family: inherit; }
+  .nav-in .tab:nth-of-type(1) { order: 1; }
+  .nav-in .tab:nth-of-type(2) { order: 2; }
+  .nav-in .tab:nth-of-type(3) { order: 4; }
+  .nav-in .tab:nth-of-type(4) { order: 5; }
+
+  /* a segmented control, used for Lista/Por categoría and Casa/Lo mío */
+  .segment { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+             gap: 4px; background: #eae5f3; border-radius: 16px; padding: 4px; }
+  .segment { border-radius: 999px; }
+  .segment button { appearance: none; border: 0; cursor: pointer; font: inherit;
+                    font-size: var(--t-sm); font-weight: 700; color: var(--ink-2);
+                    background: transparent; border-radius: 999px; padding: 8px 8px;
+                    min-height: 44px; }
+  .segment button[aria-pressed="true"] { background: var(--card); color: var(--ink);
+                                         border: 1px solid var(--hair); }
+
+  .who { font-size: var(--t-mini); font-weight: 700; border-radius: 999px;
+         padding: 4px 10px; background: #ebe6f4; color: var(--ink-2);
+         letter-spacing: .01em; }
+  .add .plus { display: grid; place-items: center; line-height: 0; }
+  .add .plus svg { width: 28px; height: 28px; stroke-width: 2.4; }
+  .add .lbl { display: none; }
+
+  /* ===== the add sheet ===== */
+  .scrim { position: fixed; inset: 0; z-index: 50; background: rgba(16,8,34,.6);
+           display: grid; align-items: end; }
+  .sheet { background: var(--card); border-radius: var(--r) var(--r) 0 0; width: 100%;
+           max-width: 520px; margin-inline: auto; max-height: 88vh;
+           display: grid; grid-template-rows: auto 1fr auto; }
+  .sheet-h { display: flex; align-items: center; justify-content: space-between;
+             gap: 12px; padding: 20px; }
+  .sheet-h h3 { margin: 0; font-size: var(--t-xl); font-weight: 800; letter-spacing: -.02em; }
+  .sheet-h button { appearance: none; border: 0; background: var(--page); cursor: pointer;
+                    width: 44px; height: 44px; border-radius: 50%; font-size: var(--t-lg);
+                    color: var(--ink); font-family: inherit; }
+  .sheet-b { overflow-y: auto; padding: 0 20px 8px; display: grid; gap: 16px; }
+  .sheet-f { padding: 16px 20px calc(20px + env(safe-area-inset-bottom,0px));
+             border-top: 1px solid var(--hair); }
+  .field { display: grid; gap: 8px; }
+  .field > label { font-size: var(--t-sm); font-weight: 700; }
+  /* The native arrow is glued to the right edge on every platform. Drawing
+     it ourselves puts it the same 16px from the edge as the text is. */
+  .field select, .addrow select {
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%235d5570' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 16px center;
+    padding-right: 48px;
+  }
+  .field input, .field select {
+    font: inherit; font-size: var(--t-md); font-weight: 600; color: var(--ink);
+    /* background-color, not the shorthand: the shorthand would wipe the
+       chevron drawn on the select above. */
+    background-color: var(--page); border: 1px solid #ddd5ec; border-radius: 12px;
+    padding: 12px 16px; min-height: 52px; width: 100%;
+  }
+  .opts { display: grid; gap: 8px; }
+  .opt { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px;
+         align-items: center; text-align: left; cursor: pointer;
+         background: var(--page); border: 2px solid #e0d8ee; border-radius: 16px;
+         padding: 16px; font-family: inherit; }
+  .opt .mark { grid-row: 1 / span 2; width: 24px; height: 24px; border-radius: 50%;
+               border: 2px solid #b6abcd; display: grid; place-items: center;
+               flex: none; }
+  /* More than one way to pay can be true at once, so that list marks with a
+     box and a tick. The add-expense sheet keeps the dot: there you pick one. */
+  .opts.multi .mark { border-radius: 7px; }
+  .opts.multi .opt[aria-pressed="true"] .mark::after {
+    content: ""; width: 11px; height: 6px; border-radius: 0; background: none;
+    border-left: 2px solid #fff; border-bottom: 2px solid #fff;
+    transform: rotate(-45deg) translate(1px, -2px); }
+  .opt .k { font-size: var(--t-md); font-weight: 700; color: var(--ink); }
+  .opt .v { font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); line-height: 1.3; }
+  .opt[aria-pressed="true"] { border-color: var(--grape-600); background: var(--grape-50); }
+  .opt[aria-pressed="true"] .mark { border-color: var(--grape-btn); background: var(--grape-btn); }
+  .opt[aria-pressed="true"] .mark::after { content: ""; width: 9px; height: 9px;
+                                           border-radius: 50%; background: #fff; }
+
+  /* ===== wide ===== */
+  @media (min-width: 760px) {
+    .shell { display: grid; grid-template-columns: 240px minmax(0,1fr); align-items: start; }
+    .app { max-width: 700px; margin-inline: auto; padding-inline: 28px;
+           padding-block: 0 56px; gap: 20px; }
+    .nav { position: sticky; top: 54px; left: auto; right: auto; bottom: auto;
+           height: calc(100vh - 54px); background: var(--side); box-shadow: none; padding: 0; }
+    .nav-in { max-width: none; padding: 24px 16px; height: auto;
+              min-height: calc(100vh - 54px);
+              display: flex; flex-direction: column; gap: 4px; }
+    .brand { display: block; padding: 4px 12px 24px; }
+    /* The v1's wordmark asset is a black silhouette; the v1 flips it to
+       white for its dark sidebar the same way. */
+    .brand img { height: 20px; width: auto; display: block;
+                 filter: brightness(0) invert(1); }
+    .tab { order: 0; grid-template-columns: auto 1fr; justify-items: start;
+           align-items: center; gap: 12px; padding: 12px; border-radius: 16px;
+           font-size: var(--t-sm); color: var(--side-ink-2); width: 100%; }
+    .tab .gl { width: 32px; height: 32px; border-radius: 12px; font-size: var(--t-lg); }
+    .tab[aria-current] { background: var(--side-active); color: var(--side-active-ink); }
+    .tab[aria-current] .gl { background: transparent; }
+    .dolar { display: block; order: 98; margin-top: auto; margin-bottom: 12px;
+             background: var(--side-active); border-radius: 16px; padding: 12px; }
+    .add { order: 99; margin-top: 0; position: static; width: 100%; height: auto;
+           border-radius: 999px; display: inline-flex; align-items: center;
+           justify-content: center; gap: 8px; padding: 10px 20px; min-height: 44px;
+           box-shadow: none; font-size: var(--t-sm); font-weight: 600;
+           line-height: 1.15; }
+    .add .plus { display: grid; place-items: center; line-height: 0; }
+    .add .plus svg { width: 18px; height: 18px; }
+    .add .lbl { display: block; }
+    .sheet { border-radius: var(--r); margin-bottom: 4vh; }
+    .scrim { align-items: center; padding: 20px; }
+  }
+  @media (min-width: 1040px) {
+    .shell { grid-template-columns: 256px minmax(0,1fr); }
+    .app { max-width: 1060px; gap: 32px; padding-inline: 32px; }
+    .cols { grid-template-columns: minmax(0,1.06fr) minmax(0,.94fr); gap: 32px; align-items: start; }
+    .col { gap: 32px; }
+    .trio { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .trio > :nth-child(3) { grid-column: auto; }
+
+    /* Without a budget the hero has little to say and a lot of width: the
+       figure takes the left, the comparison and the one action the right,
+       instead of a column of text against an empty half. */
+    /* The number and its comparison on the left, the one action tucked
+       into the bottom-right corner so the card stays short. */
+    .hero-split { grid-template-columns: minmax(0, 1fr) auto;
+                  align-items: end; gap: 16px 32px; padding: 24px 28px; }
+    .hero-split .h-side { align-content: end; justify-items: end; }
+    .head { grid-template-columns: 1fr auto; align-items: center; padding-top: 24px; }
+    .month { min-width: 236px; }
+  }
+

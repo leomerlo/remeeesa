@@ -1,7 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { readFirebaseEnv } from '@/lib/firebase'
-import { BetaShell } from './BetaShell'
+import { BetaApp } from './BetaApp'
+import './theme.css'
 
 // The beta's own entry point. Vite builds one HTML file at a time, so this
 // tree and index.html's never meet: `npm run build` produces v1 and nothing
@@ -15,6 +15,6 @@ if (rootElement === null) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <BetaShell firebaseProjectId={readFirebaseEnv(import.meta.env).projectId} />
+    <BetaApp />
   </StrictMode>,
 )

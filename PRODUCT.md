@@ -8,11 +8,19 @@ web
 
 ## Users
 
-Flor and Leo, a two-person household (a couple) tracking their shared finances. Not a
-multi-tenant audience — every household-facing default and flow can be tailored to this specific
-couple's real financial life rather than staying generic. The underlying data model supports
-multiple households (for households other than theirs to sign up independently), but the product
-is not designed, marketed, or optimized as a general-audience SaaS.
+**This changed in October 2026.** It was Flor and Leo, a two-person household, and every
+default could be tailored to that one couple. The beta (see `docs/adr/0007` and
+`docs/beta-design.md`) makes it a **personal or household finance app for other people**,
+starting with Flor's father-in-law — someone who lives alone, is older than the original two
+users, and came to it because he wants to follow his spending and finds the
+card-versus-cash distinction confusing.
+
+So the audience is now **one person who has never seen this before**, not two people who
+built it. A household of one is a first-class case, not a degenerate one. Defaults may no
+longer assume this couple's categories or habits, and anything that only makes sense if you
+were there while it was built is a defect.
+
+Flor and Leo remain users and keep the v1 interface until the beta replaces it.
 
 Primary usage is mobile, in short, frequent sessions: logging a purchase on the spot (a coffee, a
 bag of cat litter), checking whether a bill is due, glancing at what's left in the month's
@@ -92,10 +100,17 @@ exist or should be fabricated — this is a private tool, not a marketed product
 ## Accessibility & Inclusion
 
 Mobile-first. Interactive elements must be comfortably tappable by finger, not merely visually
-present. The floor is WCAG 2.2's 24×24 minimum, and the icon-only controls a thumb reaches for
-(the bar's add button, a row's action) stay at 44×44. Text buttons are sized by their padding
-instead — 36px on a phone — because at 44 a row of them read as oversized beside everything
-around it; that was a deliberate trade made with the owner, not an oversight. Standard web accessibility practice
-(accessible roles/labels, keyboard operability) is already used throughout the existing codebase
-and must continue. No formal accessibility standard (e.g. WCAG audit) is required — solid
-practice, not certification.
+present. Standard web accessibility practice (accessible roles/labels, keyboard operability) is
+used throughout the codebase and must continue.
+
+**For the beta, accessibility is a requirement rather than a floor, and the owner's words are
+the brief:**
+
+> Nada chiquito, nada clarito. Alto contraste, tamaños grandes. Simplificación, patrones que
+> se entiendan y claridad. Dentro de toda la complejidad de la herramienta, llevarlo al
+> usuario de forma sencilla.
+
+"Nada clarito" is literal: washed-out greys and low-contrast text are banned, not discouraged.
+The v1's own sizing trades — a 24×24 floor, 44×44 for icon-only controls, text buttons sized by
+padding, and later a flat 46px for everything — were made for and with Flor on her own phone.
+**They do not carry over.** The beta sets its own, larger, from the first screen.
