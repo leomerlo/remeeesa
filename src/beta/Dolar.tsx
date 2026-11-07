@@ -8,6 +8,7 @@ import {
   readDolarBlueOverride,
   writeDolarBlueOverride,
 } from '@/lib/dolarBlueOverride'
+import { digitsOf, formatPesos, parseTyped } from './format'
 
 // Carried over from the v1, where it also lives in the navigation: it is a
 // tool you reach for, not part of any one screen. The rate is fetched and
@@ -35,8 +36,12 @@ export function Dolar(): ReactElement {
         <div className="top">
           <span>Cotización del dólar blue</span>
         </div>
+        {/* Separated as it is typed, like every other figure in the app:
+            a rate is read in thousands, and "1555" takes longer to check
+            than "1.555". Only the digits are ever kept, so a separator
+            cannot become part of the value. */}
         <input
-          value={draft}
+          value={formatPesos(digitsOf(draft))}
           inputMode="numeric"
           aria-label="Cotización del dólar blue"
           onChange={(event) => setDraft(event.target.value)}
@@ -46,8 +51,7 @@ export function Dolar(): ReactElement {
             className="ok"
             type="button"
             onClick={() => {
-              const digits = draft.replace(/\D/gu, '')
-              const parsed = Number(digits)
+              const parsed = digitsOf(draft)
               if (parsed > 0) {
                 writeDolarBlueOverride(parsed)
                 setOverride(parsed)
@@ -73,7 +77,9 @@ export function Dolar(): ReactElement {
     <div className="dolar">
       <div className="top">
         <span>Dólar blue</span>
-        <span className="rate">{rate === null ? '—' : '$' + String(rate)}</span>
+        <span className="rate">
+          {rate === null ? '—' : `$${formatPesos(rate)}`}
+        </span>
         <button
           className="edit"
           type="button"
@@ -115,7 +121,7 @@ export function Dolar(): ReactElement {
           value={
             rate === null
               ? ''
-              : String(Math.round(usdToArs(Number(usd) || 0, rate)))
+              : formatPesos(Math.round(usdToArs(parseTyped(usd), rate)))
           }
           inputMode="numeric"
           aria-label="Pesos"

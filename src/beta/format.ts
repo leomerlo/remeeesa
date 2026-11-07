@@ -34,4 +34,26 @@ export function categoryMark(
   }
 }
 
+// Thousands by dot, decimals by comma -- the way a number is written here,
+// and the way every other figure in the app is already written. For a
+// number shown bare rather than as money, so it carries no "$" of its own.
+const PESOS = new Intl.NumberFormat('es-AR', { maximumFractionDigits: 0 })
+
+export function formatPesos(value: number): string {
+  return Number.isFinite(value) ? PESOS.format(value) : ''
+}
+
+// Only the digits of whatever was typed, which is what a rate is.
+export function digitsOf(text: string): number {
+  return Number(text.replace(/[^0-9]/gu, ''))
+}
+
+// An amount somebody typed, read the way they meant it: here a comma is
+// the decimal point and a dot separates thousands, so "1.500,50" is one
+// thousand five hundred and a half, not one and a half.
+export function parseTyped(text: string): number {
+  const parsed = Number(text.replace(/[.]/gu, '').replace(/[,]/gu, '.'))
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 export { iconForCategoryName }

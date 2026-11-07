@@ -694,13 +694,16 @@
      rail: it is a tool you reach for, not part of any one screen. Hidden on
      a phone, where the rail does not exist. */
   .dolar { display: none; }
+  /* One size throughout, the way the rail above it is one size: this is a
+     side tool, and three type sizes inside a 200px box made it the
+     loudest thing in the sidebar. The rate still leads, by weight. */
   .dolar .top { display: flex; align-items: center; justify-content: space-between;
-                gap: 8px; font-size: var(--t-xs); font-weight: 700; color: var(--side-ink-2); }
-  .dolar .rate { font-size: var(--t-md); font-weight: 800; color: var(--side-ink);
+                gap: 8px; font-size: var(--t-xs); font-weight: 500; color: var(--side-ink-2); }
+  .dolar .rate { font-size: var(--t-xs); font-weight: 800; color: var(--side-ink);
                  font-variant-numeric: tabular-nums; }
   .dolar .pair { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px;
                  align-items: center; margin-top: 8px; }
-  .dolar input { font: inherit; font-size: var(--t-sm); font-weight: 700; width: 100%;
+  .dolar input { font: inherit; font-size: var(--t-xs); font-weight: 700; width: 100%;
                  background: #271d3f; border: 2px solid #3b2e58; color: var(--side-ink);
                  border-radius: 12px; padding: 8px 8px; min-height: 44px; }
   .dolar .swap { appearance: none; border: 0; cursor: pointer; font: inherit; background: #3b2e58;
@@ -710,7 +713,7 @@
                  color: var(--side-ink-2); width: 28px; height: 28px; padding: 0;
                  border-radius: 50%; display: grid; place-items: center; }
   .dolar .edit svg { width: 16px; height: 16px; }
-  .dolar .mine { font-size: var(--t-xs); font-weight: 700; color: var(--side-active-ink); }
+  .dolar .mine { font-size: var(--t-xs); font-weight: 500; color: var(--side-active-ink); }
   .dolar .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
   .dolar .acts button { appearance: none; border: 0; cursor: pointer; font: inherit;
                         font-size: var(--t-xs); font-weight: 700; border-radius: 999px;
