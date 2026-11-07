@@ -210,8 +210,48 @@ mes**: aparece en el mes actual, arriba de todo en Cuentas por pagar, **con un
 aviso visual fuerte** que dice de qué mes viene («Quedó sin pagar en
 septiembre»). Pregunta vieja que la v1 nunca contestó.
 
+## Pendiente de resolver — las dos listas de la pantalla Tarjetas
+
+Lo encontró Flor mirando la pantalla con datos reales: arriba, dentro de
+cada tarjeta, hay un «Resumen de noviembre» con filas; abajo, una lista de
+gastos con la misma forma que los de la pantalla Gastos. **No se entiende
+en qué difieren.**
+
+Difieren, y mucho:
+
+| | Qué es cada fila | De qué mes |
+|---|---|---|
+| **El resumen** (arriba, por tarjeta) | **una cuota** — un pedazo de una compra | lo que se cobra el mes que viene, venga de donde venga |
+| **La lista** (abajo) | **una compra entera** | lo que se compró en el mes que está en pantalla |
+
+El problema es que para una compra en **un solo pago las dos cifras son
+idénticas**, y las compras en un solo pago son la mayoría. «Comida michis
+$69.287,07» aparece en las dos listas con el mismo número, así que se lee
+como lo mismo repetido. La diferencia sólo se ve en una compra en cuotas:
+*Bokita* se compró por $350.000 y en el resumen figura como **cuota 1 de
+6, $58.333,33**.
+
+O sea: no es un problema de datos, es que la pantalla pone al lado dos
+vistas que coinciden justo en el caso más común.
+
+Caminos posibles, sin decidir:
+
+1. **Sacar la lista de abajo.** El resumen ya nombra cada compra; la lista
+   no agrega nada salvo en compras en cuotas, donde además confunde.
+2. **Que cada fila del resumen diga de qué mes viene** («de octubre», «de
+   agosto»), y la lista de abajo desaparece porque el resumen ya cuenta
+   esa historia completa.
+3. **Dejar las dos pero separarlas de verdad**: la de abajo no como filas
+   de gasto sino como una línea por compra con su total y en cuántas
+   cuotas se parte, de manera que nunca repita una cifra del resumen.
+
+La inclinación es la **2**: una sola lista, la del resumen, que es la que
+contesta la pregunta de la pantalla —cuánto va a pedir la tarjeta— y donde
+el mes de origen es el dato que hoy falta.
+
 ## Abierto
 
+- Las dos listas de Tarjetas, arriba.
 - Maquetar **editar** un gasto, una cuenta y una compra con tarjeta
   (`EditExpenseTarget`, `EditPendienteTarget`, `EditPurchaseTarget` en la v1).
 - Maquetar **agregar una cuenta** (`AddPendienteSheet` en la v1).
