@@ -119,18 +119,20 @@ test('a servicio is owed, then paid, and only then leaves the budget', async ({
   await expect(page.getByText('Luz').first()).toBeVisible()
 })
 
-test('next month inherits this month’s budget', async ({ page }) => {
+// A budget set in September went on being the budget for every month
+// after it, so the figure on screen was one nobody had looked at since.
+// Per direct feedback: que el presupuesto del mes no se arrastre, y que
+// diga que todavía no cargaste nada.
+test('next month starts without a budget, and says so', async ({ page }) => {
   await signUpWithHousehold(page, { budget: '750000' })
 
   await page.getByRole('button', { name: 'Mes siguiente' }).click()
 
-  // No entry of its own, so it carries the one set before it.
-  await expect(page.getByRole('status', { name: /^Te quedan/ })).toContainText(
-    '$750.000',
-  )
+  await expect(page.getByText(/^Presupuesto de /)).toBeVisible()
   await expect(
-    page.getByRole('button', { name: 'Editar presupuesto del mes' }),
+    page.getByRole('button', { name: 'Poner presupuesto' }),
   ).toBeVisible()
+  await expect(page.getByRole('status', { name: /^Te quedan/ })).toBeHidden()
 })
 
 // Paying a bill with a credit card. The money does not leave this month:

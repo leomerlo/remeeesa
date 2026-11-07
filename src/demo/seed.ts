@@ -1,9 +1,4 @@
-import {
-  createCard,
-  createCardPurchase,
-  markResumenPaid,
-  setResumenAmount,
-} from '@/lib/cards'
+import { createCard, createCardPurchase, markResumenPaid } from '@/lib/cards'
 import {
   computePendingCommitted,
   computeSpentThisMonth,
@@ -478,18 +473,13 @@ async function seedCasa(
   )
   // Visa's statement arrived and was paid; Master's and the two Amex ones
   // are still waiting, so the demo carries both halves of the model: a
-  // Resumen that is a real bill, and ones that are only an estimate of
-  // what the household has been logging.
+  // Resumen that has been settled, and ones that are still only an
+  // estimate of what the household has been logging.
   if (visaResumen !== undefined) {
+    // The card billed a little more than was logged -- taxes, interest,
+    // whatever the bank adds on top. That gap is the whole reason the
+    // estimate and the payment are two different figures.
     const billed = (visaResumen.estimatedAmount ?? 0) + 1850
-    await setResumenAmount({
-      db,
-      householdId,
-      resumenId: visaResumen.id,
-      // The card billed a little more than was logged: that gap is the
-      // whole reason the two figures exist.
-      amount: billed,
-    })
     await markResumenPaid({
       db,
       householdId,

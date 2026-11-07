@@ -6,12 +6,7 @@ import {
   listCategories,
   updateCategoryBudget,
 } from '@/lib/expenses'
-import {
-  createCard,
-  createCardPurchase,
-  markResumenPaid,
-  setResumenAmount,
-} from '@/lib/cards'
+import { createCard, createCardPurchase, markResumenPaid } from '@/lib/cards'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { listPendientes } from '@/lib/pendientes'
 import type { HouseholdsDb } from '@/lib/households'
@@ -577,19 +572,8 @@ describe('CategoryBreakdown', () => {
       if (visaResumen === undefined || masterResumen === undefined) {
         throw new Error('expected both Resúmenes')
       }
-      // Both statements arrived: Visa's is paid $10 over what was logged,
-      // Master's is loaded and still owed.
-      for (const [resumen, amount] of [
-        [visaResumen, 300],
-        [masterResumen, 50],
-      ] as const) {
-        await setResumenAmount({
-          db: s.db,
-          householdId: s.householdId,
-          resumenId: resumen.id,
-          amount,
-        })
-      }
+      // Visa's bill was paid, $10 over what was logged; Master's is still
+      // an estimate, which is all a card bill ever is until it is paid.
       await markResumenPaid({
         db: s.db,
         householdId: s.householdId,
@@ -616,12 +600,14 @@ describe('CategoryBreakdown', () => {
         .filter((item) => item.parentElement === list)
       expect(items).toHaveLength(2)
       expect(items[0]).toHaveTextContent('Tarjeta')
-      expect(items[0]).toHaveTextContent('$360')
+      // The Visa payment and its ajuste. Master's estimate is outside the
+      // slice: an estimate is not money spent.
+      expect(items[0]).toHaveTextContent('$310')
       expect(items[1]).toHaveTextContent('Comida')
       expect(items[1]).toHaveTextContent('$75')
     })
 
-    it('opens into its subcategories, with Ajuste and Sin pagar as their own lines', async () => {
+    it('opens into its subcategories, with Ajuste and the estimate as their own lines', async () => {
       const { db, householdId } = await seedCards()
 
       renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
@@ -638,14 +624,17 @@ describe('CategoryBreakdown', () => {
         // Each kind of money is named where it starts. Per direct feedback.
         expect.stringMatching(/^Pagado del resumen.*Comida.*\$300/),
         expect.stringMatching(/^Ajuste.*\$10/),
-        expect.stringMatching(/^Llegó y falta pagar.*Resumen.*\$50/),
+        expect.stringMatching(
+          /^Todavía sin resumen.*no suma.*Consumos cargados.*\$50/,
+        ),
       ])
     })
 
-    // The distinction the whole card model turns on: what the statement
-    // billed and is owed, against what the household has been logging for
-    // a statement that has not come. Per direct feedback.
-    it('separates what is owed from what is only an estimate', async () => {
+    // Two cards, neither paid: both are estimates, and an estimate is
+    // outside the slice -- so there is no Tarjeta at all. There used to be
+    // a third state here, "the statement arrived and is owed", and it is
+    // gone. Per direct feedback: las tarjetas siempre van a ser estimadas.
+    it('shows no Tarjeta at all while every card bill is an estimate', async () => {
       const s = await seedHousehold()
       const comida = s.byName.get('Comida')
       if (comida === undefined) {
@@ -673,82 +662,17 @@ describe('CategoryBreakdown', () => {
           comments: '',
         })
       }
-      // Only Visa's statement arrived.
-      const visaResumen = (await listPendientes(s)).find(
-        (pendiente) => pendiente.cardId === visa.id,
-      )
-      if (visaResumen === undefined) {
-        throw new Error('expected a Visa Resumen')
-      }
-      await setResumenAmount({
-        db: s.db,
-        householdId: s.householdId,
-        resumenId: visaResumen.id,
-        amount: 320,
-      })
 
       renderInRouter(
         <CategoryBreakdown db={s.db} householdId={s.householdId} />,
       )
 
-      fireEvent.click(await screen.findByText('Tarjeta'))
-      const rows = within(
-        screen.getByRole('list', { name: 'Tarjeta por categoría' }),
-      ).getAllByRole('listitem')
-      expect(rows.map((row) => row.textContent)).toEqual([
-        expect.stringMatching(/^Llegó y falta pagar.*Resumen.*\$320/),
-        expect.stringMatching(
-          /^Todavía sin resumen.*no suma.*Consumos cargados.*\$80/,
-        ),
-      ])
-    })
-
-    it('shows a Tarjeta made only of an unpaid Resumen, opening to just the bill', async () => {
-      const s = await seedHousehold()
-      const comida = s.byName.get('Comida')
-      if (comida === undefined) {
-        throw new Error('expected seeded categories')
-      }
-      const now = new Date()
-      const visa = await createCard({ ...s, name: 'Visa' })
-      await createCardPurchase({
-        db: s.db,
-        householdId: s.householdId,
-        cardId: visa.id,
-        categoryId: comida.id,
-        memberId: 'user-1',
-        authorDisplayName: 'Ada',
-        name: 'Super grande',
-        total: 300,
-        cuotas: 1,
-        purchaseDate: new Date(now.getFullYear(), now.getMonth() - 1, 15),
-        comments: '',
-      })
-
-      const [resumen] = await listPendientes(s)
-      if (resumen === undefined) {
-        throw new Error('expected a Resumen')
-      }
-      // Loaded, so it is a bill the household owes. Until then it is an
-      // estimate and the slice is empty -- see the test below.
-      await setResumenAmount({
-        db: s.db,
-        householdId: s.householdId,
-        resumenId: resumen.id,
-        amount: 300,
-      })
-
-      renderInRouter(
-        <CategoryBreakdown db={s.db} householdId={s.householdId} />,
-      )
-
-      fireEvent.click(await screen.findByText('Tarjeta'))
-      const rows = within(
-        screen.getByRole('list', { name: 'Tarjeta por categoría' }),
-      ).getAllByRole('listitem')
-      expect(rows.map((row) => row.textContent)).toEqual([
-        expect.stringMatching(/^Llegó y falta pagar.*Resumen.*\$300/),
-      ])
+      // Nothing has been spent: the cuotas are an estimate of bills nobody
+      // has paid, and an estimate is not money out.
+      expect(
+        await screen.findByText('Todavía no hay nada para repartir'),
+      ).toBeInTheDocument()
+      expect(screen.queryByText('Tarjeta')).not.toBeInTheDocument()
     })
   })
 })

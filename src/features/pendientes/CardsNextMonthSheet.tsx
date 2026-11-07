@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
 import { AlertMessage } from '@/components/ui/alert-message'
+import { Button } from '@/components/ui/button'
 import { Sheet, SheetScrollArea } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { listResumenCuotas } from '@/lib/cards'
@@ -12,14 +13,14 @@ import type { Pendiente } from '@/lib/pendientes'
 import { ConsumoRow } from './ConsumoRow'
 import { pendientesQueryKey } from './queryKeys'
 
-// What to say under a card whose statement has already been loaded by
-// hand. Same shape as the Resumen's own detail: the bill, then how far the
-// household's own record was from it.
+// What to say under a card that has already been settled. Same shape as
+// the Resumen's own detail: what was paid, then how far the household's own
+// record was from it.
 function resumenLoadedLine(resumen: Pendiente, estimated: number): string {
   const currency = resumen.currency ?? 'ARS'
   const expected = resumen.expectedAmount ?? 0
   const difference = Math.round(expected * 100 - estimated * 100) / 100
-  const loaded = `Resumen cargado: ${formatAmount(expected, currency)}`
+  const loaded = `Pagaste ${formatAmount(expected, currency)}`
   return difference === 0
     ? `${loaded} · igual a lo que cargaste.`
     : `${loaded} · ${formatAmount(Math.abs(difference), currency)} ${difference > 0 ? 'más' : 'menos'} de lo que cargaste.`
@@ -32,6 +33,13 @@ export type CardsNextMonthSheetProps = {
   readonly resumenes: readonly Pendiente[]
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
+  // Offered per card when these bills belong to the month on screen, which
+  // is the only case where paying one makes sense. Home's "el mes que
+  // viene" leaves it out: that month has not started.
+  readonly onPay?: (resumen: Pendiente) => void
+  // Names the set on the screen it was opened from: Home's is next
+  // month's, Servicios' is the month on screen.
+  readonly title?: string
 }
 
 // What "Tarjetas el mes que viene" is made of: every consumo logged on a
@@ -51,6 +59,8 @@ export function CardsNextMonthSheet({
   resumenes,
   open,
   onOpenChange,
+  onPay,
+  title = 'Tarjetas el mes que viene',
 }: CardsNextMonthSheetProps): ReactElement {
   const detail = useQuery({
     queryKey: [
@@ -71,16 +81,12 @@ export function CardsNextMonthSheet({
   })
 
   return (
-    <Sheet
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Tarjetas el mes que viene"
-    >
+    <Sheet open={open} onOpenChange={onOpenChange} title={title}>
       <SheetScrollArea>
         <p className="text-muted-foreground text-sm">
-          Lo que fuiste cargando con cada tarjeta y cae en el resumen del mes
-          que viene. Es una estimación: la cuenta real la cargás cuando te llega
-          el resumen.
+          Lo que fuiste cargando con cada tarjeta. Siempre es una estimación: el
+          monto real lo ponés cuando pagás, porque ahí le sumás los impuestos e
+          intereses del banco.
         </p>
         {detail.isPending ? (
           <div
@@ -132,7 +138,8 @@ export function CardsNextMonthSheet({
                   one by hand, and the gap between it and the estimate is
                   the thing worth seeing. Per direct feedback -- la
                   diferencia se muestra y nada más. */}
-                {resumen.expectedAmount === null ? null : (
+                {resumen.status !== 'paid' ||
+                resumen.expectedAmount === null ? null : (
                   <p className="text-muted-foreground text-xs">
                     {resumenLoadedLine(resumen, estimated)}
                   </p>
@@ -151,6 +158,18 @@ export function CardsNextMonthSheet({
                     />
                   ))}
                 </ul>
+                {onPay === undefined ? null : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      onPay(resumen)
+                    }}
+                  >
+                    {`Pagar ${resumen.name}`}
+                  </Button>
+                )}
               </section>
             )
           })

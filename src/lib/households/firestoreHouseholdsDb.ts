@@ -1621,7 +1621,11 @@ export function createFirestoreHouseholdsDb(
               paid_expense_id: null,
               paid_at: null,
               ...(paidPurchaseId === null ? {} : { paid_purchase_id: null }),
-              ...(isResumen ? { paid_expense_ids: [] } : {}),
+              // Back to an estimate: a Resumen's bill was only ever known
+              // through the payment being undone.
+              ...(isResumen
+                ? { paid_expense_ids: [], expected_amount: null }
+                : {}),
             })
             // A Resumen's purchases unlock (unless another paid Resumen
             // still holds one of their cuotas).
@@ -1638,7 +1642,9 @@ export function createFirestoreHouseholdsDb(
               status: 'pending' as const,
               paidExpenseId: null,
               paidAt: null,
-              ...(isResumen ? { paidExpenseIds: [] } : {}),
+              ...(isResumen
+                ? { paidExpenseIds: [], expectedAmount: null }
+                : {}),
             }
           })
         },
@@ -1646,39 +1652,6 @@ export function createFirestoreHouseholdsDb(
           pendienteId: input.pendienteId,
           householdId: input.householdId,
         },
-      )
-    },
-    async setResumenAmount(input) {
-      return withHouseholdAccess(
-        'setResumenAmount',
-        async () => {
-          const resumenRef = doc(firestore, 'pendientes', input.resumenId)
-          const snap = await getDoc(resumenRef)
-          if (
-            !snap.exists() ||
-            snap.data().household_id !== input.householdId ||
-            snap.data().card_id === undefined
-          ) {
-            throw new PendienteNotFoundError()
-          }
-          const resumen = parsePendienteDocument({
-            id: snap.id,
-            data: snap.data(),
-          })
-          if (resumen.status !== 'pending') {
-            throw new PendienteAlreadyPaidError()
-          }
-          // estimated_amount goes along for the ride so a Resumen written
-          // before the two were told apart stops reading as legacy: after
-          // this it carries both figures explicitly, and its own estimate
-          // is whatever it had been accumulating.
-          await updateDoc(resumenRef, {
-            expected_amount: input.amount,
-            estimated_amount: resumen.estimatedAmount ?? 0,
-          })
-          return { ...resumen, expectedAmount: input.amount }
-        },
-        { pendienteId: input.resumenId, householdId: input.householdId },
       )
     },
     async markResumenPaid(input) {
@@ -1782,6 +1755,12 @@ export function createFirestoreHouseholdsDb(
             const paidExpenseIds = expenses.map((expense) => expense.id)
             tx.update(resumenRef, {
               status: 'paid',
+              // What the card actually billed, known at last: it is
+              // whatever was paid. estimated_amount rides along so a
+              // Resumen written before the two figures were told apart
+              // stops reading as a legacy one.
+              expected_amount: input.amountPaid,
+              estimated_amount: resumen.estimatedAmount ?? 0,
               paid_expense_id: paidExpenseIds[0] ?? null,
               paid_expense_ids: paidExpenseIds,
               paid_at: toFirestorePendienteDate(input.paymentDate),
@@ -1798,6 +1777,8 @@ export function createFirestoreHouseholdsDb(
               pendiente: {
                 ...resumen,
                 status: 'paid' as const,
+                expectedAmount: input.amountPaid,
+                estimatedAmount: resumen.estimatedAmount ?? 0,
                 paidExpenseId: paidExpenseIds[0] ?? null,
                 paidExpenseIds,
                 paidAt: input.paymentDate,

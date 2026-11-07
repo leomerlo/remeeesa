@@ -10,7 +10,7 @@ import type { Pendiente } from './types'
 // Once the real amount is loaded it is an ordinary bill: owed, counted, and
 // paid from wherever it is listed.
 export function isBillToPay(pendiente: Pendiente): boolean {
-  return pendiente.cardId === undefined || pendiente.expectedAmount !== null
+  return pendiente.cardId === undefined
 }
 
 // How far out "approaching" reaches -- an unpaid Pendiente due today through

@@ -117,7 +117,11 @@ describe('a card Resumen among the bills falling due', () => {
     expect(pendientesDueSoon([resumen], now)).toEqual([])
   })
 
-  it('keeps one whose real amount has been loaded -- that is owed', () => {
+  // A card bill stays an estimate right up to the moment it is paid: what
+  // the card will charge includes taxes and interest nobody can add up in
+  // advance. There is no state in between, so a Resumen never falls due.
+  // Per direct feedback: las tarjetas siempre van a ser estimadas.
+  it('leaves out one carrying a figure from an older model', () => {
     const resumen = pendiente({
       id: 'card-1_2026-09',
       name: 'Visa',
@@ -127,9 +131,7 @@ describe('a card Resumen among the bills falling due', () => {
       recurring: false,
     })
 
-    expect(pendientesDueSoon([resumen], now).map((p) => p.id)).toEqual([
-      'card-1_2026-09',
-    ])
+    expect(pendientesDueSoon([resumen], now)).toEqual([])
   })
 
   it('leaves an ordinary bill alone', () => {

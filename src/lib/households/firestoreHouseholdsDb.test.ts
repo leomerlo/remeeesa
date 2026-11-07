@@ -406,7 +406,7 @@ describe('firestore.rules pendiente category repoint', () => {
     expect(rules).toContain('function isPendienteCategoryRepoint()')
     expect(rules).toContain("hasOnly(['category_id'])")
     expect(rules).toContain(
-      '&& (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isValidPendienteMarkPaidWithCard() || isPendienteCategoryRepoint() || isPendienteRecurrenceEdit() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenAmountLoad() || isValidResumenMarkPaid() || isResumenRename());',
+      '&& (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isValidPendienteMarkPaidWithCard() || isPendienteCategoryRepoint() || isPendienteRecurrenceEdit() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenMarkPaid() || isResumenRename());',
     )
   })
 
@@ -560,7 +560,7 @@ describe('firestore.rules pendientes', () => {
       /function isValidPendienteUpdate\(\) \{[\s\S]*?!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'status', 'paid_expense_id', 'paid_purchase_id', 'paid_at', 'created_at'\]\)/,
     )
     expect(rules).toMatch(
-      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isValidPendienteMarkPaidWithCard\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isPendienteRecurrenceEdit\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\) \|\| isValidResumenAmountLoad\(\) \|\| isValidResumenMarkPaid\(\) \|\| isResumenRename\(\)\);/,
+      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isValidPendienteMarkPaidWithCard\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isPendienteRecurrenceEdit\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\) \|\| isValidResumenMarkPaid\(\) \|\| isResumenRename\(\)\);/,
     )
   })
 
@@ -632,7 +632,7 @@ describe('firestore.rules pendientes mark-paid', () => {
 
   it('ORs isValidPendienteMarkPaid into the pendiente update rule alongside isValidPendienteUpdate', () => {
     expect(rules).toMatch(
-      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isValidPendienteMarkPaidWithCard\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isPendienteRecurrenceEdit\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\) \|\| isValidResumenAmountLoad\(\) \|\| isValidResumenMarkPaid\(\) \|\| isResumenRename\(\)\);/,
+      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isValidPendienteMarkPaidWithCard\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isPendienteRecurrenceEdit\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\) \|\| isValidResumenMarkPaid\(\) \|\| isResumenRename\(\)\);/,
     )
   })
 })
@@ -647,8 +647,16 @@ describe('firestore.rules pendientes unmark-paid', () => {
     expect(rules).toMatch(
       /function isValidPendienteUnmarkPaid\(\) \{[\s\S]*?resource\.data\.status == 'paid'/,
     )
-    expect(rules).toMatch(
-      /function isValidPendienteUnmarkPaid\(\) \{[\s\S]*?request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\.hasOnly\(\['status', 'paid_expense_id', 'paid_expense_ids', 'paid_at'\]\)/,
+    // Spelled out rather than matched loosely: the old pattern was lazy
+    // enough to find a different rule's hasOnly further down the file and
+    // pass while saying nothing about this one.
+    expect(ruleFunction('isValidPendienteUnmarkPaid')).toContain(
+      ".hasOnly(['status', 'paid_expense_id', 'paid_expense_ids', 'paid_purchase_id', 'paid_at', 'expected_amount'])",
+    )
+    // Undoing a Resumen's payment takes its bill back off with it; an
+    // ordinary bill keeps the amount it was always expecting.
+    expect(ruleFunction('isValidPendienteUnmarkPaid')).toContain(
+      "(('card_id' in resource.data) && request.resource.data.get('expected_amount', null) == null)",
     )
     expect(rules).toMatch(
       /function isValidPendienteUnmarkPaid\(\) \{[\s\S]*?request\.resource\.data\.status == 'pending'/,
@@ -963,7 +971,7 @@ describe('firestore.rules Resúmenes', () => {
       'request.resource.data.purchase_ids.hasAll(resource.data.purchase_ids)',
     )
     expect(rules).toContain(
-      '|| isValidResumenUpdate() || isValidResumenAmountLoad() || isValidResumenMarkPaid() || isResumenRename());',
+      '|| isValidResumenUpdate() || isValidResumenMarkPaid() || isResumenRename());',
     )
   })
 
@@ -1156,8 +1164,12 @@ describe('firestore.rules paying a Resumen', () => {
     expect(fn).toContain("resource.data.status == 'pending'")
     expect(fn).toContain("('card_id' in resource.data)")
     expect(fn).toContain(
-      ".hasOnly(['status', 'paid_expense_id', 'paid_expense_ids', 'paid_at'])",
+      ".hasOnly(['status', 'paid_expense_id', 'paid_expense_ids', 'paid_at', 'expected_amount', 'estimated_amount'])",
     )
+    // The one place expected_amount is written: a card bill is an estimate
+    // until it is paid.
+    expect(fn).toContain('request.resource.data.expected_amount is number')
+    expect(fn).toContain('request.resource.data.expected_amount > 0')
     expect(fn).toContain(
       'request.resource.data.paid_expense_id == request.resource.data.paid_expense_ids[0]',
     )
@@ -1221,7 +1233,7 @@ describe('markResumenPaid adapter', () => {
 
   it('marks the Resumen paid and locks each of its purchases', () => {
     expect(source).toMatch(
-      /tx\.update\(resumenRef, \{\s*status: 'paid',\s*paid_expense_id: paidExpenseIds\[0\] \?\? null,\s*paid_expense_ids: paidExpenseIds,/,
+      /tx\.update\(resumenRef, \{\s*status: 'paid',(\s*\/\/[^\n]*)*\s*expected_amount: input\.amountPaid,\s*estimated_amount: resumen\.estimatedAmount \?\? 0,\s*paid_expense_id: paidExpenseIds\[0\] \?\? null,\s*paid_expense_ids: paidExpenseIds,/,
     )
     expect(source).toContain(
       'paid_resumen_ids: [...purchase.paidResumenIds, resumen.id],',

@@ -33,7 +33,6 @@ export {
   listResumenCuotas,
   markResumenPaid,
   markPendientePaidWithCard,
-  setResumenAmount,
   MAX_CUOTAS,
   RESUMEN_CATEGORY_NAME,
   parseCuotas,

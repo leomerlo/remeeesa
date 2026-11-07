@@ -5,7 +5,6 @@ import {
   createCard,
   createCardPurchase,
   markResumenPaid,
-  setResumenAmount,
 } from '@/lib/cards'
 import { listCategories, listExpensesInMonth } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
@@ -113,16 +112,9 @@ async function setupResumen() {
   if (created === undefined) {
     throw new Error('expected a Resumen')
   }
-  // A Resumen owes nothing until the statement arrives: these tests are
-  // about paying one, so they load it first, exactly as the screen makes
-  // you. The flow of loading it is its own describe below.
-  const resumen = await setResumenAmount({
-    db,
-    householdId,
-    resumenId: created.id,
-    amount: 120,
-  })
-  return { db, householdId, resumen, estimated: created }
+  // A card bill carries no figure of its own: it is an estimate of the
+  // cuotas logged against the card right up to the moment it is paid.
+  return { db, householdId, resumen: created, estimated: created }
 }
 
 function octoberExpenses(db: HouseholdsDb, householdId: string) {
@@ -134,53 +126,14 @@ function octoberExpenses(db: HouseholdsDb, householdId: string) {
   })
 }
 
-// The whole point of the two figures: what the household logs is an
-// estimate of a bill, and the bill is what the card says when the statement
-// closes. Per direct feedback -- "no se tiene que sumar automáticamente".
-describe('ResumenSheet loading the statement', () => {
-  it('shows the estimate, offers no way to pay it, and loads the real figure', async () => {
-    const { db, householdId, estimated } = await setupResumen()
-    // Back to "the statement has not arrived": the setup loads it for the
-    // paying tests, this one is about the moment before that.
-    const pending = { ...estimated, expectedAmount: null }
-
-    renderWithProviders(
-      <ResumenSheet
-        db={db}
-        householdId={householdId}
-        memberId="user-1"
-        authorDisplayName="Ada"
-        resumen={pending}
-        onClose={() => {}}
-      />,
-    )
-
-    expect(await screen.findByText('Estimado')).toBeInTheDocument()
-    expect(screen.getByText('$120')).toBeInTheDocument()
-    // Nothing to pay yet: paying an estimate is exactly what this replaced.
-    expect(
-      screen.queryByRole('button', { name: 'Pagar resumen' }),
-    ).not.toBeInTheDocument()
-
-    fireEvent.change(screen.getByLabelText('Lo que llegó en el resumen'), {
-      target: { value: '150' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Cargar el resumen' }))
-
-    await waitFor(async () => {
-      const loaded = await getPendiente({
-        db,
-        householdId,
-        pendienteId: pending.id,
-      })
-      expect(loaded?.expectedAmount).toBe(150)
-      // The estimate is untouched: it is the household's own record, and
-      // the comparison is the point.
-      expect(loaded?.estimatedAmount).toBe(120)
-    })
-  })
-
-  it('says how far off the estimate was once the real figure is in', async () => {
+// A card bill is an estimate right up to the moment it is paid: what the
+// card charges includes taxes and interest nobody can add up in advance.
+// There used to be a state in between -- "the statement arrived, I typed
+// what it says" -- and it froze the card at a figure that stopped moving
+// while its own consumos kept changing. Per direct feedback: las tarjetas
+// siempre van a ser estimadas, nunca puede ser un número fijo.
+describe('ResumenSheet before it is paid', () => {
+  it('shows the estimate and offers to pay that very figure', async () => {
     const { db, householdId, resumen } = await setupResumen()
 
     renderWithProviders(
@@ -189,7 +142,67 @@ describe('ResumenSheet loading the statement', () => {
         householdId={householdId}
         memberId="user-1"
         authorDisplayName="Ada"
-        resumen={{ ...resumen, expectedAmount: 150 }}
+        resumen={resumen}
+        onClose={() => {}}
+      />,
+    )
+
+    expect(await screen.findByText('Estimado')).toBeInTheDocument()
+    expect(screen.getByText('$120')).toBeInTheDocument()
+    // Nowhere to type a bill that has not been paid: the estimate is
+    // already in the pay form, waiting to be corrected.
+    expect(
+      screen.queryByLabelText('Lo que llegó en el resumen'),
+    ).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Monto pagado')).toHaveValue('120')
+  })
+
+  it('follows its consumos rather than any figure typed earlier', async () => {
+    const { db, householdId, resumen } = await setupResumen()
+
+    renderWithProviders(
+      <ResumenSheet
+        db={db}
+        householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
+        // Her Visa Flor: a figure typed weeks ago under the old model,
+        // still on the record while the consumos moved on without it.
+        resumen={{ ...resumen, expectedAmount: 13.99 }}
+        onClose={() => {}}
+      />,
+    )
+
+    expect(await screen.findByText('Estimado')).toBeInTheDocument()
+    expect(screen.getByText('$120')).toBeInTheDocument()
+    expect(screen.queryByText('$13,99')).not.toBeInTheDocument()
+  })
+})
+
+// Once it is settled the headline is what was actually paid, and the
+// estimate becomes the comparison: how far the household's own record was
+// from what the bank charged.
+describe('ResumenSheet once it is paid', () => {
+  it('says how far off the estimate was', async () => {
+    const { db, householdId, resumen } = await setupResumen()
+    vi.setSystemTime(new Date(2026, 9, 15, 12))
+    const { pendiente } = await markResumenPaid({
+      db,
+      householdId,
+      resumenId: resumen.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      amountPaid: 150,
+      paymentDate: new Date(2026, 9, 15),
+    })
+
+    renderWithProviders(
+      <ResumenSheet
+        db={db}
+        householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
+        resumen={pendiente}
         onClose={() => {}}
       />,
     )
@@ -203,6 +216,16 @@ describe('ResumenSheet loading the statement', () => {
 
   it('says so when the card billed exactly what was logged', async () => {
     const { db, householdId, resumen } = await setupResumen()
+    vi.setSystemTime(new Date(2026, 9, 15, 12))
+    const { pendiente } = await markResumenPaid({
+      db,
+      householdId,
+      resumenId: resumen.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      amountPaid: 120,
+      paymentDate: new Date(2026, 9, 15),
+    })
 
     renderWithProviders(
       <ResumenSheet
@@ -210,7 +233,7 @@ describe('ResumenSheet loading the statement', () => {
         householdId={householdId}
         memberId="user-1"
         authorDisplayName="Ada"
-        resumen={resumen}
+        resumen={pendiente}
         onClose={() => {}}
       />,
     )

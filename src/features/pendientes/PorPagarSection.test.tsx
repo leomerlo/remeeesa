@@ -3,18 +3,14 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ComponentProps, ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import {
-  createPendiente,
-  listPendientes,
-  markPendientePaid,
-} from '@/lib/pendientes'
+import { createPendiente, markPendientePaid } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import { listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
-import { createCard, createCardPurchase, setResumenAmount } from '@/lib/cards'
+import { createCard, createCardPurchase } from '@/lib/cards'
 import { PorPagarSection } from './PorPagarSection'
 
 // A card purchase dated the 1st of this month (never in the future) lands
@@ -83,11 +79,6 @@ async function seedTwoCuotaResumen(
   return { month, heladeraDate }
 }
 
-function formatLongDate(date: Date): string {
-  const pad = (value: number): string => String(value).padStart(2, '0')
-  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${String(date.getFullYear())}`
-}
-
 function renderSection(ui: ReactElement, queryClient?: QueryClient) {
   return renderWithProviders(<MemoryRouter>{ui}</MemoryRouter>, {
     ...(queryClient === undefined ? {} : { queryClient }),
@@ -117,20 +108,9 @@ async function seedHousehold() {
 const MONTH_START = new Date(2026, 10, 1)
 const MONTH_END = new Date(2026, 11, 0, 23, 59, 59, 999)
 
-function Section(
-  props: Omit<
-    ComponentProps<typeof PorPagarSection>,
-    'memberId' | 'authorDisplayName'
-  >,
-): ReactElement {
+function Section(props: ComponentProps<typeof PorPagarSection>): ReactElement {
   return (
-    <PorPagarSection
-      memberId="user-1"
-      authorDisplayName="Ada"
-      monthStart={MONTH_START}
-      monthEnd={MONTH_END}
-      {...props}
-    />
+    <PorPagarSection monthStart={MONTH_START} monthEnd={MONTH_END} {...props} />
   )
 }
 
@@ -605,64 +585,40 @@ describe('PorPagarSection', () => {
     })
   })
 
-  it("opens a card's Resumen to its cuotas, never the Pendiente form", async () => {
+  // A card bill is an estimate until it is paid, and Home shows those in
+  // "Tarjetas el mes que viene", with their consumos. This strip is what is
+  // owed for the month, so no Resumen belongs in it -- it used to appear
+  // here as soon as somebody typed a statement figure into it. Per direct
+  // feedback: las tarjetas siempre van a ser estimadas.
+  it('leaves a card Resumen out of what is owed this month', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
-    const { month, heladeraDate } = await seedTwoCuotaResumen(
+    const { month } = await seedTwoCuotaResumen(db, householdId, categoryId)
+    // An ordinary bill in the same month, so the strip has something to
+    // render and the Resumen's absence is the only difference.
+    await createPendiente({
       db,
       householdId,
       categoryId,
-    )
-    // The statement arrived and was loaded: now it is a bill like any
-    // other, and it belongs here.
-    // The Heladera's three cuotas make three Resúmenes; the one this test
-    // views is the month's.
-    const [resumen] = (await listPendientes({ db, householdId })).filter(
-      (candidate) =>
-        candidate.cardId !== undefined &&
-        candidate.dueDate >= month.monthStart &&
-        candidate.dueDate <= month.monthEnd,
-    )
-    if (resumen === undefined) {
-      throw new Error('expected a Resumen')
-    }
-    await setResumenAmount({
-      db,
-      householdId,
-      resumenId: resumen.id,
-      amount: 230,
+      name: 'Internet',
+      dueDate: new Date(
+        month.monthStart.getFullYear(),
+        month.monthStart.getMonth(),
+        10,
+      ),
+      expectedAmount: 50000,
+      recurring: false,
     })
-    const onMarkPaid = vi.fn()
 
     renderSection(
       <Section
         db={db}
         householdId={householdId}
-        onMarkPaid={onMarkPaid}
+        onMarkPaid={vi.fn()}
         {...month}
       />,
     )
 
-    const card = await screen.findByRole('button', {
-      name: /^Ver Resumen Visa de /,
-    })
-    expect(card).toHaveTextContent('230')
-    fireEvent.click(card)
-    expect(onMarkPaid).not.toHaveBeenCalled()
-
-    const cuotas = await screen.findByRole('list', {
-      name: 'Cuotas del resumen',
-    })
-    const rows = within(cuotas).getAllByRole('listitem')
-    expect(rows).toHaveLength(2)
-    const heladera = rows.find((row) => row.textContent.includes('Heladera'))
-    expect(heladera).toHaveTextContent('Comida')
-    expect(heladera).toHaveTextContent(formatLongDate(heladeraDate))
-    expect(heladera).toHaveTextContent('cuota 2/3')
-    expect(heladera).toHaveTextContent('$100')
-    const zapatillas = rows.find((row) =>
-      row.textContent.includes('Zapatillas'),
-    )
-    expect(zapatillas).toHaveTextContent('$120')
-    expect(zapatillas).not.toHaveTextContent('cuota')
+    expect(await screen.findByText('Internet')).toBeInTheDocument()
+    expect(screen.queryByText(/^Resumen Visa/)).not.toBeInTheDocument()
   })
 })

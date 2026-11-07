@@ -6,19 +6,22 @@ export type PendienteAmountProps = {
   readonly pendiente: Pendiente
 }
 
-// What a bill's figure says in a list, in all three of its states.
+// What a bill's figure says in a list.
 //
-// A Resumen whose statement has not arrived is the interesting one: it
-// shows what the household has logged against the card so far, labelled as
-// an estimate, because it is not money the household owes yet. Showing it
-// as a plain amount is exactly how a card purchase used to read as a debt.
-// Per direct feedback: lo que voy cargando y lo que me llega son dos cosas,
-// y tiene que quedar muy en claro cuál es cuál.
+// A card's Resumen is the interesting one: until it is paid it shows what
+// the household has logged against the card, labelled as an estimate,
+// because that is all it ever is. A card bill is an estimate by nature --
+// what the card will charge includes taxes and interest nobody can add up
+// in advance -- so it stays one right up to the moment it is paid, and the
+// real figure is what gets typed then. Per direct feedback: las tarjetas
+// siempre van a ser estimadas, nunca puede ser un número fijo.
 export function PendienteAmount({
   pendiente,
 }: PendienteAmountProps): ReactElement | null {
   const currency = pendiente.currency ?? 'ARS'
-  if (pendiente.expectedAmount !== null) {
+  const isUnpaidResumen =
+    pendiente.cardId !== undefined && pendiente.status !== 'paid'
+  if (pendiente.expectedAmount !== null && !isUnpaidResumen) {
     return (
       <span className="money text-foreground text-lg">
         {formatAmount(pendiente.expectedAmount, currency)}

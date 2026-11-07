@@ -1,12 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  cardsDueNextMonth,
-  createCard,
-  createCardPurchase,
-  setResumenAmount,
-} from '@/lib/cards'
+import { createCard, createCardPurchase } from '@/lib/cards'
 import { listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
@@ -153,29 +148,14 @@ describe('CardsNextMonth', () => {
   })
 
   // Her screen: a card's heading read US$13,99 with US$13,99 and US$97
-  // listed under it. The heading was showing the bill the household had
-  // loaded by hand, in a sheet whose whole subject is the estimate -- so
-  // the figure and the movements right below it disagreed, and the
-  // movements were right. The heading is now the sum of what is listed.
+  // listed under it, because a figure typed by hand replaced the estimate.
+  // That figure cannot be typed any more -- a card bill is an estimate
+  // until it is paid -- and a document still carrying one from the old
+  // model is ignored while it is unpaid.
   it('heads each card with the sum of the consumos listed under it', async () => {
     const { db, householdId, buy } = await setup()
     await buy('Visa Flor', 97, new Date(2026, 8, 1))
     await buy('Visa Flor', 13.99, new Date(2026, 8, 2))
-    // The bill arrives and is loaded by hand -- which used to replace the
-    // estimate in the heading.
-    const [resumen] = cardsDueNextMonth(
-      await db.listPendientes({ householdId }),
-      new Date(),
-    )
-    if (resumen === undefined) {
-      throw new Error('expected a Resumen due next month')
-    }
-    await setResumenAmount({
-      db,
-      householdId,
-      resumenId: resumen.id,
-      amount: 13.99,
-    })
 
     renderWithProviders(
       <CardsNextMonth
@@ -196,13 +176,11 @@ describe('CardsNextMonth', () => {
       name: /^Visa Flor de/,
     })
 
-    // The sum of the two consumos listed under it, not the bill.
+    // The sum of the two consumos listed under it.
     expect(within(section).getByText('$110,99')).toBeInTheDocument()
-    // The loaded bill is not hidden -- it is said, next to what it is
-    // being compared with. Per direct feedback: la diferencia se muestra.
-    expect(section).toHaveTextContent(
-      'Resumen cargado: $13,99 · $97 menos de lo que cargaste.',
-    )
+    // Nothing is said about a bill: none has been paid, so there is no
+    // figure to compare the estimate against.
+    expect(section).not.toHaveTextContent('Pagaste')
   })
 
   // Where the household actually meets a consumo it no longer has. Deleting

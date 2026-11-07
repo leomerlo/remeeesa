@@ -304,16 +304,6 @@ export type HouseholdsDb = {
   // resumenPayment), marks the Resumen paid, and locks each of its purchases
   // (CardPurchase.paidResumenIds). Rejects with PendienteNotFoundError,
   // ResumenAlreadyPaidError or ResumenNotYetPayableError.
-  // What the card actually billed, loaded by hand once the statement
-  // closes. Until this runs a Resumen owes nothing: what the household has
-  // been logging is only an estimate of it. Per direct feedback.
-  setResumenAmount(input: {
-    readonly householdId: string
-    readonly resumenId: string
-    // null puts the Resumen back to waiting for its statement. A figure
-    // typed by hand can be typed wrong, and there was no way back from one.
-    readonly amount: number | null
-  }): Promise<Pendiente>
   markResumenPaid(input: {
     readonly householdId: string
     readonly resumenId: string

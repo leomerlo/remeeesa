@@ -16,7 +16,6 @@ import {
   canPayResumen,
   listResumenCuotas,
   markResumenPaid,
-  setResumenAmount,
   ResumenAlreadyPaidError,
   resumenMonthStart,
 } from '@/lib/cards'
@@ -163,13 +162,15 @@ function ResumenDetail({
   )
 }
 
-// What the card billed, and what the household thought it would.
+// What the card will ask for, and -- once it is settled -- what it asked.
 //
-// Until the statement arrives there is only the estimate -- the cuotas
-// logged so far -- and it is labelled as one, because it is not a debt. Once
-// the real figure is loaded, that is the headline and the estimate becomes
-// the comparison: how far off the household's own record was. Per direct
-// feedback, the gap is shown and nothing is invented to close it.
+// A card bill is an estimate until it is paid: the figure is the cuotas
+// logged so far, and it moves every time a consumo is added or removed.
+// What the card actually charges is never knowable in advance (taxes,
+// interest, the bank's own extras), so the real number is typed at the
+// moment of paying and only then becomes the headline, with the estimate
+// beside it as the comparison. Per direct feedback: las tarjetas siempre
+// van a ser estimadas; cuando la marco pagada le sumo los impuestos.
 function ResumenFigures({
   resumen,
 }: {
@@ -177,7 +178,7 @@ function ResumenFigures({
 }): ReactElement {
   const currency = resumen.currency ?? 'ARS'
   const estimated = resumen.estimatedAmount ?? 0
-  if (resumen.expectedAmount === null) {
+  if (resumen.status !== 'paid' || resumen.expectedAmount === null) {
     return (
       <>
         <span className="text-muted-foreground text-xs font-semibold tracking-wide uppercase">
@@ -187,8 +188,8 @@ function ResumenFigures({
           {formatAmount(estimated, currency)}
         </span>
         <span className="text-muted-foreground text-sm">
-          Lo que fuiste cargando. Todavía no es una cuenta a pagar: cargá lo que
-          te llegó en el resumen.
+          La suma de los consumos de abajo. Cuando la pagues, sumale los
+          impuestos e intereses que te cobre el banco.
         </span>
       </>
     )
@@ -209,87 +210,9 @@ function ResumenFigures({
   )
 }
 
-// Loading what the card actually billed. The one way a Resumen comes to owe
-// anything: the household reads its statement and types the figure in.
-function ResumenAmountForm({
-  db,
-  householdId,
-  resumen,
-  onSettled,
-}: {
-  readonly db: HouseholdsDb
-  readonly householdId: string
-  readonly resumen: Pendiente
-  readonly onSettled: () => Promise<void>
-}): ReactElement {
-  const [amount, setAmount] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const mutation = useMutation({
-    mutationFn: () =>
-      setResumenAmount({
-        db,
-        householdId,
-        resumenId: resumen.id,
-        amount: Number(amount),
-      }),
-    onSuccess: async () => {
-      setError(null)
-      await onSettled()
-    },
-    onError: async (caught: unknown) => {
-      if (
-        caught instanceof ResumenAlreadyPaidError ||
-        caught instanceof PendienteNotFoundError
-      ) {
-        await onSettled()
-      }
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : 'No se pudo cargar el monto del resumen',
-      )
-    },
-  })
-
-  return (
-    <form
-      aria-label="Cargar el resumen"
-      className="flex flex-col gap-4"
-      onSubmit={(event) => {
-        event.preventDefault()
-        setError(null)
-        mutation.mutate()
-      }}
-    >
-      <div className="flex w-full flex-col gap-2">
-        <Label htmlFor="resumen-real-amount">Lo que llegó en el resumen</Label>
-        <div className="relative">
-          <span
-            aria-hidden="true"
-            className="text-muted-foreground pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
-          >
-            {resumen.currency === 'USD' ? 'US$' : '$'}
-          </span>
-          <FormattedAmountInput
-            id="resumen-real-amount"
-            name="resumen-real-amount"
-            className={resumen.currency === 'USD' ? 'pl-12' : 'pl-8'}
-            value={amount}
-            onChange={setAmount}
-            autoComplete="off"
-          />
-        </div>
-      </div>
-      {error === null ? null : <AlertMessage>{error}</AlertMessage>}
-      <Button type="submit" className="w-full" disabled={mutation.isPending}>
-        Cargar el resumen
-      </Button>
-    </form>
-  )
-}
-
-// The pay flow's amount and date, for a Resumen: the amount defaults to the
-// total, and it can't be paid before its month starts. A paid one offers
+// The pay flow's amount and date, for a Resumen: the amount starts at the
+// estimate and is meant to be corrected upwards to whatever the bank
+// charged, and it can't be paid before its month starts. A paid one offers
 // only the undo.
 function ResumenPayment({
   db,
@@ -307,7 +230,9 @@ function ResumenPayment({
   readonly onDone: () => void
 }): ReactElement {
   const queryClient = useQueryClient()
-  const [amount, setAmount] = useState(String(resumen.expectedAmount ?? ''))
+  // The estimate, there to be adjusted: paying is the moment the household
+  // knows the real figure, and typing it is how the bank's extras get in.
+  const [amount, setAmount] = useState(String(resumen.estimatedAmount ?? ''))
   const [paymentDate, setPaymentDate] = useState(
     localDateInputValue(new Date()),
   )
@@ -330,20 +255,7 @@ function ResumenPayment({
   }
 
   const mutation = useMutation({
-    mutationFn: async (action: 'pay' | 'undo' | 'unload') => {
-      // Takes the hand-typed figure back off, returning this to waiting for
-      // its statement. A number typed wrong used to be permanent: the card
-      // read as a bill of US$13,99 for weeks, and there was no way back.
-      // Per direct feedback.
-      if (action === 'unload') {
-        await setResumenAmount({
-          db,
-          householdId,
-          resumenId: resumen.id,
-          amount: null,
-        })
-        return
-      }
+    mutationFn: async (action: 'pay' | 'undo') => {
       if (action === 'undo') {
         await unmarkPendientePaid({
           db,
@@ -381,9 +293,7 @@ function ResumenPayment({
           ? caught.message
           : action === 'undo'
             ? 'No se pudo deshacer el pago'
-            : action === 'unload'
-              ? 'No se pudo sacar el monto'
-              : 'No se pudo pagar el resumen',
+            : 'No se pudo pagar el resumen',
       )
     },
   })
@@ -411,20 +321,6 @@ function ResumenPayment({
     )
   }
 
-  // Nothing to pay until the statement is loaded: what is on screen is an
-  // estimate, and paying an estimate is how a card purchase used to become
-  // a debt on its own. Per direct feedback.
-  if (resumen.expectedAmount === null) {
-    return (
-      <ResumenAmountForm
-        db={db}
-        householdId={householdId}
-        resumen={resumen}
-        onSettled={onSettled}
-      />
-    )
-  }
-
   const payable = canPayResumen(resumen, new Date())
 
   function onSubmit(event: FormEvent<HTMLFormElement>): void {
@@ -446,17 +342,21 @@ function ResumenPayment({
             aria-hidden="true"
             className="text-muted-foreground pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
           >
-            $
+            {resumen.currency === 'USD' ? 'US$' : '$'}
           </span>
           <FormattedAmountInput
             id="resumen-amount"
             name="resumen-amount"
-            className="pl-8"
+            className={resumen.currency === 'USD' ? 'pl-12' : 'pl-8'}
             value={amount}
             onChange={setAmount}
             autoComplete="off"
           />
         </div>
+        <p className="text-muted-foreground text-xs">
+          Viene con el estimado puesto. Si el banco cobró impuestos o intereses,
+          corregilo acá.
+        </p>
       </div>
       <div className="flex w-full flex-col gap-2">
         <Label htmlFor="resumen-payment-date">Fecha de pago</Label>
@@ -488,20 +388,6 @@ function ResumenPayment({
         {...(payable ? {} : { 'aria-describedby': 'resumen-not-yet-payable' })}
       >
         Pagar resumen
-      </Button>
-      {/* The way back from a figure typed wrong. Secondary, because the
-          ordinary thing to do here is pay it. */}
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full"
-        disabled={mutation.isPending}
-        onClick={() => {
-          setError(null)
-          mutation.mutate('unload')
-        }}
-      >
-        No era este monto
       </Button>
     </form>
   )

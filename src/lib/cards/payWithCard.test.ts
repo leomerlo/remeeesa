@@ -14,7 +14,6 @@ import {
   listResumenCuotas,
   markPendientePaidWithCard,
   markResumenPaid,
-  setResumenAmount,
 } from './purchases'
 
 // Paying a bill with a credit card. The money does not leave the household
@@ -206,12 +205,6 @@ describe('markPendientePaidWithCard', () => {
     if (resumen === undefined) {
       throw new Error('expected a Resumen')
     }
-    await setResumenAmount({
-      db,
-      householdId,
-      resumenId: resumen.id,
-      amount: 36800,
-    })
     await markResumenPaid({
       db,
       householdId,
@@ -233,12 +226,12 @@ describe('markPendientePaidWithCard', () => {
   })
 })
 
-// A statement amount is typed by hand, and a hand types wrong numbers. It
-// used to be permanent -- the card read as a bill of someone else's figure
-// forever, and the only way out was not to have made the mistake. Per
-// direct feedback.
-describe('taking a loaded statement amount back off', () => {
-  it('returns the Resumen to waiting, with its estimate intact', async () => {
+// A card bill is an estimate until it is paid, and what the card actually
+// charged is only known through the payment itself -- so undoing that
+// payment has to take the figure back off with it. Per direct feedback:
+// las tarjetas siempre van a ser estimadas.
+describe('what a Resumen knows about its own bill', () => {
+  async function payableResumen() {
     const { db, householdId, cardId, pendienteId } = await setup()
     await markPendientePaidWithCard({
       db,
@@ -249,7 +242,9 @@ describe('taking a loaded statement amount back off', () => {
       authorDisplayName: 'Flor',
       finalAmount: 36800,
       cuotas: 1,
-      paymentDate: TODAY,
+      // August, so its one cuota lands in September's Resumen, which today
+      // (the 20th) is already payable.
+      paymentDate: new Date(2026, 7, 18, 12),
     })
     const [resumen] = (await db.listPendientes({ householdId })).filter(
       (candidate) => candidate.cardId !== undefined,
@@ -257,22 +252,52 @@ describe('taking a loaded statement amount back off', () => {
     if (resumen === undefined) {
       throw new Error('expected a Resumen')
     }
-    await setResumenAmount({
+    return { db, householdId, resumen }
+  }
+
+  it('knows nothing until it is paid, then holds what was paid', async () => {
+    const { db, householdId, resumen } = await payableResumen()
+
+    expect(resumen.expectedAmount).toBeNull()
+    expect(resumen.estimatedAmount).toBe(36800)
+
+    // The bank charged more than the consumos came to: taxes, interest,
+    // whatever it adds on top. That figure is typed at the moment of
+    // paying, and that is the only way it ever gets in.
+    const { pendiente: paid } = await markResumenPaid({
       db,
       householdId,
       resumenId: resumen.id,
-      amount: 13.99,
+      memberId: 'user-1',
+      authorDisplayName: 'Flor',
+      amountPaid: 39500,
+      paymentDate: TODAY,
     })
 
-    const cleared = await setResumenAmount({
+    expect(paid.expectedAmount).toBe(39500)
+    expect(paid.estimatedAmount).toBe(36800)
+  })
+
+  it('goes back to being an estimate when the payment is undone', async () => {
+    const { db, householdId, resumen } = await payableResumen()
+    await markResumenPaid({
       db,
       householdId,
       resumenId: resumen.id,
-      amount: null,
+      memberId: 'user-1',
+      authorDisplayName: 'Flor',
+      amountPaid: 39500,
+      paymentDate: TODAY,
     })
 
-    expect(cleared.expectedAmount).toBeNull()
+    const undone = await unmarkPendientePaid({
+      db,
+      householdId,
+      pendienteId: resumen.id,
+    })
+
+    expect(undone.expectedAmount).toBeNull()
     // The household's own record of what it put on the card is untouched.
-    expect(cleared.estimatedAmount).toBe(36800)
+    expect(undone.estimatedAmount).toBe(36800)
   })
 })

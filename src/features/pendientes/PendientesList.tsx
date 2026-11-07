@@ -460,14 +460,19 @@ export function PendientesList({
             title="Lo que van a pedir las tarjetas"
             subtitle="Tocá para ver los consumos"
             headingId="resumen-tarjetas-heading"
+            detailTitle={`Tarjetas de ${formatMonthLabel(monthStart)}`}
+            // This is the month on screen, so these are bills that can be
+            // paid -- and this block is now the only place they live.
+            onPay={setOpenResumen}
           />
           {/* Under the card rather than inside it: at phone width a
               sentence this long wrapped to four lines and squashed the
               figure it was explaining. It is also the sentence the app
               never said out loud, so it gets its own line. */}
           <p className="text-muted-foreground text-sm">
-            Todavía no llegaron los resúmenes, así que esto no se debe ni se
-            descuenta del mes. Cuando llegue uno, abrilo y cargá el monto real.
+            Es la suma de lo que fuiste cargando, así que no se debe ni se
+            descuenta del mes. Cuando pagues una tarjeta, abrila y poné lo que
+            te cobró el banco.
           </p>
         </section>
       )}

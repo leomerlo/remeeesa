@@ -400,28 +400,6 @@ export function resumenPayment(input: {
   }
 }
 
-// Loads what the card actually billed, once the statement closes. Until
-// this runs a Resumen owes nothing: everything the household logged against
-// the card is an estimate of this figure, never the figure itself. Per
-// direct feedback -- "no se tiene que sumar automáticamente".
-export async function setResumenAmount(input: {
-  readonly db: HouseholdsDb
-  readonly householdId: string
-  readonly resumenId: string
-  // null takes the figure back off, returning the Resumen to waiting for
-  // its statement -- the way back from a number typed wrong. Per direct
-  // feedback: once it was loaded there was no undoing it.
-  readonly amount: number | null
-}): Promise<Pendiente> {
-  return input.db.setResumenAmount({
-    householdId: input.householdId,
-    resumenId: input.resumenId,
-    // The same floor every amount in the app has: a resumen of nothing is
-    // a resumen that did not arrive -- which is what null says outright.
-    amount: input.amount === null ? null : parseExpensePrice(input.amount),
-  })
-}
-
 // Pays a card's Resumen in one transaction (see HouseholdsDb.markResumenPaid).
 // Undoing it is unmarkPendientePaid, as for any Pendiente.
 export async function markResumenPaid(input: {

@@ -1217,23 +1217,6 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       state.pendientes.set(input.pendienteId, updated)
       return { pendiente: updated, expense }
     },
-    async setResumenAmount(input) {
-      assertMemberOf(state, userId, input.householdId)
-      const existing = state.pendientes.get(input.resumenId)
-      if (
-        existing === undefined ||
-        existing.householdId !== input.householdId ||
-        existing.cardId === undefined
-      ) {
-        throw new PendienteNotFoundError()
-      }
-      if (existing.status !== 'pending') {
-        throw new PendienteAlreadyPaidError()
-      }
-      const next: Pendiente = { ...existing, expectedAmount: input.amount }
-      state.pendientes.set(next.id, next)
-      return next
-    },
     async markResumenPaid(input) {
       assertMemberOf(state, userId, input.householdId)
       if (input.memberId !== userId) {
@@ -1289,6 +1272,11 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       const updated: Pendiente = {
         ...resumen,
         status: 'paid',
+        // What the card actually billed, known at last: it is whatever was
+        // paid. A Resumen carries no figure of its own until then -- it is
+        // an estimate of a bill nobody has seen.
+        expectedAmount: input.amountPaid,
+        estimatedAmount: resumen.estimatedAmount ?? 0,
         paidExpenseId: paidExpenseIds[0] ?? null,
         paidExpenseIds,
         paidAt: input.paymentDate,
@@ -1417,7 +1405,11 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         paidExpenseId: null,
         ...(paidPurchaseId === null ? {} : { paidPurchaseId: null }),
         paidAt: null,
-        ...(existing.cardId === undefined ? {} : { paidExpenseIds: [] }),
+        // Back to an estimate: the bill was only ever known through the
+        // payment that is being undone.
+        ...(existing.cardId === undefined
+          ? {}
+          : { paidExpenseIds: [], expectedAmount: null }),
       }
       state.pendientes.set(input.pendienteId, updated)
       for (const purchaseId of existing.purchaseIds ?? []) {

@@ -23,6 +23,9 @@ export type CardsSummaryCardProps = {
   readonly title: string
   readonly subtitle: string
   readonly headingId: string
+  // Passed on to the detail sheet; see CardsNextMonthSheet.
+  readonly onPay?: (resumen: Pendiente) => void
+  readonly detailTitle?: string
 }
 
 // Resolved once at module level, not per render: the name is a constant, so
@@ -45,6 +48,8 @@ export function CardsSummaryCard({
   title,
   subtitle,
   headingId,
+  onPay,
+  detailTitle,
 }: CardsSummaryCardProps): ReactElement | null {
   const [isOpen, setIsOpen] = useState(false)
   const totals = resumenTotals(resumenes)
@@ -110,6 +115,15 @@ export function CardsSummaryCard({
         resumenes={resumenes}
         open={isOpen}
         onOpenChange={setIsOpen}
+        {...(detailTitle === undefined ? {} : { title: detailTitle })}
+        {...(onPay === undefined
+          ? {}
+          : {
+              onPay: (resumen: Pendiente) => {
+                setIsOpen(false)
+                onPay(resumen)
+              },
+            })}
       />
     </>
   )

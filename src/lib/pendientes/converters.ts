@@ -88,15 +88,25 @@ export function parsePendienteDocument(input: {
   // once.
   const isLegacyResumen =
     card_id !== undefined && estimated_amount === undefined
+  // A card bill is an estimate until it is paid: what the card charges
+  // includes taxes and interest nobody can add up in advance, so the real
+  // figure is typed at the moment of paying and nowhere else. Documents
+  // written before that carry a figure somebody typed while the bill was
+  // still pending -- it is ignored, the same way a legacy one is, and the
+  // cuotas are what the Resumen is worth. Per direct feedback: las
+  // tarjetas siempre van a ser estimadas, nunca puede ser un número fijo.
+  const isUnpaidResumen =
+    card_id !== undefined && parsePendienteStatus(status) !== 'paid'
   return {
     id: input.id,
     householdId: parseRequiredString(household_id, 'household_id'),
     categoryId: parseRequiredString(category_id, 'category_id'),
     name: parsePendienteName(name),
     dueDate: parseTimestamp(due_date, 'due_date'),
-    expectedAmount: isLegacyResumen
-      ? null
-      : parseNullableNumber(expected_amount, 'expected_amount'),
+    expectedAmount:
+      isLegacyResumen || isUnpaidResumen
+        ? null
+        : parseNullableNumber(expected_amount, 'expected_amount'),
     recurring: parseBoolean(recurring, 'recurring'),
     // Missing on any Pendiente written before auto-debit existed -- absent
     // means the household pays it themselves, which is what every one of

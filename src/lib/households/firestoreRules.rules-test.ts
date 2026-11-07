@@ -611,7 +611,8 @@ describe('resúmenes', () => {
       category_id: 'cat-tarjeta',
       name: 'Visa',
       due_date: Timestamp.fromDate(new Date(2026, 9, 10)),
-      // A Resumen owes nothing until its statement is loaded.
+      // A card bill owes nothing until it is paid: what the card charges
+      // is only known through the payment itself.
       expected_amount: null,
       estimated_amount: 5000,
       recurring: false,
@@ -636,8 +637,8 @@ describe('resúmenes', () => {
   })
 
   // The model the card work turned on: a purchase moves the estimate, and
-  // only a human loading the statement sets what is owed.
-  it('lets a purchase move the estimate, and lets the statement be loaded', async () => {
+  // nothing else may put a figure on a bill that has not been paid.
+  it('lets a purchase move the estimate', async () => {
     await seedCard()
     const db = asMember()
     await setDoc(doc(db, 'pendientes', RESUMEN_ID), resumenDocument())
@@ -648,10 +649,21 @@ describe('resúmenes', () => {
         purchase_ids: ['purchase-1', 'purchase-2'],
       }),
     )
-    await assertSucceeds(
+  })
+
+  // The rule that replaced "load the statement, then pay it": a card bill
+  // is an estimate until it is paid, so typing a figure into a pending one
+  // is refused outright. Per direct feedback: las tarjetas siempre van a
+  // ser estimadas, nunca puede ser un número fijo.
+  it('refuses a figure typed into a bill that has not been paid', async () => {
+    await seedCard()
+    const db = asMember()
+    await setDoc(doc(db, 'pendientes', RESUMEN_ID), resumenDocument())
+
+    await assertFails(
       updateDoc(doc(db, 'pendientes', RESUMEN_ID), {
         expected_amount: 7400,
-        estimated_amount: 7000,
+        estimated_amount: 5000,
       }),
     )
   })
@@ -667,7 +679,47 @@ describe('resúmenes', () => {
     )
   })
 
-  it('refuses an outsider loading the statement', async () => {
+  // The write the app actually makes when a bill is paid, run against the
+  // real rules: the expense it generates and the Resumen's own update land
+  // in one commit, and that update is the only place expected_amount is
+  // ever written.
+  it('records what was paid in the commit that pays it', async () => {
+    await seedCard()
+    const db = asMember()
+    await setDoc(doc(db, 'pendientes', RESUMEN_ID), resumenDocument())
+
+    const batch = writeBatch(db)
+    batch.set(doc(db, 'expenses', 'expense-resumen-1'), {
+      household_id: HOUSEHOLD,
+      category_id: 'cat-tarjeta',
+      member_id: ME,
+      author_display_name: 'Ada',
+      name: 'Visa',
+      price: 7400,
+      comments: '',
+      expense_date: Timestamp.now(),
+      pendiente_id: RESUMEN_ID,
+      is_service: false,
+      subcategory: 'Comida',
+      currency: 'ARS',
+      payment_method_id: null,
+      created_at: Timestamp.now(),
+    })
+    batch.update(doc(db, 'pendientes', RESUMEN_ID), {
+      status: 'paid',
+      // More than the estimate: the bank's taxes and interest, which is
+      // why the figure is typed at the moment of paying.
+      expected_amount: 7400,
+      estimated_amount: 5000,
+      paid_expense_id: 'expense-resumen-1',
+      paid_expense_ids: ['expense-resumen-1'],
+      paid_at: Timestamp.fromDate(new Date(2026, 9, 12)),
+    })
+
+    await assertSucceeds(batch.commit())
+  })
+
+  it('refuses an outsider touching the bill', async () => {
     await seedCard()
     await testEnv.withSecurityRulesDisabled(async (context) => {
       await setDoc(

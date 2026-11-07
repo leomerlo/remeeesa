@@ -329,25 +329,6 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/cards/$(data.card_id)).data.household_id == data.household_id;
     }
 
-    // Loading what the card actually billed, once the statement closes.
-    // The household types this one in: it is the only way a Resumen comes
-    // to owe anything, and it can still be corrected until it is paid.
-    // estimated_amount rides along so a Resumen written before the two
-    // figures were told apart stops reading as a legacy one.
-    function isValidResumenAmountLoad() {
-      return resource.data.status == 'pending'
-        && ('card_id' in resource.data)
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['expected_amount', 'estimated_amount'])
-        // null puts it back to waiting: a figure typed by hand can be
-        // typed wrong, and until this there was no way back from one --
-        // the card read as a bill of someone else's number forever. Per
-        // direct feedback.
-        && (request.resource.data.expected_amount == null
-          || (request.resource.data.expected_amount is number
-            && request.resource.data.expected_amount > 0))
-        && request.resource.data.estimated_amount is number;
-    }
 
     // Missing Resúmenes have no resource, but the purchase transaction has to
     // tx.get one before creating it -- allowed only for a card of the
@@ -513,8 +494,13 @@ service cloud.firestore {
     // list, so only the first Expense is checked to be gone.
     function isValidPendienteUnmarkPaid() {
       return resource.data.status == 'paid'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paid_expense_id', 'paid_expense_ids', 'paid_purchase_id', 'paid_at'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paid_expense_id', 'paid_expense_ids', 'paid_purchase_id', 'paid_at', 'expected_amount'])
         && request.resource.data.status == 'pending'
+        // A Resumen goes back to being an estimate: the bill it knew was
+        // only ever known through the payment being undone. An ordinary
+        // bill keeps the amount it was always expecting.
+        && (request.resource.data.get('expected_amount', null) == resource.data.get('expected_amount', null)
+          || (('card_id' in resource.data) && request.resource.data.get('expected_amount', null) == null))
         && request.resource.data.paid_expense_id == null
         && request.resource.data.get('paid_expense_ids', []) == []
         && request.resource.data.paid_at == null
@@ -536,11 +522,19 @@ service cloud.firestore {
     // over the list, so only the first is checked to exist in this
     // household. Never before its month starts: due_date is day 10, so
     // month start is 9 days earlier (a day of slack for time zones).
+    // expected_amount is written here and only here: a card bill is an
+    // estimate until it is paid, and what the card actually charged --
+    // taxes and interest included -- is known through the payment itself.
+    // estimated_amount rides along so a Resumen written before the two
+    // figures were told apart stops reading as a legacy one.
     function isValidResumenMarkPaid() {
       return resource.data.status == 'pending'
         && ('card_id' in resource.data)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paid_expense_id', 'paid_expense_ids', 'paid_at'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'paid_expense_id', 'paid_expense_ids', 'paid_at', 'expected_amount', 'estimated_amount'])
         && request.resource.data.status == 'paid'
+        && request.resource.data.expected_amount is number
+        && request.resource.data.expected_amount > 0
+        && request.resource.data.estimated_amount is number
         && request.resource.data.paid_expense_ids is list
         && request.resource.data.paid_expense_ids.size() > 0
         && request.resource.data.paid_expense_id is string
@@ -663,7 +657,7 @@ service cloud.firestore {
           ? isValidResumen(pendienteId, request.resource.data)
           : !isResumenId(pendienteId));
       allow update: if isMemberOf(resource.data.household_id)
-        && (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isValidPendienteMarkPaidWithCard() || isPendienteCategoryRepoint() || isPendienteRecurrenceEdit() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenAmountLoad() || isValidResumenMarkPaid() || isResumenRename());
+        && (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isValidPendienteMarkPaidWithCard() || isPendienteCategoryRepoint() || isPendienteRecurrenceEdit() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenMarkPaid() || isResumenRename());
       allow delete: if isMemberOf(resource.data.household_id)
         && resource.data.status == 'pending';
     }

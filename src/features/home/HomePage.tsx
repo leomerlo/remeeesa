@@ -306,8 +306,6 @@ export function HomePage({
               <PorPagarSection
                 db={db}
                 householdId={membership.householdId}
-                memberId={currentUserId}
-                authorDisplayName={authorDisplayName}
                 monthStart={monthStart}
                 monthEnd={monthEnd}
                 onMarkPaid={(pendiente, categoryName) => {
