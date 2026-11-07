@@ -107,13 +107,11 @@ export function Tarjetas({
               ))
             )}
           </div>
-          <div className="legend">
-            <span>
-              Es lo que las tarjetas van a pedir, y es <b>siempre estimado</b>:
-              el resumen trae impuestos e intereses que todavía no están acá.
-              Cuando llegue cerrado, anótenlo como un gasto.
-            </span>
-          </div>
+          <p className="herosay">
+            Es lo que las tarjetas van a pedir, y es <b>siempre estimado</b>: el
+            resumen trae impuestos e intereses que todavía no están acá. Cuando
+            llegue cerrado, anótenlo como un gasto.
+          </p>
         </div>
       </div>
 

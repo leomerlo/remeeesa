@@ -2,16 +2,15 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <!-- The beta's own icon, not the v1's: no more dinosaur. Its own files
-         rather than the shared favicon-*.png, so the v1 keeps the icon its
-         users already have on their phones until it is retired. The master
-         is public/beta-icon.svg; the PNGs come out of
-         scripts/beta-icons.mjs. -->
-    <link rel="icon" type="image/svg+xml" href="/beta-icon.svg" />
+    <!-- The beta's own icon, not the v1's: no more dinosaur. The mark is
+         the three e's of the logo, and the files come out of
+         scripts/beta-icons.mjs. Its own files rather than the shared
+         favicon-*.png, so nobody's home screen changes under them while
+         the v1 is still the app people use. -->
     <link rel="icon" type="image/png" sizes="48x48" href="/beta-icon-48.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/beta-icon-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/beta-icon-16.png" />
-    <!-- iOS ignores the SVG and the manifest both, and wants exactly this. -->
+    <!-- iOS ignores the manifest and wants exactly this one. -->
     <link rel="apple-touch-icon" href="/beta-icon-180.png" />
     <link rel="manifest" href="/beta.webmanifest" />
     <meta name="theme-color" content="#4d1f8d" />

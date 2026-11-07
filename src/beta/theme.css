@@ -194,6 +194,11 @@
   .legend b { color: var(--ink); font-weight: 800; font-variant-numeric: tabular-nums; }
   .legend span { display: inline-flex; align-items: center; gap: 6px; }
   .legend i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  /* A sentence under a figure, not a row of labelled dots -- .legend is a
+     flex row and breaks a paragraph into columns at every <b>. */
+  .herosay { margin: 0; font-size: var(--t-sm); font-weight: 400;
+             color: var(--ink-2); line-height: 1.45; }
+  .herosay b { font-weight: 800; color: var(--ink); }
   .perday { display: flex; align-items: center; gap: 8px; background: var(--grape-50);
             color: var(--grape-700); border-radius: 16px; padding: 12px 16px;
             font-size: var(--t-sm); font-weight: 700; line-height: 1.3; }
@@ -465,6 +470,8 @@
   .hood .fill.over { background: var(--hood-red); }
   .hood .legend { color: var(--hood-ink-2); }
   .hood .legend b { color: var(--hood-ink); }
+  .hood .herosay { color: var(--hood-ink-2); }
+  .hood .herosay b { color: var(--hood-ink); }
   /* On the dark panel the quiet link has to be light, or it is invisible. */
   .hood .skip { color: var(--hood-ink-2); }
   .hood .hero .figure.over { color: var(--hood-red); }
