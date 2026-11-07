@@ -20,7 +20,11 @@ import { Proyecciones } from './screens/Proyecciones'
 // like /beta/gastos would 404 on Vercel without a rewrite rule nobody will
 // remember to add. The hash keeps the back button working with no server
 // involved.
-function Routed(): ReactElement {
+// Exported so the beta's demo page can mount the same tree over the
+// seeded in-memory household. It reads the session like any screen does,
+// so the demo goes through the real sign-in check and the real read-only
+// guard rather than around them.
+export function BetaRoutes(): ReactElement {
   const firebase = useFirebase()
   const session = useBetaSession()
 
@@ -74,7 +78,7 @@ export function BetaApp(): ReactElement {
     <FirebaseProvider client={client}>
       <QueryClientProvider client={queryClient}>
         <HashRouter>
-          <Routed />
+          <BetaRoutes />
         </HashRouter>
       </QueryClientProvider>
     </FirebaseProvider>

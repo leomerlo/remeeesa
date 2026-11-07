@@ -5,16 +5,17 @@ import type { ReactElement } from 'react'
 import { cardsDueNextMonth, listResumenCuotas } from '@/lib/cards'
 import type { ResumenCuota } from '@/lib/cards'
 import type { Card as PaymentMethod } from '@/lib/cards'
-import { formatAmount, formatCurrency } from '@/lib/expenses'
-import { isBillToPay } from '@/lib/pendientes'
+import { formatAmount } from '@/lib/expenses'
 import type { Pendiente } from '@/lib/pendientes'
 import { DEFAULT_CURRENCY } from '@/lib/money'
-import type { Currency } from '@/lib/money'
+import { cuentasFigures } from '../figures'
+
 import { CardBrandMark } from '../CardBrandMark'
-import { ListSkeleton } from '../Skeleton'
+import { ListSkeleton, NameSkel } from '../Skeleton'
+import { Figure } from '../Figure'
 import { MonthPager } from '../MonthPager'
 import { useMonth } from '../MonthContext'
-import { BillRow, sortBills } from '../rows'
+import { BillRow } from '../rows'
 import { monthName } from '../format'
 import type { BetaSession } from '../data'
 import { LoadFailed, Title } from './Gastos'
@@ -55,26 +56,6 @@ export function Cuentas({
     },
   })
 
-  if (data.isPending) {
-    return <ListSkeleton label="Cargando las cuentas" rows={4} />
-  }
-  if (data.isError || data.data === undefined) {
-    return <LoadFailed />
-  }
-
-  const { pendientes, categories, cards, household, resumenes, cuotas } =
-    data.data
-
-  // Only what is still owed. A bill the household already paid lives in its
-  // Expense now; counting it here too was adding up years of paid bills.
-  const bills = sortBills(
-    pendientes.filter(
-      (pendiente) => pendiente.status === 'pending' && isBillToPay(pendiente),
-    ),
-    monthStart,
-    now,
-  )
-
   const segment = (
     <div className="segment">
       <button
@@ -93,6 +74,34 @@ export function Cuentas({
       </button>
     </div>
   )
+
+  if (data.isPending) {
+    return (
+      <>
+        <Title text="Cuentas" home={<NameSkel />} />
+        {segment}
+        <MonthPager />
+        <ListSkeleton label="Cargando las cuentas" rows={4} />
+      </>
+    )
+  }
+  if (data.isError || data.data === undefined) {
+    return (
+      <>
+        <Title text="Cuentas" home="" />
+        <LoadFailed />
+      </>
+    )
+  }
+
+  const { pendientes, categories, cards, household, resumenes, cuotas } =
+    data.data
+
+  const { bills, owed, owedUsd, late } = cuentasFigures({
+    pendientes,
+    monthStart,
+    now,
+  })
 
   if (view === 'tarjetas') {
     return (
@@ -121,17 +130,6 @@ export function Cuentas({
     )
   }
 
-  // Dollars are shown but never added into a peso total.
-  const currencyOf = (bill: Pendiente): Currency =>
-    bill.currency ?? DEFAULT_CURRENCY
-  const pesos = bills.filter((bill) => currencyOf(bill) === DEFAULT_CURRENCY)
-  const dollars = bills.filter((bill) => currencyOf(bill) !== DEFAULT_CURRENCY)
-  const owed = pesos.reduce((sum, bill) => sum + (bill.expectedAmount ?? 0), 0)
-  const owedUsd = dollars.reduce(
-    (sum, bill) => sum + (bill.expectedAmount ?? 0),
-    0,
-  )
-
   return (
     <>
       <Title text="Cuentas" home={household.name} />
@@ -152,12 +150,21 @@ export function Cuentas({
         <>
           <div className="card hero">
             <div className="label">Falta pagar</div>
-            <div className="figure">{formatCurrency(owed)}</div>
+            <div className="figure">
+              <Figure amount={owed} />
+            </div>
             <div className="legend">
               <span>
-                {pesos.length} {pesos.length === 1 ? 'cuenta' : 'cuentas'}{' '}
-                pendientes
+                {bills.length} {bills.length === 1 ? 'cuenta' : 'cuentas'} sin
+                pagar
               </span>
+              {late.length > 0 ? (
+                <span>
+                  {late.length === 1
+                    ? 'Una viene de un mes anterior'
+                    : `${String(late.length)} vienen de meses anteriores`}
+                </span>
+              ) : null}
               {owedUsd > 0 ? (
                 <span>
                   Y <b>{formatAmount(owedUsd, 'USD')}</b> en dólares

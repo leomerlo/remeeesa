@@ -8,20 +8,13 @@ import {
   TrendingUp,
   TriangleAlert,
 } from 'lucide-react'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { cardsDueNextMonthTotals } from '@/lib/cards'
-import {
-  computePendingCommitted,
-  computeSpendToDate,
-  computeSpentThisMonth,
-  formatAmount,
-  formatCurrency,
-  summarizeByCategory,
-} from '@/lib/expenses'
-import { monthlyBudgetFor } from '@/lib/households'
-import { isBillToPay, pendientesDueInMonth } from '@/lib/pendientes'
-import { HomeSkeleton } from '../Skeleton'
+import { formatCurrency } from '@/lib/expenses'
+import { Figure } from '../Figure'
+import { homeFigures } from '../figures'
+import type { HomeFigures } from '../figures'
+import { HomeSkeleton, Skel } from '../Skeleton'
 import { MonthPager } from '../MonthPager'
 import { useMonth } from '../MonthContext'
 import {
@@ -31,8 +24,6 @@ import {
   ExpenseRow,
   ProjectionLink,
   PurchaseRow,
-  billState,
-  sortBills,
 } from '../rows'
 import { monthName } from '../format'
 import type { BetaSession } from '../data'
@@ -89,11 +80,34 @@ export function Home({
     },
   })
 
+  // The greeting and the month pager are true before anything is
+  // fetched -- the name comes from the session, not the household -- so
+  // they are drawn first and stay put.
+  const greeting = (subtitle: ReactNode): ReactElement => (
+    <header className="head">
+      <div className="hello">
+        Hola, {session.displayName ?? 'vos'} 👋
+        <span>{subtitle}</span>
+      </div>
+      <MonthPager />
+    </header>
+  )
+
   if (data.isPending) {
-    return <HomeSkeleton />
+    return (
+      <>
+        {greeting(<Skel w="70%" h={15} />)}
+        <HomeSkeleton />
+      </>
+    )
   }
   if (data.isError || data.data === undefined) {
-    return <LoadFailed />
+    return (
+      <>
+        {greeting('No pudimos leer el mes.')}
+        <LoadFailed />
+      </>
+    )
   }
 
   const {
@@ -106,45 +120,18 @@ export function Home({
     members,
   } = data.data
 
-  // What already left the household's hands this month. Only Expenses: a
-  // card purchase has not cost anything yet, and an unpaid bill has not
-  // either. Same figure the v1 calls "En uso".
-  const paid = computeSpentThisMonth(expenses)
-
-  // What the cards are going to ask for next month, read exactly the way
-  // the v1 reads it: off the Resumen the app already keeps per card and
-  // month, one figure per currency, never the two added together. It is
-  // NOT the sum of this month's purchases -- a purchase in six cuotas
-  // sends a sixth of itself to each of six statements.
-  const cards = cardsDueNextMonthTotals(pendientes, monthStart)
-
-  // Only what is still unpaid, so a month whose bills were all paid shows
-  // nothing owed instead of its whole history.
-  const unpaid = pendientes.filter(
-    (pendiente) => pendiente.status === 'pending' && isBillToPay(pendiente),
-  )
-  const bills = sortBills(unpaid, monthStart, now)
-  const late = bills.filter(
-    (bill) => billState(bill, monthStart, now) === 'late',
-  )
-
-  // The v1's rule, to the letter: a bill counts against a month's budget
-  // only if it falls due *inside that month*. One due in December does not
-  // eat into October, and one already paid counts through its Expense, not
-  // twice. This is the figure that was making the beta read two million
-  // short.
-  const owed = computePendingCommitted(
-    pendientesDueInMonth(pendientes, monthStart, monthEnd),
-  )
-  const budget = monthlyBudgetFor(household, monthStart, now)
-
-  // A month already over is compared whole against the month before it; a
-  // month still running is cut at today. Anchoring on `now` whatever month
-  // was on screen made every month show the current one's comparison.
-  const closed = now > monthEnd
-  const toDate = computeSpendToDate(allExpenses, closed ? monthEnd : now)
-  const spent = toDate.thisMonth
-  const byCategory = summarizeByCategory({ expenses, categories })
+  const figures = homeFigures({
+    household,
+    expenses,
+    allExpenses,
+    pendientes,
+    categories,
+    monthStart,
+    monthEnd,
+    now,
+  })
+  const { budget, paid, owed, cards, bills, late, byCategory, toDate, spent } =
+    figures
   const top = byCategory[0]
   const several = members.length > 1
   const others = members
@@ -153,28 +140,15 @@ export function Home({
 
   return (
     <>
-      <header className="head">
-        <div className="hello">
-          Hola, {session.displayName ?? 'vos'} 👋
-          <span>
-            Estos son los gastos de {household.name}, tuyos
-            {others.length > 0 ? ` y de ${others.join(' y ')}` : ''}, del mes de{' '}
-            {monthName(monthStart)}.
-          </span>
-        </div>
-        <MonthPager />
-      </header>
+      {greeting(
+        `Estos son los gastos de ${household.name}, tuyos${
+          others.length > 0 ? ` y de ${others.join(' y ')}` : ''
+        }, del mes de ${monthName(monthStart)}.`,
+      )}
 
       <div className="band">
         {budget > 0 ? (
-          <BudgetHero
-            budget={budget}
-            spent={paid}
-            owed={owed}
-            now={now}
-            monthEnd={monthEnd}
-            closed={closed}
-          />
+          <BudgetHero figures={figures} />
         ) : (
           <PlainHero spent={spent} toDate={toDate} />
         )}
@@ -188,7 +162,7 @@ export function Home({
               />
               Pagado
             </span>
-            <span className="amt">{formatCurrency(paid)}</span>
+            <Figure className="amt" amount={paid} />
             <span className="foot">Ya salió de la cuenta.</span>
           </div>
           <div className="card wait">
@@ -199,7 +173,7 @@ export function Home({
               />
               Pendiente
             </span>
-            <span className="amt">{formatCurrency(owed)}</span>
+            <Figure className="amt" amount={owed} />
             <span className="foot">
               Cuentas que vencen y todavía no pagaron.
             </span>
@@ -210,13 +184,18 @@ export function Home({
               Con la tarjeta
             </span>
             <span className="amt">
-              {cards.length === 0
-                ? formatCurrency(0)
-                : cards.map(({ currency, total }) => (
-                    <span className="one" key={currency}>
-                      {formatAmount(total, currency)}
-                    </span>
-                  ))}
+              {cards.length === 0 ? (
+                <Figure amount={0} />
+              ) : (
+                cards.map(({ currency, total }) => (
+                  <Figure
+                    className="one"
+                    key={currency}
+                    amount={total}
+                    currency={currency}
+                  />
+                ))
+              )}
             </span>
             <span className="foot">
               Lo que van a pedir los resúmenes el mes que viene.
@@ -299,14 +278,16 @@ function PlainHero({
   toDate,
 }: {
   readonly spent: number
-  readonly toDate: ReturnType<typeof computeSpendToDate>
+  readonly toDate: HomeFigures['toDate']
 }): ReactElement {
   const up = toDate.difference >= 0
   return (
     <div className="card hero hero-split">
       <div className="h-main">
         <div className="label">El hogar lleva gastado este mes</div>
-        <div className="figure">{formatCurrency(spent)}</div>
+        <div className="figure">
+          <Figure amount={spent} />
+        </div>
         {toDate.lastMonth > 0 ? (
           <span className={up ? 'chip' : 'chip good'}>
             {up ? <TrendingUp /> : <TrendingDown />}
@@ -330,32 +311,12 @@ function PlainHero({
 }
 
 function BudgetHero({
-  budget,
-  spent,
-  owed,
-  now,
-  monthEnd,
-  closed,
+  figures,
 }: {
-  readonly budget: number
-  readonly spent: number
-  readonly owed: number
-  readonly now: Date
-  readonly monthEnd: Date
-  readonly closed: boolean
+  readonly figures: HomeFigures
 }): ReactElement {
-  // The v1 subtracts both: a bill still owed counts against what is left
-  // the same as a paid one, because the budget is meant to cover it. What
-  // it never does is count a bill of another month -- see `owed` above.
-  const left = budget - spent - owed
-  const over = left < 0
-  const daysLeft = Math.max(
-    0,
-    Math.ceil((monthEnd.getTime() - now.getTime()) / 86_400_000),
-  )
-  const pctSpent = Math.min(100, Math.round((spent / budget) * 100))
-  const pctOwed = Math.min(100 - pctSpent, Math.round((owed / budget) * 100))
-  const perDay = left > 0 && daysLeft > 0 ? Math.floor(left / daysLeft) : 0
+  const { budget, paid, owed, left, over, closed, daysLeft, perDay } = figures
+  const { pctSpent, pctOwed } = figures
 
   return (
     <div className="card hero">
@@ -368,7 +329,7 @@ function BudgetHero({
         className="figure"
         style={over ? { color: 'var(--red-700)' } : undefined}
       >
-        {formatCurrency(left)}
+        <Figure amount={left} />
       </div>
       <div className="track">
         <div
@@ -382,7 +343,7 @@ function BudgetHero({
       <div className="legend">
         <span>
           <i style={{ background: 'var(--grape-600)' }} />
-          Gastado <b>{formatCurrency(spent)}</b>
+          Gastado <b>{formatCurrency(paid)}</b>
         </span>
         {owed > 0 ? (
           <span>

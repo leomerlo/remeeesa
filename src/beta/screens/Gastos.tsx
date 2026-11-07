@@ -1,11 +1,17 @@
 import { useQuery } from '@tanstack/react-query'
 import { Plus, ReceiptText, Search, SearchX, Settings2, X } from 'lucide-react'
 import { useState } from 'react'
-import type { ReactElement } from 'react'
-import { formatCurrency, summarizeByCategory } from '@/lib/expenses'
+import type { ReactElement, ReactNode } from 'react'
+import {
+  computeSpentThisMonth,
+  formatAmount,
+  formatCurrency,
+  summarizeByCategory,
+} from '@/lib/expenses'
 import type { Category, Expense } from '@/lib/expenses'
 import { matchesSearch } from '@/lib/search/fuzzyMatch'
-import { ListSkeleton } from '../Skeleton'
+import { ListSkeleton, NameSkel, SearchSkel } from '../Skeleton'
+import { Figure } from '../Figure'
 import { MonthPager } from '../MonthPager'
 import { useMonth } from '../MonthContext'
 import { CategoryTile } from '../Tile'
@@ -42,36 +48,10 @@ export function Gastos({
     },
   })
 
-  if (data.isPending) {
-    return <ListSkeleton label="Cargando los gastos" />
-  }
-  if (data.isError || data.data === undefined) {
-    return <LoadFailed />
-  }
-
-  const { expenses, categories, household, members } = data.data
-  const several = members.length > 1
-  const header = <Title text="Gastos" home={household.name} />
-
-  if (expenses.length === 0) {
-    return (
-      <>
-        {header}
-        <div className="card empty">
-          <span className="orb" aria-hidden="true">
-            <ReceiptText />
-          </span>
-          <h3>Todavía no anotaron nada</h3>
-          <p>Cuando anoten un gasto lo van a ver acá, ordenado por día.</p>
-          <button className="btn btn-primary" type="button" disabled>
-            <Plus />
-            Anotar un gasto
-          </button>
-        </div>
-      </>
-    )
-  }
-
+  // The chrome is drawn before the data lands and never moves: the title,
+  // the month it is showing and the two views are true whatever comes
+  // back, and a header that appears a beat later is the jump a loading
+  // state exists to prevent.
   const segment = (
     <div className="segment">
       <button
@@ -90,7 +70,57 @@ export function Gastos({
       </button>
     </div>
   )
-  const total = expenses.reduce((sum, expense) => sum + expense.price, 0)
+
+  if (data.isPending) {
+    return (
+      <>
+        <Title text="Gastos" home={<NameSkel />} />
+        <MonthPager />
+        {segment}
+        {view === 'lista' ? <SearchSkel /> : null}
+        <ListSkeleton label="Cargando los gastos" />
+      </>
+    )
+  }
+  if (data.isError || data.data === undefined) {
+    return (
+      <>
+        <Title text="Gastos" home="" />
+        <LoadFailed />
+      </>
+    )
+  }
+
+  const { expenses, categories, household, members } = data.data
+  const several = members.length > 1
+  const header = <Title text="Gastos" home={household.name} />
+
+  if (expenses.length === 0) {
+    return (
+      <>
+        {header}
+        <MonthPager />
+        <div className="card empty">
+          <span className="orb" aria-hidden="true">
+            <ReceiptText />
+          </span>
+          <h3>Todavía no anotaron nada</h3>
+          <p>Cuando anoten un gasto lo van a ver acá, ordenado por día.</p>
+          <button className="btn btn-primary" type="button" disabled>
+            <Plus />
+            Anotar un gasto
+          </button>
+        </div>
+      </>
+    )
+  }
+
+  // Pesos only, like every other peso figure in the app: a $45 expense in
+  // dollars is not 45 pesos, and adding it in made this screen's total
+  // disagree with the Home's by exactly that much. The dollars are still
+  // listed below, and said on their own line.
+  const total = computeSpentThisMonth(expenses)
+  const totalUsd = sumIn(expenses, 'USD')
 
   if (view === 'cats') {
     return (
@@ -100,7 +130,17 @@ export function Gastos({
         {segment}
         <div className="card hero">
           <div className="label">Total de {monthName(monthStart)}</div>
-          <div className="figure">{formatCurrency(total)}</div>
+          <div className="figure">
+            <Figure amount={total} />
+          </div>
+          {totalUsd > 0 ? (
+            <div className="legend">
+              <span>
+                Y <b>{formatAmount(totalUsd, 'USD')}</b> en dólares, que no
+                entran en el total en pesos.
+              </span>
+            </div>
+          ) : null}
         </div>
         <CategoryBars expenses={expenses} categories={categories} />
       </>
@@ -119,7 +159,8 @@ export function Gastos({
         ]),
       )
     : expenses
-  const shown = found.reduce((sum, expense) => sum + expense.price, 0)
+  const shown = computeSpentThisMonth(found)
+  const shownUsd = sumIn(found, 'USD')
   const rows = found.map((expense, index) => ({
     expense,
     // A day gets a header the first time it appears.
@@ -161,7 +202,17 @@ export function Gastos({
             ? `${String(found.length)} de ${String(expenses.length)} gastos`
             : `Total de ${monthName(monthStart)}`}
         </div>
-        <div className="figure">{formatCurrency(shown)}</div>
+        <div className="figure">
+          <Figure amount={shown} />
+        </div>
+        {shownUsd > 0 ? (
+          <div className="legend">
+            <span>
+              Y <b>{formatAmount(shownUsd, 'USD')}</b> en dólares, que no entran
+              en el total en pesos.
+            </span>
+          </div>
+        ) : null}
       </div>
       {found.length === 0 ? (
         <div className="card empty">
@@ -257,12 +308,23 @@ function CategoryBars({
   )
 }
 
+// What a set of expenses comes to in one currency. Kept out of
+// computeSpentThisMonth on purpose: that one answers "what did this cost
+// the peso budget", and is right to drop everything else.
+function sumIn(expenses: readonly Expense[], currency: 'ARS' | 'USD'): number {
+  return expenses
+    .filter((expense) => expense.currency === currency)
+    .reduce((sum, expense) => sum + expense.price, 0)
+}
+
 export function Title({
   text,
   home,
 }: {
   readonly text: string
-  readonly home?: string
+  // The household's name, or a placeholder of its size while it loads --
+  // the title must not jump sideways once the name arrives.
+  readonly home?: ReactNode
 }): ReactElement {
   return (
     <header className="head">

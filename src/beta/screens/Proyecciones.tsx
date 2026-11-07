@@ -10,7 +10,8 @@ import type { Category } from '@/lib/expenses'
 import { countedByBudget, DEFAULT_CURRENCY } from '@/lib/money'
 import { pendientesDueInMonth } from '@/lib/pendientes'
 import { cssVars } from '@/lib/cssVars'
-import { ListSkeleton } from '../Skeleton'
+import { ListSkeleton, NameSkel } from '../Skeleton'
+import { Figure } from '../Figure'
 import { MonthPager } from '../MonthPager'
 import { useMonth } from '../MonthContext'
 import { CategoryTile } from '../Tile'
@@ -84,10 +85,21 @@ export function Proyecciones({
   })
 
   if (data.isPending) {
-    return <ListSkeleton label="Cargando la proyección" rows={5} />
+    return (
+      <>
+        <Title text="Proyección" home={<NameSkel />} />
+        <MonthPager />
+        <ListSkeleton label="Cargando la proyección" rows={5} />
+      </>
+    )
   }
   if (data.isError || data.data === undefined) {
-    return <LoadFailed />
+    return (
+      <>
+        <Title text="Proyección" home="" />
+        <LoadFailed />
+      </>
+    )
   }
 
   const { current, previous, categories, pendientes, projection, household } =
@@ -137,6 +149,10 @@ export function Proyecciones({
       price: pendiente.expectedAmount ?? 0,
     })),
   ]
+    // Biggest first, like every other list of amounts in this app: the
+    // line worth arguing about is the one at the top.
+    .slice()
+    .sort((a, b) => b.price - a.price)
 
   if (rows.length === 0) {
     return (
@@ -191,7 +207,9 @@ export function Proyecciones({
         <div className="label">
           Así viene {monthName(monthStart)} si todo sigue igual
         </div>
-        <div className="figure">{formatCurrency(total)}</div>
+        <div className="figure">
+          <Figure amount={total} />
+        </div>
         <div className="legend">
           <span>
             Lo ya cargado del mes, más lo que el mes pasado dice que falta.

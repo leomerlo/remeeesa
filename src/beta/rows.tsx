@@ -10,37 +10,11 @@ import {
 import type { Category, Expense } from '@/lib/expenses'
 import type { Pendiente } from '@/lib/pendientes'
 import type { CardPurchase } from '@/lib/cards'
+import { billState } from './figures'
+export { billState, sortBills } from './figures'
 import { DEFAULT_CURRENCY } from '@/lib/money'
 import { CategoryTile } from './Tile'
 import { categoryMark, monthName } from './format'
-
-export type BillState = 'late' | 'due' | 'open'
-
-// Three states read off the bill's own due date: carried over from a month
-// that has closed, past its day in this one, or still ahead.
-export function billState(
-  bill: Pendiente,
-  monthStart: Date,
-  now: Date,
-): BillState {
-  if (bill.dueDate < monthStart) return 'late'
-  return bill.dueDate < now ? 'due' : 'open'
-}
-
-const RANK: Record<BillState, number> = { late: 0, due: 1, open: 2 }
-
-export function sortBills(
-  bills: readonly Pendiente[],
-  monthStart: Date,
-  now: Date,
-): readonly Pendiente[] {
-  return [...bills].sort(
-    (a, b) =>
-      RANK[billState(a, monthStart, now)] -
-        RANK[billState(b, monthStart, now)] ||
-      a.dueDate.getTime() - b.dueDate.getTime(),
-  )
-}
 
 export function Section({
   title,

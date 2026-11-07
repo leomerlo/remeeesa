@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
 import { cssVars } from '@/lib/cssVars'
+import { Shell } from './Shell'
 
 // A placeholder shaped like the thing that is coming. The point is that
 // nothing moves when the data lands: a grey box of the wrong size is worse
@@ -91,7 +92,6 @@ function SectionSkel({ rows = 3 }: { readonly rows?: number }): ReactElement {
 export function HomeSkeleton(): ReactElement {
   return (
     <Loading label="Cargando el mes">
-      <HeadSkel />
       <div className="band">
         <div className="card hero">
           <Skel w={180} h={15} />
@@ -121,22 +121,26 @@ export function HomeSkeleton(): ReactElement {
   )
 }
 
+// The data part of a list screen. The title, the month pager and the
+// segmented control are real from the first frame -- they are chrome, not
+// data -- so only what is below them is standing in for something.
 export function ListSkeleton({
   label,
   rows = 6,
+  hero = true,
 }: {
   readonly label: string
   readonly rows?: number
+  readonly hero?: boolean
 }): ReactElement {
   return (
     <Loading label={label}>
-      <header className="head">
-        <Skel w={140} h={30} />
-      </header>
-      <div className="card hero">
-        <Skel w={150} h={15} />
-        <Skel w={240} h={42} r={12} />
-      </div>
+      {hero ? (
+        <div className="card hero">
+          <Skel w={150} h={15} />
+          <Skel w={240} h={42} r={12} />
+        </div>
+      ) : null}
       <section className="sec">
         {Array.from({ length: rows }, (_, index) => (
           <RowSkel key={index} />
@@ -144,6 +148,22 @@ export function ListSkeleton({
       </section>
     </Loading>
   )
+}
+
+// The search field is real on the loaded screen and has to hold its
+// place: without it the whole list jumped down once the data arrived.
+export function SearchSkel(): ReactElement {
+  return (
+    <div className="search" aria-hidden="true">
+      <Skel h={46} r={14} />
+    </div>
+  )
+}
+
+// The household's name beside a page title, which is the one piece of a
+// screen's header that has to be fetched.
+export function NameSkel(): ReactElement {
+  return <Skel w={96} h={15} />
 }
 
 export function ProfileSkeleton(): ReactElement {
@@ -172,13 +192,14 @@ export function ProfileSkeleton(): ReactElement {
 }
 
 // The whole app before it knows whether anyone is signed in. The rail and
-// the bar are already real, so only the page inside them is waiting.
+// the bar hold no data, so they are the real ones from the first frame --
+// a navigation that appears a moment after the page is the one jump a
+// loading state is supposed to prevent.
 export function BootSkeleton(): ReactElement {
   return (
-    <div className="shell">
-      <main className="app">
-        <HomeSkeleton />
-      </main>
-    </div>
+    <Shell>
+      <HeadSkel />
+      <HomeSkeleton />
+    </Shell>
   )
 }

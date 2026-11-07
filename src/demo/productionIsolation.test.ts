@@ -22,7 +22,8 @@ function isTestFile(path: string): boolean {
 }
 
 function isDemoFile(path: string): boolean {
-  return relative(SRC, path).split('/')[0] === 'demo'
+  const parts = relative(SRC, path).split('/')
+  return parts[0] === 'demo' || (parts[0] === 'beta' && parts[1] === 'demo')
 }
 
 // The demo page and the in-memory database it runs on must never reach a
@@ -69,7 +70,8 @@ describe('production isolation', () => {
     const config = readFileSync(join(process.cwd(), 'vite.config.ts'), 'utf8')
 
     // Naming demo.html as an input is the one change that would start
-    // emitting it into dist/.
+    // emitting it into dist/. Covers beta-demo.html too, which ends in the
+    // same five characters and ships to nobody for the same reason.
     expect(config).not.toContain('demo.html')
 
     // This used to ban `rollupOptions` outright, as a proxy for the same
@@ -81,5 +83,24 @@ describe('production isolation', () => {
       (match) => match[1],
     )
     expect(inputs).not.toContain('demo.html')
+    expect(inputs).not.toContain('beta-demo.html')
+  })
+
+  // The beta's demo mounts the real beta tree over the seeded in-memory
+  // household, so it necessarily imports from src/test and src/demo. That
+  // is allowed only because it is itself a demo entry nothing builds --
+  // which is true exactly while it stays inside src/beta/demo/.
+  it('keeps the beta demo the only part of the beta that touches the fakes', () => {
+    const offenders = sourceFiles(join(SRC, 'beta'))
+      .filter((path) => !isTestFile(path))
+      .filter((path) => !relative(SRC, path).startsWith('beta/demo/'))
+      .filter((path) => {
+        const source = readFileSync(path, 'utf8')
+        return (
+          source.includes("from '@/test/") || source.includes("from '@/demo")
+        )
+      })
+
+    expect(offenders.map((path) => relative(SRC, path))).toEqual([])
   })
 })
