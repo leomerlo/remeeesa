@@ -8,8 +8,10 @@ import { FirebaseProvider, useFirebase } from '@/lib/firebaseContext'
 import { useBetaSession } from './data'
 import { Shell } from './Shell'
 import { SignIn } from './SignIn'
+import { Cuentas } from './screens/Cuentas'
+import { Gastos } from './screens/Gastos'
 import { Home } from './screens/Home'
-import { Pending } from './screens/placeholders'
+import { Perfil } from './screens/Perfil'
 
 // Hash routing, not paths: beta.html is a second static entry, and a path
 // like /beta/gastos would 404 on Vercel without a rewrite rule nobody will
@@ -44,9 +46,9 @@ function Routed(): ReactElement {
     <Shell>
       <Routes>
         <Route path="/" element={<Home session={session} />} />
-        <Route path="/gastos" element={<Pending title="Gastos" />} />
-        <Route path="/cuentas" element={<Pending title="Cuentas" />} />
-        <Route path="/perfil" element={<Pending title="Mi perfil" />} />
+        <Route path="/gastos" element={<Gastos session={session} />} />
+        <Route path="/cuentas" element={<Cuentas session={session} />} />
+        <Route path="/perfil" element={<Perfil session={session} />} />
       </Routes>
     </Shell>
   )

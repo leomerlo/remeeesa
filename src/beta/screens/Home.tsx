@@ -13,10 +13,15 @@ import {
   computeSpendToDate,
   computeSpentThisMonth,
   currentMonthRange,
+  formatAmount,
   formatCurrency,
+  summarizeByCategory,
 } from '@/lib/expenses'
 import { monthlyBudgetFor } from '@/lib/households'
 import { isBillToPay } from '@/lib/pendientes'
+import { Link } from 'react-router-dom'
+import { CategoryTile } from '../Tile'
+import { categoryMark } from '../format'
 import type { BetaSession } from '../data'
 
 const MONTHS = [
@@ -64,7 +69,15 @@ export function Home({
             monthEnd,
           }),
         ])
-      return { household, expenses, pendientes, allExpenses, purchases }
+      const categories = await session.db.listCategories(id)
+      return {
+        household,
+        expenses,
+        pendientes,
+        allExpenses,
+        purchases,
+        categories,
+      }
     },
   })
 
@@ -80,11 +93,21 @@ export function Home({
     )
   }
 
-  const { household, expenses, pendientes, allExpenses, purchases } = data.data
+  const {
+    household,
+    expenses,
+    pendientes,
+    allExpenses,
+    purchases,
+    categories,
+  } = data.data
   const spent = computeSpentThisMonth(expenses)
   // Every pending bill, which is what the v1's budget subtracts too: a bill
   // still owed counts against what is left the same as a paid one.
-  const owed = computePendingCommitted(pendientes.filter(isBillToPay))
+  const bills = [...pendientes.filter(isBillToPay)].sort(
+    (a, b) => a.dueDate.getTime() - b.dueDate.getTime(),
+  )
+  const owed = computePendingCommitted(bills)
   const budget = monthlyBudgetFor(household, monthStart, now)
   // Buying with credit does not make an Expense -- it books a CardPurchase,
   // and the Expense only appears when that card's Resumen is paid. So this
@@ -158,7 +181,133 @@ export function Home({
           </button>
         </div>
       </div>
+
+      <div className="cols">
+        <div className="col">
+          <section className="sec">
+            <h2>
+              Últimos movimientos <Link to="/gastos">Ver todos</Link>
+            </h2>
+            {expenses.slice(0, 4).map((expense) => {
+              const mark = categoryMark(categories, expense.categoryId)
+              return (
+                <div className="card row" key={expense.id}>
+                  <CategoryTile name={mark.name} color={mark.color} />
+                  <span className="name">{expense.name}</span>
+                  <span className="amt">
+                    {formatAmount(expense.price, expense.currency)}
+                  </span>
+                  <span className="meta">
+                    <span className="cat">{mark.name}</span>
+                    <span className="badges">
+                      <span className="tag ok">Pagado</span>
+                      <span className="who">{expense.authorDisplayName}</span>
+                    </span>
+                  </span>
+                </div>
+              )
+            })}
+          </section>
+        </div>
+        <div className="col">
+          <section className="sec">
+            <h2>
+              Cuentas por pagar <Link to="/cuentas">Ver todas</Link>
+            </h2>
+            {bills.slice(0, 3).map((bill) => {
+              const mark = categoryMark(categories, bill.categoryId)
+              return (
+                <div className="card row" key={bill.id}>
+                  <CategoryTile name={mark.name} color={mark.color} />
+                  <span className="name">{bill.name}</span>
+                  <span className="amt">
+                    {bill.expectedAmount === null
+                      ? 'A confirmar'
+                      : formatCurrency(bill.expectedAmount)}
+                  </span>
+                  <span className="meta">
+                    <span className="cat">
+                      Vence el {bill.dueDate.getDate()}
+                    </span>
+                  </span>
+                </div>
+              )
+            })}
+          </section>
+        </div>
+      </div>
+
+      <Breakdown expenses={expenses} categories={categories} />
     </>
+  )
+}
+
+// Every category listed under the ring, not a top five: with a dozen of
+// them "otras ocho" becomes the biggest slice and says nothing.
+function Breakdown({
+  expenses,
+  categories,
+}: {
+  readonly expenses: readonly import('@/lib/expenses').Expense[]
+  readonly categories: readonly import('@/lib/expenses').Category[]
+}): ReactElement | null {
+  const rows = summarizeByCategory({ expenses, categories })
+  if (rows.length === 0) {
+    return null
+  }
+  const total = rows.reduce((sum, row) => sum + row.total, 0)
+  const circumference = 2 * Math.PI * 52
+  const arcs = rows.map((row, index) => ({
+    row,
+    length: row.share * circumference,
+    offset: rows
+      .slice(0, index)
+      .reduce((sum, earlier) => sum + earlier.share * circumference, 0),
+  }))
+
+  return (
+    <div className="card donut">
+      <div className="lead">Distribuidos por categoría</div>
+      <div className="donut-top">
+        <svg
+          viewBox="0 0 140 140"
+          role="img"
+          aria-label="Reparto por categoría"
+        >
+          <g transform="rotate(-90 70 70)">
+            {arcs.map(({ row, length, offset }) => (
+              <circle
+                key={row.categoryId}
+                cx="70"
+                cy="70"
+                r="52"
+                fill="none"
+                stroke={row.color}
+                strokeWidth="19"
+                strokeDasharray={`${length.toFixed(2)} ${(circumference - length).toFixed(2)}`}
+                strokeDashoffset={(-offset).toFixed(2)}
+              />
+            ))}
+          </g>
+          <text className="hole" x="70" y="68" textAnchor="middle">
+            {formatCurrency(total)}
+          </text>
+          <text className="holesub" x="70" y="84" textAnchor="middle">
+            EN TOTAL
+          </text>
+        </svg>
+      </div>
+      <div className="dlist">
+        {rows.map((row) => (
+          <div className="dline" key={row.categoryId}>
+            <i style={{ background: row.color }} />
+            <span className="nm">{row.name}</span>
+            <span className="pc">{Math.round(row.share * 100)}%</span>
+            <span className="amt">{formatCurrency(row.total)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 
