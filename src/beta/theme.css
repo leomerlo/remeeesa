@@ -638,6 +638,16 @@
   .cardblk { display: grid; gap: 16px; }
   .cardblk .ch { display: grid; grid-template-columns: auto 1fr auto; gap: 0 12px;
                  align-items: center; }
+  /* Drawn at a card's own proportions. A real one is 85.6 x 54mm -- a
+     ratio of 1.59 -- with a corner radius about a sixteenth of its
+     height. A rounded square with a logo in it reads as an app icon, not
+     as the thing in your wallet. */
+  .tile.brand { width: 58px; height: 37px; border-radius: 5px;
+                background: var(--card); border: 1px solid var(--hair); }
+  /* In px, not per cent: the box is a centred grid item, so a percentage
+     height has nothing to resolve against and the mark came out a dot.
+     Mastercard's own red and orange need a white face to sit on. */
+  .tile.brand svg { width: 40px; height: 26px; stroke-width: 2; }
   .cardblk .ch .nm { grid-column: 2; grid-row: 1; font-size: var(--t-md); font-weight: 700; }
   .cardblk .ch .no { grid-column: 2; grid-row: 2; font-size: var(--t-sm); font-weight: 600;
                      color: var(--ink-2); }
@@ -1072,10 +1082,13 @@
   .methods { display: grid; gap: 12px; }
   .method { display: grid; grid-template-columns: auto minmax(0, 1fr);
             gap: 0 16px; align-items: center; padding: 16px; }
-  .method .brand-mark { grid-row: 1 / span 2; width: 40px; height: 40px;
-                        border-radius: 50%; background: var(--page);
+  /* The same card shape as on Tarjetas, a size down: a circle was the
+     one thing a credit card is definitely not. */
+  .method .brand-mark { grid-row: 1 / span 2; width: 48px; height: 30px;
+                        border-radius: 4px; background: var(--page);
+                        border: 1px solid var(--hair);
                         color: var(--ink); display: grid; place-items: center; }
-  .method .brand-mark svg { width: 26px; height: 26px; }
+  .method .brand-mark svg { width: 34px; height: 21px; }
   .method .name { font-size: var(--t-md); font-weight: 700; }
   .method .sub { font-size: var(--t-sm); font-weight: 400; color: var(--ink-2); }
   @media (min-width: 760px) {
