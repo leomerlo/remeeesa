@@ -35,14 +35,16 @@ ofrece después, no en el camino — ponerlo en el alta lo vuelve obligatorio de
 hecho. Los métodos sí van al principio porque sin ellos el selector de método
 muestra solo «Efectivo», y ese selector es el centro de la carga.
 
-**Foto de ticket y audio: capturan, no se guardan.** Se procesan, llenan el
-formulario, la persona confirma, y se descartan. Nada de Firebase Storage, nada
-de Blaze. Necesita una API key de Flor en Vercel. Las Vercel Functions están en
-el plan gratis — ver la investigación en la memoria `weekend-backlog`, que
-también compara Tesseract.js on-device contra un modelo de visión (la
-recomendación fue el modelo).
+**Foto de ticket y audio: afuera de esta versión.** Decidido por Flor el 7 de
+noviembre de 2026: *«no hay ticket ni audio en esta version, esperaremos»*. La
+carga es por teclado, y nada en la app los insinúa — ni un botón apagado ni un
+«pronto». La forma sigue acordada para cuando se retome: capturan, llenan el
+formulario, la persona confirma y se descartan; nada de Firebase Storage, nada
+de Blaze, y una API key de Flor en una Vercel Function (plan gratis). La
+investigación está en la memoria `weekend-backlog`, que compara Tesseract.js
+on-device contra un modelo de visión (la recomendación fue el modelo).
 
-**Alcance de la primera versión.** Onboarding, carga (teclado, voz o foto),
+**Alcance de la primera versión.** Onboarding, carga (por teclado),
 Home, movimientos y **cuentas por pagar**. Las cuentas entran aunque sean la
 pantalla más compleja de la v1: para una persona sola, los servicios son gran
 parte del mes.
