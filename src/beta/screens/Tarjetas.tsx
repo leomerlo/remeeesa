@@ -119,28 +119,30 @@ export function Tarjetas({
         pager
       />
 
-      <div className="card hero">
-        <div className="label">Los resúmenes de {monthName(next)}</div>
-        <div className="figure">
-          {totals.length === 0 ? (
-            <Figure amount={0} />
-          ) : (
-            totals.map(({ currency, total }) => (
-              <Figure
-                className="one"
-                key={currency}
-                amount={total}
-                currency={currency}
-              />
-            ))
-          )}
-        </div>
-        <div className="legend">
-          <span>
-            Es lo que las tarjetas van a pedir. Siempre estimado: el monto real
-            lo cargan cuando pagan, porque ahí se le suman impuestos e
-            intereses.
-          </span>
+      <div className="hood solo">
+        <div className="card hero">
+          <div className="label">Los resúmenes de {monthName(next)}</div>
+          <div className="figure">
+            {totals.length === 0 ? (
+              <Figure amount={0} />
+            ) : (
+              totals.map(({ currency, total }) => (
+                <Figure
+                  className="one"
+                  key={currency}
+                  amount={total}
+                  currency={currency}
+                />
+              ))
+            )}
+          </div>
+          <div className="legend">
+            <span>
+              Es lo que las tarjetas van a pedir. Siempre estimado: el monto
+              real lo cargan cuando pagan, porque ahí se le suman impuestos e
+              intereses.
+            </span>
+          </div>
         </div>
       </div>
 

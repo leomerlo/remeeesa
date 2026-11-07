@@ -822,36 +822,39 @@
          padding-bottom: env(safe-area-inset-bottom, 0px); }
   .nav-in { max-width: 460px; margin-inline: auto;
             padding-left: var(--gutter); padding-right: var(--gutter-r);
-            display: grid; grid-template-columns: repeat(6, 1fr);
-            align-items: center; height: 80px; }
-  /* Not in a phone's bar: six cells plus the action is already as many as
-     a thumb can aim at. Categorías is reached from the ring on Inicio,
-     which is where anyone looking for it is already looking. */
-  .tab.rail-only { display: none; }
+            display: grid; grid-template-columns: repeat(7, 1fr);
+            align-items: center; height: 72px; }
   .brand { display: none; }
-  /* 12px here and only here: five labels and the action share the width
-     of a phone, and "Tarjetas" at 14 did not fit its cell. The icon above
-     it is doing most of the work. */
-  .tab { display: grid; justify-items: center; gap: 4px; font-size: var(--t-mini);
+  /* The icon alone down here. Six labels under six icons want more width
+     than a phone has, and 14px is this app's floor, so they cannot be
+     shrunk into fitting -- the v1 reached the same conclusion. The lit
+     pill behind the icon is what says which one you are on. */
+  .tab { display: grid; justify-items: center; font-size: var(--t-xs);
          font-weight: 700; color: var(--ink-2); text-decoration: none;
          min-width: 0; background: none; border: 0; cursor: pointer;
          font-family: inherit; padding: 0; }
-  .tab .gl { font-size: var(--t-lg); line-height: 1; width: 40px; height: 32px;
-             display: grid; place-items: center; border-radius: 12px; }
+  /* Hidden to the eye, not to a screen reader: an unlabelled icon still
+     has to be a named destination. */
+  .tab .lbl { position: absolute; width: 1px; height: 1px; padding: 0;
+              margin: -1px; overflow: hidden; clip-path: inset(50%);
+              white-space: nowrap; border: 0; }
+  .tab .gl { font-size: var(--t-lg); line-height: 1; width: 44px; height: 40px;
+             display: grid; place-items: center; border-radius: 14px; }
   .tab[aria-current] { color: var(--grape-700); }
   .tab[aria-current] .gl { background: var(--grape-50); }
 
-  .add { order: 3; justify-self: center; appearance: none; border: 0; cursor: pointer;
+  .add { order: 4; justify-self: center; appearance: none; border: 0; cursor: pointer;
          position: relative; top: -20px; width: 64px; height: 64px; border-radius: 50%;
          background: var(--grape-btn); color: #fff; display: grid; place-items: center;
          box-shadow: 0 10px 22px -6px rgba(77,31,141,.5); font-family: inherit; }
-  /* Inicio, Gastos, the action, then the rest. nth-of-type counts every
-     tab including the one the bar hides, so Perfil is the sixth. */
+  /* Three, the action, three -- so the raised button is the exact middle
+     of seven cells. */
   .nav-in .tab:nth-of-type(1) { order: 1; }
   .nav-in .tab:nth-of-type(2) { order: 2; }
-  .nav-in .tab:nth-of-type(3) { order: 4; }
+  .nav-in .tab:nth-of-type(3) { order: 3; }
   .nav-in .tab:nth-of-type(4) { order: 5; }
-  .nav-in .tab:nth-of-type(6) { order: 6; }
+  .nav-in .tab:nth-of-type(5) { order: 6; }
+  .nav-in .tab:nth-of-type(6) { order: 7; }
 
   /* a segmented control, used for Lista/Por categoría and Casa/Lo mío */
   .segment { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
@@ -974,11 +977,11 @@
            width: 100%; }
     .tab .gl { width: 32px; height: 32px; border-radius: 12px; font-size: var(--t-lg); }
     .tab .gl svg { stroke-width: 1.6; }
-    /* The rail has room for all six, in the order they are written. The
-       bar's own ordering has to be undone at the same specificity it was
-       set with, or the tab it skips (which has no order of its own) sorts
-       to the front of the rail. */
-    .tab.rail-only { display: grid; }
+    /* The rail has room for all six names, in the order they are written.
+       The bar's ordering has to be undone at the same specificity it was
+       set with. */
+    .tab .lbl { position: static; width: auto; height: auto; margin: 0;
+                overflow: visible; clip-path: none; }
     .nav-in .tab:nth-of-type(n) { order: 0; }
     /* The one you are on is the only thing in the rail that leans on
        weight, and only by a step. */

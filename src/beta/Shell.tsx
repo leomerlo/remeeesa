@@ -12,35 +12,20 @@ import { NavLink } from 'react-router-dom'
 import logo from '@/assets/logo.png'
 import { Dolar } from './Dolar'
 
-// `bar` is whether the tab also appears in a phone's bottom bar. Six fit
-// the desktop rail; a phone's bar holds four and the one action, so
-// Categorías is reached there from the ring on Inicio, which is where
-// anyone looking for it is already looking.
+// All six, in both places. On a phone they are their icon alone -- the
+// v1 found the same thing: six labels under six icons wanted more width
+// than a phone has, and this app's type floor means they cannot simply be
+// set smaller. The label stays in the markup for a screen reader, so an
+// unlabelled icon is still a named destination, and the lit pill behind
+// the icon says which one you are on. The rail names everything; it has
+// the room.
 const TABS = [
-  { to: '/', label: 'Inicio', Icon: House, end: true, bar: true },
-  { to: '/gastos', label: 'Gastos', Icon: History, end: false, bar: true },
-  {
-    to: '/cuentas',
-    label: 'Cuentas',
-    Icon: CalendarClock,
-    end: false,
-    bar: true,
-  },
-  {
-    to: '/tarjetas',
-    label: 'Tarjetas',
-    Icon: CreditCard,
-    end: false,
-    bar: true,
-  },
-  {
-    to: '/categorias',
-    label: 'Categorías',
-    Icon: ChartPie,
-    end: false,
-    bar: false,
-  },
-  { to: '/perfil', label: 'Perfil', Icon: UserRound, end: false, bar: true },
+  { to: '/', label: 'Inicio', Icon: House, end: true },
+  { to: '/gastos', label: 'Gastos', Icon: History, end: false },
+  { to: '/cuentas', label: 'Cuentas', Icon: CalendarClock, end: false },
+  { to: '/tarjetas', label: 'Tarjetas', Icon: CreditCard, end: false },
+  { to: '/categorias', label: 'Categorías', Icon: ChartPie, end: false },
+  { to: '/perfil', label: 'Perfil', Icon: UserRound, end: false },
 ] as const
 
 // The rail on a desktop, the bar on a phone, and the one action.
@@ -63,17 +48,12 @@ export function Shell({
                 white for its own dark rail the same way. */}
             <img src={logo} alt="reméeesa" />
           </div>
-          {TABS.map(({ to, label, Icon, end, bar }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={bar ? 'tab' : 'tab rail-only'}
-            >
+          {TABS.map(({ to, label, Icon, end }) => (
+            <NavLink key={to} to={to} end={end} className="tab">
               <span className="gl" aria-hidden="true">
                 <Icon />
               </span>
-              {label}
+              <span className="lbl">{label}</span>
             </NavLink>
           ))}
           <Dolar />
