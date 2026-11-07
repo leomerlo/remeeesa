@@ -500,18 +500,6 @@
   .combo-opt .tile svg { width: 16px; height: 16px; }
   .combo-opt.mk { color: var(--grape-700); }
 
-  /* the sign-in screen: no rail, no bar, one column */
-  body.auth .nav { display: none; }
-  /* Centred with `margin: auto` on the child rather than a centring
-     property on the flex container: when the card is taller than the
-     screen -- creating an account adds a field -- that keeps its top
-     reachable instead of clipping it. */
-  body.auth .shell { display: flex; min-height: 100vh; }
-  body.auth .app { max-width: 440px; margin: auto; padding-block: 24px; }
-  body.auth { background:
-    radial-gradient(900px 520px at 12% -8%, #ece3fb 0%, transparent 62%),
-    radial-gradient(760px 480px at 102% 8%, #e2ecfb 0%, transparent 58%),
-    var(--page); }
   .auth-box { display: grid; gap: 20px; justify-items: center; padding-top: 24px; }
   .auth-box img { height: 20px; width: auto; }
   .auth-box h1 { margin: 0 0 4px; font-size: var(--t-xl); font-weight: 700;
@@ -725,10 +713,10 @@
     .shell { display: grid; grid-template-columns: 240px minmax(0,1fr); align-items: start; }
     .app { max-width: 700px; margin-inline: auto; padding-inline: 28px;
            padding-block: 0 56px; gap: 20px; }
-    .nav { position: sticky; top: 54px; left: auto; right: auto; bottom: auto;
-           height: calc(100vh - 54px); background: var(--side); box-shadow: none; padding: 0; }
+    .nav { position: sticky; top: 0; left: auto; right: auto; bottom: auto;
+           height: 100vh; background: var(--side); box-shadow: none; padding: 0; }
     .nav-in { max-width: none; padding: 24px 16px; height: auto;
-              min-height: calc(100vh - 54px);
+              min-height: 100vh;
               display: flex; flex-direction: column; gap: 4px; }
     .brand { display: block; padding: 4px 12px 24px; }
     /* The v1's wordmark asset is a black silhouette; the v1 flips it to
@@ -774,3 +762,20 @@
     .month { min-width: 236px; }
   }
 
+  /* The sign-in screen, last on purpose: no rail, no bar, one column.
+     Scoped to the shell
+     rather than to a class on <body>, which the prototype could set and a
+     React tree would have to reach outside itself to touch. Without this
+     the shell kept its desktop rail grid and dropped the card into the
+     240px column. */
+  .auth-shell .nav { display: none; }
+  /* Centred with `margin: auto` on the child rather than a centring
+     property on the flex container: when the card is taller than the
+     screen -- creating an account adds a field -- that keeps its top
+     reachable instead of clipping it. */
+  .auth-shell { display: flex; min-height: 100vh;
+    background:
+      radial-gradient(900px 520px at 12% -8%, #ece3fb 0%, transparent 62%),
+      radial-gradient(760px 480px at 102% 8%, #e2ecfb 0%, transparent 58%),
+      var(--page); }
+  .auth-shell .app { max-width: 440px; margin: auto; padding-block: 24px; }
