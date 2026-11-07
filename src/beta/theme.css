@@ -274,8 +274,13 @@
              color: var(--grape-700); }
   .step-bar { height: 6px; border-radius: 999px; background: var(--grape-50);
               overflow: hidden; }
-  .step-bar i { display: block; height: 100%; border-radius: 999px;
-                background: var(--grape); transition: width .3s ease; }
+  /* The fill is the whole bar, squashed from the left: growing it with
+     transform rather than with width keeps the browser off the layout
+     path, and the step only changes on a press, which is when a phone is
+     busiest. */
+  .step-bar i { display: block; height: 100%; width: 100%; border-radius: 999px;
+                background: var(--grape); transform-origin: left center;
+                transition: transform .3s ease; }
   @media (prefers-reduced-motion: reduce) { .step-bar i { transition: none; } }
   .step-card h3 { margin: 0; font-size: var(--t-xl); font-weight: 700;
                   letter-spacing: -.02em; text-wrap: balance; }

@@ -148,7 +148,7 @@ export function Onboarding({
             PASO {step + 1} DE {STEPS}
           </span>
           <div className="step-bar">
-            <i style={{ width: `${String(percent)}%` }} />
+            <i style={{ transform: `scaleX(${String(percent / 100)})` }} />
           </div>
         </div>
 
