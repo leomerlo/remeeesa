@@ -69,17 +69,18 @@ export function ExpenseRow({
       </span>
       <span className="meta">
         <span className="cat">
-          {expense.expenseDate.getDate()} de{' '}
-          {monthName(expense.expenseDate).slice(0, 3)}.
+          {expense.expenseDate.getDate()} de {monthName(expense.expenseDate)}
         </span>
+        {/* No "Pagado" badge: a gasto is money that already left, which
+            is the whole difference between it and a bill. Who loaded it
+            goes last, after the category, on every row that has one. */}
         <span className="badges">
-          <span className="tag ok">Pagado</span>
-          {several ? (
-            <span className="who">{expense.authorDisplayName}</span>
-          ) : null}
           <span className="tag cat-tag" style={cssVars({ '--pc': mark.color })}>
             {mark.name}
           </span>
+          {several ? (
+            <span className="who">{expense.authorDisplayName}</span>
+          ) : null}
         </span>
       </span>
       {onEdit === undefined ? null : (
@@ -118,16 +119,16 @@ export function PurchaseRow({
       <span className="meta">
         <span className="cat">
           {purchase.purchaseDate.getDate()} de{' '}
-          {monthName(purchase.purchaseDate).slice(0, 3)}.
+          {monthName(purchase.purchaseDate)}
         </span>
         <span className="badges">
           <span className="tag credit">Con la tarjeta</span>
-          {several ? (
-            <span className="who">{purchase.authorDisplayName}</span>
-          ) : null}
           <span className="tag cat-tag" style={cssVars({ '--pc': mark.color })}>
             {mark.name}
           </span>
+          {several ? (
+            <span className="who">{purchase.authorDisplayName}</span>
+          ) : null}
         </span>
       </span>
       {onEdit === undefined ? null : (
@@ -147,6 +148,8 @@ export function BillRow({
   categories,
   monthStart,
   now,
+  several = false,
+  paidBy = null,
   onEdit,
   onPay,
 }: {
@@ -154,6 +157,12 @@ export function BillRow({
   readonly categories: readonly Category[]
   readonly monthStart: Date
   readonly now: Date
+  // More than one person in the house. Alone, naming who did something is
+  // noise on every row.
+  readonly several?: boolean
+  // Who paid it, where it is paid and the payment left a gasto with a
+  // name on it. Nobody has paid an open bill, so it carries none.
+  readonly paidBy?: string | null
   readonly onEdit?: () => void
   readonly onPay?: () => void
 }): ReactElement {
@@ -181,7 +190,7 @@ export function BillRow({
       <span className="meta">
         <span className="cat">
           {bill.dueDate < now ? 'Vencía' : 'Vence'} el {day} de{' '}
-          {monthName(bill.dueDate).slice(0, 3)}.
+          {monthName(bill.dueDate)}
         </span>
         <span className="badges">
           {state === 'paid' ? (
@@ -207,15 +216,20 @@ export function BillRow({
           {currency !== DEFAULT_CURRENCY ? (
             <span className="tag usd">En dólares</span>
           ) : null}
-          {bill.recurring ? (
-            <span className="tag soft">Todos los meses</span>
-          ) : null}
+          {/* No "Todos los meses": that is what a servicio is. What is
+              worth saying is the exception -- a bill that happens once. */}
+          {bill.recurring ? null : (
+            <span className="tag soft">Una sola vez</span>
+          )}
           {bill.autoDebit ? (
             <span className="tag soft">Débito automático</span>
           ) : null}
           <span className="tag cat-tag" style={cssVars({ '--pc': mark.color })}>
             {mark.name}
           </span>
+          {several && paidBy != null && paidBy !== '' ? (
+            <span className="who">{paidBy}</span>
+          ) : null}
         </span>
       </span>
       {/* Both actions in the footer, side by side: editing and paying are

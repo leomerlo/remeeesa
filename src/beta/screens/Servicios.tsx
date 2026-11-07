@@ -41,17 +41,28 @@ export function Servicios({
     enabled: householdId !== null,
     queryFn: async () => {
       const id = householdId as string
-      const [pendientes, categories, methods, settled] = await Promise.all([
-        session.db.listPendientes({ householdId: id }),
-        session.db.listCategories(id),
-        session.db.listCards({ householdId: id }),
-        session.db.listPaidPendientesDueInMonth({
-          householdId: id,
-          monthStart,
-          monthEnd,
-        }),
-      ])
-      return { pendientes, categories, methods, settled }
+      // The expenses and the members are here for one thing: saying who
+      // paid a bill. A Pendiente does not carry a name -- the payment
+      // does, on the gasto it wrote -- so paidExpenseId is looked up
+      // against the month's gastos.
+      const [pendientes, categories, methods, settled, expenses, members] =
+        await Promise.all([
+          session.db.listPendientes({ householdId: id }),
+          session.db.listCategories(id),
+          session.db.listCards({ householdId: id }),
+          session.db.listPaidPendientesDueInMonth({
+            householdId: id,
+            monthStart,
+            monthEnd,
+          }),
+          session.db.listExpensesInMonth({
+            householdId: id,
+            monthStart,
+            monthEnd,
+          }),
+          session.db.listMembers(id),
+        ])
+      return { pendientes, categories, methods, settled, expenses, members }
     },
   })
 
@@ -92,7 +103,18 @@ export function Servicios({
     )
   }
 
-  const { pendientes, categories, methods, settled } = data.data
+  const { pendientes, categories, methods, settled, expenses, members } =
+    data.data
+  const several = members.length > 1
+  const authorOf = new Map(
+    expenses.map((expense) => [expense.id, expense.authorDisplayName]),
+  )
+  // Null on a bill nobody has paid, and on one paid with a card -- that
+  // payment wrote a consumo, not a gasto, and the consumo is not read here.
+  const paidByOf = (bill: Pendiente): string | null =>
+    bill.paidExpenseId === null
+      ? null
+      : (authorOf.get(bill.paidExpenseId) ?? null)
 
   // Bills of this month settled with a credit card -- see figures.ts for
   // why this reads the paid ones. Where they end up is Tarjetas.
@@ -158,6 +180,8 @@ export function Servicios({
                   categories={categories}
                   monthStart={monthStart}
                   now={now}
+                  several={several}
+                  paidBy={paidByOf(bill)}
                 />
               ))}
             </div>
@@ -228,6 +252,8 @@ export function Servicios({
                   categories={categories}
                   monthStart={monthStart}
                   now={now}
+                  several={several}
+                  paidBy={paidByOf(bill)}
                   onEdit={() => setEditing(bill)}
                   onPay={() => setPaying(bill)}
                 />
@@ -247,6 +273,8 @@ export function Servicios({
                   categories={categories}
                   monthStart={monthStart}
                   now={now}
+                  several={several}
+                  paidBy={paidByOf(bill)}
                   onEdit={() => setEditing(bill)}
                 />
               ))}

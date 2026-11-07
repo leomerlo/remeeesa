@@ -108,9 +108,10 @@
                        letter-spacing: inherit; margin: 0; }
   /* Regular, not semibold: it is the line that explains the greeting, and
      two heavy weights stacked made it compete with it. */
+  /* No max-width: it wraps where its own column ends. On a wide screen
+     that column is already the half of the header the month is not in. */
   .hello span { display: block; margin-top: 8px; font-size: var(--t-sm); font-weight: 400;
-                color: var(--ink-2); letter-spacing: 0; line-height: 1.35;
-                max-width: 44ch; }
+                color: var(--ink-2); letter-spacing: 0; line-height: 1.35; }
   .page-title { font-size: var(--t-5xl); font-weight: 800; letter-spacing: -.03em; margin: 0; }
   /* A screen's one action, where it has one, on its own line against the
      right edge -- above the list it adds to, not under it. */
