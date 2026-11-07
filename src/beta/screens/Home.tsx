@@ -13,6 +13,8 @@ import { useState } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { formatCurrency } from '@/lib/expenses'
+import type { Expense } from '@/lib/expenses'
+import type { CardPurchase } from '@/lib/cards'
 import { Figure } from '../Figure'
 import { homeFigures } from '../figures'
 import type { HomeFigures } from '../figures'
@@ -29,6 +31,7 @@ import {
 } from '../rows'
 import { monthName } from '../format'
 import type { BetaSession } from '../data'
+import { GastoSheet } from '../sheets/GastoSheet'
 import { PresupuestoSheet } from '../sheets/PresupuestoSheet'
 import { LoadFailed } from './Gastos'
 
@@ -42,6 +45,10 @@ export function Home({
   readonly session: BetaSession
 }): ReactElement {
   const [budgeting, setBudgeting] = useState(false)
+  const [editing, setEditing] = useState<Expense | null>(null)
+  const [editingPurchase, setEditingPurchase] = useState<CardPurchase | null>(
+    null,
+  )
   const householdId = session.householdId ?? null
   const now = new Date()
   const { monthStart, monthEnd } = useMonth()
@@ -59,6 +66,7 @@ export function Home({
         purchases,
         categories,
         members,
+        methods,
       ] = await Promise.all([
         session.db.getHousehold(id),
         session.db.listExpensesInMonth({
@@ -75,6 +83,11 @@ export function Home({
         }),
         session.db.listCategories(id),
         session.db.listMembers(id),
+        // Only so a movement can be opened from here: the form needs the
+        // payment methods to offer. Inicio shows the same card Gastos
+        // shows, and a card that cannot be opened on one screen and can
+        // on the other is two cards.
+        session.db.listCards({ householdId: id }),
       ])
       return {
         household,
@@ -84,6 +97,7 @@ export function Home({
         purchases,
         categories,
         members,
+        methods,
       }
     },
   })
@@ -128,6 +142,7 @@ export function Home({
     purchases,
     categories,
     members,
+    methods,
   } = data.data
 
   const figures = homeFigures({
@@ -258,6 +273,7 @@ export function Home({
                   purchase={move.purchase}
                   categories={categories}
                   several={several}
+                  onEdit={() => setEditingPurchase(move.purchase ?? null)}
                 />
               ) : (
                 <ExpenseRow
@@ -265,6 +281,7 @@ export function Home({
                   expense={move.expense}
                   categories={categories}
                   several={several}
+                  onEdit={() => setEditing(move.expense ?? null)}
                 />
               ),
             )}
@@ -322,6 +339,29 @@ export function Home({
 
       <ProjectionLink monthStart={monthStart} />
 
+      {editing === null ? null : (
+        <GastoSheet
+          open
+          onClose={() => setEditing(null)}
+          session={session}
+          expense={editing}
+          categories={categories}
+          methods={methods}
+          today={new Date()}
+        />
+      )}
+      {editingPurchase === null ? null : (
+        <GastoSheet
+          open
+          onClose={() => setEditingPurchase(null)}
+          session={session}
+          expense={null}
+          purchase={editingPurchase}
+          categories={categories}
+          methods={methods}
+          today={new Date()}
+        />
+      )}
       <PresupuestoSheet
         open={budgeting}
         onClose={() => setBudgeting(false)}

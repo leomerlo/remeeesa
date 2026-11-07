@@ -10,6 +10,7 @@ import { Shell } from './Shell'
 import { BootSkeleton } from './Skeleton'
 import { SignIn } from './SignIn'
 import { Onboarding } from './Onboarding'
+import { ScrollToTop } from './ScrollToTop'
 import { Unirse } from './Unirse'
 import { heldInvite, holdInvite } from './invite'
 import { Categorias } from './screens/Categorias'
@@ -80,6 +81,7 @@ export function BetaRoutes(): ReactElement {
 
   return (
     <MonthProvider>
+      <ScrollToTop />
       <Shell home={home} session={session}>
         <Routes>
           <Route path="/" element={<Home session={session} />} />

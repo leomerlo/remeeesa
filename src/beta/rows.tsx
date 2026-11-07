@@ -1,10 +1,4 @@
-import {
-  Check,
-  ChevronRight,
-  LineChart,
-  Pencil,
-  TriangleAlert,
-} from 'lucide-react'
+import { Check, ChevronRight, LineChart, TriangleAlert } from 'lucide-react'
 import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
 import { cssVars } from '@/lib/cssVars'
@@ -60,8 +54,21 @@ export function ExpenseRow({
   readonly onEdit?: () => void
 }): ReactElement {
   const mark = categoryMark(categories, expense.categoryId)
+  // The whole card opens the form. A button in a footer cost a row of
+  // height on every gasto of the month, which on a phone is a very long
+  // scroll to buy a thing two people already know how to do.
+  const Row = onEdit === undefined ? 'div' : 'button'
   return (
-    <div className="card row">
+    <Row
+      className={onEdit === undefined ? 'card row' : 'card row tap'}
+      {...(onEdit === undefined
+        ? {}
+        : {
+            type: 'button' as const,
+            onClick: onEdit,
+            'aria-label': `Editar ${expense.name}`,
+          })}
+    >
       <CategoryTile name={mark.name} color={mark.color} />
       <span className="name">{expense.name}</span>
       <span className="amt">
@@ -83,15 +90,7 @@ export function ExpenseRow({
           ) : null}
         </span>
       </span>
-      {onEdit === undefined ? null : (
-        <span className="rowfoot">
-          <button className="btn btn-tertiary" type="button" onClick={onEdit}>
-            <Pencil />
-            Editar
-          </button>
-        </span>
-      )}
-    </div>
+    </Row>
   )
 }
 
@@ -109,8 +108,18 @@ export function PurchaseRow({
   readonly onEdit?: () => void
 }): ReactElement {
   const mark = categoryMark(categories, purchase.categoryId)
+  const Row = onEdit === undefined ? 'div' : 'button'
   return (
-    <div className="card row">
+    <Row
+      className={onEdit === undefined ? 'card row' : 'card row tap'}
+      {...(onEdit === undefined
+        ? {}
+        : {
+            type: 'button' as const,
+            onClick: onEdit,
+            'aria-label': `Editar ${purchase.name}`,
+          })}
+    >
       <CategoryTile name={mark.name} color={mark.color} />
       <span className="name">{purchase.name}</span>
       <span className="amt">
@@ -131,15 +140,7 @@ export function PurchaseRow({
           ) : null}
         </span>
       </span>
-      {onEdit === undefined ? null : (
-        <span className="rowfoot">
-          <button className="btn btn-tertiary" type="button" onClick={onEdit}>
-            <Pencil />
-            Editar
-          </button>
-        </span>
-      )}
-    </div>
+    </Row>
   )
 }
 
@@ -171,86 +172,95 @@ export function BillRow({
   const day = bill.dueDate.getDate()
   const currency = bill.currency ?? DEFAULT_CURRENCY
 
+  // The card carries the footer, so the part that opens the form is the
+  // part above it -- everything down to the badges. Editar had a button
+  // of its own down there and was costing a row of height on every bill.
+  const Top = onEdit === undefined ? 'div' : 'button'
   return (
-    <div className={state === 'open' ? 'card row' : `card row ${state}`}>
-      <CategoryTile name={mark.name} color={mark.color} />
-      <span className="name">{bill.name}</span>
-      <span className="amt">
-        {bill.expectedAmount === null
-          ? 'A confirmar'
-          : formatAmount(bill.expectedAmount, currency)}
-      </span>
-      {/* One order, on every bill, whatever state it is in: the name, the
+    <div
+      className={state === 'open' ? 'card rowcard' : `card rowcard ${state}`}
+    >
+      <Top
+        className={onEdit === undefined ? 'row' : 'row tap'}
+        {...(onEdit === undefined
+          ? {}
+          : {
+              type: 'button' as const,
+              onClick: onEdit,
+              'aria-label': `Editar ${bill.name}`,
+            })}
+      >
+        <CategoryTile name={mark.name} color={mark.color} />
+        <span className="name">{bill.name}</span>
+        <span className="amt">
+          {bill.expectedAmount === null
+            ? 'A confirmar'
+            : formatAmount(bill.expectedAmount, currency)}
+        </span>
+        {/* One order, on every bill, whatever state it is in: the name, the
           date it is due, and then the badges. The grey line used to be
           the date on a bill in trouble and the category on a quiet one,
           with the date repeated as a badge beside it -- so no two cards
           read the same way and the same fact appeared twice. The date is
           always the grey line; the category is always a badge, in its own
           colour, last. */}
-      <span className="meta">
-        <span className="cat">
-          {bill.dueDate < now ? 'Vencía' : 'Vence'} el {day} de{' '}
-          {monthName(bill.dueDate)}
-        </span>
-        <span className="badges">
-          {state === 'paid' ? (
-            <span className="tag paid">
-              <Check />
-              {bill.paidPurchaseId != null
-                ? 'Pagado con tarjeta'
-                : bill.paidAt === null
-                  ? 'Pagado'
-                  : `Pagado el ${String(bill.paidAt.getDate())}`}
-            </span>
-          ) : state === 'late' ? (
-            <span className="tag late">
-              <TriangleAlert />
-              Quedó sin pagar en {monthName(bill.dueDate)}
-            </span>
-          ) : state === 'due' ? (
-            <span className="tag due">
-              <TriangleAlert />
-              Ya venció este mes
-            </span>
-          ) : null}
-          {currency !== DEFAULT_CURRENCY ? (
-            <span className="tag usd">En dólares</span>
-          ) : null}
-          {/* No "Todos los meses": that is what a servicio is. What is
-              worth saying is the exception -- a bill that happens once. */}
-          {bill.recurring ? null : (
-            <span className="tag soft">Una sola vez</span>
-          )}
-          {bill.autoDebit ? (
-            <span className="tag soft">Débito automático</span>
-          ) : null}
-          <span className="tag cat-tag" style={cssVars({ '--pc': mark.color })}>
-            {mark.name}
+        <span className="meta">
+          <span className="cat">
+            {bill.dueDate < now ? 'Vencía' : 'Vence'} el {day} de{' '}
+            {monthName(bill.dueDate)}
           </span>
-          {several && paidBy != null && paidBy !== '' ? (
-            <span className="who">{paidBy}</span>
-          ) : null}
+          <span className="badges">
+            {state === 'paid' ? (
+              <span className="tag paid">
+                <Check />
+                {bill.paidPurchaseId != null
+                  ? 'Pagado con tarjeta'
+                  : bill.paidAt === null
+                    ? 'Pagado'
+                    : `Pagado el ${String(bill.paidAt.getDate())}`}
+              </span>
+            ) : state === 'late' ? (
+              <span className="tag late">
+                <TriangleAlert />
+                Quedó sin pagar en {monthName(bill.dueDate)}
+              </span>
+            ) : state === 'due' ? (
+              <span className="tag due">
+                <TriangleAlert />
+                Ya venció este mes
+              </span>
+            ) : null}
+            {currency !== DEFAULT_CURRENCY ? (
+              <span className="tag usd">En dólares</span>
+            ) : null}
+            {/* No "Todos los meses": that is what a servicio is. What is
+              worth saying is the exception -- a bill that happens once. */}
+            {bill.recurring ? null : (
+              <span className="tag soft">Una sola vez</span>
+            )}
+            {bill.autoDebit ? (
+              <span className="tag soft">Débito automático</span>
+            ) : null}
+            <span
+              className="tag cat-tag"
+              style={cssVars({ '--pc': mark.color })}
+            >
+              {mark.name}
+            </span>
+            {several && paidBy != null && paidBy !== '' ? (
+              <span className="who">{paidBy}</span>
+            ) : null}
+          </span>
         </span>
-      </span>
-      {/* Both actions in the footer, side by side: editing and paying are
-          the two things you do to a bill, and the pencil in the top-right
-          corner was squeezing the amount -- the one figure on the row
-          anybody is looking for. Editar is the quieter of the two. */}
-      {onEdit === undefined &&
-      (state === 'paid' || onPay === undefined) ? null : (
+      </Top>
+      {/* The footer is left with the one thing a tap cannot be: paying a
+          bill changes the month, so it has to be asked for on purpose. */}
+      {state === 'paid' || onPay === undefined ? null : (
         <span className="rowfoot">
-          {onEdit === undefined ? null : (
-            <button className="btn btn-tertiary" type="button" onClick={onEdit}>
-              <Pencil />
-              Editar
-            </button>
-          )}
-          {state === 'paid' || onPay === undefined ? null : (
-            <button className="btn btn-secondary" type="button" onClick={onPay}>
-              <Check />
-              Ya lo pagué
-            </button>
-          )}
+          <button className="btn btn-secondary" type="button" onClick={onPay}>
+            <Check />
+            Ya lo pagué
+          </button>
         </span>
       )}
     </div>

@@ -4,7 +4,6 @@ import {
   Download,
   House,
   LogOut,
-  Pencil,
   Plus,
   UserPlus,
   UserRound,
@@ -211,7 +210,12 @@ function MethodRow({
   readonly onEdit: () => void
 }): ReactElement {
   return (
-    <div className="card method">
+    <button
+      className="card method tap"
+      type="button"
+      aria-label={`Editar ${card.name}`}
+      onClick={onEdit}
+    >
       <span className="brand-mark" aria-hidden="true">
         <CardBrandMark brand={card.brand} />
       </span>
@@ -219,15 +223,7 @@ function MethodRow({
       <span className="sub">
         {kindLabel(card.kind)} · {currencyLabel(card.currency)}
       </span>
-      <button
-        className="rowedit"
-        type="button"
-        aria-label={`Editar ${card.name}`}
-        onClick={onEdit}
-      >
-        <Pencil />
-      </button>
-    </div>
+    </button>
   )
 }
 

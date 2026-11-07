@@ -259,7 +259,7 @@
      text that happens to be underlined. */
   .quiet { display: grid; grid-template-columns: auto 1fr auto; gap: 0 12px;
            align-items: center; cursor: pointer; text-align: left; appearance: none;
-           border: 0; font: inherit; width: 100%; padding: 16px; }
+           border: 1px solid var(--hair); font: inherit; width: 100%; padding: 16px; }
   .quiet .tile { background: var(--grape); color: #fff; }
   .quiet .k { grid-column: 2; grid-row: 1; font-size: var(--t-sm); font-weight: 700; color: var(--ink); }
   .quiet .v { grid-column: 2; grid-row: 2; font-size: var(--t-sm); font-weight: 400; color: var(--ink-2); }
@@ -356,7 +356,19 @@
      it labels, so it starts where the name starts. */
   .row { display: grid; grid-template-columns: auto 1fr auto; align-items: start;
          gap: 2px 12px; padding: 16px; }
-  .tap { cursor: pointer; }
+  /* A whole card that opens its own form. Two people who use this every
+     day do not need a button telling them the card is pressable, and on a
+     phone that button cost a row of height on every row of the month. */
+  .tap { cursor: pointer; appearance: none; border: 0; background: var(--card);
+         font: inherit; color: inherit; text-align: left; width: 100%; }
+  .card.tap { border: 1px solid var(--hair); }
+  .tap:hover { background: #fbfafd; }
+  .tap:focus-visible { outline: 2px solid var(--grape-600); outline-offset: 2px; }
+  /* A bill: the card holds the tappable part and the footer, so its own
+     padding is zero and the part inside keeps the row's. */
+  .rowcard { padding: 0; display: grid; }
+  .rowcard > .row { border-radius: var(--r) var(--r) 0 0; }
+  .rowcard > .row:only-child { border-radius: var(--r); }
   .tile { grid-row: 1 / span 2; width: 48px; height: 48px; border-radius: 16px;
           display: grid; place-items: center; flex: none;
           background: var(--grape-50); color: var(--grape-700); }
@@ -376,11 +388,8 @@
      from the content and bled to the card's edges, as the v1 does it. */
   .row .btn { font-size: var(--t-xs); padding: 8px 16px; min-height: 40px; gap: 6px; }
   .row .btn svg { width: 16px; height: 16px; }
-  /* Both of a row's actions on one line, against the right edge: Editar
-     quiet, the one that changes the month loud, in that order. */
-  .rowfoot { grid-column: 1 / -1; grid-row: 3;
-             margin: 16px -16px -16px; padding: 12px 16px;
-             border-top: 1px solid var(--hair);
+  /* The one action a tap cannot be, against the right edge. */
+  .rowfoot { padding: 12px 16px; border-top: 1px solid var(--hair);
              display: flex; justify-content: flex-end; align-items: center;
              gap: 4px; flex-wrap: wrap; }
   /* A step under the row's name and a step over the badges: the date is
@@ -417,7 +426,7 @@
      violet button on a red ground and the screen stopped reading as calm. */
 
   /* ===== categories ===== */
-  .catrow { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px 12px;
+  .catrow { display: grid; grid-template-columns: auto 1fr auto; gap: 8px 12px;
             align-items: center; padding: 16px; }
   .catrow .name { grid-column: 2; font-size: var(--t-md); font-weight: 700; }
   .catrow .amt { grid-column: 3; font-size: var(--t-md); font-weight: 800;
@@ -427,15 +436,6 @@
   .catrow .bar i { display: block; height: 100%; border-radius: 999px; }
   .catrow .sub { grid-column: 2 / -1; font-size: var(--t-sm); font-weight: 400; color: var(--ink-2); }
   .catrow .sub.over { color: var(--red-700); font-weight: 700; }
-  /* The pencil on a row, which is the whole of "edit this one". It sits
-     past the amount and keeps a thumb-sized target without taking the
-     width of a button. */
-  .rowedit { grid-column: 4; grid-row: 1; appearance: none; border: 0; cursor: pointer;
-             background: transparent; color: var(--ink-2); font: inherit;
-             width: 44px; height: 44px; border-radius: 50%; display: grid;
-             place-items: center; margin-right: -10px; }
-  .rowedit svg { width: 18px; height: 18px; stroke-width: 2; }
-  .rowedit:hover { background: var(--grape-50); color: var(--grape-700); }
 
   /* ===== the month, as one dark panel ===== */
   /* Everything from the greeting down to the three figures is one answer
@@ -1254,7 +1254,7 @@
   /* Payment methods as a list, each with the mark people recognise before
      they read the name. Two across once there is room for it. */
   .methods { display: grid; gap: 12px; }
-  .method { display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
+  .method { display: grid; grid-template-columns: auto minmax(0, 1fr);
             gap: 0 16px; align-items: center; padding: 16px; }
   /* The same card shape as on Tarjetas, a size down: a circle was the
      one thing a credit card is definitely not. */
@@ -1265,7 +1265,6 @@
   .method .brand-mark svg { width: 34px; height: 21px; }
   .method .name { font-size: var(--t-md); font-weight: 700; }
   .method .sub { font-size: var(--t-sm); font-weight: 400; color: var(--ink-2); }
-  .method .rowedit { grid-column: 3; grid-row: 1 / span 2; }
   @media (min-width: 760px) {
     .methods { grid-template-columns: 1fr 1fr; }
   }

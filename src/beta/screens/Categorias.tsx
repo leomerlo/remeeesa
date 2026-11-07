@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Pencil, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { formatCurrency, summarizeByCategory } from '@/lib/expenses'
@@ -152,23 +152,22 @@ function CategoryBars({
                 ? Math.round((row.total / max) * 100)
                 : 0
           return (
-            <div className="card catrow" key={row.categoryId}>
+            // The card is the way in, like every other row in the app.
+            <button
+              className="card catrow tap"
+              type="button"
+              key={row.categoryId}
+              aria-label={`Editar ${row.name}`}
+              onClick={() => {
+                const found = categories.find(
+                  (candidate) => candidate.id === row.categoryId,
+                )
+                if (found !== undefined) onEditing(found)
+              }}
+            >
               <CategoryTile name={row.name} color={row.color} />
               <span className="name">{row.name}</span>
               <span className="amt">{formatCurrency(row.total)}</span>
-              <button
-                className="rowedit"
-                type="button"
-                aria-label={`Editar ${row.name}`}
-                onClick={() => {
-                  const found = categories.find(
-                    (candidate) => candidate.id === row.categoryId,
-                  )
-                  if (found !== undefined) onEditing(found)
-                }}
-              >
-                <Pencil />
-              </button>
               <span className="bar">
                 <i
                   style={{
@@ -188,7 +187,7 @@ function CategoryBars({
                       : `${formatCurrency(cap - row.total)} por debajo del tope de ${formatCurrency(cap)}`
                     : `${String(Math.round(row.share * 100))}% de lo que gastaron`}
               </span>
-            </div>
+            </button>
           )
         })}
       </div>
