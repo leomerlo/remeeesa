@@ -285,8 +285,13 @@
             gap: 12px; padding-inline: 4px; }
   .sec h2 a { color: var(--grape-700); font-size: var(--t-sm); font-weight: 700;
               text-decoration: none; cursor: pointer; }
+  /* The date heads the rows under it, so it needs room below it as well
+     as above -- sitting flush on the first row it was labelling, it read
+     as part of that row rather than as the heading of the group. The
+     section's own 12px gap sits above it, so the two together open the
+     day. */
   .daymark { font-size: var(--t-sm); font-weight: 700; color: var(--ink-2);
-             padding: 8px 4px 0; }
+             padding: 8px 4px 12px; }
 
   .row { display: grid; grid-template-columns: auto 1fr auto; align-items: center;
          gap: 4px 12px; padding: 16px; }
