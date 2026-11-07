@@ -98,7 +98,6 @@ export function Home({
       currency: purchase.currency,
     })),
   )
-  const paid = spent
   const toDate = computeSpendToDate(allExpenses, now)
   const monthName = MONTHS[monthStart.getMonth()] ?? ''
 
@@ -126,18 +125,11 @@ export function Home({
           <PlainHero spent={spent} toDate={toDate} monthName={monthName} />
         )}
 
-        <div className="trio">
-          <div className="card out">
-            <span className="cap">
-              <span
-                className="dot"
-                style={{ background: 'var(--green-700)' }}
-              />
-              Pagado
-            </span>
-            <span className="amt">{formatCurrency(paid)}</span>
-            <span className="foot">Ya salió de la cuenta.</span>
-          </div>
+        {/* "Pagado" used to sit here and repeated the figure above it to
+            the peso. With the domain right, every Expense of the month is
+            money already gone -- so what is worth a card of its own is the
+            two kinds that have not gone yet. */}
+        <div className="split">
           <div className="card wait">
             <span className="cap">
               <span
