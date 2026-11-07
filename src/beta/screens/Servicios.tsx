@@ -91,9 +91,11 @@ export function Servicios({
   // why this reads the paid ones. Where they end up is Tarjetas.
   const onCard = billsOnCard(settled)
 
-  const { bills, owed, owedUsd, late } = serviciosFigures({
+  const { unpaid, paid, owed, owedUsd, late } = serviciosFigures({
     pendientes,
+    settled,
     monthStart,
+    monthEnd,
     now,
   })
 
@@ -166,12 +168,12 @@ export function Servicios({
     <>
       {header}
       {segment}
-      {bills.length === 0 ? (
+      {unpaid.length === 0 && paid.length === 0 ? (
         <div className="card empty">
           <span className="orb" aria-hidden="true">
             <CalendarClock />
           </span>
-          <h3>No les queda nada por pagar</h3>
+          <h3>No hubo servicios en {monthName(monthStart)}</h3>
           <p>
             Cuando carguen un servicio -- la luz, el gas, las expensas -- lo van
             a ver acá hasta que lo marquen como pagado.
@@ -181,19 +183,24 @@ export function Servicios({
         <>
           <div className="hood solo">
             <div className="card hero">
-              <div className="label">Falta pagar</div>
+              <div className="label">
+                {unpaid.length === 0
+                  ? `Pagaron todo en ${monthName(monthStart)}`
+                  : 'Falta pagar'}
+              </div>
               <div className="figure">
                 <Figure amount={owed} />
               </div>
               <div className="legend">
                 <span>
-                  {bills.length} {bills.length === 1 ? 'servicio' : 'servicios'}{' '}
-                  sin pagar
+                  {unpaid.length === 0
+                    ? `${String(paid.length)} ${paid.length === 1 ? 'servicio' : 'servicios'} pagados`
+                    : `${String(unpaid.length)} ${unpaid.length === 1 ? 'servicio' : 'servicios'} sin pagar`}
                 </span>
                 {late.length > 0 ? (
                   <span>
                     {late.length === 1
-                      ? 'Una viene de un mes anterior'
+                      ? 'Uno viene de un mes anterior'
                       : `${String(late.length)} vienen de meses anteriores`}
                   </span>
                 ) : null}
@@ -205,17 +212,36 @@ export function Servicios({
               </div>
             </div>
           </div>
-          <div className="sec">
-            {bills.map((bill) => (
-              <BillRow
-                key={bill.id}
-                bill={bill}
-                categories={categories}
-                monthStart={monthStart}
-                now={now}
-              />
-            ))}
-          </div>
+          {unpaid.length > 0 ? (
+            <div className="sec">
+              {unpaid.map((bill) => (
+                <BillRow
+                  key={bill.id}
+                  bill={bill}
+                  categories={categories}
+                  monthStart={monthStart}
+                  now={now}
+                />
+              ))}
+            </div>
+          ) : null}
+          {/* Everything settled goes under everything that is not: it
+              needs nothing from anybody, and the month is read top down
+              in order of what is still owed. */}
+          {paid.length > 0 ? (
+            <section className="sec">
+              <h2>Ya pagados</h2>
+              {paid.map((bill) => (
+                <BillRow
+                  key={bill.id}
+                  bill={bill}
+                  categories={categories}
+                  monthStart={monthStart}
+                  now={now}
+                />
+              ))}
+            </section>
+          ) : null}
         </>
       )}
     </>

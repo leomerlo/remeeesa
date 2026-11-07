@@ -134,7 +134,16 @@ export function BillRow({
               : mark.name}
         </span>
         <span className="badges">
-          {state === 'late' ? (
+          {state === 'paid' ? (
+            <span className="tag paid">
+              <Check />
+              {bill.paidPurchaseId != null
+                ? 'Pagado con tarjeta'
+                : bill.paidAt === null
+                  ? 'Pagado'
+                  : `Pagado el ${String(bill.paidAt.getDate())}`}
+            </span>
+          ) : state === 'late' ? (
             <span className="tag late">
               <TriangleAlert />
               Quedó sin pagar en {monthName(bill.dueDate)}
@@ -158,12 +167,14 @@ export function BillRow({
           ) : null}
         </span>
       </span>
-      <span className="rowfoot">
-        <button className="btn btn-secondary" type="button" disabled>
-          <Check />
-          Marcar como pagada
-        </button>
-      </span>
+      {state === 'paid' ? null : (
+        <span className="rowfoot">
+          <button className="btn btn-secondary" type="button" disabled>
+            <Check />
+            Marcar como pagado
+          </button>
+        </span>
+      )}
     </div>
   )
 }

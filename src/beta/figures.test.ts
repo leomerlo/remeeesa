@@ -45,6 +45,9 @@ type Snapshot = {
   readonly purchases: readonly CardPurchase[]
   readonly pendientes: readonly Pendiente[]
   readonly projection: Projection | null
+  // The month's already-paid bills, under the name serviciosFigures asks
+  // for them by.
+  readonly settled: readonly Pendiente[]
   // Per Resumen: what the cuotas it names come to in its own month. The
   // figure the Tarjetas tab adds up from the rows it lists.
   readonly resumenCuotas: ReadonlyMap<string, number>
@@ -80,6 +83,7 @@ async function snapshot(
     previous,
     allExpenses,
     purchases,
+    settled,
     pendientes,
     projection,
   ] = await Promise.all([
@@ -90,6 +94,7 @@ async function snapshot(
     db.listExpensesInMonth({ householdId, ...previousRange }),
     db.listAllExpenses({ householdId }),
     db.listCardPurchasesInMonth({ householdId, monthStart, monthEnd }),
+    db.listPaidPendientesDueInMonth({ householdId, monthStart, monthEnd }),
     db.listPendientes({ householdId }),
     db.getProjection({ householdId, monthStart }),
   ])
@@ -125,6 +130,7 @@ async function snapshot(
     purchases,
     pendientes,
     projection,
+    settled,
     resumenCuotas,
     monthStart,
     monthEnd,
@@ -312,6 +318,58 @@ describe('the beta says the same month on every screen', () => {
     expect(billsOnCard([{ ...onCard, paidPurchaseId: null }])).toEqual([])
   })
 
+  // Paging back used to show the same list whatever month was open: the
+  // screen listed every unpaid bill the household had, of any month. A
+  // month shows its own.
+  each('Servicios shows the month it is open on', (snap, key) => {
+    const month = serviciosFigures(snap)
+    for (const bill of month.bills) {
+      const carried = month.late.some((other) => other.id === bill.id)
+      if (carried) continue
+      expect(
+        bill.dueDate >= snap.monthStart && bill.dueDate <= snap.monthEnd,
+        `${key} · ${bill.name}`,
+      ).toBe(true)
+    }
+    // Unpaid first, settled under them, and nothing in both halves.
+    for (const bill of month.unpaid) expect(bill.status, key).toBe('pending')
+    for (const bill of month.paid) expect(bill.status, key).toBe('paid')
+    expect(month.bills.length, key).toBe(
+      month.unpaid.length + month.paid.length,
+    )
+    // What is owed is what the unpaid half comes to, in pesos.
+    expect(cents(month.owed), key).toBe(
+      cents(
+        sumIn(
+          month.unpaid.map((bill) => ({
+            price: bill.expectedAmount ?? 0,
+            currency: bill.currency ?? 'ARS',
+          })),
+          'ARS',
+        ),
+      ),
+    )
+  })
+
+  // A bill follows the household forward, not backward: a month that
+  // closed without it never knew about it.
+  each(
+    'nothing is carried into a month that has already closed',
+    (snap, key) => {
+      const month = serviciosFigures(snap)
+      const current = snap.now >= snap.monthStart && snap.now <= snap.monthEnd
+      if (!current) {
+        expect(month.late, key).toEqual([])
+      }
+      for (const bill of month.late) {
+        expect(bill.dueDate < snap.monthStart, `${key} · ${bill.name}`).toBe(
+          true,
+        )
+        expect(bill.status, `${key} · ${bill.name}`).toBe('pending')
+      }
+    },
+  )
+
   // The hero says what is left; the legend under it says what it was
   // worked out from. If those two can disagree, the card is lying in its
   // own body text.
@@ -378,11 +436,13 @@ describe('the beta says the same month on every screen', () => {
       )
       expect(cents(home.owed), key).not.toBe(cents(home.owed + dollarOwed))
     }
-    const cuentas = serviciosFigures(snap)
-    expect(cents(cuentas.owed), key).toBe(
+    // Servicios' own figure counts only what is still unpaid, and only
+    // in pesos.
+    const servicios = serviciosFigures(snap)
+    expect(cents(servicios.owed), key).toBe(
       cents(
         sumIn(
-          cuentas.bills.map((bill) => ({
+          servicios.unpaid.map((bill) => ({
             price: bill.expectedAmount ?? 0,
             currency: bill.currency ?? 'ARS',
           })),
@@ -437,14 +497,14 @@ describe('the beta says the same month on every screen', () => {
     )
   })
 
-  // Servicios lists everything still unpaid, of any month; Inicio counts
-  // only the month on screen. The two are allowed to differ, and the
-  // direction they differ in is the whole point.
+  // Both now count the same month. Servicios can still be the larger of
+  // the two, by whatever it carried in from an earlier one and by its
+  // dollars, which Inicio's peso figure leaves out -- but never smaller.
   each('Servicios is never smaller than what Inicio counts', (snap, key) => {
     const home = homeFigures(snap)
-    const cuentas = serviciosFigures(snap)
+    const servicios = serviciosFigures(snap)
     expect(
-      cents(cuentas.owed) + cents(cuentas.owedUsd),
+      cents(servicios.owed) + cents(servicios.owedUsd),
       key,
     ).toBeGreaterThanOrEqual(cents(home.owed))
   })

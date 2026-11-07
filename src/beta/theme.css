@@ -356,6 +356,9 @@
   .tag.due { background: var(--amber-bar); color: var(--ink); }
   .tag.late { background: var(--red-solid); color: #fff; }
   .tag.usd { background: var(--green-50); color: var(--green-700); }
+  /* Settled: the quietest badge of the set. It is the one state nobody
+     has to do anything about. */
+  .tag.paid { background: var(--green-50); color: var(--green-700); }
   .tag.soft { background: #ebe6f4; color: var(--ink-2); }
   /* A bill in trouble keeps the plain white card and the category's own
      colour. The badge is the whole signal: tinting the row as well put a

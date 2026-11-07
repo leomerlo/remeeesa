@@ -147,18 +147,22 @@ export function homeFigures(input: HomeInput): HomeFigures {
   }
 }
 
-export type BillState = 'late' | 'due' | 'open'
+export type BillState = 'paid' | 'late' | 'due' | 'open'
 
+// Settled first, because a paid bill has no deadline left to be on the
+// wrong side of. Then: carried in from an earlier month, past its date
+// this month, or still ahead of it.
 export function billState(
   bill: Pendiente,
   monthStart: Date,
   now: Date,
 ): BillState {
+  if (bill.status === 'paid') return 'paid'
   if (bill.dueDate < monthStart) return 'late'
   return bill.dueDate < now ? 'due' : 'open'
 }
 
-const RANK: Record<BillState, number> = { late: 0, due: 1, open: 2 }
+const RANK: Record<BillState, number> = { late: 0, due: 1, open: 2, paid: 3 }
 
 // What is already late first, then what is due, then the rest -- and
 // within each, oldest first.
@@ -193,39 +197,76 @@ export function gastosFigures(input: {
 }
 
 export type ServiciosFigures = {
-  // Everything still unpaid, of any month -- what Servicios lists. Wider
-  // than the Home's `owed`, which only counts the viewed month, and the two
-  // are meant to differ: this answers "what do we still owe", that one
-  // answers "what does this month's budget still have to cover".
+  // The month's own bills, unpaid first and then the ones already
+  // settled. Paging to October shows October's: what was owed then, what
+  // was paid, and what fell due and never was.
   readonly bills: readonly Pendiente[]
+  readonly unpaid: readonly Pendiente[]
+  readonly paid: readonly Pendiente[]
+  // Pesos still owed for this month.
   readonly owed: number
   readonly owedUsd: number
-  // Bills carried over from an earlier month, which is why the two figures
-  // above can be larger than the Home's.
+  // Bills carried in from an earlier month. Only ever present on the
+  // month that is running: a bill left unpaid follows the household
+  // forward, but it does not travel backwards into a month that had
+  // already closed without it.
   readonly late: readonly Pendiente[]
 }
 
 export function serviciosFigures(input: {
+  // Every Pendiente the household has, of any month and any status.
   readonly pendientes: readonly Pendiente[]
+  // The month's bills that have already been paid. Firestore keeps these
+  // out of listPendientes' own result, so they are fetched separately.
+  readonly settled: readonly Pendiente[]
   readonly monthStart: Date
+  readonly monthEnd: Date
   readonly now: Date
 }): ServiciosFigures {
-  const bills = sortBills(
-    input.pendientes.filter(
-      (pendiente) => pendiente.status === 'pending' && isBillToPay(pendiente),
-    ),
-    input.monthStart,
-    input.now,
+  const bill = (pendiente: Pendiente): boolean => isBillToPay(pendiente)
+  const inMonth = (pendiente: Pendiente): boolean =>
+    pendiente.dueDate >= input.monthStart && pendiente.dueDate <= input.monthEnd
+
+  // The month on screen is the month that is running when today falls
+  // inside it. Only then does anything get carried forward.
+  const current = input.now >= input.monthStart && input.now <= input.monthEnd
+  const late = current
+    ? input.pendientes.filter(
+        (pendiente) =>
+          bill(pendiente) &&
+          pendiente.status === 'pending' &&
+          pendiente.dueDate < input.monthStart,
+      )
+    : []
+
+  const unpaidThisMonth = input.pendientes.filter(
+    (pendiente) =>
+      bill(pendiente) && pendiente.status === 'pending' && inMonth(pendiente),
   )
-  const amounts = bills.map((bill) => ({
-    price: bill.expectedAmount ?? 0,
-    currency: bill.currency ?? DEFAULT_CURRENCY,
+  const paid = input.settled
+    .filter((pendiente) => bill(pendiente) && inMonth(pendiente))
+    .slice()
+    .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
+
+  // What is already late leads, then what has fallen due, then what has
+  // not yet -- and everything settled goes under all of it, because it
+  // needs nothing from anybody.
+  const unpaid = [
+    ...sortBills(late, input.monthStart, input.now),
+    ...sortBills(unpaidThisMonth, input.monthStart, input.now),
+  ]
+  const amounts = unpaid.map((pendiente) => ({
+    price: pendiente.expectedAmount ?? 0,
+    currency: pendiente.currency ?? DEFAULT_CURRENCY,
   }))
+
   return {
-    bills,
+    bills: [...unpaid, ...paid],
+    unpaid,
+    paid,
     owed: sumIn(amounts, DEFAULT_CURRENCY),
     owedUsd: sumIn(amounts, 'USD'),
-    late: bills.filter((bill) => bill.dueDate < input.monthStart),
+    late,
   }
 }
 
