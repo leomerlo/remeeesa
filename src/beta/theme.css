@@ -361,6 +361,11 @@
      has to do anything about. */
   .tag.paid { background: var(--green-50); color: var(--green-700); }
   .tag.soft { background: #ebe6f4; color: var(--ink-2); }
+  /* Written by the beta itself. Outlined rather than filled: it is a note
+     about where the row came from, not another state of the money, and the
+     filled badges beside it already mean something. */
+  .tag.test { background: #fff; color: var(--grape-700);
+              box-shadow: inset 0 0 0 1px var(--grape-600); }
   /* A bill in trouble keeps the plain white card and the category's own
      colour. The badge is the whole signal: tinting the row as well put a
      violet button on a red ground and the screen stopped reading as calm. */
@@ -786,19 +791,14 @@
   .swrow .k { grid-column: 1; grid-row: 1; font-size: var(--t-md); font-weight: 700; }
   .swrow .v { grid-column: 1; grid-row: 2; font-size: var(--t-sm); font-weight: 400;
               color: var(--ink-2); line-height: 1.35; }
-  .swrow .tg { grid-column: 2; grid-row: 1 / span 2; appearance: none; border: 0;
-               padding: 0; cursor: pointer; width: 44px; height: 26px; border-radius: 999px;
-               position: relative; background: #ded8ea; transition: background .15s ease; }
-  .swrow .tg::after { content: ""; position: absolute; top: 3px; left: 3px;
-                      width: 20px; height: 20px; border-radius: 50%; background: #fff;
-                      transition: transform .15s ease; }
-  .swrow .tg[aria-checked="true"] { background: var(--grape); }
-  .swrow .tg[aria-checked="true"]::after { transform: translateX(18px); }
-  .swrow.off { opacity: .45; }
-  .swrow.off .tg { cursor: not-allowed; }
 
   .btn-danger { background: transparent; color: var(--red-700);
                 border: 1px solid #f0c9bf; padding: 8px 17px; }
+  /* The one spinner in the app: a button that is doing what it was pressed
+     to do. */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { animation: spin 1s linear infinite; }
+  @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
   .hint { font-size: var(--t-sm); font-weight: 400; color: var(--ink-2); line-height: 1.3; }
@@ -1000,11 +1000,14 @@
            align-items: center; text-align: left; cursor: pointer;
            background: var(--page); border: 2px solid #e0d8ee; border-radius: 16px;
            padding: 14px 16px; font-family: inherit; width: 100%; }
+  /* Off has to read as off, not as absent: on a white card a pale track
+     disappears, and "nada clarito" is the rule the whole screen follows. */
   .swrow .tg { grid-column: 2; grid-row: 1 / span 2; width: 48px; height: 28px;
-               border-radius: 999px; background: #c9bedf; display: grid;
+               border-radius: 999px; background: #a899c6; display: grid;
                align-items: center; padding: 3px; transition: background .15s; }
   .swrow .tg i { display: block; width: 22px; height: 22px; border-radius: 50%;
-                 background: #fff; transition: transform .15s; }
+                 background: #fff; transition: transform .15s;
+                 box-shadow: 0 1px 2px rgba(29, 22, 48, .35); }
   .swrow[aria-checked="true"] { border-color: var(--grape-600); background: var(--grape-50); }
   .swrow[aria-checked="true"] .tg { background: var(--grape-btn); }
   .swrow[aria-checked="true"] .tg i { transform: translateX(20px); }

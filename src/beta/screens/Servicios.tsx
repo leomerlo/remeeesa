@@ -228,6 +228,7 @@ export function Servicios({
                   categories={categories}
                   monthStart={monthStart}
                   now={now}
+                  mine={session.sandbox.owns('pendiente', bill.id)}
                   onEdit={() => setEditing(bill)}
                   onPay={() => setPaying(bill)}
                 />
@@ -247,6 +248,7 @@ export function Servicios({
                   categories={categories}
                   monthStart={monthStart}
                   now={now}
+                  mine={session.sandbox.owns('pendiente', bill.id)}
                   onEdit={() => setEditing(bill)}
                 />
               ))}
@@ -266,16 +268,17 @@ export function Servicios({
         <ServicioSheet
           open
           onClose={() => setEditing(null)}
+          session={session}
           bill={editing === 'nuevo' ? null : editing}
           categories={categories}
           today={now}
-          {...(editing === 'nuevo' ? {} : { onDelete: () => setEditing(null) })}
         />
       )}
       {paying === null ? null : (
         <PagarSheet
           open
           onClose={() => setPaying(null)}
+          session={session}
           bill={paying}
           methods={methods}
           today={now}

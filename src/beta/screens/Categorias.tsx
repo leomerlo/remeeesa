@@ -7,6 +7,7 @@ import type { Category, Expense } from '@/lib/expenses'
 import { ListSkeleton, NameSkel } from '../Skeleton'
 import { useMonth } from '../MonthContext'
 import { CategoryTile } from '../Tile'
+import { TestTag } from '../rows'
 import { monthName } from '../format'
 import type { BetaSession } from '../data'
 import { CategoriaSheet } from '../sheets/CategoriaSheet'
@@ -72,7 +73,11 @@ export function Categorias({
       {/* No ring here: Inicio already has it, and it answers a different
           question. That one says where the month went; these bars say how
           each category is doing against its own cap. */}
-      <CategoryBars expenses={expenses} categories={categories} />
+      <CategoryBars
+        session={session}
+        expenses={expenses}
+        categories={categories}
+      />
     </>
   )
 }
@@ -81,9 +86,11 @@ export function Categorias({
 // says how each category is doing, which is why it measures against the
 // cap when there is one.
 function CategoryBars({
+  session,
   expenses,
   categories,
 }: {
+  readonly session: BetaSession
   readonly expenses: readonly Expense[]
   readonly categories: readonly Category[]
 }): ReactElement {
@@ -116,7 +123,12 @@ function CategoryBars({
           return (
             <div className="card catrow" key={row.categoryId}>
               <CategoryTile name={row.name} color={row.color} />
-              <span className="name">{row.name}</span>
+              <span className="name">
+                {row.name}
+                {session.sandbox.owns('category', row.categoryId) ? (
+                  <TestTag />
+                ) : null}
+              </span>
               <span className="amt">{formatCurrency(row.total)}</span>
               <button
                 className="rowedit"
@@ -162,6 +174,7 @@ function CategoryBars({
         <CategoriaSheet
           open
           onClose={() => setEditing(null)}
+          session={session}
           category={editing === 'nueva' ? null : editing}
           existing={categories}
           {...(editing === 'nueva'
@@ -169,7 +182,6 @@ function CategoryBars({
             : {
                 spentThisMonth:
                   rows.find((row) => row.categoryId === editing.id)?.total ?? 0,
-                onDelete: () => setEditing(null),
               })}
         />
       )}

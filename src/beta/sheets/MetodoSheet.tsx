@@ -1,4 +1,3 @@
-import { Check, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import type {
@@ -6,9 +5,13 @@ import type {
   CardBrand,
   PaymentMethodKind,
 } from '@/lib/cards'
+import { createCard, deleteCard, updateCard } from '@/lib/cards'
 import type { CardCurrency } from '@/lib/money'
 import { CardBrandMark } from '../CardBrandMark'
-import { ReadOnlyFoot, Sheet } from '../Sheet'
+import { DangerAction, Sheet, SheetFoot } from '../Sheet'
+import { NOT_MINE_NOTE } from '../sandboxDb'
+import { useSave } from '../useSave'
+import type { BetaSession } from '../data'
 import { OptionList, SelectField, TextField } from '../fields'
 
 const BRANDS: readonly { readonly value: CardBrand; readonly label: string }[] =
@@ -28,15 +31,15 @@ const BRANDS: readonly { readonly value: CardBrand; readonly label: string }[] =
 export function MetodoSheet({
   open,
   onClose,
+  session,
   method,
   existing,
-  onDelete,
 }: {
   readonly open: boolean
   readonly onClose: () => void
+  readonly session: BetaSession
   readonly method: PaymentMethod | null
   readonly existing: readonly PaymentMethod[]
-  readonly onDelete?: () => void
 }): ReactElement {
   const [name, setName] = useState(method?.name ?? '')
   const [kind, setKind] = useState<PaymentMethodKind>(method?.kind ?? 'credito')
@@ -52,7 +55,39 @@ export function MetodoSheet({
       other.id !== method?.id &&
       other.name.trim().toLowerCase() === trimmed.toLowerCase(),
   )
-  const canSave = named && !taken
+  const blocked = !named || taken
+  const save = useSave(onClose)
+  const householdId = session.householdId ?? ''
+  const locked: string | null =
+    method !== null && !session.sandbox.owns('card', method.id)
+      ? NOT_MINE_NOTE
+      : householdId === ''
+        ? 'Todavía estamos leyendo el hogar. Probá de nuevo en un segundo.'
+        : null
+
+  const onSave = (): void => {
+    save.run(() => {
+      if (method !== null) {
+        return updateCard({
+          db: session.db,
+          householdId,
+          cardId: method.id,
+          name: trimmed,
+          kind,
+          currency,
+          brand,
+        })
+      }
+      return createCard({
+        db: session.db,
+        householdId,
+        name: trimmed,
+        kind,
+        currency,
+        brand,
+      })
+    })
+  }
 
   return (
     <Sheet
@@ -60,13 +95,14 @@ export function MetodoSheet({
       open={open}
       onClose={onClose}
       footer={
-        <div className="sheet-acts">
-          <button className="btn btn-primary btn-block" type="button" disabled>
-            <Check />
-            {method === null ? 'Agregar' : 'Guardar'}
-          </button>
-          <ReadOnlyFoot />
-        </div>
+        <SheetFoot
+          label={method === null ? 'Agregar' : 'Guardar'}
+          saving={save.saving}
+          blocked={blocked}
+          locked={locked}
+          failed={save.failed}
+          onSave={onSave}
+        />
       }
     >
       <div className="catpreview">
@@ -135,18 +171,28 @@ export function MetodoSheet({
             : undefined
         }
       />
-      {canSave ? null : (
+      {blocked ? (
         <p className="fproblem" role="alert">
           {!named
             ? 'Falta el nombre.'
             : 'Ya hay una tarjeta con ese nombre: si son dos distintas, diferencialas.'}
         </p>
-      )}
-      {method === null || onDelete === undefined ? null : (
-        <button className="btn btn-danger btn-block" type="button" disabled>
-          <Trash2 />
-          Borrar esta tarjeta
-        </button>
+      ) : null}
+      {method === null ? null : (
+        <DangerAction
+          label="Borrar esta tarjeta"
+          saving={save.saving}
+          locked={locked}
+          onPress={() => {
+            save.run(() =>
+              deleteCard({
+                db: session.db,
+                householdId,
+                cardId: method.id,
+              }),
+            )
+          }}
+        />
       )}
     </Sheet>
   )

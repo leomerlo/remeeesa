@@ -213,12 +213,14 @@ export function Gastos({
                 purchase={item.purchase as CardPurchase}
                 categories={categories}
                 several={several}
+                mine={session.sandbox.owns('purchase', item.id)}
               />
             ) : (
               <ExpenseRow
                 expense={item.expense}
                 categories={categories}
                 several={several}
+                mine={session.sandbox.owns('expense', item.id)}
                 onEdit={() => setEditing(item.expense ?? null)}
               />
             )}
@@ -229,11 +231,11 @@ export function Gastos({
         <GastoSheet
           open
           onClose={() => setEditing(null)}
+          session={session}
           expense={editing}
           categories={categories}
           methods={methods}
           today={new Date()}
-          onDelete={() => setEditing(null)}
         />
       )}
     </>

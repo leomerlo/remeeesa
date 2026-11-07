@@ -1,12 +1,22 @@
-import { Check, Copy, UserRound } from 'lucide-react'
+import { Copy, UserRound } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import type { Household, HouseholdMember } from '@/lib/households'
-import { ReadOnlyFoot, Sheet } from '../Sheet'
+import { Sheet, SheetFoot } from '../Sheet'
 import { TextField } from '../fields'
 import { monthName } from '../format'
 
 // The household's name and who is in it.
+//
+// The one form in the app that cannot be saved, and the reason is not a
+// missing wire: there is only one household and it is the real one. Renaming
+// it would be writing over something that was already there, which is the
+// line the beta does not cross -- and unlike a gasto there is no second
+// household to invent and practise on. So the form is here, filled in and
+// honest about why its button is shut.
+const HOUSEHOLD_IS_REAL =
+  'Este es el hogar de verdad, no uno de prueba. La beta no le cambia el ' +
+  'nombre ni toca a los integrantes: eso se hace desde la versión 1.'
 export function HogarSheet({
   open,
   onClose,
@@ -27,13 +37,14 @@ export function HogarSheet({
       open={open}
       onClose={onClose}
       footer={
-        <div className="sheet-acts">
-          <button className="btn btn-primary btn-block" type="button" disabled>
-            <Check />
-            Guardar
-          </button>
-          <ReadOnlyFoot />
-        </div>
+        <SheetFoot
+          label="Guardar"
+          saving={false}
+          blocked={!named}
+          locked={HOUSEHOLD_IS_REAL}
+          failed={null}
+          onSave={() => undefined}
+        />
       }
     >
       <TextField
@@ -75,9 +86,14 @@ function canSaveNote(named: boolean): ReactElement | null {
 // Inviting someone, which in the v1 is a code the other person types or a
 // link that carries it for them.
 //
-// The code is read from the household, never made here: creating one is a
-// write, and the beta only reads. A household that has never invited
-// anybody has no code yet, and this says so rather than showing a blank.
+// The code is read from the household, never made here: creating one writes
+// a document onto the real household and there is no undoing it from here,
+// so it stays on the far side of the line. A household that has never
+// invited anybody has no code yet, and this says so rather than showing a
+// blank.
+const INVITE_IS_A_WRITE =
+  'Crear el código escribe en el hogar que ya existe, así que la beta no ' +
+  'lo hace. Generalo una vez desde la versión 1 y acá vas a poder copiarlo.'
 export function InvitarSheet({
   open,
   onClose,
@@ -98,17 +114,14 @@ export function InvitarSheet({
       onClose={onClose}
       footer={
         code === null ? (
-          <div className="sheet-acts">
-            <button
-              className="btn btn-primary btn-block"
-              type="button"
-              disabled
-            >
-              <Check />
-              Crear el código
-            </button>
-            <ReadOnlyFoot />
-          </div>
+          <SheetFoot
+            label="Crear el código"
+            saving={false}
+            blocked={false}
+            locked={INVITE_IS_A_WRITE}
+            failed={null}
+            onSave={() => undefined}
+          />
         ) : (
           <button
             className="btn btn-primary btn-block"
@@ -140,8 +153,7 @@ export function InvitarSheet({
       </p>
       {code === null ? (
         <p className="fproblem" role="alert">
-          Este hogar todavía no tiene código de invitación. Crearlo es una
-          escritura, y la beta todavía no escribe.
+          Este hogar todavía no tiene código de invitación.
         </p>
       ) : (
         <>

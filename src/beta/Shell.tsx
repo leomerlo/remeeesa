@@ -120,10 +120,11 @@ export function Shell({
         </button>
       </header>
       <main className="app">{children}</main>
-      {adding && forForm.data !== undefined ? (
+      {adding && forForm.data !== undefined && session !== undefined ? (
         <GastoSheet
           open
           onClose={() => setAdding(false)}
+          session={session}
           expense={null}
           categories={forForm.data.categories}
           methods={forForm.data.methods}

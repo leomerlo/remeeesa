@@ -1,4 +1,4 @@
-import { X } from 'lucide-react'
+import { Check, Loader2, Trash2, X } from 'lucide-react'
 import { useEffect, useId, useRef } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
@@ -82,14 +82,73 @@ export function Sheet({
   )
 }
 
-// What every sheet's footer says while the beta can only read. The form
-// above it is finished and validates; this is the one wire that is not
-// connected, and saying so is better than a button that does nothing.
-export function ReadOnlyFoot(): ReactElement {
+// The one action every sheet ends with, and the three things that can be
+// true of it: the form is not filled in yet, the beta is not allowed to
+// write this at all, or the write was attempted and failed.
+export function SheetFoot({
+  label,
+  saving,
+  blocked,
+  locked,
+  failed,
+  onSave,
+}: {
+  readonly label: string
+  readonly saving: boolean
+  // The form is incomplete. The button is dead, and the form has already
+  // said what is missing -- nothing more to add here.
+  readonly blocked: boolean
+  // Why the beta will not write this, in the household's own words. Null
+  // when it will.
+  readonly locked: string | null
+  readonly failed: string | null
+  readonly onSave: () => void
+}): ReactElement {
   return (
-    <p className="readonly-note">
-      La beta todavía no escribe en la base. El formulario está listo: falta
-      habilitar el guardado.
-    </p>
+    <div className="sheet-acts">
+      <button
+        className="btn btn-primary btn-block"
+        type="button"
+        disabled={saving || blocked || locked !== null}
+        aria-disabled={saving || blocked || locked !== null}
+        onClick={onSave}
+      >
+        {saving ? <Loader2 className="spin" /> : <Check />}
+        {saving ? 'Guardando…' : label}
+      </button>
+      {failed === null ? null : (
+        <p className="fproblem" role="alert">
+          {failed}
+        </p>
+      )}
+      {locked === null ? null : <p className="readonly-note">{locked}</p>}
+    </div>
+  )
+}
+
+// Deleting, which sits at the bottom of the form it belongs to rather than
+// in the footer: it is not what you came to do.
+export function DangerAction({
+  label,
+  saving,
+  locked,
+  onPress,
+}: {
+  readonly label: string
+  readonly saving: boolean
+  readonly locked: string | null
+  readonly onPress: () => void
+}): ReactElement {
+  return (
+    <button
+      className="btn btn-danger btn-block"
+      type="button"
+      disabled={saving || locked !== null}
+      aria-disabled={saving || locked !== null}
+      onClick={onPress}
+    >
+      <Trash2 />
+      {label}
+    </button>
   )
 }

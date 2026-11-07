@@ -1,11 +1,20 @@
-import { Check, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import type { Category } from '@/lib/expenses'
+import {
+  deleteCategory,
+  findOrCreateCategory,
+  renameCategory,
+  updateCategoryBudget,
+  updateCategoryColor,
+} from '@/lib/expenses'
 import { CATEGORY_COLOR_PALETTE } from '@/lib/expenses/categoryColor'
 import { cssVars } from '@/lib/cssVars'
 import { CategoryTile } from '../Tile'
-import { ReadOnlyFoot, Sheet } from '../Sheet'
+import { DangerAction, Sheet, SheetFoot } from '../Sheet'
+import { NOT_MINE_NOTE } from '../sandboxDb'
+import { useSave } from '../useSave'
+import type { BetaSession } from '../data'
 import {
   MoneyField,
   TextField,
@@ -23,20 +32,20 @@ import {
 export function CategoriaSheet({
   open,
   onClose,
+  session,
   category,
   existing,
   spentThisMonth,
-  onDelete,
 }: {
   readonly open: boolean
   readonly onClose: () => void
+  readonly session: BetaSession
   readonly category: Category | null
   // Every category of the household, to catch a name that is already taken.
   readonly existing: readonly Category[]
   // What this category has taken this month, so a cap can be set against
   // something real rather than guessed at.
   readonly spentThisMonth?: number
-  readonly onDelete?: () => void
 }): ReactElement {
   const [name, setName] = useState(category?.name ?? '')
   const [color, setColor] = useState(
@@ -56,7 +65,58 @@ export function CategoriaSheet({
       other.name.trim().toLowerCase() === trimmed.toLowerCase(),
   )
   const capped = moneyIsValid(cap, { required: false })
-  const canSave = named && !taken && capped
+  const blocked = !named || taken || !capped
+  const save = useSave(onClose)
+  const householdId = session.householdId ?? ''
+  const locked: string | null =
+    category !== null && !session.sandbox.owns('category', category.id)
+      ? NOT_MINE_NOTE
+      : householdId === ''
+        ? 'Todavía estamos leyendo el hogar. Probá de nuevo en un segundo.'
+        : null
+
+  // A category is three writes, not one: its name is its own document id,
+  // so renaming moves the document, while the colour and the cap are plain
+  // fields on it. The form says "Guardar" once and this does whichever of
+  // the three actually changed.
+  const onSave = (): void => {
+    save.run(async () => {
+      const wanted = moneyValue(cap)
+      const budget = cap.trim() === '' ? 0 : wanted
+      let target =
+        category ??
+        (await findOrCreateCategory({
+          db: session.db,
+          householdId,
+          name: trimmed,
+        }))
+      if (category !== null && category.name.trim() !== trimmed) {
+        target = await renameCategory({
+          db: session.db,
+          householdId,
+          categoryId: category.id,
+          name: trimmed,
+        })
+      }
+      if (target.color !== color) {
+        target = await updateCategoryColor({
+          db: session.db,
+          householdId,
+          categoryId: target.id,
+          color,
+        })
+      }
+      if (target.monthlyBudget !== budget) {
+        target = await updateCategoryBudget({
+          db: session.db,
+          householdId,
+          categoryId: target.id,
+          monthlyBudget: budget,
+        })
+      }
+      return target
+    })
+  }
 
   return (
     <Sheet
@@ -64,13 +124,14 @@ export function CategoriaSheet({
       open={open}
       onClose={onClose}
       footer={
-        <div className="sheet-acts">
-          <button className="btn btn-primary btn-block" type="button" disabled>
-            <Check />
-            {category === null ? 'Crear' : 'Guardar'}
-          </button>
-          <ReadOnlyFoot />
-        </div>
+        <SheetFoot
+          label={category === null ? 'Crear' : 'Guardar'}
+          saving={save.saving}
+          blocked={blocked}
+          locked={locked}
+          failed={save.failed}
+          onSave={onSave}
+        />
       }
     >
       <div className="catpreview">
@@ -124,7 +185,7 @@ export function CategoriaSheet({
           estás poniendo. No es un error -- pasarse avisa, no bloquea.
         </p>
       ) : null}
-      {canSave ? null : (
+      {blocked ? (
         <p className="fproblem" role="alert">
           {!named
             ? 'Falta el nombre.'
@@ -132,12 +193,22 @@ export function CategoriaSheet({
               ? 'Ya existe una categoría con ese nombre.'
               : 'El tope tiene que ser un número mayor que cero, o quedar vacío.'}
         </p>
-      )}
-      {category === null || onDelete === undefined ? null : (
-        <button className="btn btn-danger btn-block" type="button" disabled>
-          <Trash2 />
-          Borrar esta categoría
-        </button>
+      ) : null}
+      {category === null ? null : (
+        <DangerAction
+          label="Borrar esta categoría"
+          saving={save.saving}
+          locked={locked}
+          onPress={() => {
+            save.run(() =>
+              deleteCategory({
+                db: session.db,
+                householdId,
+                categoryId: category.id,
+              }),
+            )
+          }}
+        />
       )}
     </Sheet>
   )

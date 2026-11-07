@@ -1,11 +1,20 @@
-import { Check, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import type { Card as PaymentMethod } from '@/lib/cards'
+import { markPendientePaidWithCard } from '@/lib/cards'
 import type { Category } from '@/lib/expenses'
 import type { Currency } from '@/lib/money'
 import type { Pendiente } from '@/lib/pendientes'
-import { ReadOnlyFoot, Sheet } from '../Sheet'
+import {
+  createPendiente,
+  deletePendiente,
+  markPendientePaid,
+  updatePendiente,
+} from '@/lib/pendientes'
+import { DangerAction, Sheet, SheetFoot } from '../Sheet'
+import { NOT_MINE_NOTE } from '../sandboxDb'
+import { useSave } from '../useSave'
+import type { BetaSession } from '../data'
 import {
   DateField,
   MoneyField,
@@ -14,6 +23,7 @@ import {
   TextField,
   Toggle,
   moneyIsValid,
+  moneyValue,
 } from '../fields'
 import { monthName } from '../format'
 
@@ -21,6 +31,13 @@ function isoDay(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${String(date.getFullYear())}-${month}-${day}`
+}
+
+// Midday, so a date read back out of the input cannot drift onto the day
+// before.
+function dayFromIso(iso: string): Date {
+  const [year, month, day] = iso.split('-').map(Number)
+  return new Date(year ?? 2026, (month ?? 1) - 1, day ?? 1, 12)
 }
 
 // Adding and editing a servicio -- the luz, the gas, the expensas.
@@ -31,17 +48,17 @@ function isoDay(date: Date): string {
 export function ServicioSheet({
   open,
   onClose,
+  session,
   bill,
   categories,
   today,
-  onDelete,
 }: {
   readonly open: boolean
   readonly onClose: () => void
+  readonly session: BetaSession
   readonly bill: Pendiente | null
   readonly categories: readonly Category[]
   readonly today: Date
-  readonly onDelete?: () => void
 }): ReactElement {
   const [name, setName] = useState(bill?.name ?? '')
   const [amount, setAmount] = useState(
@@ -56,11 +73,51 @@ export function ServicioSheet({
   const [due, setDue] = useState(isoDay(bill?.dueDate ?? today))
   const [recurring, setRecurring] = useState(bill?.recurring ?? true)
   const [autoDebit, setAutoDebit] = useState(bill?.autoDebit ?? false)
+  const save = useSave(onClose)
 
   const named = name.trim() !== ''
   // Blank is allowed; a number that is not a number is not.
   const priced = moneyIsValid(amount, { required: false })
-  const canSave = named && priced && categoryId !== ''
+  const blocked = !named || !priced || categoryId === ''
+  const householdId = session.householdId ?? ''
+  const locked: string | null =
+    bill !== null && !session.sandbox.owns('pendiente', bill.id)
+      ? NOT_MINE_NOTE
+      : householdId === ''
+        ? 'Todavía estamos leyendo el hogar. Probá de nuevo en un segundo.'
+        : null
+
+  const onSave = (): void => {
+    save.run(() => {
+      const expectedAmount = amount.trim() === '' ? null : moneyValue(amount)
+      const dueDate = dayFromIso(due)
+      if (bill !== null) {
+        return updatePendiente({
+          db: session.db,
+          householdId,
+          pendienteId: bill.id,
+          categoryId,
+          name: name.trim(),
+          dueDate,
+          expectedAmount,
+          recurring,
+          autoDebit,
+          currency,
+        })
+      }
+      return createPendiente({
+        db: session.db,
+        householdId,
+        categoryId,
+        name: name.trim(),
+        dueDate,
+        expectedAmount,
+        recurring,
+        autoDebit,
+        currency,
+      })
+    })
+  }
 
   return (
     <Sheet
@@ -68,13 +125,14 @@ export function ServicioSheet({
       open={open}
       onClose={onClose}
       footer={
-        <div className="sheet-acts">
-          <button className="btn btn-primary btn-block" type="button" disabled>
-            <Check />
-            {bill === null ? 'Agregar' : 'Guardar'}
-          </button>
-          <ReadOnlyFoot />
-        </div>
+        <SheetFoot
+          label={bill === null ? 'Agregar' : 'Guardar'}
+          saving={save.saving}
+          blocked={blocked}
+          locked={locked}
+          failed={save.failed}
+          onSave={onSave}
+        />
       }
     >
       <TextField
@@ -121,7 +179,7 @@ export function ServicioSheet({
         checked={autoDebit}
         onChange={setAutoDebit}
       />
-      {canSave ? null : (
+      {blocked ? (
         <p className="fproblem" role="alert">
           {!named
             ? 'Falta el nombre del servicio.'
@@ -129,12 +187,22 @@ export function ServicioSheet({
               ? 'El monto tiene que ser un número mayor que cero, o quedar vacío.'
               : 'Falta elegir una categoría.'}
         </p>
-      )}
-      {bill === null || onDelete === undefined ? null : (
-        <button className="btn btn-danger btn-block" type="button" disabled>
-          <Trash2 />
-          Borrar este servicio
-        </button>
+      ) : null}
+      {bill === null ? null : (
+        <DangerAction
+          label="Borrar este servicio"
+          saving={save.saving}
+          locked={locked}
+          onPress={() => {
+            save.run(() =>
+              deletePendiente({
+                db: session.db,
+                householdId,
+                pendienteId: bill.id,
+              }),
+            )
+          }}
+        />
       )}
     </Sheet>
   )
@@ -149,12 +217,14 @@ export function ServicioSheet({
 export function PagarSheet({
   open,
   onClose,
+  session,
   bill,
   methods,
   today,
 }: {
   readonly open: boolean
   readonly onClose: () => void
+  readonly session: BetaSession
   readonly bill: Pendiente
   readonly methods: readonly PaymentMethod[]
   readonly today: Date
@@ -164,10 +234,55 @@ export function PagarSheet({
   )
   const [paidOn, setPaidOn] = useState(isoDay(today))
   const [methodId, setMethodId] = useState('')
+  const save = useSave(onClose)
 
   const method = methods.find((candidate) => candidate.id === methodId)
   const onCredit = method?.kind === 'credito'
   const priced = moneyIsValid(amount)
+  const householdId = session.householdId ?? ''
+  const memberId = session.userId ?? ''
+  const author = session.displayName ?? 'Alguien'
+
+  const locked: string | null = !session.sandbox.owns('pendiente', bill.id)
+    ? NOT_MINE_NOTE
+    : onCredit &&
+        method !== undefined &&
+        !session.sandbox.owns('card', method.id)
+      ? `Pagarlo con ${method.name} le tocaría el resumen, que ya existe. Para probar esto, agregá una tarjeta de prueba en Perfil y usá esa.`
+      : householdId === '' || memberId === ''
+        ? 'Todavía estamos leyendo el hogar. Probá de nuevo en un segundo.'
+        : null
+
+  const onSave = (): void => {
+    save.run(() => {
+      const finalAmount = moneyValue(amount)
+      const paymentDate = dayFromIso(paidOn)
+      if (onCredit && method !== undefined) {
+        return markPendientePaidWithCard({
+          db: session.db,
+          householdId,
+          pendienteId: bill.id,
+          cardId: method.id,
+          memberId,
+          authorDisplayName: author,
+          finalAmount,
+          cuotas: 1,
+          paymentDate,
+          currency: bill.currency ?? 'ARS',
+        })
+      }
+      return markPendientePaid({
+        db: session.db,
+        householdId,
+        pendienteId: bill.id,
+        memberId,
+        authorDisplayName: author,
+        finalAmount,
+        paymentDate,
+        paymentMethodId: methodId === '' ? null : methodId,
+      })
+    })
+  }
 
   return (
     <Sheet
@@ -175,13 +290,14 @@ export function PagarSheet({
       open={open}
       onClose={onClose}
       footer={
-        <div className="sheet-acts">
-          <button className="btn btn-primary btn-block" type="button" disabled>
-            <Check />
-            Marcar como pagado
-          </button>
-          <ReadOnlyFoot />
-        </div>
+        <SheetFoot
+          label="Marcar como pagado"
+          saving={save.saving}
+          blocked={!priced}
+          locked={locked}
+          failed={save.failed}
+          onSave={onSave}
+        />
       }
     >
       <MoneyField

@@ -1,10 +1,15 @@
-import { Check, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import type { Card as PaymentMethod } from '@/lib/cards'
+import { createCardPurchase } from '@/lib/cards'
 import type { Category, Expense } from '@/lib/expenses'
+import { createExpense, deleteExpense, updateExpense } from '@/lib/expenses'
+import { createPendiente } from '@/lib/pendientes'
 import type { Currency } from '@/lib/money'
-import { ReadOnlyFoot, Sheet } from '../Sheet'
+import { DangerAction, Sheet, SheetFoot } from '../Sheet'
+import { NOT_MINE_NOTE } from '../sandboxDb'
+import { useSave } from '../useSave'
+import type { BetaSession } from '../data'
 import {
   DateField,
   MoneyField,
@@ -13,6 +18,7 @@ import {
   TextField,
   Toggle,
   moneyIsValid,
+  moneyValue,
 } from '../fields'
 
 // Adding and editing a gasto, with the v1's own rules.
@@ -39,6 +45,13 @@ function isoDay(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${String(date.getFullYear())}-${month}-${day}`
+}
+
+// Midday rather than midnight: a date read back out of the input is local,
+// and a midnight that drifts an hour lands on the day before.
+function dayFromIso(iso: string): Date {
+  const [year, month, day] = iso.split('-').map(Number)
+  return new Date(year ?? 2026, (month ?? 1) - 1, day ?? 1, 12)
 }
 
 export function draftFromExpense(
@@ -75,24 +88,25 @@ export function draftFromExpense(
 export function GastoSheet({
   open,
   onClose,
+  session,
   expense,
   categories,
   methods,
   today,
-  onDelete,
 }: {
   readonly open: boolean
   readonly onClose: () => void
+  readonly session: BetaSession
   // Null when adding.
   readonly expense: Expense | null
   readonly categories: readonly Category[]
   readonly methods: readonly PaymentMethod[]
   readonly today: Date
-  readonly onDelete?: () => void
 }): ReactElement {
   const [draft, setDraft] = useState<GastoDraft>(() =>
     draftFromExpense(expense, categories[0]?.id ?? '', today),
   )
+  const save = useSave(onClose)
   const set = <K extends keyof GastoDraft>(
     key: K,
     value: GastoDraft[K],
@@ -106,7 +120,93 @@ export function GastoSheet({
   const onCredit = method?.kind === 'credito'
   const named = draft.name.trim() !== ''
   const priced = moneyIsValid(draft.amount)
-  const canSave = named && priced && draft.categoryId !== ''
+  const blocked = !named || !priced || draft.categoryId === ''
+  const householdId = session.householdId ?? ''
+  const memberId = session.userId ?? ''
+  const author = session.displayName ?? 'Alguien'
+
+  // Three ways this form can be one the beta will not write.
+  const locked: string | null =
+    expense !== null && !session.sandbox.owns('expense', expense.id)
+      ? NOT_MINE_NOTE
+      : // A purchase does not only add a row: its cuotas go into that card's
+        // resúmenes, which for a real card are real rows. A card the beta
+        // made has no statements belonging to anybody else.
+        expense === null &&
+          onCredit &&
+          method !== undefined &&
+          !session.sandbox.owns('card', method.id)
+        ? `Comprar con ${method.name} le tocaría el resumen, que ya existe. Para probar esto, agregá una tarjeta de prueba en Perfil y usá esa.`
+        : householdId === '' || memberId === ''
+          ? 'Todavía estamos leyendo el hogar. Probá de nuevo en un segundo.'
+          : null
+
+  const onSave = (): void => {
+    save.run(async () => {
+      const amount = moneyValue(draft.amount)
+      const date = dayFromIso(draft.date)
+      if (expense !== null) {
+        return updateExpense({
+          db: session.db,
+          householdId,
+          expenseId: expense.id,
+          name: draft.name.trim(),
+          price: amount,
+          categoryId: draft.categoryId,
+          comments: draft.comments,
+          expenseDate: date,
+          isService: draft.isService,
+          currency: draft.currency,
+          paymentMethodId: draft.methodId === '' ? null : draft.methodId,
+        })
+      }
+      if (onCredit && method !== undefined) {
+        return createCardPurchase({
+          db: session.db,
+          householdId,
+          cardId: method.id,
+          categoryId: draft.categoryId,
+          memberId,
+          authorDisplayName: author,
+          name: draft.name.trim(),
+          total: amount,
+          cuotas: Number(draft.cuotas),
+          purchaseDate: date,
+          comments: draft.comments,
+          currency: draft.currency,
+        })
+      }
+      // Ticking "es un servicio" on something new does not write a gasto at
+      // all: a servicio is a bill of the month, and it lives on the
+      // Servicios screen until somebody marks it paid. The same toggle on an
+      // existing gasto is the v1's own flag, above.
+      if (draft.isService) {
+        return createPendiente({
+          db: session.db,
+          householdId,
+          categoryId: draft.categoryId,
+          name: draft.name.trim(),
+          dueDate: date,
+          expectedAmount: amount,
+          recurring: true,
+          currency: draft.currency,
+        })
+      }
+      return createExpense({
+        db: session.db,
+        householdId,
+        categoryId: draft.categoryId,
+        memberId,
+        authorDisplayName: author,
+        name: draft.name.trim(),
+        price: amount,
+        comments: draft.comments,
+        expenseDate: date,
+        currency: draft.currency,
+        paymentMethodId: draft.methodId === '' ? null : draft.methodId,
+      })
+    })
+  }
 
   return (
     <Sheet
@@ -114,18 +214,14 @@ export function GastoSheet({
       open={open}
       onClose={onClose}
       footer={
-        <div className="sheet-acts">
-          <button
-            className="btn btn-primary btn-block"
-            type="button"
-            disabled
-            aria-disabled="true"
-          >
-            <Check />
-            {expense === null ? 'Anotar' : 'Guardar'}
-          </button>
-          <ReadOnlyFoot />
-        </div>
+        <SheetFoot
+          label={expense === null ? 'Anotar' : 'Guardar'}
+          saving={save.saving}
+          blocked={blocked}
+          locked={locked}
+          failed={save.failed}
+          onSave={onSave}
+        />
       }
     >
       <TextField
@@ -198,7 +294,11 @@ export function GastoSheet({
       ) : (
         <Toggle
           k="Es un servicio"
-          v="Marcalo si esto es una cuenta del hogar y no un gasto suelto."
+          v={
+            expense === null
+              ? 'Una cuenta del hogar, no un gasto suelto: se guarda en Servicios y queda por pagar.'
+              : 'Marcalo si esto es una cuenta del hogar y no un gasto suelto.'
+          }
           checked={draft.isService}
           onChange={(next) => set('isService', next)}
         />
@@ -209,7 +309,7 @@ export function GastoSheet({
         onChange={(next) => set('comments', next)}
         placeholder="Opcional"
       />
-      {canSave ? null : (
+      {blocked ? (
         <p className="fproblem" role="alert">
           {!named
             ? 'Falta decir qué fue.'
@@ -217,12 +317,22 @@ export function GastoSheet({
               ? 'Falta cuánto, y tiene que ser un número mayor que cero.'
               : 'Falta elegir una categoría.'}
         </p>
-      )}
-      {expense === null || onDelete === undefined ? null : (
-        <button className="btn btn-danger btn-block" type="button" disabled>
-          <Trash2 />
-          Borrar este gasto
-        </button>
+      ) : null}
+      {expense === null ? null : (
+        <DangerAction
+          label="Borrar este gasto"
+          saving={save.saving}
+          locked={locked}
+          onPress={() => {
+            save.run(() =>
+              deleteExpense({
+                db: session.db,
+                householdId,
+                expenseId: expense.id,
+              }),
+            )
+          }}
+        />
       )}
     </Sheet>
   )
