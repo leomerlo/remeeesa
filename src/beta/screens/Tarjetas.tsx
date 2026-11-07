@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { CreditCard, Info } from 'lucide-react'
+import { CreditCard } from 'lucide-react'
 import type { ReactElement } from 'react'
 import {
   cardsDueNextMonth,
@@ -14,7 +14,6 @@ import { CardBrandMark } from '../CardBrandMark'
 import { ListSkeleton, NameSkel } from '../Skeleton'
 import { Figure } from '../Figure'
 import { useMonth } from '../MonthContext'
-import { PurchaseRow } from '../rows'
 import { monthName } from '../format'
 import type { BetaSession } from '../data'
 import { LoadFailed, Title } from './Gastos'
@@ -36,7 +35,7 @@ export function Tarjetas({
   readonly session: BetaSession
 }): ReactElement {
   const householdId = session.householdId ?? null
-  const { monthStart, monthEnd } = useMonth()
+  const { monthStart } = useMonth()
   const next = nextMonthOf(monthStart)
 
   const data = useQuery({
@@ -44,18 +43,10 @@ export function Tarjetas({
     enabled: householdId !== null,
     queryFn: async () => {
       const id = householdId as string
-      const [pendientes, cards, categories, purchases, members] =
-        await Promise.all([
-          session.db.listPendientes({ householdId: id }),
-          session.db.listCards({ householdId: id }),
-          session.db.listCategories(id),
-          session.db.listCardPurchasesInMonth({
-            householdId: id,
-            monthStart,
-            monthEnd,
-          }),
-          session.db.listMembers(id),
-        ])
+      const [pendientes, cards] = await Promise.all([
+        session.db.listPendientes({ householdId: id }),
+        session.db.listCards({ householdId: id }),
+      ])
       // The statements the cards will send for the month after the one on
       // screen, read off the Resúmenes the app already keeps rather than
       // re-added from purchases -- recomputing them missed every cuota of
@@ -66,15 +57,7 @@ export function Tarjetas({
           listResumenCuotas({ db: session.db, householdId: id, resumen }),
         ),
       )
-      return {
-        pendientes,
-        cards,
-        categories,
-        purchases,
-        members,
-        resumenes,
-        cuotas,
-      }
+      return { pendientes, cards, resumenes, cuotas }
     },
   })
 
@@ -95,16 +78,7 @@ export function Tarjetas({
     )
   }
 
-  const {
-    pendientes,
-    cards,
-    categories,
-    purchases,
-    members,
-    resumenes,
-    cuotas,
-  } = data.data
-  const several = members.length > 1
+  const { pendientes, cards, resumenes, cuotas } = data.data
   const totals = cardsDueNextMonthTotals(pendientes, monthStart)
   const credit = cards.filter((card) => card.kind === 'credito')
 
@@ -196,31 +170,6 @@ export function Tarjetas({
           )
         })
       )}
-
-      {purchases.length > 0 ? (
-        <>
-          <div className="card alert alert-info">
-            <span className="tile" aria-hidden="true">
-              <Info />
-            </span>
-            <p>
-              Esto es lo que pusieron en una tarjeta durante{' '}
-              <b>{monthName(monthStart)}</b>. Empieza a cobrarse en el resumen
-              de <b>{monthName(next)}</b>, entero o en cuotas.
-            </p>
-          </div>
-          <div className="sec">
-            {purchases.map((purchase) => (
-              <PurchaseRow
-                key={purchase.id}
-                purchase={purchase}
-                categories={categories}
-                several={several}
-              />
-            ))}
-          </div>
-        </>
-      ) : null}
     </>
   )
 }
@@ -269,10 +218,17 @@ function Resumen({
       {lines.map(({ purchase, cuota }) => (
         <div className="cuota" key={`${purchase.id}-${String(cuota.number)}`}>
           <span className="cn">{purchase.name}</span>
+          {/* Which month the purchase was made in, on every line. Without
+              it a statement is a list of names with no history, and the
+              screen had to carry a second list of the month's own
+              purchases to supply it -- two lists that, for a purchase in
+              one payment, said the same number twice. */}
           <span className="cm">
             {purchase.cuotas === 1
               ? 'Un solo pago'
               : `Cuota ${String(cuota.number)} de ${String(purchase.cuotas)}`}
+            {' · compra de '}
+            {monthName(purchase.purchaseDate)}
           </span>
           <span className="ca">{formatAmount(cuota.amount, currency)}</span>
         </div>
