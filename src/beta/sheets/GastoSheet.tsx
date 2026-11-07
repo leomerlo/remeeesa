@@ -354,27 +354,49 @@ export function GastoSheet({
               : 'Marcalo si esto es una cuenta del hogar y no un gasto suelto.'
           }
           checked={draft.isService}
-          onChange={(next) => set('isService', next)}
+          onChange={(next) => {
+            setDraft((current) => ({
+              ...current,
+              isService: next,
+              recurring: next ? current.recurring : false,
+              autoDebit: next ? current.autoDebit : false,
+            }))
+          }}
         />
       )}
-      {/* Only once it is a servicio, and only when anotando uno nuevo:
-          on an existing gasto the toggle above is the v1's own flag and
-          writes no bill, so there is nothing for these two to say. The
-          same two questions, in the same words, as the Servicios form --
-          a servicio anotado from here is the same thing as one anotado
-          there. */}
-      {draft.isService && expense === null && purchase === null ? (
+      {/* Both of them always, the way the v1 has them: a question that
+          appears only after another one is answered is a question nobody
+          knows is there. Débito automático is held shut until Todos los
+          meses is on -- the bank does not debit a one-off -- which is the
+          v1's rule too.
+
+          Only when anotando uno nuevo: on an existing gasto the toggle
+          above is the v1's own flag and writes no bill, so there would be
+          nothing for these two to write. */}
+      {expense === null && purchase === null ? (
         <>
           <Toggle
             k="Todos los meses"
             v="Se vuelve a crear solo cuando arranca el mes siguiente."
             checked={draft.recurring}
-            onChange={(next) => set('recurring', next)}
+            onChange={(next) => {
+              // Something that comes every month is a cuenta del hogar,
+              // not a gasto suelto -- the v1 decides the same way. And
+              // switching it off takes the bank's debit with it, or it
+              // would come back the moment it is switched on again.
+              setDraft((current) => ({
+                ...current,
+                recurring: next,
+                isService: next ? true : current.isService,
+                autoDebit: next ? current.autoDebit : false,
+              }))
+            }}
           />
           <Toggle
             k="Débito automático"
             v="Lo debita el banco en la fecha. No hace falta marcarlo como pagado: se salda solo cuando pasa el vencimiento."
             checked={draft.autoDebit}
+            disabled={!draft.recurring}
             onChange={(next) => set('autoDebit', next)}
           />
         </>

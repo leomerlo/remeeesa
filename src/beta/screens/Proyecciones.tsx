@@ -9,6 +9,7 @@ import {
   summarizeByCategory,
 } from '@/lib/expenses'
 import type { Category } from '@/lib/expenses'
+import { RESUMEN_CATEGORY_NAME } from '@/lib/cards'
 import { countedByBudget, DEFAULT_CURRENCY } from '@/lib/money'
 import { pendientesDueInMonth } from '@/lib/pendientes'
 import { cssVars } from '@/lib/cssVars'
@@ -36,13 +37,14 @@ type Edits = {
 const SAVE_DEBOUNCE_MS = 700
 
 // Where a line's figure comes from, which is the one thing worth knowing
-// about it. Same three the v1 draws, same meanings.
-type Kind = 'cargado' | 'anterior' | 'servicio'
+// about it. The v1's three, plus the card -- see the comment on the rows.
+type Kind = 'cargado' | 'anterior' | 'servicio' | 'tarjeta'
 
 const BADGE: Readonly<Record<Kind, string>> = {
   cargado: 'Ya cargado',
   anterior: 'Del mes anterior',
   servicio: 'Servicio sin pagar',
+  tarjeta: 'Cuotas ya compradas',
 }
 
 export function Proyecciones({
@@ -191,6 +193,14 @@ export function Proyecciones({
     })),
   )
 
+  // Paying a card bill writes its gastos into a category called Tarjeta,
+  // so carrying that category over from last month is a second guess at
+  // the same money the card lines above already carry -- the bill counted
+  // twice. The card has a bill of its own in this month; that is the line
+  // that speaks for it.
+  const tarjetaId = categories.find(
+    (category) => category.name === RESUMEN_CATEGORY_NAME,
+  )?.id
   const byId = new Map(categories.map((category) => [category.id, category]))
   const nameOf = (categoryId: string): string =>
     byId.get(categoryId)?.name ?? 'Sin categoría'
@@ -208,20 +218,36 @@ export function Proyecciones({
       previous,
       current,
       servicios.map((servicio) => servicio.name),
-    ).map((row) => ({
-      key: row.categoryId,
-      label: nameOf(row.categoryId),
-      kind:
-        row.source === 'actual' ? ('cargado' as const) : ('anterior' as const),
-      color: colorOf(row.categoryId),
-      price: row.price,
-    })),
+    )
+      .filter((row) => row.categoryId !== tarjetaId)
+      .map((row) => ({
+        key: row.categoryId,
+        label: nameOf(row.categoryId),
+        kind:
+          row.source === 'actual'
+            ? ('cargado' as const)
+            : ('anterior' as const),
+        color: colorOf(row.categoryId),
+        price: row.price,
+      })),
+    // A card bill is the one line the app can fill in before it arrives:
+    // the cuotas already bought that land in this month add up to a figure
+    // it has been keeping all along (estimatedAmount). It was listed at $0
+    // -- correct for a bill nobody has seen, and useless in a projection,
+    // which is a guess by definition. Still only an estimate: next month's
+    // own purchases are not in it, so this line is the one most worth
+    // typing over.
     ...servicios.map((pendiente) => ({
       key: `servicio-${pendiente.id}`,
       label: pendiente.name,
-      kind: 'servicio' as const,
+      kind:
+        pendiente.cardId === undefined
+          ? ('servicio' as const)
+          : ('tarjeta' as const),
       color: colorOf(pendiente.categoryId),
-      price: pendiente.expectedAmount ?? 0,
+      price:
+        pendiente.expectedAmount ??
+        (pendiente.cardId === undefined ? 0 : (pendiente.estimatedAmount ?? 0)),
     })),
   ]
     // Biggest first, like every other list of amounts in this app: the

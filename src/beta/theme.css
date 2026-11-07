@@ -371,10 +371,10 @@
   .rowcard { padding: 0; display: grid; }
   .rowcard > .row { border-radius: var(--r) var(--r) 0 0; }
   .rowcard > .row:only-child { border-radius: var(--r); }
-  .tile { grid-row: 1 / span 2; width: 48px; height: 48px; border-radius: 16px;
+  .tile { grid-row: 1 / span 2; width: 42px; height: 42px; border-radius: 14px;
           display: grid; place-items: center; flex: none;
           background: var(--grape-50); color: var(--grape-700); }
-  .tile svg { width: 24px; height: 24px; stroke-width: 2.1; }
+  .tile svg { width: 20px; height: 20px; stroke-width: 2.1; }
   .gl svg { width: 24px; height: 24px; stroke-width: 2.1; }
   .ic svg { width: 20px; height: 20px; stroke-width: 2.2; vertical-align: -4px; }
   .row .name { grid-column: 2; grid-row: 1; font-size: var(--t-md); font-weight: 700;
@@ -1087,6 +1087,7 @@
   .swrow[aria-checked="true"] { border-color: var(--grape-600); background: var(--grape-50); }
   .swrow[aria-checked="true"] .tg { background: var(--grape-btn); }
   .swrow[aria-checked="true"] .tg i { transform: translateX(20px); }
+  .swrow:disabled { opacity: .5; cursor: default; }
 
   /* One line of a scenario: a switch that says whether it happens, and
      the figure it happens for. Both on the card, the way the v1 has it --

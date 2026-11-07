@@ -266,11 +266,16 @@ export function Toggle({
   v,
   checked,
   onChange,
+  disabled = false,
 }: {
   readonly k: string
   readonly v: string
   readonly checked: boolean
   readonly onChange: (next: boolean) => void
+  // Shown but not answerable yet, because another answer has to come
+  // first. Held shut rather than hidden, so the question does not appear
+  // out of nowhere once it becomes askable.
+  readonly disabled?: boolean
 }): ReactElement {
   return (
     <button
@@ -278,6 +283,7 @@ export function Toggle({
       role="switch"
       aria-checked={checked}
       className="swrow"
+      disabled={disabled}
       onClick={() => onChange(!checked)}
     >
       <span className="k">{k}</span>
