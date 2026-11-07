@@ -1119,10 +1119,11 @@
      button looks like nothing else and never leads. */
   /* Text and nothing else: no fill, no outline. It stands beside the one
      button that changes the month, and two framed buttons side by side
-     read as two equal offers. */
-  .btn-tertiary { background: transparent; color: var(--ink-2); border: 0;
+     read as two equal offers. The action colour all the same -- in grey
+     it read as switched off rather than as the quieter of two. */
+  .btn-tertiary { background: transparent; color: var(--grape-700); border: 0;
                   padding: 8px 12px; }
-  .btn-tertiary:hover { color: var(--grape-700); }
+  .btn-tertiary:hover { background: var(--grape-50); }
   .btn-danger { background: transparent; color: var(--red-700);
                 border: 2px solid var(--red-50); padding: 8px 16px; }
 
