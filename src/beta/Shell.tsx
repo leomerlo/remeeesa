@@ -22,7 +22,7 @@ import { Dolar } from './Dolar'
 const TABS = [
   { to: '/', label: 'Inicio', Icon: House, end: true },
   { to: '/gastos', label: 'Gastos', Icon: History, end: false },
-  { to: '/cuentas', label: 'Cuentas', Icon: CalendarClock, end: false },
+  { to: '/servicios', label: 'Servicios', Icon: CalendarClock, end: false },
   { to: '/tarjetas', label: 'Tarjetas', Icon: CreditCard, end: false },
   { to: '/categorias', label: 'Categorías', Icon: ChartPie, end: false },
   { to: '/perfil', label: 'Perfil', Icon: UserRound, end: false },

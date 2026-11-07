@@ -28,27 +28,25 @@ export function Gastos({
     enabled: householdId !== null,
     queryFn: async () => {
       const id = householdId as string
-      const [expenses, purchases, categories, household, members] =
-        await Promise.all([
-          session.db.listExpensesInMonth({
-            householdId: id,
-            monthStart,
-            monthEnd,
-          }),
-          // What went onto a credit card this month. Not Expenses -- the
-          // money has not left yet -- which is exactly why they need a
-          // place of their own: until now they appeared nowhere but as
-          // cuotas inside next month's statement.
-          session.db.listCardPurchasesInMonth({
-            householdId: id,
-            monthStart,
-            monthEnd,
-          }),
-          session.db.listCategories(id),
-          session.db.getHousehold(id),
-          session.db.listMembers(id),
-        ])
-      return { expenses, purchases, categories, household, members }
+      const [expenses, purchases, categories, members] = await Promise.all([
+        session.db.listExpensesInMonth({
+          householdId: id,
+          monthStart,
+          monthEnd,
+        }),
+        // What went onto a credit card this month. Not Expenses -- the
+        // money has not left yet -- which is exactly why they need a
+        // place of their own: until now they appeared nowhere but as
+        // cuotas inside next month's statement.
+        session.db.listCardPurchasesInMonth({
+          householdId: id,
+          monthStart,
+          monthEnd,
+        }),
+        session.db.listCategories(id),
+        session.db.listMembers(id),
+      ])
+      return { expenses, purchases, categories, members }
     },
   })
 
@@ -93,12 +91,12 @@ export function Gastos({
     )
   }
 
-  const { expenses, purchases, categories, household, members } = data.data
+  const { expenses, purchases, categories, members } = data.data
   const several = members.length > 1
   const header = (
     <Title
       text="Gastos"
-      sub={`Todo lo que anotaron en ${household.name} durante ${monthName(monthStart)}.`}
+      sub="Todos los gastos que hacen día a día que no son recurrentes o servicios."
       pager
     />
   )

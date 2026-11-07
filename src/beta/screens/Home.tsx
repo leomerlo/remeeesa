@@ -177,7 +177,7 @@ export function Home({
               </span>
               <Figure className="amt" amount={owed} />
               <span className="foot">
-                Cuentas que vencen y todavía no pagaron.
+                Servicios que vencen y todavía no pagaron.
               </span>
             </div>
             <Link className="card cardtot" to="/tarjetas">
@@ -242,7 +242,7 @@ export function Home({
         <div className="col">
           {bills.length > 0 ? (
             <section className="sec">
-              <h2>Cuentas por pagar</h2>
+              <h2>Servicios por pagar</h2>
               {bills.slice(0, 3).map((bill) => (
                 <BillRow
                   key={bill.id}
@@ -252,9 +252,9 @@ export function Home({
                   now={now}
                 />
               ))}
-              <Link className="btn btn-secondary btn-wide" to="/cuentas">
+              <Link className="btn btn-secondary btn-wide" to="/servicios">
                 <ArrowRight />
-                Ver todas las cuentas
+                Ver todos los servicios
               </Link>
             </section>
           ) : null}

@@ -12,7 +12,7 @@ import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import {
   billsOnCard,
   billsOnCardTotal,
-  cuentasFigures,
+  serviciosFigures,
   gastosFigures,
   homeFigures,
   projectionFigures,
@@ -214,7 +214,7 @@ describe('the beta says the same month on every screen', () => {
   // the rule Flor asked for -- an unpaid bill does not stay in its month,
   // it follows the household forward with a warning -- is built here
   // rather than hoped for. It is also the one case where Inicio's figure
-  // and Cuentas' are meant to differ.
+  // and Servicios' are meant to differ.
   it('carries an unpaid bill forward without charging this month for it', () => {
     const base = snapshots.get('completa·este mes')
     if (base === undefined) throw new Error('missing snapshot')
@@ -243,16 +243,16 @@ describe('the beta says the same month on every screen', () => {
       pendientes: [...base.pendientes, stale],
     }
     const home = homeFigures(snap)
-    const cuentas = cuentasFigures(snap)
+    const cuentas = serviciosFigures(snap)
 
     // It shows, and it shows first.
     expect(home.late.map((bill) => bill.id)).toContain(stale.id)
     expect(home.bills[0]?.id).toBe(stale.id)
     expect(cuentas.bills[0]?.id).toBe(stale.id)
 
-    // It is still owed, so Cuentas counts it...
+    // It is still owed, so Servicios counts it...
     expect(cents(cuentas.owed)).toBe(
-      cents(cuentasFigures(base).owed) + cents(stale.expectedAmount ?? 0),
+      cents(serviciosFigures(base).owed) + cents(stale.expectedAmount ?? 0),
     )
     // ...and this month's budget does not, because it was September's
     // money. That is the whole of the October bug, as a test.
@@ -378,7 +378,7 @@ describe('the beta says the same month on every screen', () => {
       )
       expect(cents(home.owed), key).not.toBe(cents(home.owed + dollarOwed))
     }
-    const cuentas = cuentasFigures(snap)
+    const cuentas = serviciosFigures(snap)
     expect(cents(cuentas.owed), key).toBe(
       cents(
         sumIn(
@@ -437,12 +437,12 @@ describe('the beta says the same month on every screen', () => {
     )
   })
 
-  // Cuentas lists everything still unpaid, of any month; Inicio counts
+  // Servicios lists everything still unpaid, of any month; Inicio counts
   // only the month on screen. The two are allowed to differ, and the
   // direction they differ in is the whole point.
-  each('Cuentas is never smaller than what Inicio counts', (snap, key) => {
+  each('Servicios is never smaller than what Inicio counts', (snap, key) => {
     const home = homeFigures(snap)
-    const cuentas = cuentasFigures(snap)
+    const cuentas = serviciosFigures(snap)
     expect(
       cents(cuentas.owed) + cents(cuentas.owedUsd),
       key,
@@ -591,7 +591,7 @@ describe('the beta says the same month on every screen', () => {
   // What is late leads, because it is the only thing on the list that is
   // already a problem.
   each('what is late is listed first', (snap, key) => {
-    const bills = cuentasFigures(snap).bills
+    const bills = serviciosFigures(snap).bills
     let seenCurrent = false
     for (const bill of bills) {
       const late = bill.dueDate < snap.monthStart

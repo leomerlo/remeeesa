@@ -11,7 +11,7 @@ import { Shell } from './Shell'
 import { BootSkeleton } from './Skeleton'
 import { SignIn } from './SignIn'
 import { Categorias } from './screens/Categorias'
-import { Cuentas } from './screens/Cuentas'
+import { Servicios } from './screens/Servicios'
 import { Gastos } from './screens/Gastos'
 import { Home } from './screens/Home'
 import { Perfil } from './screens/Perfil'
@@ -62,7 +62,7 @@ export function BetaRoutes(): ReactElement {
             path="/categorias"
             element={<Categorias session={session} />}
           />
-          <Route path="/cuentas" element={<Cuentas session={session} />} />
+          <Route path="/servicios" element={<Servicios session={session} />} />
           <Route path="/tarjetas" element={<Tarjetas session={session} />} />
           <Route path="/perfil" element={<Perfil session={session} />} />
           <Route

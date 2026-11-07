@@ -192,8 +192,8 @@ export function gastosFigures(input: {
   }
 }
 
-export type CuentasFigures = {
-  // Everything still unpaid, of any month -- what the screen lists. Wider
+export type ServiciosFigures = {
+  // Everything still unpaid, of any month -- what Servicios lists. Wider
   // than the Home's `owed`, which only counts the viewed month, and the two
   // are meant to differ: this answers "what do we still owe", that one
   // answers "what does this month's budget still have to cover".
@@ -205,11 +205,11 @@ export type CuentasFigures = {
   readonly late: readonly Pendiente[]
 }
 
-export function cuentasFigures(input: {
+export function serviciosFigures(input: {
   readonly pendientes: readonly Pendiente[]
   readonly monthStart: Date
   readonly now: Date
-}): CuentasFigures {
+}): ServiciosFigures {
   const bills = sortBills(
     input.pendientes.filter(
       (pendiente) => pendiente.status === 'pending' && isBillToPay(pendiente),

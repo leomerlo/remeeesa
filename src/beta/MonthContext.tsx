@@ -11,7 +11,7 @@ type MonthValue = {
 const MonthContext = createContext<MonthValue | null>(null)
 
 // One viewed month for the whole app: stepping it on Gastos and then going
-// to Cuentas should not land you back in today.
+// to Servicios should not land you back in today.
 export function MonthProvider({
   children,
 }: {

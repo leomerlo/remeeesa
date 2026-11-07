@@ -25,7 +25,7 @@ type Kind = 'cargado' | 'anterior' | 'servicio'
 const BADGE: Readonly<Record<Kind, string>> = {
   cargado: 'Ya cargado',
   anterior: 'Del mes anterior',
-  servicio: 'Cuenta sin pagar',
+  servicio: 'Servicio sin pagar',
 }
 
 export function Proyecciones({

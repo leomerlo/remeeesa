@@ -44,12 +44,11 @@ export function Tarjetas({
     enabled: householdId !== null,
     queryFn: async () => {
       const id = householdId as string
-      const [pendientes, cards, categories, household, purchases, members] =
+      const [pendientes, cards, categories, purchases, members] =
         await Promise.all([
           session.db.listPendientes({ householdId: id }),
           session.db.listCards({ householdId: id }),
           session.db.listCategories(id),
-          session.db.getHousehold(id),
           session.db.listCardPurchasesInMonth({
             householdId: id,
             monthStart,
@@ -71,7 +70,6 @@ export function Tarjetas({
         pendientes,
         cards,
         categories,
-        household,
         purchases,
         members,
         resumenes,
@@ -101,7 +99,6 @@ export function Tarjetas({
     pendientes,
     cards,
     categories,
-    household,
     purchases,
     members,
     resumenes,
@@ -115,7 +112,7 @@ export function Tarjetas({
     <>
       <Title
         text="Tarjetas"
-        sub={`Todo lo que las tarjetas de ${household.name} van a cobrar, y de dónde sale cada peso.`}
+        sub="Todo lo que pagaron con tarjetas de crédito, ya sean gastos o servicios."
         pager
       />
 

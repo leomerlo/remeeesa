@@ -3,7 +3,7 @@ import { ArrowRight, CalendarClock, CreditCard } from 'lucide-react'
 import type { ReactElement } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { formatAmount } from '@/lib/expenses'
-import { billsOnCard, billsOnCardTotal, cuentasFigures } from '../figures'
+import { billsOnCard, billsOnCardTotal, serviciosFigures } from '../figures'
 
 import { ListSkeleton, NameSkel } from '../Skeleton'
 import { Figure } from '../Figure'
@@ -13,15 +13,13 @@ import { monthName } from '../format'
 import type { BetaSession } from '../data'
 import { LoadFailed, Title } from './Gastos'
 
-export function Cuentas({
+export function Servicios({
   session,
 }: {
   readonly session: BetaSession
 }): ReactElement {
   // Which of the two the screen is on lives in the address rather than in
-  // state, so somewhere else can send you straight to one -- "Con la
-  // tarjeta" on Inicio is about the cards, and landing on the bills was
-  // answering a question nobody asked. Replaced rather than pushed: the
+  // state, so somewhere else can send you straight to one. Replaced rather than pushed: the
   // back button should leave the screen, not walk back through tabs.
   const [params, setParams] = useSearchParams()
   const view = params.get('ver') === 'tarjetas' ? 'tarjetas' : 'pagar'
@@ -33,21 +31,20 @@ export function Cuentas({
   const { monthStart, monthEnd } = useMonth()
 
   const data = useQuery({
-    queryKey: ['beta', 'cuentas', householdId, monthStart.toISOString()],
+    queryKey: ['beta', 'servicios', householdId, monthStart.toISOString()],
     enabled: householdId !== null,
     queryFn: async () => {
       const id = householdId as string
-      const [pendientes, categories, household, settled] = await Promise.all([
+      const [pendientes, categories, settled] = await Promise.all([
         session.db.listPendientes({ householdId: id }),
         session.db.listCategories(id),
-        session.db.getHousehold(id),
         session.db.listPaidPendientesDueInMonth({
           householdId: id,
           monthStart,
           monthEnd,
         }),
       ])
-      return { pendientes, categories, household, settled }
+      return { pendientes, categories, settled }
     },
   })
 
@@ -73,28 +70,28 @@ export function Cuentas({
   if (data.isPending) {
     return (
       <>
-        <Title text="Cuentas" sub={<NameSkel />} pager />
+        <Title text="Servicios" sub={<NameSkel />} pager />
         {segment}
-        <ListSkeleton label="Cargando las cuentas" rows={4} />
+        <ListSkeleton label="Cargando los servicios" rows={4} />
       </>
     )
   }
   if (data.isError || data.data === undefined) {
     return (
       <>
-        <Title text="Cuentas" />
+        <Title text="Servicios" />
         <LoadFailed />
       </>
     )
   }
 
-  const { pendientes, categories, household, settled } = data.data
+  const { pendientes, categories, settled } = data.data
 
   // Bills of this month settled with a credit card -- see figures.ts for
   // why this reads the paid ones. Where they end up is Tarjetas.
   const onCard = billsOnCard(settled)
 
-  const { bills, owed, owedUsd, late } = cuentasFigures({
+  const { bills, owed, owedUsd, late } = serviciosFigures({
     pendientes,
     monthStart,
     now,
@@ -102,8 +99,8 @@ export function Cuentas({
 
   const header = (
     <Title
-      text="Cuentas"
-      sub={`Lo que ${household.name} tiene que pagar, y con qué lo paga.`}
+      text="Servicios"
+      sub="Todos los gastos que hacen mes a mes para cubrir gastos del hogar o servicios."
       pager
     />
   )
@@ -119,9 +116,9 @@ export function Cuentas({
             <span className="orb" aria-hidden="true">
               <CreditCard />
             </span>
-            <h3>Ninguna cuenta se pagó con tarjeta</h3>
+            <h3>Ningún servicio se pagó con tarjeta</h3>
             <p>
-              Cuando marquen una cuenta como pagada con una tarjeta de crédito
+              Cuando marquen un servicio como pagado con una tarjeta de crédito
               va a aparecer acá: esa plata no sale este mes, llega en el
               resumen.
             </p>
@@ -131,7 +128,7 @@ export function Cuentas({
             <div className="hood solo">
               <div className="card hero">
                 <div className="label">
-                  Cuentas de {monthName(monthStart)} que pagaron con tarjeta
+                  Servicios de {monthName(monthStart)} que pagaron con tarjeta
                 </div>
                 <div className="figure">
                   <Figure amount={total} />
@@ -176,8 +173,8 @@ export function Cuentas({
           </span>
           <h3>No les queda nada por pagar</h3>
           <p>
-            Cuando carguen una cuenta -- la luz, el gas, las expensas -- la van
-            a ver acá hasta que la marquen como pagada.
+            Cuando carguen un servicio -- la luz, el gas, las expensas -- lo van
+            a ver acá hasta que lo marquen como pagado.
           </p>
         </div>
       ) : (
@@ -190,8 +187,8 @@ export function Cuentas({
               </div>
               <div className="legend">
                 <span>
-                  {bills.length} {bills.length === 1 ? 'cuenta' : 'cuentas'} sin
-                  pagar
+                  {bills.length} {bills.length === 1 ? 'servicio' : 'servicios'}{' '}
+                  sin pagar
                 </span>
                 {late.length > 0 ? (
                   <span>
