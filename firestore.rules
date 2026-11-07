@@ -363,10 +363,20 @@ service cloud.firestore {
 
     // Renaming a card renames its Resúmenes in the same batch, paid ones too:
     // name only, and only to the card's name as the batch leaves it.
+    // A card's bills carry the card's name, so renaming the card renames
+    // them. The dollar bill of a card billed in both currencies is called
+    // "<card> US$" -- that is how the two bills of one card in one month
+    // are told apart wherever they are listed (resumenNameFor). This rule
+    // compared every bill to the bare card name, so the dollar one was
+    // refused, and with it the whole commit: Flor could not rename a card
+    // at all. The currency on the bill decides which of the two names is
+    // the right one; a bill written before currencies existed has none and
+    // reads as pesos.
     function isResumenRename() {
+      let cardName = getAfter(/databases/$(database)/documents/cards/$(resource.data.card_id)).data.name;
       return ('card_id' in resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
-        && request.resource.data.name == getAfter(/databases/$(database)/documents/cards/$(resource.data.card_id)).data.name;
+        && request.resource.data.name == (resource.data.get('currency', 'ARS') == 'ARS' ? cardName : cardName + ' US$');
     }
 
     // Editing is only allowed while the pendiente is still pending -- once paid,
@@ -656,8 +666,22 @@ service cloud.firestore {
         && (('card_id' in request.resource.data)
           ? isValidResumen(pendienteId, request.resource.data)
           : !isResumenId(pendienteId));
+      // The order of this OR is load-bearing, not taste. Firestore spends at
+      // most 1000 expressions on a whole request, and a batch is one
+      // request -- so a write touching several bills pays for every
+      // alternative that is tried before the one that matches, on every
+      // document. Renaming a card writes one bill per month it has, and
+      // with the full validators ahead of it the budget ran out at the
+      // second bill: PERMISSION_DENIED, on a write the rules were written
+      // to allow. Found on a real card, reproduced in
+      // firestoreRules.rules-test.ts.
+      //
+      // So the two that arrive in batches of many documents go first and
+      // short-circuit: renaming a card's bills, and repointing them when a
+      // category is renamed or merged. The rest only ever touch one bill
+      // at a time, where 1000 is plenty.
       allow update: if isMemberOf(resource.data.household_id)
-        && (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isValidPendienteMarkPaidWithCard() || isPendienteCategoryRepoint() || isPendienteRecurrenceEdit() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenMarkPaid() || isResumenRename());
+        && (isResumenRename() || isPendienteCategoryRepoint() || isValidPendienteUpdate() || isValidPendienteMarkPaid() || isValidPendienteMarkPaidWithCard() || isPendienteRecurrenceEdit() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenMarkPaid());
       allow delete: if isMemberOf(resource.data.household_id)
         && resource.data.status == 'pending';
     }

@@ -757,3 +757,170 @@ describe('the emulator is enforcing rules at all', () => {
     await assertFails(setDoc(doc(asMember(), 'something_else', 'x'), { a: 1 }))
   })
 })
+
+// Renaming a card, exactly as the adapter writes it: one batch carrying the
+// card's own four fields and the name of every Resumen of it, so a renamed
+// card never leaves bills behind under the old name.
+//
+// Flor hit `updateCard/permission-denied` on a real card. The in-memory
+// adapter has no rules, so every ordinary test of this passed.
+describe('renaming a card', () => {
+  const CARD = 'card-1'
+
+  async function seed(
+    resumenes: readonly { id: string; name: string; currency: string }[],
+  ): Promise<void> {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore()
+      await setDoc(
+        doc(db, 'cards', CARD),
+        cardDocument({ name: 'Visa Santander Leo' }),
+      )
+      for (const resumen of resumenes) {
+        await setDoc(doc(db, 'pendientes', resumen.id), {
+          household_id: HOUSEHOLD,
+          category_id: 'cat-tarjeta',
+          name: resumen.name,
+          due_date: Timestamp.fromDate(new Date(2026, 10, 10)),
+          expected_amount: null,
+          estimated_amount: 5000,
+          recurring: false,
+          auto_debit: false,
+          status: 'pending',
+          paid_expense_id: null,
+          paid_at: null,
+          created_at: Timestamp.now(),
+          card_id: CARD,
+          currency: resumen.currency,
+          purchase_ids: ['purchase-1'],
+        })
+      }
+    })
+  }
+
+  function rename(
+    db: Firestore,
+    to: string,
+    resumenes: readonly { id: string; name: string }[],
+  ) {
+    const batch = writeBatch(db)
+    batch.update(doc(db, 'cards', CARD), {
+      name: to,
+      kind: 'credito',
+      currency: 'ARS',
+      brand: 'visa',
+    })
+    for (const resumen of resumenes) {
+      batch.update(doc(db, 'pendientes', resumen.id), { name: resumen.name })
+    }
+    return batch.commit()
+  }
+
+  it('renames the card and its peso Resumen in one commit', async () => {
+    await seed([
+      { id: `${CARD}_2026-11`, name: 'Visa Santander Leo', currency: 'ARS' },
+    ])
+
+    await assertSucceeds(
+      rename(asMember(), 'Visa Santander', [
+        { id: `${CARD}_2026-11`, name: 'Visa Santander' },
+      ]),
+    )
+  })
+
+  // The dollar Resumen of the same card is called "<card> US$", so it can
+  // be told apart from the peso one in every list. The rule compares the
+  // new bill name to the card's new name and nothing else.
+  it('renames the dollar Resumen too', async () => {
+    await seed([
+      { id: `${CARD}_2026-11`, name: 'Visa Santander Leo', currency: 'ARS' },
+      {
+        id: `${CARD}_2026-11_USD`,
+        name: 'Visa Santander Leo US$',
+        currency: 'USD',
+      },
+    ])
+
+    await assertSucceeds(
+      rename(asMember(), 'Visa Santander', [
+        { id: `${CARD}_2026-11`, name: 'Visa Santander' },
+        { id: `${CARD}_2026-11_USD`, name: 'Visa Santander US$' },
+      ]),
+    )
+  })
+
+  // A paid Resumen is frozen for figures, but its name is still the card's
+  // name: leaving it behind is two names for one thing.
+  it('renames a Resumen that was already paid', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore()
+      await setDoc(
+        doc(db, 'cards', CARD),
+        cardDocument({ name: 'Visa Santander Leo' }),
+      )
+      await setDoc(doc(db, 'pendientes', `${CARD}_2026-10`), {
+        household_id: HOUSEHOLD,
+        category_id: 'cat-tarjeta',
+        name: 'Visa Santander Leo',
+        due_date: Timestamp.fromDate(new Date(2026, 9, 10)),
+        expected_amount: 7400,
+        estimated_amount: 5000,
+        recurring: false,
+        auto_debit: false,
+        status: 'paid',
+        paid_expense_id: 'expense-1',
+        paid_at: Timestamp.now(),
+        created_at: Timestamp.now(),
+        card_id: CARD,
+        currency: 'ARS',
+        purchase_ids: ['purchase-1'],
+      })
+    })
+
+    await assertSucceeds(
+      rename(asMember(), 'Visa Santander', [
+        { id: `${CARD}_2026-10`, name: 'Visa Santander' },
+      ]),
+    )
+  })
+
+  // The real shape of the bug: one bill per month the card has lived. A
+  // card opened a year ago renames thirteen bills in one commit, and the
+  // rules have to afford all of them.
+  it('renames a year of bills in one commit', async () => {
+    const months = Array.from({ length: 13 }, (_, index) => {
+      const month = new Date(2025, 10 + index, 1)
+      const stamp = `${String(month.getFullYear())}-${String(month.getMonth() + 1).padStart(2, '0')}`
+      return {
+        id: `${CARD}_${stamp}`,
+        name: 'Visa Santander Leo',
+        currency: 'ARS',
+      }
+    })
+    await seed(months)
+
+    await assertSucceeds(
+      rename(
+        asMember(),
+        'Visa Santander',
+        months.map((month) => ({ id: month.id, name: 'Visa Santander' })),
+      ),
+    )
+  })
+
+  it('refuses an outsider renaming it', async () => {
+    await seed([
+      { id: `${CARD}_2026-11`, name: 'Visa Santander Leo', currency: 'ARS' },
+    ])
+
+    await assertFails(
+      rename(
+        testEnv
+          .authenticatedContext(OUTSIDER)
+          .firestore() as unknown as Firestore,
+        'Mía',
+        [{ id: `${CARD}_2026-11`, name: 'Mía' }],
+      ),
+    )
+  })
+})

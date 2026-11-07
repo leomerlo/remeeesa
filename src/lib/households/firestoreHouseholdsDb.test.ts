@@ -405,9 +405,7 @@ describe('firestore.rules pendiente category repoint', () => {
   it('permits a category_id-only update even on a paid Pendiente', () => {
     expect(rules).toContain('function isPendienteCategoryRepoint()')
     expect(rules).toContain("hasOnly(['category_id'])")
-    expect(rules).toContain(
-      '&& (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isValidPendienteMarkPaidWithCard() || isPendienteCategoryRepoint() || isPendienteRecurrenceEdit() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenMarkPaid() || isResumenRename());',
-    )
+    expect(rules).toContain('|| isPendienteCategoryRepoint() ||')
   })
 
   it('requires the destination category to exist in the same household', () => {
@@ -560,7 +558,7 @@ describe('firestore.rules pendientes', () => {
       /function isValidPendienteUpdate\(\) \{[\s\S]*?!request\.resource\.data\.diff\(resource\.data\)\.affectedKeys\(\)\s*\.hasAny\(\['household_id', 'status', 'paid_expense_id', 'paid_purchase_id', 'paid_at', 'created_at'\]\)/,
     )
     expect(rules).toMatch(
-      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isValidPendienteMarkPaidWithCard\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isPendienteRecurrenceEdit\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\) \|\| isValidResumenMarkPaid\(\) \|\| isResumenRename\(\)\);/,
+      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \([^;]*isValidPendienteUpdate\(\)[^;]*isValidPendienteMarkPaid\(\)[^;]*\);/,
     )
   })
 
@@ -630,9 +628,20 @@ describe('firestore.rules pendientes mark-paid', () => {
     )
   })
 
+  // Firestore spends at most 1000 expressions on a request, and a batch is
+  // one request, so the alternatives tried before the matching one are paid
+  // for on every document. The two that arrive in batches of many bills go
+  // first; anything else in front of them breaks renaming a card. Proved
+  // against the emulator in firestoreRules.rules-test.ts.
+  it('tries the two batched kinds of update first', () => {
+    expect(rules).toContain(
+      '&& (isResumenRename() || isPendienteCategoryRepoint() || isValidPendienteUpdate()',
+    )
+  })
+
   it('ORs isValidPendienteMarkPaid into the pendiente update rule alongside isValidPendienteUpdate', () => {
     expect(rules).toMatch(
-      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \(isValidPendienteUpdate\(\) \|\| isValidPendienteMarkPaid\(\) \|\| isValidPendienteMarkPaidWithCard\(\) \|\| isPendienteCategoryRepoint\(\) \|\| isPendienteRecurrenceEdit\(\) \|\| isValidPendienteUnmarkPaid\(\) \|\| isValidResumenUpdate\(\) \|\| isValidResumenMarkPaid\(\) \|\| isResumenRename\(\)\);/,
+      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: if isMemberOf\(resource\.data\.household_id\)\s*&& \([^;]*isValidPendienteUpdate\(\)[^;]*isValidPendienteMarkPaid\(\)[^;]*\);/,
     )
   })
 })
@@ -861,10 +870,15 @@ describe('firestore.rules renaming a card', () => {
       "request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])",
     )
     expect(fn).toContain(
-      'request.resource.data.name == getAfter(/databases/$(database)/documents/cards/$(resource.data.card_id)).data.name',
+      'getAfter(/databases/$(database)/documents/cards/$(resource.data.card_id)).data.name',
     )
+    // The dollar bill of the same card is "<card> US$" -- see
+    // resumenNameFor. Comparing it to the bare card name refused it, and
+    // with it the whole rename. The live rules suite proves both names.
+    expect(fn).toContain("resource.data.get('currency', 'ARS') == 'ARS'")
+    expect(fn).toContain("cardName + ' US$'")
     expect(rules).toMatch(
-      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: [^;]*\|\| isResumenRename\(\)\);/,
+      /match \/pendientes\/\{pendienteId\}[\s\S]*allow update: [^;]*isResumenRename\(\)[^;]*;/,
     )
   })
 })
@@ -971,7 +985,7 @@ describe('firestore.rules Resúmenes', () => {
       'request.resource.data.purchase_ids.hasAll(resource.data.purchase_ids)',
     )
     expect(rules).toContain(
-      '|| isValidResumenUpdate() || isValidResumenMarkPaid() || isResumenRename());',
+      '|| isValidResumenUpdate() || isValidResumenMarkPaid());',
     )
   })
 
