@@ -205,6 +205,47 @@ describe('CardsNextMonth', () => {
     )
   })
 
+  // Where the household actually meets a consumo it no longer has. Deleting
+  // it used to mean finding it in Histórico, in the month it was bought --
+  // a date you have to remember to get rid of something you are looking
+  // straight at. Per direct feedback.
+  it('deletes a consumo from the bill it is listed under', async () => {
+    const { db, householdId, buy } = await setup()
+    await buy('Visa', 100, new Date(2026, 8, 5))
+
+    renderWithProviders(
+      <CardsNextMonth
+        db={db}
+        householdId={householdId}
+        monthStart={new Date(2026, 8, 1)}
+      />,
+    )
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: /Tarjetas el mes que viene/,
+      }),
+    )
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Tarjetas el mes que viene',
+    })
+    fireEvent.click(
+      await within(dialog).findByRole('button', { name: 'Eliminar Compra' }),
+    )
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Eliminar el consumo' }),
+    )
+
+    await waitFor(async () => {
+      const left = await db.listCardPurchasesInMonth({
+        householdId,
+        monthStart: new Date(2026, 8, 1),
+        monthEnd: new Date(2026, 8, 30, 23, 59, 59, 999),
+      })
+      expect(left).toHaveLength(0)
+    })
+  })
+
   it('renders nothing when no card is due next month', async () => {
     const { db, householdId, buy } = await setup()
     await buy('Visa', 999, new Date(2026, 7, 6))

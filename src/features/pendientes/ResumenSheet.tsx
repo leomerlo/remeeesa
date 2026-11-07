@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
-import { CategoryBadge } from '@/components/CategoryBadge'
 import { AlertMessage } from '@/components/ui/alert-message'
 import { Button } from '@/components/ui/button'
 import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
@@ -21,8 +20,7 @@ import {
   ResumenAlreadyPaidError,
   resumenMonthStart,
 } from '@/lib/cards'
-import { formatAmount, formatCurrency, listCategories } from '@/lib/expenses'
-import { colorForCategoryName } from '@/lib/expenses/categoryColor'
+import { formatAmount, listCategories } from '@/lib/expenses'
 import { formatDate, formatMonthLabel } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
 import {
@@ -32,6 +30,7 @@ import {
 } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import { localDateInputValue, parsePaymentDateInput } from './AddPendienteForm'
+import { ConsumoRow } from './ConsumoRow'
 import { pendientesQueryKey } from './queryKeys'
 
 export type ResumenSheetProps = {
@@ -149,39 +148,15 @@ function ResumenDetail({
         </AlertMessage>
       ) : (
         <ul aria-label="Cuotas del resumen" className="flex flex-col gap-3">
-          {cuotasQuery.data.cuotas.map(({ purchase, cuota }) => {
-            const category = cuotasQuery.data.categories.find(
-              (candidate) => candidate.id === purchase.categoryId,
-            )
-            const categoryName = category?.name ?? 'Categoría desconocida'
-            return (
-              <li
-                key={purchase.id}
-                className="bg-muted/50 flex items-center justify-between gap-3 rounded-2xl p-3 text-sm"
-              >
-                <div className="flex min-w-0 flex-col gap-1">
-                  <span className="text-body text-foreground truncate font-medium">
-                    {purchase.name}
-                  </span>
-                  <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                    <CategoryBadge
-                      name={categoryName}
-                      color={
-                        category?.color ?? colorForCategoryName(categoryName)
-                      }
-                    />
-                    <span>{formatDate(purchase.purchaseDate)}</span>
-                    {purchase.cuotas === 1 ? null : (
-                      <span>{`cuota ${String(cuota.number)}/${String(purchase.cuotas)}`}</span>
-                    )}
-                  </div>
-                </div>
-                <span className="money text-foreground shrink-0 text-lg">
-                  {formatCurrency(cuota.amount)}
-                </span>
-              </li>
-            )
-          })}
+          {cuotasQuery.data.cuotas.map((consumo) => (
+            <ConsumoRow
+              key={consumo.purchase.id}
+              db={db}
+              householdId={householdId}
+              consumo={consumo}
+              categories={cuotasQuery.data.categories}
+            />
+          ))}
         </ul>
       )}
     </div>

@@ -1,16 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactElement } from 'react'
-import { CategoryBadge } from '@/components/CategoryBadge'
 import { AlertMessage } from '@/components/ui/alert-message'
 import { Sheet, SheetScrollArea } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { listResumenCuotas } from '@/lib/cards'
 import type { ResumenCuota } from '@/lib/cards'
 import { formatAmount, listCategories } from '@/lib/expenses'
-import { colorForCategoryName } from '@/lib/expenses/categoryColor'
-import { formatDate, formatMonthLabel } from '@/lib/format'
+import { formatMonthLabel } from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
 import type { Pendiente } from '@/lib/pendientes'
+import { ConsumoRow } from './ConsumoRow'
 import { pendientesQueryKey } from './queryKeys'
 
 // What to say under a card whose statement has already been loaded by
@@ -38,10 +37,14 @@ export type CardsNextMonthSheetProps = {
 // What "Tarjetas el mes que viene" is made of: every consumo logged on a
 // card whose cuota lands in that month, under the bill it will arrive in.
 //
-// Read-only on purpose. It is an estimate of bills that have not arrived --
-// nothing here can be paid, edited or ticked off, and the figures are the
-// household's own record rather than anything a card has said. Per direct
-// feedback: algo de solo informativo.
+// Nothing here can be paid or ticked off: it is an estimate of bills that
+// have not arrived, and the figures are the household's own record rather
+// than anything a card has said. Per direct feedback: algo de solo
+// informativo.
+//
+// A consumo can still be deleted, because a wrong one has to be removable
+// somewhere and this is where it is on screen. That is not paying a bill;
+// it is taking back something the household logged.
 export function CardsNextMonthSheet({
   db,
   householdId,
@@ -138,41 +141,15 @@ export function CardsNextMonthSheet({
                   aria-label={`Consumos de ${resumen.name}`}
                   className="flex flex-col gap-3"
                 >
-                  {cuotas.map(({ purchase, cuota }: ResumenCuota) => {
-                    const category = detail.data.categories.find(
-                      (candidate) => candidate.id === purchase.categoryId,
-                    )
-                    const categoryName =
-                      category?.name ?? 'Categoría desconocida'
-                    return (
-                      <li
-                        key={`${purchase.id}-${String(cuota.number)}`}
-                        className="bg-muted/50 flex items-center justify-between gap-3 rounded-2xl p-3 text-sm"
-                      >
-                        <div className="flex min-w-0 flex-col gap-1">
-                          <span className="text-body text-foreground truncate font-medium">
-                            {purchase.name}
-                          </span>
-                          <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                            <CategoryBadge
-                              name={categoryName}
-                              color={
-                                category?.color ??
-                                colorForCategoryName(categoryName)
-                              }
-                            />
-                            <span>{formatDate(purchase.purchaseDate)}</span>
-                            {purchase.cuotas === 1 ? null : (
-                              <span>{`cuota ${String(cuota.number)}/${String(purchase.cuotas)}`}</span>
-                            )}
-                          </div>
-                        </div>
-                        <span className="money text-foreground shrink-0 text-lg">
-                          {formatAmount(cuota.amount, purchase.currency)}
-                        </span>
-                      </li>
-                    )
-                  })}
+                  {cuotas.map((consumo: ResumenCuota) => (
+                    <ConsumoRow
+                      key={`${consumo.purchase.id}-${String(consumo.cuota.number)}`}
+                      db={db}
+                      householdId={householdId}
+                      consumo={consumo}
+                      categories={detail.data.categories}
+                    />
+                  ))}
                 </ul>
               </section>
             )

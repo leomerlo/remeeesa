@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  CARD_PURCHASE_LOCKED_MESSAGE,
   createCard,
   createCardPurchase,
   markResumenPaid,
@@ -372,5 +373,75 @@ describe('ResumenSheet paying', () => {
       (await getPendiente({ db, householdId, pendienteId: resumen.id }))
         ?.status,
     ).toBe('pending')
+  })
+})
+
+// A bill is the sum of its consumos: there is nothing to delete on the bill
+// itself, so what the household needs to reach is the purchase underneath.
+// Per direct feedback: un consumo de la tarjeta que ya no pago más, y la
+// única acción que tenía era "Ver".
+describe('ResumenSheet deleting a consumo', () => {
+  it('deletes the purchase behind a consumo', async () => {
+    const { db, householdId, estimated } = await setupResumen()
+    const pending = { ...estimated, expectedAmount: null }
+
+    renderWithProviders(
+      <ResumenSheet
+        db={db}
+        householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
+        resumen={pending}
+        onClose={() => {}}
+      />,
+    )
+
+    expect(await screen.findByText('Zapatillas')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar Zapatillas' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Eliminar el consumo' }),
+    )
+
+    await waitFor(async () => {
+      const left = await db.listCardPurchasesInMonth({
+        householdId,
+        monthStart: new Date(2026, 8, 1),
+        monthEnd: new Date(2026, 8, 30, 23, 59, 59, 999),
+      })
+      expect(left).toHaveLength(0)
+    })
+  })
+
+  it('locks a consumo whose Resumen was already paid, and says why', async () => {
+    const { db, householdId, resumen } = await setupResumen()
+    vi.setSystemTime(new Date(2026, 9, 15, 12))
+    const { pendiente: paid } = await markResumenPaid({
+      db,
+      householdId,
+      resumenId: resumen.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      amountPaid: 120,
+      paymentDate: new Date(2026, 9, 15),
+    })
+
+    renderWithProviders(
+      <ResumenSheet
+        db={db}
+        householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
+        resumen={paid}
+        onClose={() => {}}
+      />,
+    )
+
+    expect(await screen.findByText('Zapatillas')).toBeInTheDocument()
+    expect(
+      screen.getByRole('img', { name: CARD_PURCHASE_LOCKED_MESSAGE }),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Eliminar Zapatillas' }),
+    ).not.toBeInTheDocument()
   })
 })
