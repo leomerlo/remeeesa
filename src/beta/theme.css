@@ -350,7 +350,10 @@
   .daymark { font-size: var(--t-sm); font-weight: 700; color: var(--ink-2);
              padding: 8px 4px 12px; }
 
-  .row { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center;
+  /* Top-aligned, not centred: with the badges under it the tile drifted
+     to the middle of the card and lined up with nothing. The name is what
+     it labels, so it starts where the name starts. */
+  .row { display: grid; grid-template-columns: auto 1fr auto; align-items: start;
          gap: 2px 12px; padding: 16px; }
   .tap { cursor: pointer; }
   .tile { grid-row: 1 / span 2; width: 48px; height: 48px; border-radius: 16px;
@@ -362,28 +365,26 @@
   .row .name { grid-column: 2; grid-row: 1; font-size: var(--t-md); font-weight: 700;
                letter-spacing: -.015em; min-width: 0; }
   .row .amt { grid-column: 3; grid-row: 1; font-size: var(--t-lg); font-weight: 800;
-              letter-spacing: -.025em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+              letter-spacing: -.025em; font-variant-numeric: tabular-nums; white-space: nowrap;
+              justify-self: end; }
   .row .meta { grid-column: 2 / -1; grid-row: 2; display: grid; gap: 6px;
-               justify-items: start; }
-  .row .rowedit { grid-column: 4; grid-row: 1; }
+               justify-items: start; padding-top: 2px; }
   .badges { display: flex; flex-wrap: wrap; gap: 6px; }
   /* An action inside a row answers that row, so it is a step smaller than
      a page-level button. On a bill it gets a footer of its own, divided
      from the content and bled to the card's edges, as the v1 does it. */
   .row .btn { font-size: var(--t-xs); padding: 8px 16px; min-height: 40px; gap: 6px; }
   .row .btn svg { width: 16px; height: 16px; }
+  /* Both of a row's actions on one line, against the right edge: Editar
+     quiet, the one that changes the month loud, in that order. */
   .rowfoot { grid-column: 1 / -1; grid-row: 3;
-             margin: 16px -16px -16px; padding: 16px;
-             border-top: 1px solid var(--hair); display: grid; }
-  /* .btn sets justify-self itself, so the container's justify-items loses. */
-  .rowfoot .btn { justify-self: end; }
+             margin: 16px -16px -16px; padding: 12px 16px;
+             border-top: 1px solid var(--hair);
+             display: flex; justify-content: flex-end; align-items: center;
+             gap: 4px; flex-wrap: wrap; }
   /* A step under the row's name and a step over the badges: the date is
      context, not a heading and not a label. */
   .cat { font-size: var(--t-xs); font-weight: 400; color: var(--ink-2); }
-  /* A date that has gone by is no longer context: it is the reason the
-     row is there. Weight and the app's red, the same red the "quedó sin
-     pagar" badge under it uses, so the two read as one statement. */
-  .cat.overdue { font-weight: 700; color: var(--red-700); }
 
   /* Badges are the one place the mini step is used: they label something
      else, they are never the thing you sit down to read. */
@@ -1115,6 +1116,12 @@
                    color: var(--ink-2); line-height: 1.35; text-align: center; }
   /* Deleting is the one thing in this app that cannot be undone, so its
      button looks like nothing else and never leads. */
+  /* Text and nothing else: no fill, no outline. It stands beside the one
+     button that changes the month, and two framed buttons side by side
+     read as two equal offers. */
+  .btn-tertiary { background: transparent; color: var(--ink-2); border: 0;
+                  padding: 8px 12px; }
+  .btn-tertiary:hover { color: var(--grape-700); }
   .btn-danger { background: transparent; color: var(--red-700);
                 border: 2px solid var(--red-50); padding: 8px 16px; }
 

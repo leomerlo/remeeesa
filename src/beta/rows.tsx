@@ -67,16 +67,6 @@ export function ExpenseRow({
       <span className="amt">
         {formatAmount(expense.price, expense.currency)}
       </span>
-      {onEdit === undefined ? null : (
-        <button
-          className="rowedit"
-          type="button"
-          aria-label={`Editar ${expense.name}`}
-          onClick={onEdit}
-        >
-          <Pencil />
-        </button>
-      )}
       <span className="meta">
         <span className="cat">
           {expense.expenseDate.getDate()} de{' '}
@@ -92,6 +82,14 @@ export function ExpenseRow({
           </span>
         </span>
       </span>
+      {onEdit === undefined ? null : (
+        <span className="rowfoot">
+          <button className="btn btn-tertiary" type="button" onClick={onEdit}>
+            <Pencil />
+            Editar
+          </button>
+        </span>
+      )}
     </div>
   )
 }
@@ -117,16 +115,6 @@ export function PurchaseRow({
       <span className="amt">
         {formatAmount(purchase.total, purchase.currency)}
       </span>
-      {onEdit === undefined ? null : (
-        <button
-          className="rowedit"
-          type="button"
-          aria-label={`Editar ${purchase.name}`}
-          onClick={onEdit}
-        >
-          <Pencil />
-        </button>
-      )}
       <span className="meta">
         <span className="cat">
           {purchase.purchaseDate.getDate()} de{' '}
@@ -142,6 +130,14 @@ export function PurchaseRow({
           </span>
         </span>
       </span>
+      {onEdit === undefined ? null : (
+        <span className="rowfoot">
+          <button className="btn btn-tertiary" type="button" onClick={onEdit}>
+            <Pencil />
+            Editar
+          </button>
+        </span>
+      )}
     </div>
   )
 }
@@ -183,11 +179,7 @@ export function BillRow({
           always the grey line; the category is always a badge, in its own
           colour, last. */}
       <span className="meta">
-        <span
-          className={
-            state === 'due' || state === 'late' ? 'cat overdue' : 'cat'
-          }
-        >
+        <span className="cat">
           {bill.dueDate < now ? 'Vencía' : 'Vence'} el {day} de{' '}
           {monthName(bill.dueDate).slice(0, 3)}.
         </span>
@@ -226,22 +218,25 @@ export function BillRow({
           </span>
         </span>
       </span>
-      {onEdit === undefined ? null : (
-        <button
-          className="rowedit"
-          type="button"
-          aria-label={`Editar ${bill.name}`}
-          onClick={onEdit}
-        >
-          <Pencil />
-        </button>
-      )}
-      {state === 'paid' || onPay === undefined ? null : (
+      {/* Both actions in the footer, side by side: editing and paying are
+          the two things you do to a bill, and the pencil in the top-right
+          corner was squeezing the amount -- the one figure on the row
+          anybody is looking for. Editar is the quieter of the two. */}
+      {onEdit === undefined &&
+      (state === 'paid' || onPay === undefined) ? null : (
         <span className="rowfoot">
-          <button className="btn btn-secondary" type="button" onClick={onPay}>
-            <Check />
-            Marcar como pagado
-          </button>
+          {onEdit === undefined ? null : (
+            <button className="btn btn-tertiary" type="button" onClick={onEdit}>
+              <Pencil />
+              Editar
+            </button>
+          )}
+          {state === 'paid' || onPay === undefined ? null : (
+            <button className="btn btn-secondary" type="button" onClick={onPay}>
+              <Check />
+              Ya lo pagué
+            </button>
+          )}
         </span>
       )}
     </div>

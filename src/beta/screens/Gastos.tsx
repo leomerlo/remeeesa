@@ -205,19 +205,19 @@ export function Gastos({
           <div className="figure">
             <Figure amount={shown} />
           </div>
-          <div className="legend">
-            <span>
-              {view === 'mes'
-                ? 'Plata que ya salió de la cuenta.'
-                : 'No sale este mes: llega repartido en los resúmenes.'}
-            </span>
-            {shownUsd > 0 ? (
-              <span>
-                Y <b>{formatAmount(shownUsd, 'USD')}</b> en dólares, que no
-                entran en el total en pesos.
-              </span>
-            ) : null}
-          </div>
+          {/* Sentences, so .herosay: .legend is a flex row of labelled
+              dots and broke this into three columns at the <b>. */}
+          <p className="herosay">
+            {view === 'mes'
+              ? 'Plata que ya salió de la cuenta.'
+              : 'No sale este mes: llega repartido en los resúmenes.'}
+          </p>
+          {shownUsd > 0 ? (
+            <p className="herosay">
+              Y <b>{formatAmount(shownUsd, 'USD')}</b> en dólares, que no entran
+              en el total en pesos.
+            </p>
+          ) : null}
         </div>
       </div>
       <div className="sec">
