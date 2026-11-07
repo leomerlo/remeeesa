@@ -78,12 +78,18 @@ export function ExpenseRow({
         </button>
       )}
       <span className="meta">
-        <span className="cat">{mark.name}</span>
+        <span className="cat">
+          {expense.expenseDate.getDate()} de{' '}
+          {monthName(expense.expenseDate).slice(0, 3)}.
+        </span>
         <span className="badges">
           <span className="tag ok">Pagado</span>
           {several ? (
             <span className="who">{expense.authorDisplayName}</span>
           ) : null}
+          <span className="tag cat-tag" style={cssVars({ '--pc': mark.color })}>
+            {mark.name}
+          </span>
         </span>
       </span>
     </div>
@@ -122,12 +128,18 @@ export function PurchaseRow({
         </button>
       )}
       <span className="meta">
-        <span className="cat">{mark.name}</span>
+        <span className="cat">
+          {purchase.purchaseDate.getDate()} de{' '}
+          {monthName(purchase.purchaseDate).slice(0, 3)}.
+        </span>
         <span className="badges">
           <span className="tag credit">Con la tarjeta</span>
           {several ? (
             <span className="who">{purchase.authorDisplayName}</span>
           ) : null}
+          <span className="tag cat-tag" style={cssVars({ '--pc': mark.color })}>
+            {mark.name}
+          </span>
         </span>
       </span>
     </div>
@@ -163,13 +175,21 @@ export function BillRow({
           ? 'A confirmar'
           : formatAmount(bill.expectedAmount, currency)}
       </span>
+      {/* One order, on every bill, whatever state it is in: the name, the
+          date it is due, and then the badges. The grey line used to be
+          the date on a bill in trouble and the category on a quiet one,
+          with the date repeated as a badge beside it -- so no two cards
+          read the same way and the same fact appeared twice. The date is
+          always the grey line; the category is always a badge, in its own
+          colour, last. */}
       <span className="meta">
-        <span className="cat">
-          {state === 'late'
-            ? `Vencía el ${String(day)} de ${monthName(bill.dueDate).slice(0, 3)}.`
-            : state === 'due'
-              ? `Vencía el ${String(day)}`
-              : mark.name}
+        <span
+          className={
+            state === 'due' || state === 'late' ? 'cat overdue' : 'cat'
+          }
+        >
+          {bill.dueDate < now ? 'Vencía' : 'Vence'} el {day} de{' '}
+          {monthName(bill.dueDate).slice(0, 3)}.
         </span>
         <span className="badges">
           {state === 'paid' ? (
@@ -191,9 +211,7 @@ export function BillRow({
               <TriangleAlert />
               Ya venció este mes
             </span>
-          ) : (
-            <span className="tag next">Vence el {day}</span>
-          )}
+          ) : null}
           {currency !== DEFAULT_CURRENCY ? (
             <span className="tag usd">En dólares</span>
           ) : null}
@@ -203,6 +221,9 @@ export function BillRow({
           {bill.autoDebit ? (
             <span className="tag soft">Débito automático</span>
           ) : null}
+          <span className="tag cat-tag" style={cssVars({ '--pc': mark.color })}>
+            {mark.name}
+          </span>
         </span>
       </span>
       {onEdit === undefined ? null : (
@@ -249,19 +270,26 @@ export function AlertCard({
   )
 }
 
+// The month ahead, never the one on screen: this is the only thing in the
+// app about a month that can still be changed.
 export function ProjectionLink({
   monthStart,
 }: {
   readonly monthStart: Date
 }): ReactElement {
+  const next = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1)
   return (
     <Link className="card quiet" to="/proyeccion">
       <span className="tile" aria-hidden="true">
         <LineChart />
       </span>
-      <span className="k">Cómo viene {monthName(monthStart)}</span>
+      <span className="k">
+        Proyectar {monthName(next).charAt(0).toUpperCase()}
+        {monthName(next).slice(1)}
+      </span>
       <span className="v">
-        Lo cargado del mes más lo que el mes pasado dice que falta
+        Lo que va a costar, según lo que vienen gastando y los servicios que ya
+        tienen
       </span>
       <span className="go" aria-hidden="true">
         <ChevronRight />

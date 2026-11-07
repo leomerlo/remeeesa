@@ -310,7 +310,9 @@ export function Title({
   // One line saying what this screen is, in the household's own terms.
   // A placeholder of its size while it loads, so nothing jumps.
   readonly sub?: ReactNode
-  readonly pager?: boolean
+  // true for the app's viewed month; a pager of its own for a screen that
+  // pages something else.
+  readonly pager?: boolean | ReactNode
 }): ReactElement {
   return (
     <header className="head">
@@ -318,7 +320,11 @@ export function Title({
         <h1 className="page-title">{text}</h1>
         {sub === undefined ? null : <span>{sub}</span>}
       </div>
-      {pager ? <MonthPager /> : null}
+      {pager === true ? (
+        <MonthPager />
+      ) : pager === false || pager === undefined ? null : (
+        pager
+      )}
     </header>
   )
 }

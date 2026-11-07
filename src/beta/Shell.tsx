@@ -99,12 +99,12 @@ export function Shell({
           </button>
         </div>
       </nav>
-      {/* Desktop only. The phone has no room for it and does not need it:
-          its bar already carries the one action, and the household's name
-          sits under each screen's title. On a wide screen that name wants
-          a fixed place, and the action wants to be reachable without
-          travelling to the far corner of the rail. */}
+      {/* On a phone: the wordmark and the name of the house, like the v1.
+          The action is not up here -- the bar at the bottom has it, where
+          the thumb is. On a wide screen the rail carries the wordmark, so
+          this bar drops it and takes the action instead. */}
       <header className="topbar">
+        <img className="topmark" src={logo} alt="reméeesa" />
         <span className="where">
           <House aria-hidden="true" />
           {home === undefined ? <span className="ph" /> : home}

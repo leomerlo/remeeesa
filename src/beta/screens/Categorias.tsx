@@ -24,6 +24,11 @@ export function Categorias({
 }): ReactElement {
   const householdId = session.householdId ?? null
   const { monthStart, monthEnd } = useMonth()
+  // Null means the sheet is shut; a category means editing that one; the
+  // string 'nueva' means creating one. Held here rather than inside the
+  // bar list because the button that opens it is now in the header, on
+  // the month's line.
+  const [editing, setEditing] = useState<Category | 'nueva' | null>(null)
 
   const data = useQuery({
     queryKey: ['beta', 'categorias', householdId, monthStart.toISOString()],
@@ -69,6 +74,18 @@ export function Categorias({
         sub={`En qué se fue la plata de ${household.name} en ${monthName(monthStart)}, sin importar cómo se pagó. Están todas, también las que no usaron.`}
         pager
       />
+      {/* Above the first category, not under the last one: it is how a
+          category gets made, and the list it adds to can be long. */}
+      <div className="rowend">
+        <button
+          className="btn btn-secondary"
+          type="button"
+          onClick={() => setEditing('nueva')}
+        >
+          <Plus />
+          Nueva categoría
+        </button>
+      </div>
       {/* No ring here: Inicio already has it, and it answers a different
           question. That one says where the month went; these bars say how
           each category is doing against its own cap. */}
@@ -76,6 +93,8 @@ export function Categorias({
         session={session}
         expenses={expenses}
         categories={categories}
+        editing={editing}
+        onEditing={setEditing}
       />
     </>
   )
@@ -88,14 +107,15 @@ function CategoryBars({
   session,
   expenses,
   categories,
+  editing,
+  onEditing,
 }: {
   readonly session: BetaSession
   readonly expenses: readonly Expense[]
   readonly categories: readonly Category[]
+  readonly editing: Category | 'nueva' | null
+  readonly onEditing: (next: Category | 'nueva' | null) => void
 }): ReactElement {
-  // Null means the sheet is shut; a category means editing that one; the
-  // string 'nueva' means creating one.
-  const [editing, setEditing] = useState<Category | 'nueva' | null>(null)
   // Every category the household has, not only the ones this month
   // touched: this screen is also where categories are managed, and a
   // category you cannot see is a category you cannot edit. The ones with
@@ -144,7 +164,7 @@ function CategoryBars({
                   const found = categories.find(
                     (candidate) => candidate.id === row.categoryId,
                   )
-                  if (found !== undefined) setEditing(found)
+                  if (found !== undefined) onEditing(found)
                 }}
               >
                 <Pencil />
@@ -172,18 +192,10 @@ function CategoryBars({
           )
         })}
       </div>
-      <button
-        className="btn btn-secondary btn-wide"
-        type="button"
-        onClick={() => setEditing('nueva')}
-      >
-        <Plus />
-        Nueva categoría
-      </button>
       {editing === null ? null : (
         <CategoriaSheet
           open
-          onClose={() => setEditing(null)}
+          onClose={() => onEditing(null)}
           session={session}
           category={editing === 'nueva' ? null : editing}
           existing={categories}

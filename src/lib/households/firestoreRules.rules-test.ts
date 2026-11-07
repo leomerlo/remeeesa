@@ -8,6 +8,7 @@ import type { RulesTestEnvironment } from '@firebase/rules-unit-testing'
 import {
   deleteDoc,
   doc,
+  getDoc,
   setDoc,
   updateDoc,
   writeBatch,
@@ -921,6 +922,54 @@ describe('renaming a card', () => {
         'Mía',
         [{ id: `${CARD}_2026-11`, name: 'Mía' }],
       ),
+    )
+  })
+})
+
+// Looking ahead at a month nobody has touched.
+//
+// The projection screen opens on the month ahead, which by definition has
+// nothing saved for it yet. Reading a document that is not there is a real
+// read: resource is null, and a rule that asks the document which
+// household it belongs to throws rather than refuses, so the screen failed
+// to load at all. Flor: "la pantalla de proyección me da error".
+describe('reading a projection', () => {
+  const MINE = `${HOUSEHOLD}_2026-12`
+
+  it('lets a member read a month that has nothing saved yet', async () => {
+    await assertSucceeds(getDoc(doc(asMember(), 'projections', MINE)))
+  })
+
+  it('lets a member read one that does exist', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'projections', MINE), {
+        household_id: HOUSEHOLD,
+        month_start: Timestamp.fromDate(new Date(2026, 11, 1)),
+        excluded: [],
+        overrides: {},
+      })
+    })
+
+    await assertSucceeds(getDoc(doc(asMember(), 'projections', MINE)))
+  })
+
+  // The id is the only thing that can answer who an absent document would
+  // belong to, so it has to be checked: otherwise anybody signed in could
+  // probe any household's months.
+  it("refuses an absent month of somebody else's household", async () => {
+    await assertFails(
+      getDoc(doc(asMember(), 'projections', 'household-otra_2026-12')),
+    )
+  })
+
+  it('still saves the month it is told to save', async () => {
+    await assertSucceeds(
+      setDoc(doc(asMember(), 'projections', MINE), {
+        household_id: HOUSEHOLD,
+        month_start: Timestamp.fromDate(new Date(2026, 11, 1)),
+        excluded: [`${String(new Date(2026, 11, 1).getTime())}-cat-1`],
+        overrides: { otra: '1000' },
+      }),
     )
   })
 })

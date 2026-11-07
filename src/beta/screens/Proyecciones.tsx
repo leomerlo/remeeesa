@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { ReactElement } from 'react'
 import {
   buildProjection,
+  currentMonthRange,
   formatCurrency,
   summarizeByCategory,
 } from '@/lib/expenses'
@@ -13,7 +14,7 @@ import { pendientesDueInMonth } from '@/lib/pendientes'
 import { cssVars } from '@/lib/cssVars'
 import { ListSkeleton, NameSkel } from '../Skeleton'
 import { Figure } from '../Figure'
-import { useMonth } from '../MonthContext'
+import { MonthPager } from '../MonthPager'
 import { CategoryTile } from '../Tile'
 import { monthName } from '../format'
 import type { BetaSession } from '../data'
@@ -40,7 +41,29 @@ export function Proyecciones({
   // The line whose figure is being argued with. Null is the list as it
   // stands.
   const [editing, setEditing] = useState<ProjectionRow | null>(null)
-  const { monthStart, monthEnd } = useMonth()
+  // Next month, not this one, and its own month rather than the app's.
+  //
+  // It read "cómo viene noviembre" while standing in November -- a useful
+  // figure, but not what this screen is for: the point of a projection is
+  // the month you can still do something about. So it opens on the month
+  // ahead and pages from there, and stepping it leaves Inicio and Gastos
+  // where they were, because they are about a month that has happened.
+  const [anchor, setAnchor] = useState(() => {
+    const now = new Date()
+    return new Date(now.getFullYear(), now.getMonth() + 1, 1)
+  })
+  const { monthStart, monthEnd } = currentMonthRange(anchor)
+  const paging = (
+    <MonthPager
+      month={monthStart}
+      onStep={(months) =>
+        setAnchor(
+          (current) =>
+            new Date(current.getFullYear(), current.getMonth() + months, 1),
+        )
+      }
+    />
+  )
   const previousStart = new Date(
     monthStart.getFullYear(),
     monthStart.getMonth() - 1,
@@ -92,7 +115,7 @@ export function Proyecciones({
   if (data.isPending) {
     return (
       <>
-        <Title text="Proyección" sub={<NameSkel />} pager />
+        <Title text="Proyección" sub={<NameSkel />} pager={paging} />
         <ListSkeleton label="Cargando la proyección" rows={5} />
       </>
     )
@@ -111,8 +134,8 @@ export function Proyecciones({
   const header = (
     <Title
       text="Proyección"
-      sub={`Lo que ${household.name} ya lleva de ${monthName(monthStart)}, más lo que el mes pasado dice que falta.`}
-      pager
+      sub={`Lo que ${monthName(monthStart)} le va a pedir a ${household.name}, según lo que viene gastando y los servicios que ya tiene.`}
+      pager={paging}
     />
   )
 
@@ -213,14 +236,15 @@ export function Proyecciones({
       {header}
       <div className="card hero">
         <div className="label">
-          Así viene {monthName(monthStart)} si todo sigue igual
+          Así se perfila {monthName(monthStart)} si todo sigue igual
         </div>
         <div className="figure">
           <Figure amount={total} />
         </div>
         <div className="legend">
           <span>
-            Lo ya cargado del mes, más lo que el mes pasado dice que falta.
+            Lo que ya anotaron de ese mes, más lo que el mes anterior dice que
+            va a repetirse.
           </span>
         </div>
       </div>

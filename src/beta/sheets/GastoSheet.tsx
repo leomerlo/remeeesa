@@ -43,6 +43,10 @@ export type GastoDraft = {
   readonly cuotas: string
   readonly comments: string
   readonly isService: boolean
+  // Only ever read when isService is on, and only when creating: they are
+  // what makes a bill a bill rather than one month's figure.
+  readonly recurring: boolean
+  readonly autoDebit: boolean
 }
 
 function isoDay(date: Date): string {
@@ -74,6 +78,10 @@ export function draftFromExpense(
       cuotas: '1',
       comments: '',
       isService: false,
+      // A bill that comes every month is the ordinary case -- that is what
+      // makes it a servicio -- and the bank debiting it is not.
+      recurring: true,
+      autoDebit: false,
     }
   }
   return {
@@ -86,6 +94,8 @@ export function draftFromExpense(
     cuotas: '1',
     comments: expense.comments,
     isService: expense.isService,
+    recurring: true,
+    autoDebit: false,
   }
 }
 
@@ -100,6 +110,8 @@ export function draftFromPurchase(purchase: CardPurchase): GastoDraft {
     cuotas: String(purchase.cuotas),
     comments: purchase.comments,
     isService: false,
+    recurring: true,
+    autoDebit: false,
   }
 }
 
@@ -220,7 +232,8 @@ export function GastoSheet({
           name: draft.name.trim(),
           dueDate: date,
           expectedAmount: amount,
-          recurring: true,
+          recurring: draft.recurring,
+          autoDebit: draft.autoDebit,
           currency: draft.currency,
         })
       }
@@ -344,6 +357,28 @@ export function GastoSheet({
           onChange={(next) => set('isService', next)}
         />
       )}
+      {/* Only once it is a servicio, and only when anotando uno nuevo:
+          on an existing gasto the toggle above is the v1's own flag and
+          writes no bill, so there is nothing for these two to say. The
+          same two questions, in the same words, as the Servicios form --
+          a servicio anotado from here is the same thing as one anotado
+          there. */}
+      {draft.isService && expense === null && purchase === null ? (
+        <>
+          <Toggle
+            k="Todos los meses"
+            v="Se vuelve a crear solo cuando arranca el mes siguiente."
+            checked={draft.recurring}
+            onChange={(next) => set('recurring', next)}
+          />
+          <Toggle
+            k="Débito automático"
+            v="Lo debita el banco en la fecha. No hace falta marcarlo como pagado: se salda solo cuando pasa el vencimiento."
+            checked={draft.autoDebit}
+            onChange={(next) => set('autoDebit', next)}
+          />
+        </>
+      ) : null}
       <TextField
         label="Nota"
         value={draft.comments}

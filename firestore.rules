@@ -95,6 +95,16 @@ service cloud.firestore {
         && data.overrides is map;
     }
 
+    // A month nobody has touched has no projection document, and reading
+    // one that is not there still has to be allowed: resource is null, so
+    // the ordinary read rule -- which asks the document whose household it
+    // belongs to -- throws instead of answering. The id carries the
+    // household, so it can answer on its own.
+    function isOwnProjectionId(projectionId) {
+      return projectionId.matches('^.+_[0-9]{4}-[0-9]{2}$')
+        && isMemberOf(projectionId[0:projectionId.size() - 8]);
+    }
+
     function isValidCard(data) {
       return data.keys().hasOnly(['household_id', 'name', 'kind', 'currency', 'brand', 'created_at'])
         && data.household_id is string
@@ -783,6 +793,12 @@ service cloud.firestore {
     // No delete: a card's Resúmenes and purchases point at it.
     match /projections/{projectionId} {
       allow read: if isMemberOf(resource.data.household_id);
+      // The screen opens on a month that has nothing saved for it every
+      // time somebody looks ahead. Without this it was PERMISSION_DENIED
+      // and the whole screen failed to load.
+      allow get: if isSignedIn()
+        && resource == null
+        && isOwnProjectionId(projectionId);
       // One document the household overwrites, rather than a create and a
       // separate narrow update: the whole set of edits is replaced on every
       // save, which is what "last one wins" means for a scratchpad two

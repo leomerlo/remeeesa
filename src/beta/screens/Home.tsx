@@ -97,7 +97,9 @@ export function Home({
         Hola, {session.displayName ?? 'vos'} 👋
         <span>{subtitle}</span>
       </div>
-      <MonthPager />
+      <div className="pagerow">
+        <MonthPager />
+      </div>
     </header>
   )
 
@@ -306,16 +308,16 @@ export function Home({
 
       <div className="band">
         <Donut rows={byCategory} />
-        <Link className="btn btn-secondary btn-wide" to="/categorias">
-          <ArrowRight />
-          Ver por categoría
-        </Link>
         {top !== undefined ? (
           <AlertCard kind="warn" icon={<Lightbulb />}>
             Donde más se va la plata es <b>{top.name}</b>:{' '}
             {formatCurrency(top.total)} en el mes.
           </AlertCard>
         ) : null}
+        <Link className="btn btn-secondary btn-wide" to="/categorias">
+          <ArrowRight />
+          Ver por categoría
+        </Link>
       </div>
 
       <ProjectionLink monthStart={monthStart} />

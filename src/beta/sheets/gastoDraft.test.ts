@@ -21,6 +21,11 @@ describe('filling the gasto form from what is already there', () => {
       cuotas: '1',
       comments: '',
       isService: false,
+      // What the two servicio questions default to. They are only read
+      // when "es un servicio" is ticked, and a bill that comes every
+      // month is what makes it one.
+      recurring: true,
+      autoDebit: false,
     })
   })
 
@@ -73,8 +78,11 @@ describe('filling the gasto form from what is already there', () => {
       cuotas: '3',
       comments: '',
       // Never: a consumo is not a servicio, and the toggle is not even
-      // shown while the form is on a card.
+      // shown while the form is on a card -- so neither are the two
+      // questions behind it.
       isService: false,
+      recurring: true,
+      autoDebit: false,
     })
   })
 })
