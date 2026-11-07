@@ -18,6 +18,7 @@ const USER = 'flor'
 const TODAY = new Date(2026, 10, 7, 12)
 
 async function setUp(): Promise<{
+  readonly base: ReturnType<typeof createMemoryHouseholdsDb>
   readonly raw: HouseholdsDb
   readonly db: HouseholdsDb
   readonly sandbox: Sandbox
@@ -27,7 +28,8 @@ async function setUp(): Promise<{
   readonly billId: string
   readonly cardId: string
 }> {
-  const raw = createMemoryHouseholdsDb().asUser(USER)
+  const base = createMemoryHouseholdsDb()
+  const raw = base.asUser(USER)
   const { household } = await raw.createHouseholdAndMembership({
     userId: USER,
     name: 'Casa Merlo',
@@ -64,6 +66,7 @@ async function setUp(): Promise<{
   })
   const sandbox = createSandbox(null)
   return {
+    base,
     raw,
     db: sandboxDb(raw, sandbox),
     sandbox,
@@ -367,7 +370,7 @@ describe('what the beta is allowed to write', () => {
     expect(env.sandbox.owns('category', made.id)).toBe(false)
   })
 
-  it('will not touch the household itself, however it is asked', async () => {
+  it('will not rename or re-budget the house it found, however it is asked', async () => {
     for (const call of [
       () =>
         env.db.updateHousehold({
@@ -382,7 +385,6 @@ describe('what the beta is allowed to write', () => {
           monthlyBudget: 1,
           monthlyBudgets: {},
         }),
-      () => env.db.getOrCreateInvite({ householdId: env.householdId }),
       () => env.db.leaveHousehold({ userId: USER }),
       () =>
         env.db.updateMemberDisplayName({
@@ -390,19 +392,98 @@ describe('what the beta is allowed to write', () => {
           userId: USER,
           displayName: 'Otra',
         }),
-      () =>
-        env.db.mergeCategories({
-          householdId: env.householdId,
-          sourceCategoryId: env.categoryId,
-          survivorCategoryId: env.categoryId,
-        }),
     ]) {
-      expect(call).toThrow(SandboxGuardError)
+      await expect(call()).rejects.toThrow(SandboxNotMineError)
     }
 
     const household = await env.raw.getHousehold(env.householdId)
     expect(household.name).toBe('Casa Merlo')
     expect(household.monthlyBudget).toBe(900_000)
+    const members = await env.raw.listMembers(env.householdId)
+    expect(members).toHaveLength(1)
+  })
+
+  // The invite is the one write onto the real household document that Flor
+  // allowed out loud, and it is the mildest one there is: the same code
+  // comes back every time it is asked for.
+  it('hands out the invite code for the real household', async () => {
+    const invite = await env.db.getOrCreateInvite({
+      householdId: env.householdId,
+    })
+    expect(invite.householdId).toBe(env.householdId)
+    expect(invite.token.length).toBeGreaterThan(0)
+
+    const again = await env.db.getOrCreateInvite({
+      householdId: env.householdId,
+    })
+    expect(again.token).toBe(invite.token)
+  })
+
+  // Setting up a new house is what the onboarding does, and the house that
+  // comes out of it is the beta's own: it may be named and re-budgeted,
+  // while the house next door may not.
+  it('owns a house it sets up, and can put a budget on that one', async () => {
+    const asSuegro = sandboxDb(env.base.asUser('suegro'), env.sandbox)
+    const made = await asSuegro.createHouseholdAndMembership({
+      userId: 'suegro',
+      name: 'Casa nueva',
+      monthlyBudget: 0,
+      displayName: 'Jorge',
+    })
+    expect(env.sandbox.owns('household', made.household.id)).toBe(true)
+    expect(env.sandbox.owns('membership', 'suegro')).toBe(true)
+
+    await asSuegro.updateMonthlyBudget({
+      householdId: made.household.id,
+      monthlyBudget: 400_000,
+      monthlyBudgets: { '2026-11': 400_000 },
+    })
+    const after = await env.base
+      .asUser('suegro')
+      .getHousehold(made.household.id)
+    expect(after.monthlyBudget).toBe(400_000)
+
+    // And the house it did not make is still shut.
+    await expect(
+      env.db.updateMonthlyBudget({
+        householdId: env.householdId,
+        monthlyBudget: 1,
+        monthlyBudgets: {},
+      }),
+    ).rejects.toThrow(SandboxNotMineError)
+  })
+
+  // Walking in with a code writes one member document, and only the
+  // membership it wrote can be walked back out of.
+  it('owns the membership it joins with, and no other', async () => {
+    const invite = await env.db.getOrCreateInvite({
+      householdId: env.householdId,
+    })
+    const asLeo = sandboxDb(env.base.asUser('leo'), env.sandbox)
+    const member = await asLeo.joinHousehold({
+      userId: 'leo',
+      token: invite.token,
+      displayName: 'Leo',
+    })
+    expect(member.householdId).toBe(env.householdId)
+    expect(env.sandbox.owns('membership', 'leo')).toBe(true)
+
+    await asLeo.leaveHousehold({ userId: 'leo' })
+    expect(env.sandbox.owns('membership', 'leo')).toBe(false)
+    // Flor's own membership was never the beta's to leave.
+    await expect(env.db.leaveHousehold({ userId: USER })).rejects.toThrow(
+      SandboxNotMineError,
+    )
+  })
+
+  it('still refuses a merge, which rewrites rows it does not own', () => {
+    expect(() =>
+      env.db.mergeCategories({
+        householdId: env.householdId,
+        sourceCategoryId: env.categoryId,
+        survivorCategoryId: env.categoryId,
+      }),
+    ).toThrow(SandboxGuardError)
   })
 
   it('blocks any method nobody has classified, rather than guessing from its name', () => {

@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
-import { createContext, useContext, useMemo } from 'react'
+import { createContext, useContext, useMemo, useState } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 import { createFirestoreHouseholdsDb } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { useHouseholdMembership } from '@/lib/households'
 import { useFirebase } from '@/lib/firebaseContext'
-import { createSandbox } from './sandbox'
+import { createOpenSandbox, createSandbox } from './sandbox'
 import type { Sandbox } from './sandbox'
 import { sandboxDb } from './sandboxDb'
 
@@ -19,6 +19,11 @@ export type BetaSession = {
   // What this browser's beta has written itself, and the only thing it is
   // allowed to change or delete. See sandbox.ts.
   readonly sandbox: Sandbox
+  // Called once, by the onboarding, with the house it has just set up. The
+  // membership underneath is read once per signed-in user and nothing about
+  // the user changed, so without this the app would sit on the last step of
+  // the onboarding looking at a household it had already created.
+  adopt(householdId: string): void
 }
 
 // Set only by the beta's own demo page, which runs the whole interface on
@@ -37,10 +42,11 @@ export function BetaDbProvider({
   readonly db: HouseholdsDb
   readonly children: ReactNode
 }): ReactElement {
-  // Its own sandbox, in memory: the demo household is thrown away on every
-  // reload, so a ledger that outlived it would point at rows that no longer
-  // exist.
-  const sandbox = useMemo(() => createSandbox(null), [])
+  // The demo household is invented from end to end by the seed, so all of
+  // it is the beta's to write: that is what makes the demo a place to try
+  // every form. The guard is still in the way on the path that matters --
+  // the one below, against the real Firestore.
+  const sandbox = useMemo(() => createOpenSandbox(), [])
   const guarded = useMemo(() => sandboxDb(db, sandbox), [db, sandbox])
   return (
     <InjectedSandbox.Provider value={sandbox}>
@@ -66,14 +72,19 @@ export function useBetaSession(): BetaSession {
   const { currentUserId, membership } = useHouseholdMembership({
     householdsDb: db,
   })
+  const [adopted, setAdopted] = useState<string | null>(null)
 
   return {
     userId: currentUserId,
     householdId:
-      membership === undefined ? undefined : (membership?.householdId ?? null),
+      adopted ??
+      (membership === undefined
+        ? undefined
+        : (membership?.householdId ?? null)),
     displayName: membership?.displayName ?? null,
     db,
     sandbox,
+    adopt: setAdopted,
   }
 }
 

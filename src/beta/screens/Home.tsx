@@ -9,6 +9,7 @@ import {
   TrendingUp,
   TriangleAlert,
 } from 'lucide-react'
+import { useState } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { formatCurrency } from '@/lib/expenses'
@@ -28,13 +29,19 @@ import {
 } from '../rows'
 import { monthName } from '../format'
 import type { BetaSession } from '../data'
+import { PresupuestoSheet } from '../sheets/PresupuestoSheet'
 import { LoadFailed } from './Gastos'
+
+// How many rows each of the two lists on the Home shows. One number, so
+// they are always the same length.
+const HOME_ROWS = 4
 
 export function Home({
   session,
 }: {
   readonly session: BetaSession
 }): ReactElement {
+  const [budgeting, setBudgeting] = useState(false)
   const householdId = session.householdId ?? null
   const now = new Date()
   const { monthStart, monthEnd } = useMonth()
@@ -133,6 +140,30 @@ export function Home({
   })
   const { budget, paid, owed, cards, bills, late, byCategory, toDate, spent } =
     figures
+  // Both columns the same height: a list of three beside a list of four
+  // read as two unrelated things, and the eye goes to the longer one.
+  // Movements are one list -- a consumo and a gasto are both "what we
+  // spent" -- newest first; the bills go by the date they fall due, which
+  // is the order somebody paying them works in.
+  const moves = [
+    ...expenses.map((expense) => ({
+      id: expense.id,
+      at: expense.expenseDate,
+      expense,
+      purchase: undefined,
+    })),
+    ...purchases.map((purchase) => ({
+      id: purchase.id,
+      at: purchase.purchaseDate,
+      expense: undefined,
+      purchase,
+    })),
+  ]
+    .sort((a, b) => b.at.getTime() - a.at.getTime())
+    .slice(0, HOME_ROWS)
+  const soonest = [...bills]
+    .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
+    .slice(0, HOME_ROWS)
   const top = byCategory[0]
   const several = members.length > 1
   const others = members
@@ -156,9 +187,13 @@ export function Home({
       <div className="hood">
         <div className="band">
           {budget > 0 ? (
-            <BudgetHero figures={figures} />
+            <BudgetHero figures={figures} onBudget={() => setBudgeting(true)} />
           ) : (
-            <PlainHero spent={spent} toDate={toDate} />
+            <PlainHero
+              spent={spent}
+              toDate={toDate}
+              onBudget={() => setBudgeting(true)}
+            />
           )}
 
           <div className="trio">
@@ -214,22 +249,25 @@ export function Home({
         <div className="col">
           <section className="sec">
             <h2>Últimos movimientos</h2>
-            {expenses.slice(0, 3).map((expense) => (
-              <ExpenseRow
-                key={expense.id}
-                expense={expense}
-                categories={categories}
-                several={several}
-              />
-            ))}
-            {purchases.slice(0, 1).map((purchase) => (
-              <PurchaseRow
-                key={purchase.id}
-                purchase={purchase}
-                categories={categories}
-                several={several}
-              />
-            ))}
+            {moves.map((move) =>
+              move.expense === undefined ? (
+                <PurchaseRow
+                  key={move.id}
+                  purchase={move.purchase}
+                  categories={categories}
+                  several={several}
+                  mine={session.sandbox.invented('purchase', move.id)}
+                />
+              ) : (
+                <ExpenseRow
+                  key={move.id}
+                  expense={move.expense}
+                  categories={categories}
+                  several={several}
+                  mine={session.sandbox.invented('expense', move.id)}
+                />
+              ),
+            )}
             {/* At the foot of the list rather than beside its heading: it
                 is what you reach for once you have read the last row, and
                 up there it was a small link competing with the title. */}
@@ -243,10 +281,11 @@ export function Home({
           {bills.length > 0 ? (
             <section className="sec">
               <h2>Servicios por pagar</h2>
-              {bills.slice(0, 3).map((bill) => (
+              {soonest.map((bill) => (
                 <BillRow
                   key={bill.id}
                   bill={bill}
+                  mine={session.sandbox.invented('pendiente', bill.id)}
                   categories={categories}
                   monthStart={monthStart}
                   now={now}
@@ -283,6 +322,14 @@ export function Home({
       </div>
 
       <ProjectionLink monthStart={monthStart} />
+
+      <PresupuestoSheet
+        open={budgeting}
+        onClose={() => setBudgeting(false)}
+        session={session}
+        household={household}
+        monthStart={monthStart}
+      />
     </>
   )
 }
@@ -290,9 +337,11 @@ export function Home({
 function PlainHero({
   spent,
   toDate,
+  onBudget,
 }: {
   readonly spent: number
   readonly toDate: HomeFigures['toDate']
+  readonly onBudget: () => void
 }): ReactElement {
   const up = toDate.difference >= 0
   return (
@@ -315,7 +364,7 @@ function PlainHero({
         )}
       </div>
       <div className="h-side">
-        <button className="btn btn-secondary" type="button" disabled>
+        <button className="btn btn-secondary" type="button" onClick={onBudget}>
           <Target />
           Poner un presupuesto
         </button>
@@ -326,8 +375,10 @@ function PlainHero({
 
 function BudgetHero({
   figures,
+  onBudget,
 }: {
   readonly figures: HomeFigures
+  readonly onBudget: () => void
 }): ReactElement {
   const { budget, paid, owed, left, over, closed, daysLeft, perDay } = figures
   const { pctSpent, pctOwed } = figures
@@ -366,6 +417,9 @@ function BudgetHero({
           Presupuesto <b>{formatCurrency(budget)}</b>
         </span>
       </div>
+      <button className="skip" type="button" onClick={onBudget}>
+        Cambiar el presupuesto
+      </button>
       <div className="perday">
         <span className="ic" aria-hidden="true">
           {over ? <TriangleAlert /> : <CalendarDays />}

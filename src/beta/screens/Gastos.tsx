@@ -213,14 +213,14 @@ export function Gastos({
                 purchase={item.purchase as CardPurchase}
                 categories={categories}
                 several={several}
-                mine={session.sandbox.owns('purchase', item.id)}
+                mine={session.sandbox.invented('purchase', item.id)}
               />
             ) : (
               <ExpenseRow
                 expense={item.expense}
                 categories={categories}
                 several={several}
-                mine={session.sandbox.owns('expense', item.id)}
+                mine={session.sandbox.invented('expense', item.id)}
                 onEdit={() => setEditing(item.expense ?? null)}
               />
             )}

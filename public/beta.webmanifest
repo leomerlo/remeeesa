@@ -1,0 +1,30 @@
+{
+  "name": "reméeesa",
+  "short_name": "reméeesa",
+  "description": "Los gastos del hogar, entre todos.",
+  "start_url": "/beta.html",
+  "scope": "/beta.html",
+  "display": "standalone",
+  "background_color": "#f6f4fa",
+  "theme_color": "#4d1f8d",
+  "icons": [
+    {
+      "src": "/beta-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/beta-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/beta-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

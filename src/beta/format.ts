@@ -1,3 +1,5 @@
+import { PAYMENT_METHOD_KINDS } from '@/lib/cards'
+import type { PaymentMethodKind } from '@/lib/cards'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
 import type { Category } from '@/lib/expenses'
 
@@ -57,3 +59,9 @@ export function parseTyped(text: string): number {
 }
 
 export { iconForCategoryName }
+
+// What a payment method is, in one word, for the line under its name.
+// Cash gets nothing: "Efectivo" already says it.
+export function kindOf(kind: PaymentMethodKind): string {
+  return PAYMENT_METHOD_KINDS.find((one) => one.value === kind)?.label ?? ''
+}

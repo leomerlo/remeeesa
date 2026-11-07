@@ -213,6 +213,53 @@ export function OptionList<T extends string>({
   )
 }
 
+// The same list, but you can pick more than one -- which is what "¿cómo
+// pagan las cosas?" is: a household uses three of the four. Checkboxes
+// rather than radios, so a screen reader says "marcado" and not "elegido".
+export function MultiOptionList<T extends string>({
+  label,
+  chosen,
+  onToggle,
+  options,
+}: {
+  readonly label: string
+  readonly chosen: readonly T[]
+  readonly onToggle: (value: T) => void
+  readonly options: readonly {
+    readonly value: T
+    readonly k: string
+    readonly v?: string
+  }[]
+}): ReactElement {
+  return (
+    <div className="field">
+      <span className="flabel">{label}</span>
+      <div className="opts multi" role="group" aria-label={label}>
+        {options.map((option) => {
+          const on = chosen.includes(option.value)
+          return (
+            <button
+              key={option.value}
+              type="button"
+              role="checkbox"
+              className="opt"
+              aria-checked={on}
+              aria-pressed={on}
+              onClick={() => onToggle(option.value)}
+            >
+              <span className="mark" aria-hidden="true" />
+              <span className="k">{option.k}</span>
+              {option.v === undefined ? null : (
+                <span className="v">{option.v}</span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // A yes/no that says what saying yes means.
 export function Toggle({
   k,

@@ -23,7 +23,7 @@ import type { BetaSession } from '../data'
 import { HogarSheet, InvitarSheet } from '../sheets/HogarSheet'
 import { MetodoSheet } from '../sheets/MetodoSheet'
 import { TestTag } from '../rows'
-import { cleanSandbox } from '../sandboxCleanup'
+import { cleanSandbox, cleanableCount } from '../sandboxCleanup'
 import { LoadFailed, Title } from './Gastos'
 
 function kindLabel(kind: string): string {
@@ -118,7 +118,7 @@ export function Perfil({
               <MethodRow
                 key={card.id}
                 card={card}
-                mine={session.sandbox.owns('card', card.id)}
+                mine={session.sandbox.invented('card', card.id)}
                 onEdit={() => setMethod(card)}
               />
             ))}
@@ -169,7 +169,8 @@ export function Perfil({
       <InvitarSheet
         open={sheet === 'invitar'}
         onClose={() => setSheet(null)}
-        code={null}
+        session={session}
+        householdId={household.id}
       />
       {method === null ? null : (
         <MetodoSheet
@@ -201,7 +202,9 @@ function TestData({
   const [working, setWorking] = useState(false)
   const [note, setNote] = useState<string | null>(null)
   const ledger = session.sandbox.ledger()
-  const total = session.sandbox.size()
+  // Not sandbox.size(): a house the beta set up, and the membership that
+  // came with it, are not test rows waiting to be swept out of a month.
+  const total = cleanableCount(session.sandbox)
 
   if (total === 0 && note === null) return null
 

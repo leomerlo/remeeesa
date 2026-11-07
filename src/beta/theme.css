@@ -256,6 +256,31 @@
   .quiet .go { grid-column: 3; grid-row: 1 / span 2; color: var(--ink-2); }
   .quiet .tile { width: 40px; height: 40px; border-radius: 12px; }
 
+  /* One step at a time, with how far along you are. A list of four things
+     reads as homework; a step reads as something you are in the middle of. */
+  .step-card { display: grid; gap: 16px; justify-items: start; }
+  /* .tile spans two rows by default, which is right inside a list row and
+     wrong here: it was jumping above the progress bar. */
+  .step-card .tile { grid-row: auto; }
+  .step-card .field, .step-card .chips, .step-card .btn,
+  .step-card .opts { justify-self: stretch; width: 100%; }
+  .step-top { display: grid; gap: 8px; width: 100%; }
+  .step-of { font-size: var(--t-mini); font-weight: 700; letter-spacing: .08em;
+             color: var(--grape-700); }
+  .step-bar { height: 6px; border-radius: 999px; background: var(--grape-50);
+              overflow: hidden; }
+  .step-bar i { display: block; height: 100%; border-radius: 999px;
+                background: var(--grape); transition: width .3s ease; }
+  @media (prefers-reduced-motion: reduce) { .step-bar i { transition: none; } }
+  .step-card h3 { margin: 0; font-size: var(--t-xl); font-weight: 700;
+                  letter-spacing: -.02em; text-wrap: balance; }
+  .step-card p { margin: 0; font-size: var(--t-sm); font-weight: 400;
+                 color: var(--ink-2); line-height: 1.45; }
+  /* The greeting above the card: the only screen with no title row. */
+  .hello { display: grid; gap: 4px; font-size: var(--t-xl); font-weight: 700;
+           letter-spacing: -.02em; }
+  .hello span { font-size: var(--t-sm); font-weight: 400; color: var(--ink-2); }
+
   .skip { appearance: none; border: 0; background: none; cursor: pointer; font: inherit;
           font-size: var(--t-sm); font-weight: 600; color: var(--ink-2);
           text-decoration: underline; justify-self: center; padding: 4px; }
@@ -440,6 +465,8 @@
   .hood .fill.over { background: var(--hood-red); }
   .hood .legend { color: var(--hood-ink-2); }
   .hood .legend b { color: var(--hood-ink); }
+  /* On the dark panel the quiet link has to be light, or it is invisible. */
+  .hood .skip { color: var(--hood-ink-2); }
   .hood .hero .figure.over { color: var(--hood-red); }
   .hood .dot-paid { background: var(--hood-green); }
   .hood .dot-owed { background: var(--hood-amber); }

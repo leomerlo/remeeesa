@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="reméeesa">
+  <!-- The beta's mark, and the master every size is rendered from (see
+       scripts/beta-icons.mjs).
+
+       No dinosaur: the beta is a different product and the dino belonged to
+       the v1. What is here instead is the one shape this app is about -- the
+       month, and how much of it is left. The ring is the month, the gap is
+       what has not been spent, and the dot is where today is. It survives
+       being 16 pixels wide, which a drawing of an animal does not.
+
+       Full-bleed background on purpose: iOS and Android mask the corners
+       themselves, and anything transparent out there comes back black. -->
+  <rect width="512" height="512" fill="#4d1f8d"/>
+  <!-- The month, three quarters spent. Round caps so the ends read as ends
+       and not as a cut. -->
+  <circle cx="256" cy="256" r="138" fill="none" stroke="#ffffff" stroke-opacity="0.28" stroke-width="56"/>
+  <path d="M 256 118 A 138 138 0 1 1 118 256" fill="none" stroke="#ffffff" stroke-width="56" stroke-linecap="round"/>
+  <!-- Today. -->
+  <circle cx="118" cy="256" r="28" fill="#ffffff"/>
+</svg>

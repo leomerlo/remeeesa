@@ -138,7 +138,12 @@ async function snapshot(
   }
 }
 
-const SCENARIOS = Object.keys(DEMO_SCENARIOS) as readonly DemoScenario[]
+// Every scenario that seeds a household. "alta" deliberately seeds none --
+// it is the demo of the sign-up, where there is no month to say anything
+// about yet.
+const SCENARIOS = (
+  Object.keys(DEMO_SCENARIOS) as readonly DemoScenario[]
+).filter((scenario) => scenario !== 'alta')
 
 // Today, the month before it, and a month far enough back that nothing was
 // seeded into it -- the three cases a month pager can land on.

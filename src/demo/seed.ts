@@ -34,6 +34,10 @@ const DEMO_USER: SeedUser = { id: DEMO_USER_ID, displayName: DEMO_AUTHOR }
 // changes between them is only how much of the month is gone, which is
 // exactly what the card's colour is a function of.
 export const DEMO_SCENARIOS = {
+  // Signed in with no household at all, which is the only way to look at
+  // the first two minutes: the beta's onboarding, or the screen somebody
+  // who was invited lands on.
+  alta: { label: 'sin hogar · alta' },
   nueva: { label: 'cuenta nueva' },
   vacia: { label: 'casa vacía' },
   arranque: { label: 'recién arranca · 10%' },
@@ -528,6 +532,8 @@ export async function seedDemoHousehold(input: {
   const user = input.user ?? DEMO_USER
   const { db } = input
   switch (input.scenario) {
+    case 'alta':
+      return
     case 'nueva':
       return seedNueva(db, user)
     case 'vacia':

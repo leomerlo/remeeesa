@@ -1,15 +1,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
 import { HashRouter, Route, Routes } from 'react-router-dom'
 import { createFirebaseClient, readFirebaseEnv } from '@/lib/firebase'
-import { FirebaseProvider, useFirebase } from '@/lib/firebaseContext'
+import { FirebaseProvider } from '@/lib/firebaseContext'
 import { MonthProvider } from './MonthContext'
 import { useBetaSession, useHouseholdName } from './data'
 import { Shell } from './Shell'
 import { BootSkeleton } from './Skeleton'
 import { SignIn } from './SignIn'
+import { Onboarding } from './Onboarding'
+import { Unirse } from './Unirse'
+import { heldInvite, holdInvite } from './invite'
 import { Categorias } from './screens/Categorias'
 import { Servicios } from './screens/Servicios'
 import { Gastos } from './screens/Gastos'
@@ -27,12 +29,22 @@ import { Proyecciones } from './screens/Proyecciones'
 // so the demo goes through the real sign-in check and the real read-only
 // guard rather than around them.
 export function BetaRoutes(): ReactElement {
-  const firebase = useFirebase()
   const session = useBetaSession()
   const home = useHouseholdName(session)
+  // An invite code travels through the sign-in -- there is nobody to join
+  // as until the account exists -- and may also have arrived in the address,
+  // from the link the inviter sent, in which case the entry point has
+  // already put it away (see invite.ts). Held in sessionStorage so it
+  // survives the reload that creating an account can cause.
+  const [code, setCode] = useState<string | null>(() => heldInvite())
 
-  async function signIn(): Promise<void> {
-    await signInWithPopup(firebase.auth, new GoogleAuthProvider())
+  const keep = (token: string): void => {
+    holdInvite(token)
+    setCode(token)
+  }
+  const forget = (): void => {
+    holdInvite(null)
+    setCode(null)
   }
 
   if (session.userId === undefined) {
@@ -42,11 +54,25 @@ export function BetaRoutes(): ReactElement {
     return (
       <div className="shell auth-shell">
         <main className="app">
-          <SignIn
-            onGoogle={() => {
-              void signIn()
-            }}
-          />
+          <SignIn onCode={keep} />
+        </main>
+      </div>
+    )
+  }
+  if (session.householdId === undefined) {
+    return <BootSkeleton />
+  }
+  // Signed in with no house: either they were invited to one, or this is
+  // the first two minutes of a brand-new one.
+  if (session.householdId === null) {
+    return (
+      <div className="shell auth-shell">
+        <main className="app">
+          {code === null ? (
+            <Onboarding session={session} />
+          ) : (
+            <Unirse session={session} token={code} onForget={forget} />
+          )}
         </main>
       </div>
     )

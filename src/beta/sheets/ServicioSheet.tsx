@@ -25,7 +25,7 @@ import {
   moneyIsValid,
   moneyValue,
 } from '../fields'
-import { monthName } from '../format'
+import { kindOf, monthName } from '../format'
 
 function isoDay(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -316,15 +316,16 @@ export function PagarSheet({
         label="Con qué lo pagaron"
         value={methodId}
         onChange={setMethodId}
+        // What kind of method it is, not what it does to the month: the
+        // line below already says the one consequence that matters.
         options={[
-          { value: '', k: 'Efectivo', v: 'Sale hoy' },
+          { value: '', k: 'Efectivo' },
           ...methods.map((candidate) => ({
             value: candidate.id,
             k: candidate.name,
-            v:
-              candidate.kind === 'credito'
-                ? 'No sale hoy: va al resumen de la tarjeta'
-                : 'Sale hoy',
+            ...(candidate.kind === 'efectivo'
+              ? {}
+              : { v: kindOf(candidate.kind) }),
           })),
         ]}
       />

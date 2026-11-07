@@ -26,10 +26,15 @@ import type { Sandbox, SandboxKind } from './sandbox'
 //
 // Still an allowlist, for the reason the read-only version was one: a method
 // added to HouseholdsDb later stays blocked until somebody classifies it,
-// rather than inheriting permission from the shape of its name. And a write
-// that touches the household document itself -- its name, its budget, its
-// members, its invite -- is in no list at all, because there is no way to
-// invent a second household to practise on.
+// rather than inheriting permission from the shape of its name.
+//
+// The household document is the one place where "what already exists" is not
+// a row but the house itself. Setting up a new house is allowed -- it is what
+// the onboarding does, and it touches nothing -- and the house that comes out
+// of it is the beta's own, so its name and its budget can be changed. The
+// house Flor and Leo live in stays shut by the same rule that protects a
+// gasto they already loaded. The invite is the exception Flor granted out
+// loud: "te habilito la regla para generar link de invitación."
 
 export class SandboxGuardError extends Error {
   readonly method: string
@@ -87,6 +92,11 @@ type Rule = {
 }
 
 const READ: Rule = {}
+
+// Writes, but there is nothing to own and nothing to take back. A distinct
+// object from READ on purpose: isSandboxWrite tells them apart by identity,
+// and these do write.
+const OPEN: Rule = {}
 
 function text(args: Args, key: string): string {
   const value = args[key]
@@ -159,6 +169,49 @@ const RULES: Readonly<Record<string, Rule>> = {
   listPaidPendientesDueInMonth: READ,
   listPendientes: READ,
   listRecentExpenses: READ,
+
+  // -- the house itself ----------------------------------------------------
+  // Setting up a new house adds a household and a membership and touches
+  // nothing that was there before. Both are claimed: the house so the beta
+  // may name it and put a budget on it afterwards, the membership so it can
+  // be left again.
+  createHouseholdAndMembership: {
+    claims: (_args, result) => {
+      const made = result as {
+        household: { id: string }
+        member: { userId: string }
+      }
+      return [
+        ['household', made.household.id],
+        ['membership', made.member.userId],
+      ]
+    },
+  },
+  // Joining writes one member document into a house that already exists --
+  // the smallest write there is, and the only one that can be undone by the
+  // person who made it. Claimed so leaving is available afterwards.
+  joinHousehold: {
+    claims: (_args, result) => [
+      ['membership', (result as { userId: string }).userId],
+    ],
+  },
+  leaveHousehold: {
+    requires: (args) => [['membership', text(args, 'userId')]],
+    releases: (args) => [['membership', text(args, 'userId')]],
+  },
+  // Allowed on any house, Flor's own included, because she said so. It is
+  // idempotent: the same invite comes back every time, so a household that
+  // already has one is not changed at all.
+  getOrCreateInvite: OPEN,
+  updateMonthlyBudget: {
+    requires: (args) => [['household', text(args, 'householdId')]],
+  },
+  updateHousehold: {
+    requires: (args) => [['household', text(args, 'householdId')]],
+  },
+  updateMemberDisplayName: {
+    requires: (args) => [['membership', text(args, 'userId')]],
+  },
 
   // -- creates -------------------------------------------------------------
   createExpense: {
@@ -285,25 +338,18 @@ export function isSandboxWrite(method: string): boolean {
 
 export const SANDBOX_CLASSIFIED: readonly string[] = Object.keys(RULES)
 
-// Shut on purpose, every one of them for the same reason: there is one
-// household and it is the real one. Its name, its budget, its members and
-// its invite cannot be practised on, because there is no second household to
-// invent. A merge is in here too -- it rewrites rows in the category that
-// survives, which is somebody else's data by definition.
+// Shut on purpose. A merge rewrites every row in the category that survives,
+// which is somebody else's data by definition and cannot be undone by
+// deleting anything. A projection is one document per household: there is no
+// second one to invent, and writing it overwrites whatever the household
+// planned.
 //
 // Listed rather than simply left out so that the test below can tell a
 // decision from an oversight: anything in neither list is a method nobody
 // has thought about yet.
 export const SANDBOX_REFUSED: readonly string[] = [
-  'createHouseholdAndMembership',
-  'getOrCreateInvite',
-  'joinHousehold',
-  'leaveHousehold',
   'mergeCategories',
   'saveProjection',
-  'updateHousehold',
-  'updateMemberDisplayName',
-  'updateMonthlyBudget',
 ]
 
 // Throws where the call is made rather than rejecting a promise: a rejected

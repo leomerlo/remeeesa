@@ -5,6 +5,8 @@ import type { Household, HouseholdMember } from '@/lib/households'
 import { Sheet, SheetFoot } from '../Sheet'
 import { TextField } from '../fields'
 import { monthName } from '../format'
+import { inviteLink } from '../invite'
+import type { BetaSession } from '../data'
 
 // The household's name and who is in it.
 //
@@ -83,29 +85,53 @@ function canSaveNote(named: boolean): ReactElement | null {
   )
 }
 
-// Inviting someone, which in the v1 is a code the other person types or a
-// link that carries it for them.
+// Inviting someone: a code the other person types, or a link that carries
+// it for them.
 //
-// The code is read from the household, never made here: creating one writes
-// a document onto the real household and there is no undoing it from here,
-// so it stays on the far side of the line. A household that has never
-// invited anybody has no code yet, and this says so rather than showing a
-// blank.
-const INVITE_IS_A_WRITE =
-  'Crear el código escribe en el hogar que ya existe, así que la beta no ' +
-  'lo hace. Generalo una vez desde la versión 1 y acá vas a poder copiarlo.'
+// This is the one write onto the real household that Flor allowed out loud
+// ("te habilito la regla para generar link de invitación"), and it is the
+// mildest one there is: asking twice gives the same code back, so a
+// household that already has one is not changed at all. It still waits for
+// a press rather than firing on open -- opening a sheet should not write
+// anything.
 export function InvitarSheet({
   open,
   onClose,
-  code,
+  session,
+  householdId,
 }: {
   readonly open: boolean
   readonly onClose: () => void
-  readonly code: string | null
+  readonly session: BetaSession
+  readonly householdId: string
 }): ReactElement {
+  const [code, setCode] = useState<string | null>(null)
+  const [working, setWorking] = useState(false)
+  const [failed, setFailed] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const link =
-    code === null ? null : `${window.location.origin}/beta.html#/entrar/${code}`
+    code === null
+      ? null
+      : inviteLink({
+          origin: window.location.origin,
+          token: code,
+        })
+
+  const fetchCode = (): void => {
+    setWorking(true)
+    setFailed(null)
+    void session.db
+      .getOrCreateInvite({ householdId })
+      .then((invite) => {
+        setCode(invite.token)
+      })
+      .catch(() => {
+        setFailed('No se pudo conseguir el código. Probá de nuevo.')
+      })
+      .finally(() => {
+        setWorking(false)
+      })
+  }
 
   return (
     <Sheet
@@ -115,12 +141,12 @@ export function InvitarSheet({
       footer={
         code === null ? (
           <SheetFoot
-            label="Crear el código"
-            saving={false}
+            label={working ? 'Buscando…' : 'Conseguir el código'}
+            saving={working}
             blocked={false}
-            locked={INVITE_IS_A_WRITE}
-            failed={null}
-            onSave={() => undefined}
+            locked={null}
+            failed={failed}
+            onSave={fetchCode}
           />
         ) : (
           <button
@@ -151,11 +177,7 @@ export function InvitarSheet({
         Quien entre con esto va a ver los mismos gastos, servicios y tarjetas
         que ustedes, y va a poder anotar.
       </p>
-      {code === null ? (
-        <p className="fproblem" role="alert">
-          Este hogar todavía no tiene código de invitación.
-        </p>
-      ) : (
+      {code === null ? null : (
         <>
           <div className="field">
             <span className="flabel">El código</span>

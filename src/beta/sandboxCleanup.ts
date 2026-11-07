@@ -8,13 +8,30 @@ import type { Sandbox, SandboxKind } from './sandbox'
 // a card cannot go while a purchase or a statement still points at it, and a
 // category cannot go while any gasto or servicio is still in it. So the
 // leaves go first and the things they hang off go last.
-const ORDER: readonly SandboxKind[] = [
+//
+// Neither a household nor a membership is in here, and that is deliberate.
+// In the beta, setting up a house or walking into one with a code is not
+// test data -- it is the real thing happening for a real new person, which
+// is exactly what the onboarding is for. A cleanup that undid it would throw
+// somebody out of their own house. So those two kinds are claimed for
+// permission only: they say which house the beta may rename and put a budget
+// on, and which membership it may leave, and nothing else.
+type CleanableKind = Exclude<SandboxKind, 'household' | 'membership'>
+
+const ORDER: readonly CleanableKind[] = [
   'purchase',
   'expense',
   'pendiente',
   'card',
   'category',
 ]
+
+// How much of what the beta holds is actually waiting to be taken out of the
+// household -- what the screen counts, and what "nothing left" means.
+export function cleanableCount(sandbox: Sandbox): number {
+  const ledger = sandbox.ledger()
+  return ORDER.reduce((total, kind) => total + ledger[kind].length, 0)
+}
 
 export type CleanupResult = {
   readonly removed: number
@@ -59,7 +76,7 @@ export async function cleanSandbox(input: {
 async function remove(
   db: HouseholdsDb,
   householdId: string,
-  kind: SandboxKind,
+  kind: CleanableKind,
   id: string,
 ): Promise<void> {
   switch (kind) {
@@ -81,7 +98,7 @@ async function remove(
 async function missing(
   db: HouseholdsDb,
   householdId: string,
-  kind: SandboxKind,
+  kind: CleanableKind,
   id: string,
 ): Promise<boolean> {
   try {

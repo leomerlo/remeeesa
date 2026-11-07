@@ -9,6 +9,7 @@ import type { Currency } from '@/lib/money'
 import { DangerAction, Sheet, SheetFoot } from '../Sheet'
 import { NOT_MINE_NOTE } from '../sandboxDb'
 import { useSave } from '../useSave'
+import { kindOf } from '../format'
 import type { BetaSession } from '../data'
 import {
   DateField,
@@ -268,15 +269,17 @@ export function GastoSheet({
         label="Con qué lo pagaron"
         value={draft.methodId}
         onChange={(next) => set('methodId', next)}
+        // The second line says what kind of method it is, not what it does
+        // to the month: "sale hoy" under every option but one was three
+        // words of nothing, and cash needs no explaining at all.
         options={[
-          { value: '', k: 'Efectivo', v: 'Sale hoy' },
+          { value: '', k: 'Efectivo' },
           ...methods.map((candidate) => ({
             value: candidate.id,
             k: candidate.name,
-            v:
-              candidate.kind === 'credito'
-                ? 'No sale hoy: va al resumen de la tarjeta'
-                : 'Sale hoy',
+            ...(candidate.kind === 'efectivo'
+              ? {}
+              : { v: kindOf(candidate.kind) }),
           })),
         ]}
       />

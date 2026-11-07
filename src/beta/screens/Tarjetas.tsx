@@ -109,9 +109,9 @@ export function Tarjetas({
           </div>
           <div className="legend">
             <span>
-              Es lo que las tarjetas van a pedir. Siempre estimado: el monto
-              real lo cargan cuando pagan, porque ahí se le suman impuestos e
-              intereses.
+              Es lo que las tarjetas van a pedir, y es <b>siempre estimado</b>:
+              el resumen trae impuestos e intereses que todavía no están acá.
+              Cuando llegue cerrado, anótenlo como un gasto.
             </span>
           </div>
         </div>

@@ -67,7 +67,7 @@ export function Categorias({
     <>
       <Title
         text="Categorías"
-        sub={`En qué se fue la plata de ${household.name} en ${monthName(monthStart)}, sin importar cómo se pagó.`}
+        sub={`En qué se fue la plata de ${household.name} en ${monthName(monthStart)}, sin importar cómo se pagó. Están todas, también las que no usaron.`}
         pager
       />
       {/* No ring here: Inicio already has it, and it answers a different
@@ -97,22 +97,34 @@ function CategoryBars({
   // Null means the sheet is shut; a category means editing that one; the
   // string 'nueva' means creating one.
   const [editing, setEditing] = useState<Category | 'nueva' | null>(null)
-  const capOf = (categoryId: string): number =>
-    categories.find((category) => category.id === categoryId)?.monthlyBudget ??
-    0
-  // A category with nothing spent and no cap is doing nothing this month,
-  // and listing it at "$0 · 0% de lo que gastaron" is a row that says
-  // nothing. One with a cap stays: zero against a tope is news.
-  const rows = summarizeByCategory({ expenses, categories }).filter(
-    (row) => row.total > 0 || capOf(row.categoryId) > 0,
-  )
+  // Every category the household has, not only the ones this month
+  // touched: this screen is also where categories are managed, and a
+  // category you cannot see is a category you cannot edit. The ones with
+  // nothing in them sit at zero with an empty bar, which is the honest
+  // picture of a month.
+  //
+  // Most spent first, and then the untouched ones by name, so the month
+  // still reads top to bottom.
+  const summary = summarizeByCategory({ expenses, categories })
+  const found = (categoryId: string) =>
+    summary.find((row) => row.categoryId === categoryId)
+  const rows = categories
+    .map((category) => ({
+      categoryId: category.id,
+      name: category.name,
+      color: category.color,
+      cap: category.monthlyBudget,
+      total: found(category.id)?.total ?? 0,
+      share: found(category.id)?.share ?? 0,
+    }))
+    .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'es'))
   const max = rows[0]?.total ?? 0
 
   return (
     <>
       <div className="sec">
         {rows.map((row) => {
-          const cap = capOf(row.categoryId)
+          const cap = row.cap
           const over = cap > 0 && row.total > cap
           const width =
             cap > 0
@@ -125,7 +137,7 @@ function CategoryBars({
               <CategoryTile name={row.name} color={row.color} />
               <span className="name">
                 {row.name}
-                {session.sandbox.owns('category', row.categoryId) ? (
+                {session.sandbox.invented('category', row.categoryId) ? (
                   <TestTag />
                 ) : null}
               </span>
@@ -152,11 +164,15 @@ function CategoryBars({
                 />
               </span>
               <span className={over ? 'sub over' : 'sub'}>
-                {cap > 0
-                  ? over
-                    ? `Se pasaron ${formatCurrency(row.total - cap)} del tope de ${formatCurrency(cap)}`
-                    : `${formatCurrency(cap - row.total)} por debajo del tope de ${formatCurrency(cap)}`
-                  : `${String(Math.round(row.share * 100))}% de lo que gastaron`}
+                {row.total === 0
+                  ? cap > 0
+                    ? `Todavía nada. El tope es ${formatCurrency(cap)}.`
+                    : 'Todavía no gastaron nada acá.'
+                  : cap > 0
+                    ? over
+                      ? `Se pasaron ${formatCurrency(row.total - cap)} del tope de ${formatCurrency(cap)}`
+                      : `${formatCurrency(cap - row.total)} por debajo del tope de ${formatCurrency(cap)}`
+                    : `${String(Math.round(row.share * 100))}% de lo que gastaron`}
               </span>
             </div>
           )
