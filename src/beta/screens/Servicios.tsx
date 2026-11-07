@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, CalendarClock, CreditCard } from 'lucide-react'
+import { ArrowRight, CalendarClock, CreditCard, Plus } from 'lucide-react'
+import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { formatAmount } from '@/lib/expenses'
+import type { Pendiente } from '@/lib/pendientes'
 import { billsOnCard, billsOnCardTotal, serviciosFigures } from '../figures'
 
 import { ListSkeleton, NameSkel } from '../Skeleton'
@@ -11,6 +13,7 @@ import { useMonth } from '../MonthContext'
 import { BillRow } from '../rows'
 import { monthName } from '../format'
 import type { BetaSession } from '../data'
+import { PagarSheet, ServicioSheet } from '../sheets/ServicioSheet'
 import { LoadFailed, Title } from './Gastos'
 
 export function Servicios({
@@ -26,6 +29,9 @@ export function Servicios({
   const setView = (next: 'pagar' | 'tarjetas'): void => {
     setParams(next === 'tarjetas' ? { ver: 'tarjetas' } : {}, { replace: true })
   }
+  // Null is shut, 'nuevo' is creating one, a bill is editing that one.
+  const [editing, setEditing] = useState<Pendiente | 'nuevo' | null>(null)
+  const [paying, setPaying] = useState<Pendiente | null>(null)
   const householdId = session.householdId ?? null
   const now = new Date()
   const { monthStart, monthEnd } = useMonth()
@@ -35,16 +41,17 @@ export function Servicios({
     enabled: householdId !== null,
     queryFn: async () => {
       const id = householdId as string
-      const [pendientes, categories, settled] = await Promise.all([
+      const [pendientes, categories, methods, settled] = await Promise.all([
         session.db.listPendientes({ householdId: id }),
         session.db.listCategories(id),
+        session.db.listCards({ householdId: id }),
         session.db.listPaidPendientesDueInMonth({
           householdId: id,
           monthStart,
           monthEnd,
         }),
       ])
-      return { pendientes, categories, settled }
+      return { pendientes, categories, methods, settled }
     },
   })
 
@@ -85,7 +92,7 @@ export function Servicios({
     )
   }
 
-  const { pendientes, categories, settled } = data.data
+  const { pendientes, categories, methods, settled } = data.data
 
   // Bills of this month settled with a credit card -- see figures.ts for
   // why this reads the paid ones. Where they end up is Tarjetas.
@@ -221,6 +228,8 @@ export function Servicios({
                   categories={categories}
                   monthStart={monthStart}
                   now={now}
+                  onEdit={() => setEditing(bill)}
+                  onPay={() => setPaying(bill)}
                 />
               ))}
             </div>
@@ -238,11 +247,39 @@ export function Servicios({
                   categories={categories}
                   monthStart={monthStart}
                   now={now}
+                  onEdit={() => setEditing(bill)}
                 />
               ))}
             </section>
           ) : null}
         </>
+      )}
+      <button
+        className="btn btn-secondary btn-wide"
+        type="button"
+        onClick={() => setEditing('nuevo')}
+      >
+        <Plus />
+        Agregar un servicio
+      </button>
+      {editing === null ? null : (
+        <ServicioSheet
+          open
+          onClose={() => setEditing(null)}
+          bill={editing === 'nuevo' ? null : editing}
+          categories={categories}
+          today={now}
+          {...(editing === 'nuevo' ? {} : { onDelete: () => setEditing(null) })}
+        />
+      )}
+      {paying === null ? null : (
+        <PagarSheet
+          open
+          onClose={() => setPaying(null)}
+          bill={paying}
+          methods={methods}
+          today={now}
+        />
       )}
     </>
   )

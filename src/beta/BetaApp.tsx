@@ -54,7 +54,7 @@ export function BetaRoutes(): ReactElement {
 
   return (
     <MonthProvider>
-      <Shell home={home}>
+      <Shell home={home} session={session}>
         <Routes>
           <Route path="/" element={<Home session={session} />} />
           <Route path="/gastos" element={<Gastos session={session} />} />

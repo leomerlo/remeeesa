@@ -13,6 +13,7 @@ import { useMonth } from '../MonthContext'
 import { ExpenseRow, PurchaseRow } from '../rows'
 import { monthName } from '../format'
 import type { BetaSession } from '../data'
+import { GastoSheet } from '../sheets/GastoSheet'
 
 export function Gastos({
   session,
@@ -20,6 +21,7 @@ export function Gastos({
   readonly session: BetaSession
 }): ReactElement {
   const [view, setView] = useState<'mes' | 'tarjeta'>('mes')
+  const [editing, setEditing] = useState<Expense | null>(null)
   const householdId = session.householdId ?? null
   const { monthStart, monthEnd } = useMonth()
 
@@ -28,25 +30,27 @@ export function Gastos({
     enabled: householdId !== null,
     queryFn: async () => {
       const id = householdId as string
-      const [expenses, purchases, categories, members] = await Promise.all([
-        session.db.listExpensesInMonth({
-          householdId: id,
-          monthStart,
-          monthEnd,
-        }),
-        // What went onto a credit card this month. Not Expenses -- the
-        // money has not left yet -- which is exactly why they need a
-        // place of their own: until now they appeared nowhere but as
-        // cuotas inside next month's statement.
-        session.db.listCardPurchasesInMonth({
-          householdId: id,
-          monthStart,
-          monthEnd,
-        }),
-        session.db.listCategories(id),
-        session.db.listMembers(id),
-      ])
-      return { expenses, purchases, categories, members }
+      const [expenses, purchases, categories, members, methods] =
+        await Promise.all([
+          session.db.listExpensesInMonth({
+            householdId: id,
+            monthStart,
+            monthEnd,
+          }),
+          // What went onto a credit card this month. Not Expenses -- the
+          // money has not left yet -- which is exactly why they need a
+          // place of their own: until now they appeared nowhere but as
+          // cuotas inside next month's statement.
+          session.db.listCardPurchasesInMonth({
+            householdId: id,
+            monthStart,
+            monthEnd,
+          }),
+          session.db.listCategories(id),
+          session.db.listMembers(id),
+          session.db.listCards({ householdId: id }),
+        ])
+      return { expenses, purchases, categories, members, methods }
     },
   })
 
@@ -91,7 +95,7 @@ export function Gastos({
     )
   }
 
-  const { expenses, purchases, categories, members } = data.data
+  const { expenses, purchases, categories, members, methods } = data.data
   const several = members.length > 1
   const header = (
     <Title
@@ -215,11 +219,23 @@ export function Gastos({
                 expense={item.expense}
                 categories={categories}
                 several={several}
+                onEdit={() => setEditing(item.expense ?? null)}
               />
             )}
           </div>
         ))}
       </div>
+      {editing === null ? null : (
+        <GastoSheet
+          open
+          onClose={() => setEditing(null)}
+          expense={editing}
+          categories={categories}
+          methods={methods}
+          today={new Date()}
+          onDelete={() => setEditing(null)}
+        />
+      )}
     </>
   )
 }

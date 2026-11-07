@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { Settings2 } from 'lucide-react'
+import { Pencil, Plus } from 'lucide-react'
+import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { formatCurrency, summarizeByCategory } from '@/lib/expenses'
 import type { Category, Expense } from '@/lib/expenses'
@@ -8,6 +9,7 @@ import { useMonth } from '../MonthContext'
 import { CategoryTile } from '../Tile'
 import { monthName } from '../format'
 import type { BetaSession } from '../data'
+import { CategoriaSheet } from '../sheets/CategoriaSheet'
 import { LoadFailed, Title } from './Gastos'
 
 // Its own screen rather than a second view of Gastos. A category says what
@@ -85,6 +87,9 @@ function CategoryBars({
   readonly expenses: readonly Expense[]
   readonly categories: readonly Category[]
 }): ReactElement {
+  // Null means the sheet is shut; a category means editing that one; the
+  // string 'nueva' means creating one.
+  const [editing, setEditing] = useState<Category | 'nueva' | null>(null)
   const capOf = (categoryId: string): number =>
     categories.find((category) => category.id === categoryId)?.monthlyBudget ??
     0
@@ -113,6 +118,19 @@ function CategoryBars({
               <CategoryTile name={row.name} color={row.color} />
               <span className="name">{row.name}</span>
               <span className="amt">{formatCurrency(row.total)}</span>
+              <button
+                className="rowedit"
+                type="button"
+                aria-label={`Editar ${row.name}`}
+                onClick={() => {
+                  const found = categories.find(
+                    (candidate) => candidate.id === row.categoryId,
+                  )
+                  if (found !== undefined) setEditing(found)
+                }}
+              >
+                <Pencil />
+              </button>
               <span className="bar">
                 <i
                   style={{
@@ -132,10 +150,29 @@ function CategoryBars({
           )
         })}
       </div>
-      <button className="btn btn-secondary btn-wide" type="button" disabled>
-        <Settings2 />
-        Administrar categorías y topes
+      <button
+        className="btn btn-secondary btn-wide"
+        type="button"
+        onClick={() => setEditing('nueva')}
+      >
+        <Plus />
+        Nueva categoría
       </button>
+      {editing === null ? null : (
+        <CategoriaSheet
+          open
+          onClose={() => setEditing(null)}
+          category={editing === 'nueva' ? null : editing}
+          existing={categories}
+          {...(editing === 'nueva'
+            ? {}
+            : {
+                spentThisMonth:
+                  rows.find((row) => row.categoryId === editing.id)?.total ?? 0,
+                onDelete: () => setEditing(null),
+              })}
+        />
+      )}
     </>
   )
 }

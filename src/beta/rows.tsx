@@ -1,4 +1,10 @@
-import { Check, ChevronRight, LineChart, TriangleAlert } from 'lucide-react'
+import {
+  Check,
+  ChevronRight,
+  LineChart,
+  Pencil,
+  TriangleAlert,
+} from 'lucide-react'
 import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
 import { cssVars } from '@/lib/cssVars'
@@ -42,10 +48,14 @@ export function ExpenseRow({
   expense,
   categories,
   several,
+  onEdit,
 }: {
   readonly expense: Expense
   readonly categories: readonly Category[]
   readonly several: boolean
+  // Absent where the row is only being shown -- the three on Inicio are a
+  // glance, not a place to work.
+  readonly onEdit?: () => void
 }): ReactElement {
   const mark = categoryMark(categories, expense.categoryId)
   return (
@@ -55,6 +65,16 @@ export function ExpenseRow({
       <span className="amt">
         {formatAmount(expense.price, expense.currency)}
       </span>
+      {onEdit === undefined ? null : (
+        <button
+          className="rowedit"
+          type="button"
+          aria-label={`Editar ${expense.name}`}
+          onClick={onEdit}
+        >
+          <Pencil />
+        </button>
+      )}
       <span className="meta">
         <span className="cat">{mark.name}</span>
         <span className="badges">
@@ -105,11 +125,15 @@ export function BillRow({
   categories,
   monthStart,
   now,
+  onEdit,
+  onPay,
 }: {
   readonly bill: Pendiente
   readonly categories: readonly Category[]
   readonly monthStart: Date
   readonly now: Date
+  readonly onEdit?: () => void
+  readonly onPay?: () => void
 }): ReactElement {
   const mark = categoryMark(categories, bill.categoryId)
   const state = billState(bill, monthStart, now)
@@ -167,9 +191,19 @@ export function BillRow({
           ) : null}
         </span>
       </span>
-      {state === 'paid' ? null : (
+      {onEdit === undefined ? null : (
+        <button
+          className="rowedit"
+          type="button"
+          aria-label={`Editar ${bill.name}`}
+          onClick={onEdit}
+        >
+          <Pencil />
+        </button>
+      )}
+      {state === 'paid' || onPay === undefined ? null : (
         <span className="rowfoot">
-          <button className="btn btn-secondary" type="button" disabled>
+          <button className="btn btn-secondary" type="button" onClick={onPay}>
             <Check />
             Marcar como pagado
           </button>

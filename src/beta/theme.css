@@ -311,7 +311,7 @@
   .daymark { font-size: var(--t-sm); font-weight: 700; color: var(--ink-2);
              padding: 8px 4px 12px; }
 
-  .row { display: grid; grid-template-columns: auto 1fr auto; align-items: center;
+  .row { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center;
          gap: 4px 12px; padding: 16px; }
   .tap { cursor: pointer; }
   .tile { grid-row: 1 / span 2; width: 48px; height: 48px; border-radius: 16px;
@@ -326,6 +326,7 @@
               letter-spacing: -.025em; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .row .meta { grid-column: 2 / -1; grid-row: 2; display: grid; gap: 8px;
                justify-items: start; }
+  .row .rowedit { grid-column: 4; grid-row: 1; }
   .badges { display: flex; flex-wrap: wrap; gap: 6px; }
   /* An action inside a row answers that row, so it is a step smaller than
      a page-level button. On a bill it gets a footer of its own, divided
@@ -365,7 +366,7 @@
      violet button on a red ground and the screen stopped reading as calm. */
 
   /* ===== categories ===== */
-  .catrow { display: grid; grid-template-columns: auto 1fr auto; gap: 8px 12px;
+  .catrow { display: grid; grid-template-columns: auto 1fr auto auto; gap: 8px 12px;
             align-items: center; padding: 16px; }
   .catrow .name { grid-column: 2; font-size: var(--t-md); font-weight: 700; }
   .catrow .amt { grid-column: 3; font-size: var(--t-md); font-weight: 800;
@@ -375,6 +376,15 @@
   .catrow .bar i { display: block; height: 100%; border-radius: 999px; }
   .catrow .sub { grid-column: 2 / -1; font-size: var(--t-sm); font-weight: 400; color: var(--ink-2); }
   .catrow .sub.over { color: var(--red-700); font-weight: 700; }
+  /* The pencil on a row, which is the whole of "edit this one". It sits
+     past the amount and keeps a thumb-sized target without taking the
+     width of a button. */
+  .rowedit { grid-column: 4; grid-row: 1; appearance: none; border: 0; cursor: pointer;
+             background: transparent; color: var(--ink-2); font: inherit;
+             width: 44px; height: 44px; border-radius: 50%; display: grid;
+             place-items: center; margin-right: -10px; }
+  .rowedit svg { width: 18px; height: 18px; stroke-width: 2; }
+  .rowedit:hover { background: var(--grape-50); color: var(--grape-700); }
 
   /* ===== the month, as one dark panel ===== */
   /* Everything from the greeting down to the three figures is one answer
@@ -528,7 +538,9 @@
   /* ===== profile ===== */
   .plist { display: grid; }
   .pitem { display: grid; grid-template-columns: auto 1fr auto; gap: 0 16px;
-           align-items: center; padding: 16px 0; cursor: pointer; }
+           align-items: center; padding: 16px 0; cursor: pointer;
+           appearance: none; border: 0; background: none; font: inherit;
+           text-align: left; width: 100%; color: inherit; }
   .pitem + .pitem { border-top: 1px solid var(--hair); }
   .pitem .k { grid-column: 2; grid-row: 1; font-size: var(--t-md); font-weight: 700;
               line-height: 1.25; }
@@ -962,6 +974,75 @@
   .opt[aria-pressed="true"] .mark::after { content: ""; width: 9px; height: 9px;
                                            border-radius: 50%; background: #fff; }
 
+  /* ===== what a form is made of ===== */
+  .flabel { font-size: var(--t-sm); font-weight: 700; }
+  /* The line under a field that says what the field means. Regular, like
+     every other explanation in the app. */
+  .fhint { font-size: var(--t-xs); font-weight: 400; color: var(--ink-2);
+           line-height: 1.35; }
+  .fnote { margin: 0; font-size: var(--t-sm); font-weight: 400; line-height: 1.4;
+           background: var(--info-50); color: var(--info-700);
+           border-radius: 12px; padding: 12px 14px; }
+  /* What is missing, said in words and in the colour of something that
+     needs fixing. Not shouted: it appears while a form is half-filled,
+     which is most of the time someone is looking at it. */
+  .fproblem { margin: 0; font-size: var(--t-sm); font-weight: 400;
+              line-height: 1.4; color: var(--red-700); }
+  /* The currency sign belongs to the field, not to what you type: typing
+     over your own "$" is the oldest annoyance in this kind of form. */
+  .money-in { display: grid; grid-template-columns: auto 1fr; align-items: center;
+              background-color: var(--page); border: 1px solid #ddd5ec;
+              border-radius: 12px; padding-left: 16px; }
+  .money-in .pre { font-size: var(--t-md); font-weight: 700; color: var(--ink-2); }
+  .money-in input { border: 0; background: transparent; padding-left: 8px; }
+  /* A switch that says what saying yes means. */
+  .swrow { display: grid; grid-template-columns: 1fr auto; gap: 2px 16px;
+           align-items: center; text-align: left; cursor: pointer;
+           background: var(--page); border: 2px solid #e0d8ee; border-radius: 16px;
+           padding: 14px 16px; font-family: inherit; width: 100%; }
+  .swrow .tg { grid-column: 2; grid-row: 1 / span 2; width: 48px; height: 28px;
+               border-radius: 999px; background: #c9bedf; display: grid;
+               align-items: center; padding: 3px; transition: background .15s; }
+  .swrow .tg i { display: block; width: 22px; height: 22px; border-radius: 50%;
+                 background: #fff; transition: transform .15s; }
+  .swrow[aria-checked="true"] { border-color: var(--grape-600); background: var(--grape-50); }
+  .swrow[aria-checked="true"] .tg { background: var(--grape-btn); }
+  .swrow[aria-checked="true"] .tg i { transform: translateX(20px); }
+  /* The category or card being built, shown as it will look in the list. */
+  .catpreview { display: grid; grid-template-columns: auto 1fr; gap: 2px 14px;
+                align-items: center; background: var(--page); border-radius: 16px;
+                padding: 16px; }
+  .catpreview .tile { grid-row: 1 / span 2; }
+  .catpreview .k { font-size: var(--t-md); font-weight: 700; }
+  .catpreview .v { font-size: var(--t-sm); font-weight: 400; color: var(--ink-2);
+                   line-height: 1.3; }
+  .swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+  .swatch { appearance: none; cursor: pointer; width: 36px; height: 36px;
+            border-radius: 50%; background: var(--cat); border: 2px solid transparent;
+            box-shadow: 0 0 0 2px var(--card) inset; }
+  .swatch.on { border-color: var(--ink); }
+  .mlist { display: grid; gap: 8px; }
+  .mrow { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px;
+          align-items: center; background: var(--page); border-radius: 14px;
+          padding: 12px 14px; }
+  .mrow .tile { grid-row: 1 / span 2; width: 40px; height: 40px; border-radius: 12px; }
+  .mrow .k { font-size: var(--t-sm); font-weight: 700; }
+  .mrow .v { font-size: var(--t-xs); font-weight: 400; color: var(--ink-2); }
+  .codebox { margin: 0; font-size: var(--t-xl); font-weight: 800; letter-spacing: .12em;
+             background: var(--page); border-radius: 12px; padding: 16px;
+             text-align: center; }
+  .linkbox { margin: 0; font-size: var(--t-xs); font-weight: 400; color: var(--ink-2);
+             background: var(--page); border-radius: 12px; padding: 12px 14px;
+             overflow-wrap: anywhere; }
+  .sheet-acts { display: grid; gap: 10px; }
+  /* Said once per sheet, under the button it explains. */
+  .readonly-note { margin: 0; font-size: var(--t-xs); font-weight: 400;
+                   color: var(--ink-2); line-height: 1.35; text-align: center; }
+  /* Deleting is the one thing in this app that cannot be undone, so its
+     button looks like nothing else and never leads. */
+  .btn-danger { background: transparent; color: var(--red-700);
+                border: 2px solid var(--red-50); padding: 8px 16px; }
+
   /* ===== wide ===== */
   @media (min-width: 760px) {
     /* Two rows now, so the bar can sit over the content column while the
@@ -1097,7 +1178,7 @@
   /* Payment methods as a list, each with the mark people recognise before
      they read the name. Two across once there is room for it. */
   .methods { display: grid; gap: 12px; }
-  .method { display: grid; grid-template-columns: auto minmax(0, 1fr);
+  .method { display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
             gap: 0 16px; align-items: center; padding: 16px; }
   /* The same card shape as on Tarjetas, a size down: a circle was the
      one thing a credit card is definitely not. */
@@ -1108,6 +1189,7 @@
   .method .brand-mark svg { width: 34px; height: 21px; }
   .method .name { font-size: var(--t-md); font-weight: 700; }
   .method .sub { font-size: var(--t-sm); font-weight: 400; color: var(--ink-2); }
+  .method .rowedit { grid-column: 3; grid-row: 1 / span 2; }
   @media (min-width: 760px) {
     .methods { grid-template-columns: 1fr 1fr; }
   }

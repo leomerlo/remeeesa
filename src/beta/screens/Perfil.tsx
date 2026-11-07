@@ -4,9 +4,12 @@ import {
   Download,
   House,
   LogOut,
-  Tag,
+  Pencil,
+  Plus,
+  UserPlus,
   UserRound,
 } from 'lucide-react'
+import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { useFirebase } from '@/lib/firebaseContext'
 import { PAYMENT_METHOD_KINDS } from '@/lib/cards'
@@ -14,6 +17,8 @@ import type { Card as PaymentMethod } from '@/lib/cards'
 import { CardBrandMark } from '../CardBrandMark'
 import { ProfileSkeleton } from '../Skeleton'
 import type { BetaSession } from '../data'
+import { HogarSheet, InvitarSheet } from '../sheets/HogarSheet'
+import { MetodoSheet } from '../sheets/MetodoSheet'
 import { LoadFailed, Title } from './Gastos'
 
 function kindLabel(kind: string): string {
@@ -28,6 +33,8 @@ export function Perfil({
   readonly session: BetaSession
 }): ReactElement {
   const firebase = useFirebase()
+  const [sheet, setSheet] = useState<'hogar' | 'invitar' | null>(null)
+  const [method, setMethod] = useState<PaymentMethod | 'nueva' | null>(null)
   const householdId = session.householdId ?? null
 
   const data = useQuery({
@@ -52,11 +59,10 @@ export function Perfil({
     return <LoadFailed />
   }
 
-  const { household, members, cards, categories } = data.data
+  const { household, members, cards } = data.data
   const others = members.filter(
     (member) => member.displayName !== session.displayName,
   )
-  const capped = categories.filter((category) => category.monthlyBudget > 0)
 
   return (
     <>
@@ -82,6 +88,13 @@ export function Perfil({
                   ].join(' y ')
                 : 'Solo vos. Podés invitar a quien viva con vos.'
             }
+            onOpen={() => setSheet('hogar')}
+          />
+          <Item
+            Icon={UserPlus}
+            k="Invitar a alguien"
+            v="Un link para que entre al hogar y pueda anotar"
+            onOpen={() => setSheet('invitar')}
           />
         </div>
       </div>
@@ -97,27 +110,22 @@ export function Perfil({
         ) : (
           <div className="methods">
             {cards.map((card) => (
-              <MethodRow key={card.id} card={card} />
+              <MethodRow
+                key={card.id}
+                card={card}
+                onEdit={() => setMethod(card)}
+              />
             ))}
           </div>
         )}
-      </section>
-
-      <section className="sec">
-        <h2>La plata del hogar</h2>
-        <div className="card">
-          <div className="plist">
-            <Item
-              Icon={Tag}
-              k="Categorías y topes"
-              v={
-                capped.length > 0
-                  ? `${String(capped.length)} de ${String(categories.length)} categorías con tope`
-                  : `${String(categories.length)} categorías, sin topes puestos`
-              }
-            />
-          </div>
-        </div>
+        <button
+          className="btn btn-secondary btn-wide"
+          type="button"
+          onClick={() => setMethod('nueva')}
+        >
+          <Plus />
+          Agregar una tarjeta
+        </button>
       </section>
 
       <section className="sec">
@@ -143,6 +151,27 @@ export function Perfil({
         <LogOut />
         Cerrar sesión
       </button>
+
+      <HogarSheet
+        open={sheet === 'hogar'}
+        onClose={() => setSheet(null)}
+        household={household}
+        members={members}
+      />
+      <InvitarSheet
+        open={sheet === 'invitar'}
+        onClose={() => setSheet(null)}
+        code={null}
+      />
+      {method === null ? null : (
+        <MetodoSheet
+          open
+          onClose={() => setMethod(null)}
+          method={method === 'nueva' ? null : method}
+          existing={cards}
+          {...(method === 'nueva' ? {} : { onDelete: () => setMethod(null) })}
+        />
+      )}
     </>
   )
 }
@@ -152,7 +181,13 @@ function currencyLabel(currency: PaymentMethod['currency']): string {
   return currency === 'USD' ? 'Dólares' : 'Pesos'
 }
 
-function MethodRow({ card }: { readonly card: PaymentMethod }): ReactElement {
+function MethodRow({
+  card,
+  onEdit,
+}: {
+  readonly card: PaymentMethod
+  readonly onEdit: () => void
+}): ReactElement {
   return (
     <div className="card method">
       <span className="brand-mark" aria-hidden="true">
@@ -162,6 +197,14 @@ function MethodRow({ card }: { readonly card: PaymentMethod }): ReactElement {
       <span className="sub">
         {kindLabel(card.kind)} · {currencyLabel(card.currency)}
       </span>
+      <button
+        className="rowedit"
+        type="button"
+        aria-label={`Editar ${card.name}`}
+        onClick={onEdit}
+      >
+        <Pencil />
+      </button>
     </div>
   )
 }
@@ -170,11 +213,29 @@ function Item({
   Icon,
   k,
   v,
+  onOpen,
 }: {
   readonly Icon: typeof UserRound
   readonly k: string
   readonly v: string
+  // A row that opens something is a button; one that only says something
+  // is not, however alike the two look.
+  readonly onOpen?: () => void
 }): ReactElement {
+  if (onOpen !== undefined) {
+    return (
+      <button className="pitem" type="button" onClick={onOpen}>
+        <span className="tile" aria-hidden="true">
+          <Icon />
+        </span>
+        <span className="k">{k}</span>
+        <span className="v">{v}</span>
+        <span className="go" aria-hidden="true">
+          <ChevronRight />
+        </span>
+      </button>
+    )
+  }
   return (
     <div className="pitem">
       <span className="tile" aria-hidden="true">
