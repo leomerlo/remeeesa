@@ -15,8 +15,12 @@
       },
       {
         "rule": "side-tab",
-        "value": "border-left: 4px solid var(--bar)",
-        "createdAt": "2026-11-07T19:17:34.497Z"
+        "value": "*",
+        "files": [
+          "src/beta/theme.css"
+        ],
+        "createdAt": "2026-11-07T23:16:16.016Z",
+        "reason": "the alert's 4px bar is the beta's one sanctioned exception to shadow-or-border, documented at the rule itself; a value-scoped ignore cannot match because side-tab extracts no value"
       }
     ]
   }
