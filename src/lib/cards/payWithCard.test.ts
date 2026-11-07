@@ -232,3 +232,47 @@ describe('markPendientePaidWithCard', () => {
     )
   })
 })
+
+// A statement amount is typed by hand, and a hand types wrong numbers. It
+// used to be permanent -- the card read as a bill of someone else's figure
+// forever, and the only way out was not to have made the mistake. Per
+// direct feedback.
+describe('taking a loaded statement amount back off', () => {
+  it('returns the Resumen to waiting, with its estimate intact', async () => {
+    const { db, householdId, cardId, pendienteId } = await setup()
+    await markPendientePaidWithCard({
+      db,
+      householdId,
+      pendienteId,
+      cardId,
+      memberId: 'user-1',
+      authorDisplayName: 'Flor',
+      finalAmount: 36800,
+      cuotas: 1,
+      paymentDate: TODAY,
+    })
+    const [resumen] = (await db.listPendientes({ householdId })).filter(
+      (candidate) => candidate.cardId !== undefined,
+    )
+    if (resumen === undefined) {
+      throw new Error('expected a Resumen')
+    }
+    await setResumenAmount({
+      db,
+      householdId,
+      resumenId: resumen.id,
+      amount: 13.99,
+    })
+
+    const cleared = await setResumenAmount({
+      db,
+      householdId,
+      resumenId: resumen.id,
+      amount: null,
+    })
+
+    expect(cleared.expectedAmount).toBeNull()
+    // The household's own record of what it put on the card is untouched.
+    expect(cleared.estimatedAmount).toBe(36800)
+  })
+})

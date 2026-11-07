@@ -310,7 +310,9 @@ export type HouseholdsDb = {
   setResumenAmount(input: {
     readonly householdId: string
     readonly resumenId: string
-    readonly amount: number
+    // null puts the Resumen back to waiting for its statement. A figure
+    // typed by hand can be typed wrong, and there was no way back from one.
+    readonly amount: number | null
   }): Promise<Pendiente>
   markResumenPaid(input: {
     readonly householdId: string

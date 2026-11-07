@@ -339,8 +339,13 @@ service cloud.firestore {
         && ('card_id' in resource.data)
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['expected_amount', 'estimated_amount'])
-        && request.resource.data.expected_amount is number
-        && request.resource.data.expected_amount > 0
+        // null puts it back to waiting: a figure typed by hand can be
+        // typed wrong, and until this there was no way back from one --
+        // the card read as a bill of someone else's number forever. Per
+        // direct feedback.
+        && (request.resource.data.expected_amount == null
+          || (request.resource.data.expected_amount is number
+            && request.resource.data.expected_amount > 0))
         && request.resource.data.estimated_amount is number;
     }
 

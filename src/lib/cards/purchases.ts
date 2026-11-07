@@ -408,14 +408,17 @@ export async function setResumenAmount(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly resumenId: string
-  readonly amount: number
+  // null takes the figure back off, returning the Resumen to waiting for
+  // its statement -- the way back from a number typed wrong. Per direct
+  // feedback: once it was loaded there was no undoing it.
+  readonly amount: number | null
 }): Promise<Pendiente> {
   return input.db.setResumenAmount({
     householdId: input.householdId,
     resumenId: input.resumenId,
     // The same floor every amount in the app has: a resumen of nothing is
-    // a resumen that did not arrive.
-    amount: parseExpensePrice(input.amount),
+    // a resumen that did not arrive -- which is what null says outright.
+    amount: input.amount === null ? null : parseExpensePrice(input.amount),
   })
 }
 
@@ -501,10 +504,18 @@ export function cardsDueNextMonthTotals(
   pendientes: readonly Pendiente[],
   from: Date,
 ): readonly CardsDueTotal[] {
+  return resumenTotals(cardsDueNextMonth(pendientes, from))
+}
+
+// What a set of Resúmenes comes to, one figure per currency. Pulled out of
+// the function above so the same block can be shown over any set of them --
+// next month's on Home, this month's on Servicios -- without the figure and
+// the list it opens ever being computed two different ways.
+export function resumenTotals(
+  resumenes: readonly Pendiente[],
+): readonly CardsDueTotal[] {
   const cents = new Map<Currency, number>()
-  // The same list the sheet opens, so the figure and what it opens into can
-  // never disagree about which bills are in it.
-  for (const resumen of cardsDueNextMonth(pendientes, from)) {
+  for (const resumen of resumenes) {
     const currency = resumen.currency ?? DEFAULT_CURRENCY
     // Always the estimate: what the household has logged onto these cards
     // for next month. It used to prefer the bill once one had been loaded

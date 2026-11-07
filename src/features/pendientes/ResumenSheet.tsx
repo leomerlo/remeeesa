@@ -355,7 +355,20 @@ function ResumenPayment({
   }
 
   const mutation = useMutation({
-    mutationFn: async (action: 'pay' | 'undo') => {
+    mutationFn: async (action: 'pay' | 'undo' | 'unload') => {
+      // Takes the hand-typed figure back off, returning this to waiting for
+      // its statement. A number typed wrong used to be permanent: the card
+      // read as a bill of US$13,99 for weeks, and there was no way back.
+      // Per direct feedback.
+      if (action === 'unload') {
+        await setResumenAmount({
+          db,
+          householdId,
+          resumenId: resumen.id,
+          amount: null,
+        })
+        return
+      }
       if (action === 'undo') {
         await unmarkPendientePaid({
           db,
@@ -393,7 +406,9 @@ function ResumenPayment({
           ? caught.message
           : action === 'undo'
             ? 'No se pudo deshacer el pago'
-            : 'No se pudo pagar el resumen',
+            : action === 'unload'
+              ? 'No se pudo sacar el monto'
+              : 'No se pudo pagar el resumen',
       )
     },
   })
@@ -498,6 +513,20 @@ function ResumenPayment({
         {...(payable ? {} : { 'aria-describedby': 'resumen-not-yet-payable' })}
       >
         Pagar resumen
+      </Button>
+      {/* The way back from a figure typed wrong. Secondary, because the
+          ordinary thing to do here is pay it. */}
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full"
+        disabled={mutation.isPending}
+        onClick={() => {
+          setError(null)
+          mutation.mutate('unload')
+        }}
+      >
+        No era este monto
       </Button>
     </form>
   )

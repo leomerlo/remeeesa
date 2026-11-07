@@ -831,7 +831,12 @@ describe('PendientesList', () => {
     expect(icon.querySelector('svg')).not.toBeNull()
   })
 
-  it("offers neither Pagar nor Editar on a card's Resumen, only its cuotas", async () => {
+  // A statement that has not arrived is not a bill: it used to sit among
+  // the ones to pay as its own row, labelled ESTIMADO, with a due date the
+  // app invented. It is now one block of its own -- the same one Home
+  // uses -- that opens into the consumos behind it. Per direct feedback:
+  // que siga la misma lógica de lo de la home.
+  it('gathers the card statements still waiting into their own block', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -856,16 +861,24 @@ describe('PendientesList', () => {
       />,
     )
 
-    const row = (await screen.findByText('Visa')).closest('li') as HTMLElement
-    expect(within(row).getAllByRole('button')).toHaveLength(1)
+    expect(
+      await screen.findByRole('heading', { name: 'Resumen de tarjetas' }),
+    ).toBeInTheDocument()
+    // Not among the bills to pay, and with no invented due date on it.
+    expect(
+      screen.queryByRole('list', { name: 'Servicios por pagar' }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Vence el/)).not.toBeInTheDocument()
+
     fireEvent.click(
-      within(row).getByRole('button', { name: /^Ver Resumen Visa de / }),
+      screen.getByRole('button', { name: 'Lo que van a pedir las tarjetas' }),
     )
-    const cuotas = await screen.findByRole('list', {
-      name: 'Cuotas del resumen',
+
+    const consumos = await screen.findByRole('list', {
+      name: 'Consumos de Visa',
     })
-    expect(within(cuotas).getByText('Heladera')).toBeInTheDocument()
-    expect(within(cuotas).getByText('cuota 2/3')).toBeInTheDocument()
-    expect(within(cuotas).getByText('Zapatillas')).toBeInTheDocument()
+    expect(within(consumos).getByText('Heladera')).toBeInTheDocument()
+    expect(within(consumos).getByText('cuota 2/3')).toBeInTheDocument()
+    expect(within(consumos).getByText('Zapatillas')).toBeInTheDocument()
   })
 })

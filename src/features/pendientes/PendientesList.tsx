@@ -3,18 +3,28 @@ import { useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
 import { TintedBadge } from '@/components/CategoryBadge'
 import { MovementCard } from '@/components/MovementCard'
+import { CardsSummaryCard } from './CardsSummaryCard'
 import { matchesSearch } from '@/lib/search/fuzzyMatch'
 import { Pencil, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { listPendientesForMonth, pendientesDueInMonth } from '@/lib/pendientes'
+import {
+  isBillToPay,
+  listPendientesForMonth,
+  pendientesDueInMonth,
+} from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import { EmptyState } from '@/components/EmptyState'
 import { ILLUSTRATIONS } from '@/components/illustrations'
 import { currentMonthRange, listCategories } from '@/lib/expenses'
 import { colorForCategoryName } from '@/lib/expenses/categoryColor'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
-import { dueDateLabel, isOverdue, paidDateLabel } from '@/lib/format'
+import {
+  dueDateLabel,
+  formatMonthLabel,
+  isOverdue,
+  paidDateLabel,
+} from '@/lib/format'
 import type { HouseholdsDb } from '@/lib/households'
 import { PendienteAmount } from './PendienteAmount'
 import { pendientesQueryKey } from './queryKeys'
@@ -150,20 +160,33 @@ export function PendientesList({
       pendiente.name,
       categoryById.get(pendiente.categoryId)?.name,
     ])
-  const stillOwed =
+  // Three groups, not two. A card's Resumen whose statement has not
+  // arrived is pending but owes nothing and cannot be paid, so listing it
+  // under "Por pagar" said the opposite of what the app means by it --
+  // Home stopped doing that and this screen had not caught up. Per direct
+  // feedback: me cuesta mucho interpretar esta situación.
+  const pendingThisMonth =
     filter === 'pagado'
       ? []
       : (isSearching
           ? pendientes.filter((pendiente) => pendiente.status === 'pending')
           : pendientesDueInMonth(pendientes, monthStart, monthEnd)
         ).filter(matches)
+  const stillOwed = pendingThisMonth.filter(isBillToPay)
+  const waiting = pendingThisMonth.filter(
+    (pendiente) => !isBillToPay(pendiente),
+  )
   const alreadyPaid =
     filter === 'pendiente'
       ? []
       : pendientes
           .filter((pendiente) => pendiente.status === 'paid')
           .filter(matches)
-  if (stillOwed.length === 0 && alreadyPaid.length === 0) {
+  if (
+    stillOwed.length === 0 &&
+    waiting.length === 0 &&
+    alreadyPaid.length === 0
+  ) {
     // The month pager above already says which month is empty, so this does
     // not repeat it. The piggy-bank drawing rather than the notepad every
     // other screen used: a servicio is money put aside for something that
@@ -302,10 +325,23 @@ export function PendientesList({
               }
             : {})}
           title={pendiente.name}
+          // A Resumen with no statement loaded has no due date to show:
+          // the app gives every one of them the 10th, which for something
+          // that has not arrived is a confident-looking invention. What it
+          // does have is a month it came from, which is the thing nobody
+          // was ever told. Per direct feedback.
           when={
             isPaid
               ? paidDateLabel(pendiente.paidAt ?? pendiente.dueDate)
-              : dueDateLabel(pendiente.dueDate)
+              : isBillToPay(pendiente)
+                ? dueDateLabel(pendiente.dueDate)
+                : `Lo que compraste en ${formatMonthLabel(
+                    new Date(
+                      pendiente.dueDate.getFullYear(),
+                      pendiente.dueDate.getMonth() - 1,
+                      1,
+                    ),
+                  )}`
           }
           isOverdue={overdue}
           amount={amount}
@@ -315,7 +351,12 @@ export function PendientesList({
     )
   }
 
-  const showGroupLabels = stillOwed.length > 0 && alreadyPaid.length > 0
+  // Headings earn their place once there is more than one group to tell
+  // apart; the waiting one always carries its own, because what it holds
+  // needs saying whether or not anything else is on screen.
+  const showGroupLabels =
+    [stillOwed, waiting, alreadyPaid].filter((group) => group.length > 0)
+      .length > 1
 
   return (
     <div className="flex w-full flex-col gap-8 text-sm">
@@ -337,6 +378,41 @@ export function PendientesList({
           three -- page name, month, group -- all at much the same weight, so
           nothing said which was which. Smaller and
           quieter puts them below the month they belong to. */}
+      {waiting.length === 0 ? null : (
+        <section
+          aria-labelledby="resumen-tarjetas-heading"
+          className="flex flex-col gap-3"
+        >
+          <h2
+            id="resumen-tarjetas-heading-group"
+            className="text-muted-foreground text-xs font-semibold tracking-wider uppercase"
+          >
+            Resumen de tarjetas
+          </h2>
+          {/* One card for every statement still waiting, not one row each:
+              four rows for two cards, each labelled ESTIMADO with an
+              invented due date, was the shape that made this impossible to
+              read. Same block Home uses, and it opens into the same
+              consumos. Per direct feedback. */}
+          <CardsSummaryCard
+            db={db}
+            householdId={householdId}
+            resumenes={waiting}
+            categories={categories}
+            title="Lo que van a pedir las tarjetas"
+            subtitle="Tocá para ver los consumos"
+            headingId="resumen-tarjetas-heading"
+          />
+          {/* Under the card rather than inside it: at phone width a
+              sentence this long wrapped to four lines and squashed the
+              figure it was explaining. It is also the sentence the app
+              never said out loud, so it gets its own line. */}
+          <p className="text-muted-foreground text-sm">
+            Todavía no llegaron los resúmenes, así que esto no se debe ni se
+            descuenta del mes. Cuando llegue uno, abrilo y cargá el monto real.
+          </p>
+        </section>
+      )}
       {stillOwed.length > 0 ? (
         <section
           {...(showGroupLabels

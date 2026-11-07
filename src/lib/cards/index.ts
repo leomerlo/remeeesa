@@ -26,6 +26,7 @@ export {
   cardPurchaseMark,
   cardsDueNextMonth,
   cardsDueNextMonthTotals,
+  resumenTotals,
   createCardPurchase,
   deleteCardPurchase,
   listCardPurchasesInMonth,
