@@ -826,18 +826,34 @@
            height: 100vh; background: var(--side); box-shadow: none; padding: 0; }
     .nav-in { max-width: none; padding: 24px 16px; height: auto;
               min-height: 100vh;
-              display: flex; flex-direction: column; gap: 4px; }
+              display: flex; flex-direction: column; gap: 4px;
+              /* The bar's own `align-items: center` means horizontal
+                 centering once this is a column, which is what was
+                 holding the wordmark in the middle of the rail. */
+              align-items: stretch; }
+    /* The same 12px the rows pad by, so the wordmark starts on the line
+       the icons start on. */
     .brand { display: block; padding: 4px 12px 24px; }
     /* The v1's wordmark asset is a black silhouette; the v1 flips it to
        white for its dark sidebar the same way. */
     .brand img { height: 20px; width: auto; display: block;
                  filter: brightness(0) invert(1); }
+    /* Quieter than the screen it leads to: the rail is a list of places,
+       not a row of headings. 14px at a regular weight, with the icons
+       drawn at the same weight as the words beside them -- a 2.1 stroke
+       under a 700 label was two bold things saying the same word. */
     .tab { order: 0; grid-template-columns: auto 1fr; justify-items: start;
            align-items: center; gap: 12px; padding: 12px; border-radius: 16px;
-           font-size: var(--t-sm); color: var(--side-ink-2); width: 100%; }
+           font-size: var(--t-xs); font-weight: 500; color: var(--side-ink-2);
+           width: 100%; }
     .tab .gl { width: 32px; height: 32px; border-radius: 12px; font-size: var(--t-lg); }
-    .tab[aria-current] { background: var(--side-active); color: var(--side-active-ink); }
+    .tab .gl svg { stroke-width: 1.6; }
+    /* The one you are on is the only thing in the rail that leans on
+       weight, and only by a step. */
+    .tab[aria-current] { background: var(--side-active); color: var(--side-active-ink);
+                         font-weight: 600; }
     .tab[aria-current] .gl { background: transparent; }
+    .tab[aria-current] .gl svg { stroke-width: 1.9; }
     .dolar { display: block; order: 98; margin-top: auto; margin-bottom: 12px;
              background: var(--side-active); border-radius: 16px; padding: 12px; }
     .add { order: 99; margin-top: 0; position: static; width: 100%; height: auto;
