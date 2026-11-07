@@ -651,17 +651,28 @@
   .cardblk .ch .nm { grid-column: 2; grid-row: 1; font-size: var(--t-md); font-weight: 700; }
   .cardblk .ch .no { grid-column: 2; grid-row: 2; font-size: var(--t-sm); font-weight: 600;
                      color: var(--ink-2); }
-  /* Not a box inside a box: a rule and some air do the separating, so a
-     card holding two currencies reads as one thing with two parts. */
-  .resumen { padding-top: 20px; margin-top: 4px; display: grid; gap: 8px;
-             border-top: 1px solid var(--hair); }
-  .resumen .rh { display: flex; justify-content: space-between; align-items: baseline;
-                 gap: 12px; }
-  .resumen .rt { font-size: var(--t-sm); font-weight: 700; }
-  .resumen .rv { font-size: var(--t-xl); font-weight: 800; letter-spacing: -.02em;
-                 font-variant-numeric: tabular-nums; }
+  /* A statement's header used to be a bold line among bold lines: every
+     row under it is a name in 700 beside an amount in 800, and so was it.
+     It gets a tinted band of its own instead -- "everything below me
+     belongs to this one" -- which also tells the two currencies of one
+     card apart without a rule between them. */
+  .resumen { margin-top: 20px; display: grid; gap: 2px; }
+  .resumen .rh { display: flex; justify-content: space-between; align-items: center;
+                 gap: 12px; background: var(--grape-50); border-radius: 14px;
+                 padding: 12px 16px; }
+  .resumen .rt { font-size: var(--t-sm); font-weight: 800; color: var(--grape-700);
+                 letter-spacing: -.01em; }
+  .resumen .rv { font-size: var(--t-lg); font-weight: 800; letter-spacing: -.02em;
+                 color: var(--grape-700); font-variant-numeric: tabular-nums;
+                 white-space: nowrap; }
+  /* Sitting under the band, indented to its text, so it reads as the
+     band's own small print rather than as the first row. */
+  .resumen .hint { padding: 8px 16px 0; }
+  /* The rows, which now only have to be rows. A hairline between them,
+     none above the first: the band is already its own edge. */
   .cuota { display: grid; grid-template-columns: 1fr auto; gap: 0 12px;
-           padding: 12px 0 4px; }
+           padding: 12px 16px; }
+  .cuota + .cuota { border-top: 1px solid var(--hair); }
   .cuota .cn { font-size: var(--t-sm); font-weight: 700; }
   .cuota .cm { font-size: var(--t-sm); font-weight: 400; color: var(--ink-2); }
   .cuota .ca { grid-column: 2; grid-row: 1 / span 2; align-self: center;
