@@ -60,7 +60,10 @@ export function Perfil({
 
   return (
     <>
-      <Title text="Mi perfil" home={household.name} />
+      <Title
+        text="Mi perfil"
+        sub={`Tu cuenta, quiénes están en ${household.name} y cómo pagan.`}
+      />
       <div className="card">
         <div className="plist">
           <Item

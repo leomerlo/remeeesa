@@ -12,7 +12,6 @@ import { pendientesDueInMonth } from '@/lib/pendientes'
 import { cssVars } from '@/lib/cssVars'
 import { ListSkeleton, NameSkel } from '../Skeleton'
 import { Figure } from '../Figure'
-import { MonthPager } from '../MonthPager'
 import { useMonth } from '../MonthContext'
 import { CategoryTile } from '../Tile'
 import { monthName } from '../format'
@@ -87,8 +86,7 @@ export function Proyecciones({
   if (data.isPending) {
     return (
       <>
-        <Title text="Proyección" home={<NameSkel />} />
-        <MonthPager />
+        <Title text="Proyección" sub={<NameSkel />} pager />
         <ListSkeleton label="Cargando la proyección" rows={5} />
       </>
     )
@@ -96,7 +94,7 @@ export function Proyecciones({
   if (data.isError || data.data === undefined) {
     return (
       <>
-        <Title text="Proyección" home="" />
+        <Title text="Proyección" />
         <LoadFailed />
       </>
     )
@@ -104,7 +102,13 @@ export function Proyecciones({
 
   const { current, previous, categories, pendientes, projection, household } =
     data.data
-  const header = <Title text="Proyección" home={household.name} />
+  const header = (
+    <Title
+      text="Proyección"
+      sub={`Lo que ${household.name} ya lleva de ${monthName(monthStart)}, más lo que el mes pasado dice que falta.`}
+      pager
+    />
+  )
 
   // Bills still owed in this month. Through countedByBudget like every
   // other peso figure: a card billed in dollars is due this month too, and
@@ -158,7 +162,6 @@ export function Proyecciones({
     return (
       <>
         {header}
-        <MonthPager />
         <div className="card empty">
           <span className="orb" aria-hidden="true">
             <LineChart />
@@ -202,7 +205,6 @@ export function Proyecciones({
   return (
     <>
       {header}
-      <MonthPager />
       <div className="card hero">
         <div className="label">
           Así viene {monthName(monthStart)} si todo sigue igual

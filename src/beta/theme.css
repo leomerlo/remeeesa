@@ -99,8 +99,12 @@
   /* ===== header ===== */
   /* The air above the first thing on a screen, on every screen: the panel
      used to carry it itself, and then only the Home had it. */
-  .head { display: grid; gap: 16px; padding-top: 16px; }
+  .head { display: grid; gap: 16px; padding-top: 32px; }
   .hello { font-size: var(--t-2xl); font-weight: 800; letter-spacing: -.025em; }
+  /* A page title inside .hello is the same thing the greeting is: the
+     name of the screen, with a line under it saying what it holds. */
+  .hello .page-title { font-size: inherit; font-weight: inherit;
+                       letter-spacing: inherit; margin: 0; }
   /* Regular, not semibold: it is the line that explains the greeting, and
      two heavy weights stacked made it compete with it. */
   .hello span { display: block; margin-top: 4px; font-size: var(--t-sm); font-weight: 400;
@@ -917,9 +921,6 @@
     /* Holds the name's place while it is read, so the bar never reflows. */
     .topbar .ph { display: block; width: 110px; height: 15px; border-radius: 8px;
                   background: var(--hair); }
-    /* The household's name has a fixed place up here now, so each screen's
-       title stops repeating it. */
-    .head-home { display: none; }
     .app { grid-column: 2; grid-row: 2;
            max-width: 700px; margin-inline: auto; padding-inline: 28px;
            padding-block: 0 56px; gap: 20px; }
@@ -955,7 +956,7 @@
                          font-weight: 600; }
     .tab[aria-current] .gl { background: transparent; }
     .tab[aria-current] .gl svg { stroke-width: 1.9; }
-    .head { padding-top: 48px; }
+    .head { padding-top: 40px; }
     .dolar { display: block; order: 98; margin-top: auto; margin-bottom: 12px;
              background: var(--side-active); border-radius: 16px; padding: 12px; }
     /* The action lives in the bar up top here. Two of them in one view
@@ -1024,7 +1025,6 @@
      that ever does need one opts back in. */
   .app a { text-decoration: none; }
   a.card { color: inherit; }
-  .head-home { font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); }
 
   /* Payment methods as a list, each with the mark people recognise before
      they read the name. Two across once there is room for it. */

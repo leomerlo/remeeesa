@@ -13,7 +13,6 @@ import { cuentasFigures } from '../figures'
 import { CardBrandMark } from '../CardBrandMark'
 import { ListSkeleton, NameSkel } from '../Skeleton'
 import { Figure } from '../Figure'
-import { MonthPager } from '../MonthPager'
 import { useMonth } from '../MonthContext'
 import { BillRow } from '../rows'
 import { monthName } from '../format'
@@ -87,9 +86,8 @@ export function Cuentas({
   if (data.isPending) {
     return (
       <>
-        <Title text="Cuentas" home={<NameSkel />} />
+        <Title text="Cuentas" sub={<NameSkel />} pager />
         {segment}
-        <MonthPager />
         <ListSkeleton label="Cargando las cuentas" rows={4} />
       </>
     )
@@ -97,7 +95,7 @@ export function Cuentas({
   if (data.isError || data.data === undefined) {
     return (
       <>
-        <Title text="Cuentas" home="" />
+        <Title text="Cuentas" />
         <LoadFailed />
       </>
     )
@@ -115,9 +113,12 @@ export function Cuentas({
   if (view === 'tarjetas') {
     return (
       <>
-        <Title text="Cuentas" home={household.name} />
+        <Title
+          text="Cuentas"
+          sub={`Lo que ${household.name} tiene que pagar, y lo que va a pedir la tarjeta.`}
+          pager
+        />
         {segment}
-        <MonthPager />
         <div className="card alert alert-info">
           <span className="tile" aria-hidden="true">
             <Info />
@@ -141,9 +142,12 @@ export function Cuentas({
 
   return (
     <>
-      <Title text="Cuentas" home={household.name} />
+      <Title
+        text="Cuentas"
+        sub={`Lo que ${household.name} tiene que pagar, y lo que va a pedir la tarjeta.`}
+        pager
+      />
       {segment}
-      <MonthPager />
       {bills.length === 0 ? (
         <div className="card empty">
           <span className="orb" aria-hidden="true">

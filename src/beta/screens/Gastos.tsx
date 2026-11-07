@@ -74,8 +74,7 @@ export function Gastos({
   if (data.isPending) {
     return (
       <>
-        <Title text="Gastos" home={<NameSkel />} />
-        <MonthPager />
+        <Title text="Gastos" sub={<NameSkel />} pager />
         {segment}
         {view === 'lista' ? <SearchSkel /> : null}
         <ListSkeleton label="Cargando los gastos" />
@@ -85,7 +84,7 @@ export function Gastos({
   if (data.isError || data.data === undefined) {
     return (
       <>
-        <Title text="Gastos" home="" />
+        <Title text="Gastos" />
         <LoadFailed />
       </>
     )
@@ -93,13 +92,18 @@ export function Gastos({
 
   const { expenses, categories, household, members } = data.data
   const several = members.length > 1
-  const header = <Title text="Gastos" home={household.name} />
+  const header = (
+    <Title
+      text="Gastos"
+      sub={`Todo lo que anotaron en ${household.name} durante ${monthName(monthStart)}.`}
+      pager
+    />
+  )
 
   if (expenses.length === 0) {
     return (
       <>
         {header}
-        <MonthPager />
         <div className="card empty">
           <span className="orb" aria-hidden="true">
             <ReceiptText />
@@ -126,7 +130,6 @@ export function Gastos({
     return (
       <>
         {header}
-        <MonthPager />
         {segment}
         <div className="card hero">
           <div className="label">Total de {monthName(monthStart)}</div>
@@ -172,7 +175,6 @@ export function Gastos({
   return (
     <>
       {header}
-      <MonthPager />
       {segment}
       <div className="search">
         <span className="mag" aria-hidden="true">
@@ -317,19 +319,28 @@ function sumIn(expenses: readonly Expense[], currency: 'ARS' | 'USD'): number {
     .reduce((sum, expense) => sum + expense.price, 0)
 }
 
+// The same header the Home has: a name and a line under it on the left,
+// the month on the right once there is room for both. Every screen opens
+// the same way, which is the point -- the Home used to be the only one
+// that said anything about itself.
 export function Title({
   text,
-  home,
+  sub,
+  pager = false,
 }: {
   readonly text: string
-  // The household's name, or a placeholder of its size while it loads --
-  // the title must not jump sideways once the name arrives.
-  readonly home?: ReactNode
+  // One line saying what this screen is, in the household's own terms.
+  // A placeholder of its size while it loads, so nothing jumps.
+  readonly sub?: ReactNode
+  readonly pager?: boolean
 }): ReactElement {
   return (
     <header className="head">
-      <h1 className="page-title">{text}</h1>
-      {home === undefined ? null : <div className="head-home">{home}</div>}
+      <div className="hello">
+        <h1 className="page-title">{text}</h1>
+        {sub === undefined ? null : <span>{sub}</span>}
+      </div>
+      {pager ? <MonthPager /> : null}
     </header>
   )
 }

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import {
+  ArrowRight,
   CalendarDays,
   ChevronRight,
   Lightbulb,
@@ -212,9 +213,7 @@ export function Home({
       <div className="cols">
         <div className="col">
           <section className="sec">
-            <h2>
-              Últimos movimientos <Link to="/gastos">Ver todos</Link>
-            </h2>
+            <h2>Últimos movimientos</h2>
             {expenses.slice(0, 3).map((expense) => (
               <ExpenseRow
                 key={expense.id}
@@ -231,14 +230,19 @@ export function Home({
                 several={several}
               />
             ))}
+            {/* At the foot of the list rather than beside its heading: it
+                is what you reach for once you have read the last row, and
+                up there it was a small link competing with the title. */}
+            <Link className="btn btn-secondary btn-block" to="/gastos">
+              <ArrowRight />
+              Ver todos los gastos
+            </Link>
           </section>
         </div>
         <div className="col">
           {bills.length > 0 ? (
             <section className="sec">
-              <h2>
-                Cuentas por pagar <Link to="/cuentas">Ver todas</Link>
-              </h2>
+              <h2>Cuentas por pagar</h2>
               {bills.slice(0, 3).map((bill) => (
                 <BillRow
                   key={bill.id}
@@ -248,6 +252,10 @@ export function Home({
                   now={now}
                 />
               ))}
+              <Link className="btn btn-secondary btn-block" to="/cuentas">
+                <ArrowRight />
+                Ver todas las cuentas
+              </Link>
             </section>
           ) : null}
           {late[0] !== undefined ? (
