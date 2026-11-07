@@ -642,12 +642,12 @@
      ratio of 1.59 -- with a corner radius about a sixteenth of its
      height. A rounded square with a logo in it reads as an app icon, not
      as the thing in your wallet. */
-  .tile.brand { width: 58px; height: 37px; border-radius: 5px;
+  .tile.cardface { width: 58px; height: 37px; border-radius: 5px;
                 background: var(--card); border: 1px solid var(--hair); }
   /* In px, not per cent: the box is a centred grid item, so a percentage
      height has nothing to resolve against and the mark came out a dot.
      Mastercard's own red and orange need a white face to sit on. */
-  .tile.brand svg { width: 40px; height: 26px; stroke-width: 2; }
+  .tile.cardface svg { width: 40px; height: 26px; stroke-width: 2; }
   .cardblk .ch .nm { grid-column: 2; grid-row: 1; font-size: var(--t-md); font-weight: 700; }
   .cardblk .ch .no { grid-column: 2; grid-row: 2; font-size: var(--t-sm); font-weight: 600;
                      color: var(--ink-2); }
@@ -839,6 +839,9 @@
             padding-left: var(--gutter); padding-right: var(--gutter-r);
             display: grid; grid-template-columns: repeat(7, 1fr);
             align-items: center; height: 72px; }
+  /* The wordmark in the rail, which has no place on a phone. Named
+     `brand` and nothing else may share that name: a card's own face used
+     to, and vanished here along with the logo. */
   .brand { display: none; }
   /* The icon alone down here. Six labels under six icons want more width
      than a phone has, and 14px is this app's floor, so they cannot be

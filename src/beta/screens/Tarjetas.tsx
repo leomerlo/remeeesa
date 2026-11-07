@@ -164,7 +164,7 @@ export function Tarjetas({
               <div className="ch">
                 {/* The brand's own mark, the way the v1 draws it: nobody
                     has to read the name to know which card it is. */}
-                <span className="tile brand" aria-hidden="true">
+                <span className="tile cardface" aria-hidden="true">
                   <CardBrandMark brand={card.brand} />
                 </span>
                 <span className="nm">{card.name}</span>
