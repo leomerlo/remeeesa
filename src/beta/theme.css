@@ -127,6 +127,8 @@
     width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
   }
   .month b { font-size: var(--t-md); font-weight: 700; letter-spacing: -.01em; }
+  /* The end of the road: there is no month after the one we are in. */
+  .month button:disabled { opacity: .35; cursor: default; }
 
   /* ===== buttons ===== */
   /* One button size in the whole app, on every screen width: the compact
@@ -1085,6 +1087,26 @@
   .swrow[aria-checked="true"] { border-color: var(--grape-600); background: var(--grape-50); }
   .swrow[aria-checked="true"] .tg { background: var(--grape-btn); }
   .swrow[aria-checked="true"] .tg i { transform: translateX(20px); }
+
+  /* One line of a scenario: a switch that says whether it happens, and
+     the figure it happens for. Both on the card, the way the v1 has it --
+     a sheet per line was one tap too many on a screen whose whole job is
+     trying figures out. */
+  .projcard { display: grid; gap: 12px; padding: 16px; }
+  .projcard.off { opacity: .55; }
+  .projhead.swrow { grid-template-columns: auto minmax(0, 1fr) auto;
+                    background: transparent; border: 0; padding: 0; gap: 4px 12px; }
+  .projhead.swrow[aria-checked="true"] { background: transparent; border: 0; }
+  .projhead .tile { grid-column: 1; grid-row: 1 / span 2; }
+  .projhead .name { grid-column: 2; grid-row: 1; font-size: var(--t-md);
+                    font-weight: 700; min-width: 0; }
+  .projhead .tag { grid-column: 2; grid-row: 2; justify-self: start;
+                   padding: 3px 8px; font-size: var(--t-xs); font-weight: 800;
+                   color: var(--ink);
+                   background: color-mix(in srgb, var(--pc) 18%, #fff); }
+  .projhead .tg { grid-column: 3; grid-row: 1 / span 2; }
+  .projcard .sub { font-size: var(--t-sm); font-weight: 400; color: var(--ink-2); }
+  .projcard .money-in input:disabled { color: var(--ink-2); }
   /* The category or card being built, shown as it will look in the list. */
   .catpreview { display: grid; grid-template-columns: auto 1fr; gap: 2px 14px;
                 align-items: center; background: var(--page); border-radius: 16px;

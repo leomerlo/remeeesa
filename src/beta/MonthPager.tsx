@@ -19,6 +19,11 @@ export function MonthPager({
   const monthStart = month ?? viewed.monthStart
   const step = onStep ?? viewed.step
   const name = MONTHS[monthStart.getMonth()] ?? ''
+  // Held shut rather than hidden on the month we are in, so the control
+  // keeps its shape and the end of the road is visible. A screen paging
+  // its own month -- Proyección -- sets no limit: looking ahead is what
+  // it is for.
+  const forward = month !== undefined || !viewed.atLatest
 
   return (
     <div className="month">
@@ -26,7 +31,12 @@ export function MonthPager({
         <ChevronLeft />
       </button>
       <b>{name.charAt(0).toUpperCase() + name.slice(1)}</b>
-      <button type="button" aria-label="Mes siguiente" onClick={() => step(1)}>
+      <button
+        type="button"
+        aria-label="Mes siguiente"
+        disabled={!forward}
+        onClick={() => step(1)}
+      >
         <ChevronRight />
       </button>
     </div>

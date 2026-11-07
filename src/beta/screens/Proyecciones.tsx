@@ -1,6 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
-import { LineChart } from 'lucide-react'
-import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Info, LineChart } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import {
   buildProjection,
@@ -18,9 +18,22 @@ import { MonthPager } from '../MonthPager'
 import { CategoryTile } from '../Tile'
 import { monthName } from '../format'
 import type { BetaSession } from '../data'
-import { ProyeccionSheet } from '../sheets/ProyeccionSheet'
-import type { ProjectionRow } from '../sheets/ProyeccionSheet'
+import { AlertCard } from '../rows'
 import { LoadFailed, Title } from './Gastos'
+
+// The household's edits to one month: lines switched off, and amounts
+// typed over the suggested ones. Carries the month they were made in, so
+// paging to another one shows that month's saved scenario rather than
+// this one's typing.
+type Edits = {
+  readonly monthTime: number
+  readonly excluded: readonly string[]
+  readonly overrides: Readonly<Record<string, string>>
+}
+
+// Long enough that a figure typed straight through goes up as one write,
+// short enough that tapping away immediately still saves. The v1's.
+const SAVE_DEBOUNCE_MS = 700
 
 // Where a line's figure comes from, which is the one thing worth knowing
 // about it. Same three the v1 draws, same meanings.
@@ -38,9 +51,38 @@ export function Proyecciones({
   readonly session: BetaSession
 }): ReactElement {
   const householdId = session.householdId ?? null
-  // The line whose figure is being argued with. Null is the list as it
-  // stands.
-  const [editing, setEditing] = useState<ProjectionRow | null>(null)
+  const queryClient = useQueryClient()
+  // What is on screen: whatever has been typed since the month loaded,
+  // otherwise whatever the household has saved.
+  const [edits, setEdits] = useState<Edits | null>(null)
+  const saving = useMutation({
+    mutationFn: (next: Edits) =>
+      session.db.saveProjection({
+        householdId: householdId ?? '',
+        monthStart: new Date(next.monthTime),
+        excluded: next.excluded,
+        overrides: next.overrides,
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['beta', 'proyecciones'] })
+    },
+  })
+  // Typing in an amount fires a change per keystroke and each one is a
+  // whole-document write. Held for a beat so a figure typed straight
+  // through goes up once instead of six times.
+  const pending = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const save = (next: Edits): void => {
+    if (pending.current !== null) clearTimeout(pending.current)
+    pending.current = setTimeout(() => {
+      saving.mutate(next)
+    }, SAVE_DEBOUNCE_MS)
+  }
+  useEffect(
+    () => () => {
+      if (pending.current !== null) clearTimeout(pending.current)
+    },
+    [],
+  )
   // Next month, not this one, and its own month rather than the app's.
   //
   // It read "cómo viene noviembre" while standing in November -- a useful
@@ -204,14 +246,15 @@ export function Proyecciones({
     )
   }
 
-  // The household's own edits to this month, read exactly as the v1 saved
+  // The household's own edits to this month, read exactly as the v1 saves
   // them: rows switched off and amounts typed over the suggested ones. The
   // keys carry the month, so one month's scenario never bleeds into
   // another's.
   const monthKey = (key: string): string =>
     `${String(monthStart.getTime())}-${key}`
-  const excluded = new Set(projection?.excluded ?? [])
-  const overrides = projection?.overrides ?? {}
+  const mine = edits?.monthTime === monthStart.getTime() ? edits : null
+  const excluded = new Set(mine?.excluded ?? projection?.excluded ?? [])
+  const overrides = mine?.overrides ?? projection?.overrides ?? {}
   const amountOf = (key: string, price: number): number => {
     const raw = overrides[monthKey(key)]
     if (raw === undefined) return price
@@ -225,15 +268,45 @@ export function Proyecciones({
         : sum + amountOf(row.key, row.price),
     0,
   )
-  const edited = rows.some(
-    (row) =>
-      excluded.has(monthKey(row.key)) ||
-      overrides[monthKey(row.key)] !== undefined,
-  )
+  const apply = (
+    nextExcluded: ReadonlySet<string>,
+    nextOverrides: Readonly<Record<string, string>>,
+  ): void => {
+    const next = {
+      monthTime: monthStart.getTime(),
+      excluded: [...nextExcluded],
+      overrides: nextOverrides,
+    }
+    setEdits(next)
+    save(next)
+  }
+  const toggle = (key: string, on: boolean): void => {
+    const nextExcluded = new Set(excluded)
+    if (on) nextExcluded.delete(monthKey(key))
+    else nextExcluded.add(monthKey(key))
+    apply(nextExcluded, overrides)
+  }
+  const type = (key: string, raw: string, price: number): void => {
+    const nextOverrides: Record<string, string> = { ...overrides }
+    // An amount typed back to the suggested one stops being an override:
+    // left behind it would pin the line to a figure the next reading is
+    // meant to move.
+    if (raw.trim() === '' || Number(raw) === price)
+      delete nextOverrides[monthKey(key)]
+    else nextOverrides[monthKey(key)] = raw
+    apply(excluded, nextOverrides)
+  }
 
   return (
     <>
       {header}
+      {/* Above everything, as the v1 has it, and in the v1's words: this
+          screen is a scenario, and nothing else on it says so. */}
+      <AlertCard kind="info" icon={<Info />}>
+        Lo gastado en el mes por categoría, lo del mes anterior que todavía no
+        apareció y los servicios pendientes. Editá un monto o apagá una fila
+        para ver el total final.
+      </AlertCard>
       <div className="card hero">
         <div className="label">
           Así se perfila {monthName(monthStart)} si todo sigue igual
@@ -241,70 +314,62 @@ export function Proyecciones({
         <div className="figure">
           <Figure amount={total} />
         </div>
-        <div className="legend">
-          <span>
-            Lo que ya anotaron de ese mes, más lo que el mes anterior dice que
-            va a repetirse.
-          </span>
-        </div>
+        <p className="herosay">
+          Lo que ya anotaron de ese mes, más lo que el mes anterior dice que va
+          a repetirse.
+        </p>
       </div>
-      {edited ? (
-        <div className="card alert alert-info">
-          <span className="tile" aria-hidden="true">
-            <LineChart />
-          </span>
-          <p>
-            Hay líneas ajustadas a mano. Tocá cualquiera para cambiarla o para
-            dejarla fuera del mes.
-          </p>
-        </div>
-      ) : null}
+      {/* One card per line, with its switch and its amount on it -- the
+          v1's shape. A sheet per line was one tap too many for a screen
+          whose whole job is trying figures out. */}
       <div className="sec">
         {rows.map((row) => {
-          const off = excluded.has(monthKey(row.key))
-          const amount = amountOf(row.key, row.price)
+          const on = !excluded.has(monthKey(row.key))
+          const typed = overrides[monthKey(row.key)]
           return (
-            <button
-              type="button"
-              className={off ? 'card projrow off' : 'card projrow'}
+            <div
+              className={on ? 'card projcard' : 'card projcard off'}
               key={row.key}
-              onClick={() =>
-                setEditing({
-                  key: row.key,
-                  label: row.label,
-                  price: row.price,
-                })
-              }
             >
-              <CategoryTile name={row.label} color={row.color} />
-              <span className="name">{row.label}</span>
-              <span className="tag" style={cssVars({ '--pc': row.color })}>
-                {BADGE[row.kind]}
-              </span>
-              <span className="amt">{formatCurrency(amount)}</span>
-              {off ? (
-                <span className="sub">No cuenta en el total</span>
-              ) : overrides[monthKey(row.key)] === undefined ? null : (
-                <span className="sub">
-                  Lo pusieron a mano, en vez de {formatCurrency(row.price)}
+              <button
+                type="button"
+                role="switch"
+                aria-checked={on}
+                className="swrow projhead"
+                aria-label={`Contar ${row.label} en ${monthName(monthStart)}`}
+                onClick={() => toggle(row.key, !on)}
+              >
+                <CategoryTile name={row.label} color={row.color} />
+                <span className="name">{row.label}</span>
+                <span className="tag" style={cssVars({ '--pc': row.color })}>
+                  {BADGE[row.kind]}
                 </span>
-              )}
-            </button>
+                <span className="tg" aria-hidden="true">
+                  <i />
+                </span>
+              </button>
+              <div className="money-in">
+                <span className="pre" aria-hidden="true">
+                  $
+                </span>
+                <input
+                  aria-label={`Cuánto va a ser ${row.label}`}
+                  value={typed ?? String(row.price)}
+                  inputMode="decimal"
+                  autoComplete="off"
+                  placeholder="0"
+                  disabled={!on}
+                  onChange={(event) =>
+                    type(row.key, event.target.value, row.price)
+                  }
+                />
+              </div>
+              {on ? null : <span className="sub">No cuenta en el total</span>}
+            </div>
           )
         })}
       </div>
       <Compare current={current} categories={categories} />
-      {editing === null ? null : (
-        <ProyeccionSheet
-          open
-          onClose={() => setEditing(null)}
-          session={session}
-          row={editing}
-          monthStart={monthStart}
-          excluded={excluded}
-          overrides={overrides}
-        />
-      )}
     </>
   )
 }
