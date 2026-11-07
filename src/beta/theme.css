@@ -201,6 +201,14 @@
   .split .card { padding: 16px; display: grid; gap: 4px; align-content: start; }
   .cap { display: inline-flex; align-items: center; gap: 8px; font-size: var(--t-sm); font-weight: 700; }
   .dot { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+  /* Named rather than set inline, so the dark panel can answer with its
+     own lighter end of each ramp -- an inline colour cannot be themed, and
+     these greens and reds were picked to be read on white. */
+  .dot-paid { background: var(--green-700); }
+  .dot-owed { background: var(--amber-bar); }
+  .dot-card { background: var(--red); }
+  .dot-spent { background: var(--grape-600); }
+  .hero .figure.over { color: var(--red-700); }
   .split .amt { font-size: clamp(var(--t-lg), 6.2vw, var(--t-3xl)); font-weight: 600;
                 letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
   .split .foot { font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); line-height: 1.3; }
@@ -226,24 +234,6 @@
   .quiet .go { grid-column: 3; grid-row: 1 / span 2; color: var(--ink-2); }
   .quiet .tile { width: 40px; height: 40px; border-radius: 12px; }
 
-  /* One step at a time, with how far along you are. A list of four things
-     reads as homework; a step reads as something you are in the middle of. */
-  .step-card { display: grid; gap: 16px; justify-items: start; }
-  /* .tile spans two rows by default, which is right inside a list row and
-     wrong here: it was jumping above the progress bar. */
-  .step-card .tile { grid-row: auto; }
-  .step-card .field, .step-card .chips, .step-card .btn { justify-self: stretch; width: 100%; }
-  .step-top { display: grid; gap: 8px; }
-  .step-of { font-size: var(--t-mini); font-weight: 700; letter-spacing: .08em;
-             color: var(--grape-700); }
-  .step-bar { height: 6px; border-radius: 999px; background: var(--grape-50); overflow: hidden; }
-  .step-bar i { display: block; height: 100%; border-radius: 999px;
-                background: var(--grape); transition: width .3s ease; }
-  .step-card h3 { margin: 0; font-size: var(--t-xl); font-weight: 700;
-                  letter-spacing: -.02em; text-wrap: balance; }
-  .step-card p { margin: 0; font-size: var(--t-sm); font-weight: 600;
-                 color: var(--ink-2); line-height: 1.45; }
-  .step-card .btn { justify-self: stretch; width: 100%; }
   .skip { appearance: none; border: 0; background: none; cursor: pointer; font: inherit;
           font-size: var(--t-sm); font-weight: 600; color: var(--ink-2);
           text-decoration: underline; justify-self: center; padding: 4px; }
@@ -264,7 +254,6 @@
   .addrow { display: grid; gap: 8px; }
   .addrow input, .addrow select { width: 100%; }
   .addrow .btn { justify-self: start; }
-  .step-card .opts { width: 100%; }
 
   /* the one card a month with nothing in it shows */
   .start { display: grid; gap: 12px; }
@@ -356,6 +345,94 @@
   .catrow .bar i { display: block; height: 100%; border-radius: 999px; }
   .catrow .sub { grid-column: 2 / -1; font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); }
   .catrow .sub.over { color: var(--red-700); font-weight: 700; }
+
+  /* ===== the month, as one dark panel ===== */
+  /* Everything from the greeting down to the three figures is one answer
+     to one question, and was four stacked white cards giving it. Here it
+     is a single object in the rail's own dark, with lilac hairlines
+     instead of card edges -- nothing inside it is a card, so the figures
+     themselves carry the structure.
+
+     The only colour in it is each figure's own status, which means those
+     three greens, ambers and reds have to be the light ends of their
+     ramps: the ones the rest of the app uses were chosen to be read on
+     white and go muddy on this ground. */
+  .hood {
+    --hood-line: rgba(195, 174, 230, .22);
+    --hood-ink: var(--side-ink);
+    /* Lifted a step from the rail's own secondary ink: the lines that use
+       it are set at a regular weight, and a thinner stroke needs more
+       contrast to read the same. 8:1 here. */
+    --hood-ink-2: #c6bcda;
+    --hood-green: #5fd3a0;
+    --hood-amber: #f6c758;
+    --hood-red: #ff8a6b;
+    --hood-grape: #a98cff;
+    /* The rail's lighter violet rather than its darkest: a full-width
+       panel at the rail's own ground read as a hole in the page. */
+    background: var(--side-active); color: var(--hood-ink);
+    border-radius: 24px; display: grid; overflow: hidden;
+    margin-top: 20px;
+  }
+  .hood .head { padding: 20px 20px 18px; gap: 14px;
+                border-bottom: 1px solid var(--hood-line); }
+  .hood .hello { color: var(--hood-ink); }
+  /* Regular, not semibold: it is the line that explains the greeting, and
+     two bold weights stacked made it compete with it. */
+  .hood .hello span { color: var(--hood-ink-2); font-weight: 400; }
+
+  /* The pager sits on the panel rather than on a card of its own. */
+  .hood .month { background: transparent; border: 1px solid var(--hood-line);
+                 color: var(--hood-ink); }
+  .hood .month button { background: rgba(255,255,255,.09); color: var(--hood-ink); }
+  .hood .month b { color: var(--hood-ink); }
+
+  /* A hairline where a gap between two cards used to be. */
+  .hood .band { gap: 0; }
+  .hood .band > * + * { border-top: 1px solid var(--hood-line); }
+
+  /* Nothing in here is a card: no ground of its own, no edge, no lift. */
+  .hood .card { background: transparent; border: 0; box-shadow: none;
+                border-radius: 0; }
+  .hood .hero { padding: 20px; gap: 14px; }
+  .hood .hero .label { color: var(--hood-ink-2); }
+  .hood .hero .figure { color: var(--hood-ink); }
+  .hood .track { background: rgba(255,255,255,.1); }
+  .hood .fill { background: var(--hood-grape); }
+  .hood .fill.owed { background: var(--hood-amber); }
+  .hood .fill.over { background: var(--hood-red); }
+  .hood .legend { color: var(--hood-ink-2); }
+  .hood .legend b { color: var(--hood-ink); }
+  .hood .hero .figure.over { color: var(--hood-red); }
+  .hood .dot-paid { background: var(--hood-green); }
+  .hood .dot-owed { background: var(--hood-amber); }
+  .hood .dot-card { background: var(--hood-red); }
+  .hood .dot-spent { background: var(--hood-grape); }
+  /* A tint of the panel rather than a colour of its own, now that the
+     panel itself is that colour. */
+  .hood .perday { background: rgba(255,255,255,.07); color: var(--side-active-ink); }
+  .hood .chip { background: rgba(255,138,107,.16); color: var(--hood-red); }
+  .hood .chip.good { background: rgba(95,211,160,.16); color: var(--hood-green); }
+  .hood .chip.neutral { background: rgba(255,255,255,.08); color: var(--hood-ink-2); }
+
+  /* The three figures, divided rather than boxed. Two of them share a row
+     and the third sits under both, so the line between the pair is
+     vertical and the one above the third is not. */
+  .hood .trio { gap: 0; }
+  .hood .trio .card { padding: 18px 20px; }
+  .hood .trio > :nth-child(2) { border-left: 1px solid var(--hood-line); }
+  .hood .trio > :nth-child(3) { border-top: 1px solid var(--hood-line); }
+  /* Same as the greeting's second line: the sentence under a figure
+     explains it, and at 600 it was arguing with it. */
+  .hood .trio .foot { color: var(--hood-ink-2); font-weight: 400; }
+  .hood .trio .amt { color: var(--hood-ink); }
+  .hood .trio .out .cap { color: var(--hood-green); }
+  .hood .trio .wait .cap { color: var(--hood-amber); }
+  .hood .cardtot .cap { color: var(--hood-red); }
+  .hood .cardtot .go { color: var(--hood-ink-2); }
+
+  /* The one secondary button inside the panel. */
+  .hood .btn-secondary { border-color: var(--hood-line); color: var(--hood-ink); }
 
   /* ===== big figures ===== */
   /* Every amount the app says out loud goes through here. The context sets
@@ -877,6 +954,8 @@
     .col { gap: 32px; }
     .trio { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .trio > :nth-child(3) { grid-column: auto; }
+    /* All three share one row here, so all three lines are vertical. */
+    .hood .trio > :nth-child(3) { border-top: 0; border-left: 1px solid var(--hood-line); }
 
     /* Without a budget the hero has little to say and a lot of width: the
        figure takes the left, the comparison and the one action the right,

@@ -140,70 +140,71 @@ export function Home({
 
   return (
     <>
-      {greeting(
-        `Estos son los gastos de ${household.name}, tuyos${
-          others.length > 0 ? ` y de ${others.join(' y ')}` : ''
-        }, del mes de ${monthName(monthStart)}.`,
-      )}
-
-      <div className="band">
-        {budget > 0 ? (
-          <BudgetHero figures={figures} />
-        ) : (
-          <PlainHero spent={spent} toDate={toDate} />
+      {/* The greeting, the month, what is left of it and the three
+          figures that make up that answer are one thought, and were four
+          separate white cards saying it. One dark panel instead, divided
+          by hairlines rather than by edges: the numbers are the
+          structure, and the only colour in it is each figure's own. */}
+      <div className="hood">
+        {greeting(
+          `Estos son los gastos de ${household.name}, tuyos${
+            others.length > 0 ? ` y de ${others.join(' y ')}` : ''
+          }, del mes de ${monthName(monthStart)}.`,
         )}
 
-        <div className="trio">
-          <div className="card out">
-            <span className="cap">
-              <span
-                className="dot"
-                style={{ background: 'var(--green-700)' }}
-              />
-              Pagado
-            </span>
-            <Figure className="amt" amount={paid} />
-            <span className="foot">Ya salió de la cuenta.</span>
+        <div className="band">
+          {budget > 0 ? (
+            <BudgetHero figures={figures} />
+          ) : (
+            <PlainHero spent={spent} toDate={toDate} />
+          )}
+
+          <div className="trio">
+            <div className="card out">
+              <span className="cap">
+                <span className="dot dot-paid" />
+                Pagado
+              </span>
+              <Figure className="amt" amount={paid} />
+              <span className="foot">Ya salió de la cuenta.</span>
+            </div>
+            <div className="card wait">
+              <span className="cap">
+                <span className="dot dot-owed" />
+                Pendiente
+              </span>
+              <Figure className="amt" amount={owed} />
+              <span className="foot">
+                Cuentas que vencen y todavía no pagaron.
+              </span>
+            </div>
+            <Link className="card cardtot" to="/cuentas">
+              <span className="cap">
+                <span className="dot dot-card" />
+                Con la tarjeta
+              </span>
+              <span className="amt">
+                {cards.length === 0 ? (
+                  <Figure amount={0} />
+                ) : (
+                  cards.map(({ currency, total }) => (
+                    <Figure
+                      className="one"
+                      key={currency}
+                      amount={total}
+                      currency={currency}
+                    />
+                  ))
+                )}
+              </span>
+              <span className="foot">
+                Lo que van a pedir los resúmenes el mes que viene.
+              </span>
+              <span className="go" aria-hidden="true">
+                <ChevronRight />
+              </span>
+            </Link>
           </div>
-          <div className="card wait">
-            <span className="cap">
-              <span
-                className="dot"
-                style={{ background: 'var(--amber-bar)' }}
-              />
-              Pendiente
-            </span>
-            <Figure className="amt" amount={owed} />
-            <span className="foot">
-              Cuentas que vencen y todavía no pagaron.
-            </span>
-          </div>
-          <Link className="card cardtot" to="/cuentas">
-            <span className="cap">
-              <span className="dot" style={{ background: 'var(--red)' }} />
-              Con la tarjeta
-            </span>
-            <span className="amt">
-              {cards.length === 0 ? (
-                <Figure amount={0} />
-              ) : (
-                cards.map(({ currency, total }) => (
-                  <Figure
-                    className="one"
-                    key={currency}
-                    amount={total}
-                    currency={currency}
-                  />
-                ))
-              )}
-            </span>
-            <span className="foot">
-              Lo que van a pedir los resúmenes el mes que viene.
-            </span>
-            <span className="go" aria-hidden="true">
-              <ChevronRight />
-            </span>
-          </Link>
         </div>
       </div>
 
@@ -325,10 +326,7 @@ function BudgetHero({
           ? 'El hogar se pasó del presupuesto'
           : 'Le queda al hogar este mes'}
       </div>
-      <div
-        className="figure"
-        style={over ? { color: 'var(--red-700)' } : undefined}
-      >
+      <div className={over ? 'figure over' : 'figure'}>
         <Figure amount={left} />
       </div>
       <div className="track">
@@ -342,12 +340,12 @@ function BudgetHero({
       </div>
       <div className="legend">
         <span>
-          <i style={{ background: 'var(--grape-600)' }} />
+          <i className="dot-spent" />
           Gastado <b>{formatCurrency(paid)}</b>
         </span>
         {owed > 0 ? (
           <span>
-            <i style={{ background: 'var(--amber-bar)' }} />
+            <i className="dot-owed" />
             Por pagar <b>{formatCurrency(owed)}</b>
           </span>
         ) : null}
