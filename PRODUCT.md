@@ -8,19 +8,20 @@ web
 
 ## Users
 
-**This changed in October 2026.** It was Flor and Leo, a two-person household, and every
-default could be tailored to that one couple. The beta (see `docs/adr/0007` and
-`docs/beta-design.md`) makes it a **personal or household finance app for other people**,
-starting with Flor's father-in-law — someone who lives alone, is older than the original two
-users, and came to it because he wants to follow his spending and finds the
-card-versus-cash distinction confusing.
+**Flor and Leo, a two-person household.** In late October 2026 this looked like it was
+about to change: the beta was going to open the app to other people, starting with Flor's
+father-in-law. **It did not.** On 7 November 2026 Flor said so plainly — *"no lo va a ver mi
+suegro, esto es la actualizacion de la v1 en una v2 para mi"*. The beta (see `docs/adr/0007`
+and `docs/beta-design.md`) is the **v2 of this household's own app**, not a product for
+outside users.
 
-So the audience is now **one person who has never seen this before**, not two people who
-built it. A household of one is a first-class case, not a degenerate one. Defaults may no
-longer assume this couple's categories or habits, and anything that only makes sense if you
-were there while it was built is a defect.
+What the detour left behind is worth keeping anyway, because it is good practice rather than
+a concession to a stranger: **nothing may rely on having been there while it was built.** A
+screen that only reads correctly if you remember the fix it came from is a defect, and the
+onboarding exists because a house that starts empty should still make sense. A household of
+one stays a first-class case — it costs nothing and it is one branch of the same code.
 
-Flor and Leo remain users and keep the v1 interface until the beta replaces it.
+Flor and Leo keep the v1 interface until the beta replaces it.
 
 Primary usage is mobile, in short, frequent sessions: logging a purchase on the spot (a coffee, a
 bag of cat litter), checking whether a bill is due, glancing at what's left in the month's

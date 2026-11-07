@@ -7,7 +7,7 @@ import type { HouseholdsDb } from '@/lib/households'
 import { Onboarding } from './Onboarding'
 import type { BetaSession } from './data'
 
-const USER = 'suegro'
+const USER = 'flor'
 
 function setUp(): {
   readonly raw: HouseholdsDb

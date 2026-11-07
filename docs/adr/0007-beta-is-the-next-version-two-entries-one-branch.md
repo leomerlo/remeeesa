@@ -38,6 +38,19 @@ The repo already has the shape this needs: `demo.html` plus `src/demo/` is a sec
 kept out of the production build and guarded by `src/demo/productionIsolation.test.ts`. The beta
 differs in that it *is* built and published, to its own project.
 
+## Update, 7 November 2026
+
+The premise in the first paragraph turned out to be wrong, and this is recorded rather than
+edited away. **The father-in-law is not going to use it.** Flor's words: *"no lo va a ver mi
+suegro, esto es la actualizacion de la v1 en una v2 para mi"*. The beta is the v2 of this
+household's app.
+
+The decision below is unaffected. Every reason for it — the domain is the expensive, correct
+part; forking it means fixing each bug twice; one branch keeps the two entries honest about
+sharing that code — was about the code, not about who was going to open the URL. What loses
+its justification is narrower and noted where it lives: invite-only sign-up was partly about
+API spend (`docs/beta-design.md`), and there is no API now.
+
 What this does **not** inherit is the visual layer. The beta's interface is designed from zero —
 the control sizing, the palette, the type scale and the modal bands recorded for v1 are history,
 not constraints. See `docs/beta-design.md`.

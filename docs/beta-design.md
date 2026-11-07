@@ -4,8 +4,14 @@ Cerrado con Flor el 30–31 Oct 2026. La decisión estructural (mismo repo, dos
 entradas, una rama) está en
 [ADR 0007](adr/0007-beta-is-the-next-version-two-entries-one-branch.md).
 
-Primer usuario real: **el suegro de Flor**. Quiere seguir sus gastos y le
-cuesta distinguir lo de tarjeta de lo de efectivo.
+**Para quién es** (corregido el 7 Nov 2026, palabras de Flor: *«no lo va a ver
+mi suegro, esto es la actualizacion de la v1 en una v2 para mi»*). La beta es
+la **v2 de la app de Flor y Leo**, no una app para afuera. El suegro no la va a
+ver. Lo que no cambia es por qué existe: la interfaz de la v1 es la forma
+acumulada de un año de arreglos, y la v2 la rediseña. Las reglas de claridad
+—tipografía grande, alto contraste, el método de pago diciendo su
+consecuencia— son de Flor y siguen valiendo por sí solas; no venían de un
+usuario de afuera.
 
 ## Decisiones
 
@@ -46,12 +52,14 @@ on-device contra un modelo de visión (la recomendación fue el modelo).
 
 **Alcance de la primera versión.** Onboarding, carga (por teclado),
 Home, movimientos y **cuentas por pagar**. Las cuentas entran aunque sean la
-pantalla más compleja de la v1: para una persona sola, los servicios son gran
-parte del mes.
+pantalla más compleja de la v1: los servicios son gran parte del mes, y una
+v2 sin ellos no reemplaza a la v1.
 
 **Acceso.** Alta solo con código de invitación. La URL es pública pero el
-registro no: controla quién entra y, sobre todo, cuánto se gasta en la API.
-Sacarlo después es un cambio de una línea.
+registro no. El motivo original —cuánto se gasta en la API— **ya no corre**:
+no hay API (ver foto y audio, arriba) y no entra nadie de afuera. Queda igual
+por lo que hace de todos modos: así es como Leo entra al hogar de Flor, y es
+la misma puerta que la v1. Sacarlo es un cambio de una línea.
 
 ## Lo visual
 
