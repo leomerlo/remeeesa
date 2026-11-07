@@ -207,14 +207,19 @@ function Resumen({
         </span>
         <span className="rv">{formatAmount(total, currency)}</span>
       </div>
-      {/* A card that closes on a different day every month cannot be
-          promised a date here -- the v1 rejected a fixed closing day for
-          exactly that reason. */}
-      <div className="hint">
-        {loaded === null
-          ? 'Estimado. Cuando llegue el resumen cargan el monto real.'
-          : `Ya cargaron el resumen: ${formatAmount(loaded, currency)}.`}
-      </div>
+      {/* Only when there is something particular to say. That every
+          figure here is an estimate is said once, at the top of the
+          screen; repeating it under each card said nothing new three
+          times. A loaded statement is news, and only that gets a line.
+
+          No date is promised either way: a card that closes on a
+          different day every month cannot be given one, which is why the
+          v1 rejected a fixed closing day. */}
+      {loaded === null ? null : (
+        <div className="hint">
+          Ya cargaron el resumen: {formatAmount(loaded, currency)}.
+        </div>
+      )}
       {lines.map(({ purchase, cuota }) => (
         <div className="cuota" key={`${purchase.id}-${String(cuota.number)}`}>
           <span className="cn">{purchase.name}</span>
