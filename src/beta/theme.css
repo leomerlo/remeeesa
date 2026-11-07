@@ -372,7 +372,9 @@
        panel at the rail's own ground read as a hole in the page. */
     background: var(--side-active); color: var(--hood-ink);
     border-radius: 24px; display: grid; overflow: hidden;
-    margin-top: 20px;
+    /* It is the first thing on the page and the heaviest: it needs air
+       above it, not a gutter. */
+    margin-top: 64px;
   }
   .hood .head { padding: 20px 20px 18px; gap: 14px;
                 border-bottom: 1px solid var(--hood-line); }
