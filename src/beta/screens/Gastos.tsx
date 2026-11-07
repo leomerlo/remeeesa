@@ -5,6 +5,7 @@ import type { ReactElement } from 'react'
 import { formatCurrency, summarizeByCategory } from '@/lib/expenses'
 import type { Category, Expense } from '@/lib/expenses'
 import { matchesSearch } from '@/lib/search/fuzzyMatch'
+import { ListSkeleton } from '../Skeleton'
 import { MonthPager } from '../MonthPager'
 import { useMonth } from '../MonthContext'
 import { CategoryTile } from '../Tile'
@@ -42,7 +43,7 @@ export function Gastos({
   })
 
   if (data.isPending) {
-    return <div className="card" aria-busy="true" style={{ minHeight: 160 }} />
+    return <ListSkeleton label="Cargando los gastos" />
   }
   if (data.isError || data.data === undefined) {
     return <LoadFailed />

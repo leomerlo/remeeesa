@@ -1,5 +1,7 @@
-import { Check, ChevronRight, TriangleAlert } from 'lucide-react'
+import { Check, ChevronRight, LineChart, TriangleAlert } from 'lucide-react'
 import type { ReactElement } from 'react'
+import { Link } from 'react-router-dom'
+import { cssVars } from '@/lib/cssVars'
 import {
   formatAmount,
   formatCompactCurrency,
@@ -216,20 +218,19 @@ export function ProjectionLink({
 }: {
   readonly monthStart: Date
 }): ReactElement {
-  const next = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1)
   return (
-    <button className="card quiet" type="button" disabled>
+    <Link className="card quiet" to="/proyeccion">
       <span className="tile" aria-hidden="true">
-        <ChevronRight />
+        <LineChart />
       </span>
-      <span className="k">Proyectar {monthName(next)}</span>
+      <span className="k">Cómo viene {monthName(monthStart)}</span>
       <span className="v">
-        Cuánto van a gastar el mes que viene, más o menos
+        Lo cargado del mes más lo que el mes pasado dice que falta
       </span>
       <span className="go" aria-hidden="true">
         <ChevronRight />
       </span>
-    </button>
+    </Link>
   )
 }
 
@@ -290,17 +291,35 @@ export function Donut({
           </text>
         </svg>
       </div>
-      <div className="dlist">
-        {spent.map((row) => {
+      {/* Half the rows per column, told to the CSS so the two-column
+          desktop layout can fill the first column top to bottom before
+          starting the second -- the list is sorted biggest first, and
+          filling it by rows turned that order into a zigzag. */}
+      <div
+        className="dlist"
+        style={cssVars({ '--rows': String(Math.ceil(spent.length / 2)) })}
+      >
+        {spent.map((row, index) => {
           const percent = Math.round(row.share * 100)
           return (
-            <div className="dline" key={row.categoryId}>
+            <div
+              className={
+                index === Math.ceil(spent.length / 2)
+                  ? 'dline col-top'
+                  : 'dline'
+              }
+              key={row.categoryId}
+            >
               <i style={{ background: row.color }} />
               <span className="nm">{row.name}</span>
-              <span className="pc">
+              <span className="amt">{formatCurrency(row.total)}</span>
+              {/* The share after the figure it is a share of, as a pill in
+                  the slice's own colour washed down to a tint so the
+                  number on it stays near-black. Grey text floating between
+                  the name and the amount read as neither. */}
+              <span className="pc" style={cssVars({ '--pc': row.color })}>
                 {percent === 0 ? '<1%' : `${String(percent)}%`}
               </span>
-              <span className="amt">{formatCurrency(row.total)}</span>
             </div>
           )
         })}

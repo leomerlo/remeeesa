@@ -10,15 +10,18 @@ import {
 } from 'lucide-react'
 import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
+import { cardsDueNextMonthTotals } from '@/lib/cards'
 import {
   computePendingCommitted,
   computeSpendToDate,
   computeSpentThisMonth,
+  formatAmount,
   formatCurrency,
   summarizeByCategory,
 } from '@/lib/expenses'
 import { monthlyBudgetFor } from '@/lib/households'
-import { isBillToPay } from '@/lib/pendientes'
+import { isBillToPay, pendientesDueInMonth } from '@/lib/pendientes'
+import { HomeSkeleton } from '../Skeleton'
 import { MonthPager } from '../MonthPager'
 import { useMonth } from '../MonthContext'
 import {
@@ -87,7 +90,7 @@ export function Home({
   })
 
   if (data.isPending) {
-    return <div className="card" aria-busy="true" style={{ minHeight: 160 }} />
+    return <HomeSkeleton />
   }
   if (data.isError || data.data === undefined) {
     return <LoadFailed />
@@ -103,24 +106,44 @@ export function Home({
     members,
   } = data.data
 
-  // What the household spent this month is both kinds together: the money
-  // already gone, and what went onto a card and leaves with its Resumen.
+  // What already left the household's hands this month. Only Expenses: a
+  // card purchase has not cost anything yet, and an unpaid bill has not
+  // either. Same figure the v1 calls "En uso".
   const paid = computeSpentThisMonth(expenses)
-  const onCard = computeSpentThisMonth(
-    purchases.map((purchase) => ({
-      price: purchase.total,
-      currency: purchase.currency,
-    })),
-  )
-  const spent = paid + onCard
 
-  const bills = sortBills(pendientes.filter(isBillToPay), monthStart, now)
-  const owed = computePendingCommitted(bills)
+  // What the cards are going to ask for next month, read exactly the way
+  // the v1 reads it: off the Resumen the app already keeps per card and
+  // month, one figure per currency, never the two added together. It is
+  // NOT the sum of this month's purchases -- a purchase in six cuotas
+  // sends a sixth of itself to each of six statements.
+  const cards = cardsDueNextMonthTotals(pendientes, monthStart)
+
+  // Only what is still unpaid, so a month whose bills were all paid shows
+  // nothing owed instead of its whole history.
+  const unpaid = pendientes.filter(
+    (pendiente) => pendiente.status === 'pending' && isBillToPay(pendiente),
+  )
+  const bills = sortBills(unpaid, monthStart, now)
   const late = bills.filter(
     (bill) => billState(bill, monthStart, now) === 'late',
   )
+
+  // The v1's rule, to the letter: a bill counts against a month's budget
+  // only if it falls due *inside that month*. One due in December does not
+  // eat into October, and one already paid counts through its Expense, not
+  // twice. This is the figure that was making the beta read two million
+  // short.
+  const owed = computePendingCommitted(
+    pendientesDueInMonth(pendientes, monthStart, monthEnd),
+  )
   const budget = monthlyBudgetFor(household, monthStart, now)
-  const toDate = computeSpendToDate(allExpenses, now)
+
+  // A month already over is compared whole against the month before it; a
+  // month still running is cut at today. Anchoring on `now` whatever month
+  // was on screen made every month show the current one's comparison.
+  const closed = now > monthEnd
+  const toDate = computeSpendToDate(allExpenses, closed ? monthEnd : now)
+  const spent = toDate.thisMonth
   const byCategory = summarizeByCategory({ expenses, categories })
   const top = byCategory[0]
   const several = members.length > 1
@@ -150,6 +173,7 @@ export function Home({
             owed={owed}
             now={now}
             monthEnd={monthEnd}
+            closed={closed}
           />
         ) : (
           <PlainHero spent={spent} toDate={toDate} />
@@ -185,9 +209,17 @@ export function Home({
               <span className="dot" style={{ background: 'var(--red)' }} />
               Con la tarjeta
             </span>
-            <span className="amt">{formatCurrency(onCard)}</span>
+            <span className="amt">
+              {cards.length === 0
+                ? formatCurrency(0)
+                : cards.map(({ currency, total }) => (
+                    <span className="one" key={currency}>
+                      {formatAmount(total, currency)}
+                    </span>
+                  ))}
+            </span>
             <span className="foot">
-              No sale este mes: llega en el resumen que viene.
+              Lo que van a pedir los resúmenes el mes que viene.
             </span>
             <span className="go" aria-hidden="true">
               <ChevronRight />
@@ -303,15 +335,18 @@ function BudgetHero({
   owed,
   now,
   monthEnd,
+  closed,
 }: {
   readonly budget: number
   readonly spent: number
   readonly owed: number
   readonly now: Date
   readonly monthEnd: Date
+  readonly closed: boolean
 }): ReactElement {
   // The v1 subtracts both: a bill still owed counts against what is left
-  // the same as a paid one, because the budget is meant to cover it.
+  // the same as a paid one, because the budget is meant to cover it. What
+  // it never does is count a bill of another month -- see `owed` above.
   const left = budget - spent - owed
   const over = left < 0
   const daysLeft = Math.max(
@@ -364,9 +399,13 @@ function BudgetHero({
           {over ? <TriangleAlert /> : <CalendarDays />}
         </span>
         <span>
-          {over
-            ? `Quedan ${String(daysLeft)} días y ya se pasaron por ${formatCurrency(-left)}.`
-            : `Quedan ${String(daysLeft)} días. Pueden gastar ${formatCurrency(perDay)} por día.`}
+          {closed
+            ? over
+              ? `El mes cerró pasado por ${formatCurrency(-left)}.`
+              : `El mes cerró con ${formatCurrency(left)} sin usar.`
+            : over
+              ? `Quedan ${String(daysLeft)} días y ya se pasaron por ${formatCurrency(-left)}.`
+              : `Quedan ${String(daysLeft)} días. Pueden gastar ${formatCurrency(perDay)} por día.`}
         </span>
       </div>
     </div>

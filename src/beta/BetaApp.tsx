@@ -8,11 +8,13 @@ import { FirebaseProvider, useFirebase } from '@/lib/firebaseContext'
 import { MonthProvider } from './MonthContext'
 import { useBetaSession } from './data'
 import { Shell } from './Shell'
+import { BootSkeleton } from './Skeleton'
 import { SignIn } from './SignIn'
 import { Cuentas } from './screens/Cuentas'
 import { Gastos } from './screens/Gastos'
 import { Home } from './screens/Home'
 import { Perfil } from './screens/Perfil'
+import { Proyecciones } from './screens/Proyecciones'
 
 // Hash routing, not paths: beta.html is a second static entry, and a path
 // like /beta/gastos would 404 on Vercel without a rewrite rule nobody will
@@ -27,7 +29,7 @@ function Routed(): ReactElement {
   }
 
   if (session.userId === undefined) {
-    return <div className="shell" aria-busy="true" />
+    return <BootSkeleton />
   }
   if (session.userId === null) {
     return (
@@ -51,6 +53,10 @@ function Routed(): ReactElement {
           <Route path="/gastos" element={<Gastos session={session} />} />
           <Route path="/cuentas" element={<Cuentas session={session} />} />
           <Route path="/perfil" element={<Perfil session={session} />} />
+          <Route
+            path="/proyeccion"
+            element={<Proyecciones session={session} />}
+          />
         </Routes>
       </Shell>
     </MonthProvider>

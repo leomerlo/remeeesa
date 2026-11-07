@@ -12,6 +12,7 @@ import { useFirebase } from '@/lib/firebaseContext'
 import { PAYMENT_METHOD_KINDS } from '@/lib/cards'
 import type { Card as PaymentMethod } from '@/lib/cards'
 import { CardBrandMark } from '../CardBrandMark'
+import { ProfileSkeleton } from '../Skeleton'
 import type { BetaSession } from '../data'
 import { LoadFailed, Title } from './Gastos'
 
@@ -45,7 +46,7 @@ export function Perfil({
   })
 
   if (data.isPending) {
-    return <div className="card" aria-busy="true" style={{ minHeight: 160 }} />
+    return <ProfileSkeleton />
   }
   if (data.isError || data.data === undefined) {
     return <LoadFailed />

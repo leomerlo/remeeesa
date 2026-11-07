@@ -180,6 +180,11 @@
                 text-align: left; }
   .trio .amt { font-size: clamp(var(--t-lg), 6.2vw, var(--t-3xl)); font-weight: 600;
                letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  /* Two currencies on a card are two bills, never one sum, so each gets
+     its own line -- the second a size down, since pesos are the household's
+     own money and the dollar figure is the footnote. */
+  .trio .amt .one { display: block; }
+  .trio .amt .one + .one { font-size: var(--t-lg); }
   .trio .foot { font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); line-height: 1.3; }
   .trio .out .cap { color: var(--green-700); }
   .trio .wait .cap { color: var(--amber-700); }
@@ -343,6 +348,53 @@
   .catrow .sub { grid-column: 2 / -1; font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); }
   .catrow .sub.over { color: var(--red-700); font-weight: 700; }
 
+  /* ===== loading ===== */
+  /* A placeholder shaped like what is coming, so nothing moves when the
+     data lands. The sweep is slow and low-contrast on purpose: a loading
+     state that flashes reads as an error. */
+  .loading-in { display: grid; gap: 24px; }
+  .skel { display: block; width: var(--sw, 100%); height: var(--sh, 16px);
+          border-radius: var(--sr, 8px); background: var(--hair);
+          background-image: linear-gradient(90deg,
+            rgba(255,255,255,0) 0%, rgba(255,255,255,.75) 50%, rgba(255,255,255,0) 100%);
+          background-size: 220% 100%; background-repeat: no-repeat;
+          animation: sweep 1.4s ease-in-out infinite; }
+  @keyframes sweep {
+    from { background-position: 140% 0; }
+    to   { background-position: -40% 0; }
+  }
+  /* Still a placeholder, just not a moving one. */
+  @media (prefers-reduced-motion: reduce) {
+    .skel { animation: none; background-image: none; }
+  }
+  /* The placeholders stand in for text, so the boxes they live in need
+     their own height rather than the line-height of absent words. */
+  .loading .card.hero { display: grid; gap: 14px; }
+  .loading .trio .card { gap: 10px; }
+  .loading .sec h2 { display: block; }
+
+  /* ===== projection ===== */
+  /* The same row as a category's, plus the badge that says where the
+     figure came from -- a real total, last month's carried over, or a bill
+     still owed. */
+  .projrow { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 12px;
+             align-items: center; padding: 16px; }
+  .projrow .name { grid-column: 2; font-size: var(--t-md); font-weight: 700; }
+  .projrow .amt { grid-column: 3; grid-row: 1; font-size: var(--t-md); font-weight: 800;
+                  font-variant-numeric: tabular-nums; }
+  .projrow .tag { grid-column: 2; justify-self: start; padding: 3px 8px;
+                  border-radius: 999px; font-size: var(--t-xs); font-weight: 800;
+                  color: var(--ink); background: color-mix(in srgb, var(--pc) 18%, #fff); }
+  .projrow .sub { grid-column: 2 / -1; font-size: var(--t-sm); font-weight: 600;
+                  color: var(--ink-2); }
+  /* A row the household switched off still shows -- it is part of the
+     scenario -- but reads as not counting. */
+  .projrow.off .name, .projrow.off .amt { color: var(--ink-2); text-decoration: line-through; }
+  /* The same block as .quiet, with nothing to press. */
+  .quiet.static { cursor: default; grid-template-columns: 1fr auto; }
+  .quiet.static .k { grid-column: 1; }
+  .quiet.static .v { grid-column: 1; }
+
   /* ===== profile ===== */
   .plist { display: grid; }
   .pitem { display: grid; grid-template-columns: auto 1fr auto; gap: 0 16px;
@@ -404,15 +456,33 @@
   .donut .hole { font-size: var(--t-md); font-weight: 800; fill: var(--ink);
                  font-variant-numeric: tabular-nums; }
   .donut .holesub { font-size: var(--t-mini); font-weight: 700; fill: var(--ink-2); }
-  .dlist { display: grid; gap: 4px; min-width: 0; }
+  .dlist { display: grid; min-width: 0; }
+  /* Dot, name, figure, share -- in that order, because the share is a
+     share *of* the figure and reads as noise in front of it. Everything on
+     this list is one size: it is a list of twenty equal things, and three
+     sizes made it look like a ranking of importance it is not. */
   .dline { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto;
-           gap: 12px; align-items: center; font-size: var(--t-sm); font-weight: 600;
-           padding: 8px 0; min-height: 40px; }
+           gap: 10px; align-items: center; font-size: var(--t-xs); font-weight: 600;
+           padding: 9px 0; }
+  /* A hairline between rows. Twenty figures with nothing between them read
+     as one block; a line each makes the eye travel across instead of down. */
+  .dline + .dline { border-top: 1px solid var(--hair); }
   .dline i { width: 12px; height: 12px; border-radius: 50%; flex: none; align-self: center; }
-  .dline .nm { color: var(--ink); font-weight: 700; overflow-wrap: anywhere; }
-  .dline .pc { color: var(--ink-2); font-size: var(--t-xs); min-width: 40px;
-               text-align: right; font-variant-numeric: tabular-nums; }
-  .dline .amt { font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink); }
+  /* break-word, not anywhere: "Entretenimiento" was being split mid-word
+     rather than wrapping after the space before it. */
+  .dline .nm { color: var(--ink); font-weight: 700; overflow-wrap: break-word; }
+  /* The share as a pill tinted with the slice's own colour. The tint is
+     the colour washed into white so the figure on it is near-black: the
+     palette's own swatches are too dark to read small text on. */
+  .dline .pc { display: inline-block; min-width: 44px; text-align: center;
+               padding: 2px 7px; border-radius: 999px; color: var(--ink);
+               background: color-mix(in srgb, var(--pc) 18%, #fff);
+               font-size: var(--t-mini); font-weight: 800; line-height: 1.3;
+               font-variant-numeric: tabular-nums; }
+  /* A fixed, right-aligned column so every amount in the list ends on the
+     same edge instead of each row ending wherever its own figure does. */
+  .dline .amt { font-weight: 800; font-variant-numeric: tabular-nums; color: var(--ink);
+                min-width: 7.4em; text-align: right; }
   /* Ring on the left, the list beside it. */
   @media (min-width: 760px) {
     .donut { grid-template-columns: auto minmax(0, 1fr); align-items: center;
@@ -426,7 +496,15 @@
      name beside an amount. At 1180 each column came out 253px and
      "Suscripciones" needed 110 of its 106 -- so it waits. */
   @media (min-width: 1280px) {
-    .dlist { grid-template-columns: 1fr 1fr; column-gap: 64px; }
+    /* Down the first column, then down the second -- not left-to-right.
+       The list is sorted biggest first, and filling it by rows made that
+       order read as a zigzag between the two halves. */
+    .dlist { grid-template-columns: 1fr 1fr;
+             grid-template-rows: repeat(var(--rows, 1), auto);
+             grid-auto-flow: column; column-gap: 64px; }
+    /* The hairline belongs between rows, not above whatever lands at the
+       top of the second column. */
+    .dline:first-child, .dline.col-top { border-top: 0; }
   }
 
   /* a card and its resumen */
@@ -793,7 +871,13 @@
 
   /* .cardtot is a link so the whole card is one target; without this it
      inherits the anchor underline and link colour. */
-  a.cardtot { text-decoration: none; color: inherit; }
+  /* No link in this app is a run of underlined text inside a sentence:
+     they are cards, rows and section actions, which say they are pressable
+     by being a card, a row or a violet label. An underline on any of them
+     is noise, and on a whole card it was a line under the heading. Anything
+     that ever does need one opts back in. */
+  .app a { text-decoration: none; }
+  a.card { color: inherit; }
   .head-home { font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); }
 
   /* Payment methods as a list, each with the mark people recognise before
