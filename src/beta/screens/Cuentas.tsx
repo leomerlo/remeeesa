@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { CalendarClock, CreditCard, Info } from 'lucide-react'
-import { useState } from 'react'
 import type { ReactElement } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { cardsDueNextMonth, listResumenCuotas } from '@/lib/cards'
 import type { ResumenCuota } from '@/lib/cards'
 import type { Card as PaymentMethod } from '@/lib/cards'
@@ -25,7 +25,16 @@ export function Cuentas({
 }: {
   readonly session: BetaSession
 }): ReactElement {
-  const [view, setView] = useState<'pagar' | 'tarjetas'>('pagar')
+  // Which of the two the screen is on lives in the address rather than in
+  // state, so somewhere else can send you straight to one -- "Con la
+  // tarjeta" on Inicio is about the cards, and landing on the bills was
+  // answering a question nobody asked. Replaced rather than pushed: the
+  // back button should leave the screen, not walk back through tabs.
+  const [params, setParams] = useSearchParams()
+  const view = params.get('ver') === 'tarjetas' ? 'tarjetas' : 'pagar'
+  const setView = (next: 'pagar' | 'tarjetas'): void => {
+    setParams(next === 'tarjetas' ? { ver: 'tarjetas' } : {}, { replace: true })
+  }
   const householdId = session.householdId ?? null
   const now = new Date()
   const { monthStart } = useMonth()
