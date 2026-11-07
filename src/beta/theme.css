@@ -97,9 +97,13 @@
   .col { display: grid; gap: 24px; align-content: start; min-width: 0; }
 
   /* ===== header ===== */
-  .head { display: grid; gap: 16px; padding-top: 20px; }
+  /* The air above the first thing on a screen, on every screen: the panel
+     used to carry it itself, and then only the Home had it. */
+  .head { display: grid; gap: 16px; padding-top: 16px; }
   .hello { font-size: var(--t-2xl); font-weight: 800; letter-spacing: -.025em; }
-  .hello span { display: block; margin-top: 4px; font-size: var(--t-sm); font-weight: 600;
+  /* Regular, not semibold: it is the line that explains the greeting, and
+     two heavy weights stacked made it compete with it. */
+  .hello span { display: block; margin-top: 4px; font-size: var(--t-sm); font-weight: 400;
                 color: var(--ink-2); letter-spacing: 0; line-height: 1.35;
                 max-width: 44ch; }
   .page-title { font-size: var(--t-3xl); font-weight: 800; letter-spacing: -.03em; margin: 0; }
@@ -372,22 +376,7 @@
        panel at the rail's own ground read as a hole in the page. */
     background: var(--side-active); color: var(--hood-ink);
     border-radius: 24px; display: grid; overflow: hidden;
-    /* On a phone it just starts, the way a screen starts; on a desktop it
-       is the first thing in a wide column and needs air above it. */
-    margin-top: 16px;
   }
-  .hood .head { padding: 20px 20px 18px; gap: 14px;
-                border-bottom: 1px solid var(--hood-line); }
-  .hood .hello { color: var(--hood-ink); }
-  /* Regular, not semibold: it is the line that explains the greeting, and
-     two bold weights stacked made it compete with it. */
-  .hood .hello span { color: var(--hood-ink-2); font-weight: 400; }
-
-  /* The pager sits on the panel rather than on a card of its own. */
-  .hood .month { background: transparent; border: 1px solid var(--hood-line);
-                 color: var(--hood-ink); }
-  .hood .month button { background: rgba(255,255,255,.09); color: var(--hood-ink); }
-  .hood .month b { color: var(--hood-ink); }
 
   /* A hairline where a gap between two cards used to be. */
   .hood .band { gap: 0; }
@@ -936,7 +925,7 @@
                          font-weight: 600; }
     .tab[aria-current] .gl { background: transparent; }
     .tab[aria-current] .gl svg { stroke-width: 1.9; }
-    .hood { margin-top: 48px; }
+    .head { padding-top: 48px; }
     .dolar { display: block; order: 98; margin-top: auto; margin-bottom: 12px;
              background: var(--side-active); border-radius: 16px; padding: 12px; }
     .add { order: 99; margin-top: 0; position: static; width: 100%; height: auto;

@@ -140,18 +140,19 @@ export function Home({
 
   return (
     <>
-      {/* The greeting, the month, what is left of it and the three
-          figures that make up that answer are one thought, and were four
-          separate white cards saying it. One dark panel instead, divided
-          by hairlines rather than by edges: the numbers are the
-          structure, and the only colour in it is each figure's own. */}
-      <div className="hood">
-        {greeting(
-          `Estos son los gastos de ${household.name}, tuyos${
-            others.length > 0 ? ` y de ${others.join(' y ')}` : ''
-          }, del mes de ${monthName(monthStart)}.`,
-        )}
+      {greeting(
+        `Estos son los gastos de ${household.name}, tuyos${
+          others.length > 0 ? ` y de ${others.join(' y ')}` : ''
+        }, del mes de ${monthName(monthStart)}.`,
+      )}
 
+      {/* The month's figure and the three figures behind it are one
+          answer, and were four separate white cards giving it in pieces.
+          One dark panel instead, divided by hairlines rather than by
+          edges: the numbers carry the structure, and the only colour in
+          it is each figure's own. The greeting and the month pager stay
+          outside it -- they say who and when, not how much. */}
+      <div className="hood">
         <div className="band">
           {budget > 0 ? (
             <BudgetHero figures={figures} />
