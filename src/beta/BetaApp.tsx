@@ -10,6 +10,7 @@ import { useBetaSession, useHouseholdName } from './data'
 import { Shell } from './Shell'
 import { BootSkeleton } from './Skeleton'
 import { SignIn } from './SignIn'
+import { Categorias } from './screens/Categorias'
 import { Cuentas } from './screens/Cuentas'
 import { Gastos } from './screens/Gastos'
 import { Home } from './screens/Home'
@@ -56,6 +57,10 @@ export function BetaRoutes(): ReactElement {
         <Routes>
           <Route path="/" element={<Home session={session} />} />
           <Route path="/gastos" element={<Gastos session={session} />} />
+          <Route
+            path="/categorias"
+            element={<Categorias session={session} />}
+          />
           <Route path="/cuentas" element={<Cuentas session={session} />} />
           <Route path="/perfil" element={<Perfil session={session} />} />
           <Route

@@ -233,7 +233,7 @@ export function Home({
             {/* At the foot of the list rather than beside its heading: it
                 is what you reach for once you have read the last row, and
                 up there it was a small link competing with the title. */}
-            <Link className="btn btn-secondary btn-block" to="/gastos">
+            <Link className="btn btn-secondary btn-wide" to="/gastos">
               <ArrowRight />
               Ver todos los gastos
             </Link>
@@ -252,7 +252,7 @@ export function Home({
                   now={now}
                 />
               ))}
-              <Link className="btn btn-secondary btn-block" to="/cuentas">
+              <Link className="btn btn-secondary btn-wide" to="/cuentas">
                 <ArrowRight />
                 Ver todas las cuentas
               </Link>
@@ -270,6 +270,10 @@ export function Home({
 
       <div className="band">
         <Donut rows={byCategory} />
+        <Link className="btn btn-secondary btn-wide" to="/categorias">
+          <ArrowRight />
+          Ver por categoría
+        </Link>
         {top !== undefined ? (
           <AlertCard kind="warn" icon={<Lightbulb />}>
             Donde más se va la plata es <b>{top.name}</b>:{' '}

@@ -142,6 +142,10 @@
                    border: 2px solid var(--grape-600); padding: 8px 16px; }
   .btn-sm { }   /* kept as a no-op: every button is already this size */
   .btn-block { justify-self: stretch; width: 100%; }
+  /* Full width on a phone, where a button that hugs its text looks lost in
+     the column; its own width and sat against the right edge once there is
+     room, where the eye leaves the list anyway. */
+  .btn-wide { justify-self: stretch; width: 100%; }
 
   /* ===== cards ===== */
   /* A hairline instead of a shadow: on a desktop full of cards the shadows
@@ -957,6 +961,7 @@
     .tab[aria-current] .gl { background: transparent; }
     .tab[aria-current] .gl svg { stroke-width: 1.9; }
     .head { padding-top: 40px; }
+    .btn-wide { justify-self: end; width: auto; }
     .dolar { display: block; order: 98; margin-top: auto; margin-bottom: 12px;
              background: var(--side-active); border-radius: 16px; padding: 12px; }
     /* The action lives in the bar up top here. Two of them in one view
