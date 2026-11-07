@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import {
   ChevronRight,
-  CreditCard,
   Download,
   House,
   LogOut,
@@ -11,6 +10,8 @@ import {
 import type { ReactElement } from 'react'
 import { useFirebase } from '@/lib/firebaseContext'
 import { PAYMENT_METHOD_KINDS } from '@/lib/cards'
+import type { Card as PaymentMethod } from '@/lib/cards'
+import { CardBrandMark } from '../CardBrandMark'
 import type { BetaSession } from '../data'
 import { LoadFailed, Title } from './Gastos'
 
@@ -58,7 +59,7 @@ export function Perfil({
 
   return (
     <>
-      <Title text="Mi perfil" />
+      <Title text="Mi perfil" home={household.name} />
       <div className="card">
         <div className="plist">
           <Item
@@ -84,20 +85,24 @@ export function Perfil({
       {/* The budget is not here: it belongs to a month, and you set it from
           that month's Inicio. */}
       <section className="sec">
+        <h2>Cómo pagan</h2>
+        {cards.length === 0 ? (
+          <div className="card">
+            <p className="hint">Todavía no cargaron ningún método de pago.</p>
+          </div>
+        ) : (
+          <div className="methods">
+            {cards.map((card) => (
+              <MethodRow key={card.id} card={card} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="sec">
         <h2>La plata del hogar</h2>
         <div className="card">
           <div className="plist">
-            <Item
-              Icon={CreditCard}
-              k="Cómo pagan"
-              v={
-                cards.length > 0
-                  ? cards
-                      .map((card) => `${card.name} · ${kindLabel(card.kind)}`)
-                      .join(' · ')
-                  : 'Todavía no cargaron ninguno'
-              }
-            />
             <Item
               Icon={Tag}
               k="Categorías y topes"
@@ -135,6 +140,25 @@ export function Perfil({
         Cerrar sesión
       </button>
     </>
+  )
+}
+
+function currencyLabel(currency: PaymentMethod['currency']): string {
+  if (currency === 'BOTH') return 'Pesos y dólares'
+  return currency === 'USD' ? 'Dólares' : 'Pesos'
+}
+
+function MethodRow({ card }: { readonly card: PaymentMethod }): ReactElement {
+  return (
+    <div className="card method">
+      <span className="brand-mark" aria-hidden="true">
+        <CardBrandMark brand={card.brand} />
+      </span>
+      <span className="name">{card.name}</span>
+      <span className="sub">
+        {kindLabel(card.kind)} · {currencyLabel(card.currency)}
+      </span>
+    </div>
   )
 }
 

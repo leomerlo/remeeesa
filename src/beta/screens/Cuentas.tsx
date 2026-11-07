@@ -32,17 +32,19 @@ export function Cuentas({
     enabled: householdId !== null,
     queryFn: async () => {
       const id = householdId as string
-      const [pendientes, categories, cards, purchases] = await Promise.all([
-        session.db.listPendientes({ householdId: id }),
-        session.db.listCategories(id),
-        session.db.listCards({ householdId: id }),
-        session.db.listCardPurchasesInMonth({
-          householdId: id,
-          monthStart,
-          monthEnd,
-        }),
-      ])
-      return { pendientes, categories, cards, purchases }
+      const [pendientes, categories, cards, purchases, household] =
+        await Promise.all([
+          session.db.listPendientes({ householdId: id }),
+          session.db.listCategories(id),
+          session.db.listCards({ householdId: id }),
+          session.db.listCardPurchasesInMonth({
+            householdId: id,
+            monthStart,
+            monthEnd,
+          }),
+          session.db.getHousehold(id),
+        ])
+      return { pendientes, categories, cards, purchases, household }
     },
   })
 
@@ -53,7 +55,7 @@ export function Cuentas({
     return <LoadFailed />
   }
 
-  const { pendientes, categories, cards, purchases } = data.data
+  const { pendientes, categories, cards, purchases, household } = data.data
   const bills = sortBills(pendientes.filter(isBillToPay), monthStart, now)
 
   const segment = (
@@ -78,8 +80,7 @@ export function Cuentas({
   if (view === 'tarjetas') {
     return (
       <>
-        <Title text="Cuentas" />
-        <MonthPager />
+        <Title text="Cuentas" home={household.name} />
         {segment}
         <div className="card alert alert-info">
           <span className="tile" aria-hidden="true">
@@ -108,9 +109,9 @@ export function Cuentas({
 
   return (
     <>
-      <Title text="Cuentas" />
-      <MonthPager />
+      <Title text="Cuentas" home={household.name} />
       {segment}
+      <MonthPager />
       {bills.length === 0 ? (
         <div className="card empty">
           <span className="orb" aria-hidden="true">

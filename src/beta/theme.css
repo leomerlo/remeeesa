@@ -406,8 +406,8 @@
   .donut .holesub { font-size: var(--t-mini); font-weight: 700; fill: var(--ink-2); }
   .dlist { display: grid; gap: 4px; min-width: 0; }
   .dline { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto;
-           gap: 12px; align-items: baseline; font-size: var(--t-sm); font-weight: 600;
-           padding: 8px 0; }
+           gap: 12px; align-items: center; font-size: var(--t-sm); font-weight: 600;
+           padding: 8px 0; min-height: 40px; }
   .dline i { width: 12px; height: 12px; border-radius: 50%; flex: none; align-self: center; }
   .dline .nm { color: var(--ink); font-weight: 700; overflow-wrap: anywhere; }
   .dline .pc { color: var(--ink-2); font-size: var(--t-xs); min-width: 40px;
@@ -790,3 +790,23 @@
   .readonly { background: var(--amber-50); color: var(--amber-700);
               border-radius: 999px; padding: 8px 16px; font-size: var(--t-xs);
               font-weight: 700; justify-self: start; }
+
+  /* .cardtot is a link so the whole card is one target; without this it
+     inherits the anchor underline and link colour. */
+  a.cardtot { text-decoration: none; color: inherit; }
+  .head-home { font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); }
+
+  /* Payment methods as a list, each with the mark people recognise before
+     they read the name. Two across once there is room for it. */
+  .methods { display: grid; gap: 12px; }
+  .method { display: grid; grid-template-columns: auto minmax(0, 1fr);
+            gap: 0 16px; align-items: center; padding: 16px; }
+  .method .brand-mark { grid-row: 1 / span 2; width: 40px; height: 40px;
+                        border-radius: 50%; background: var(--page);
+                        color: var(--ink); display: grid; place-items: center; }
+  .method .brand-mark svg { width: 26px; height: 26px; }
+  .method .name { font-size: var(--t-md); font-weight: 700; }
+  .method .sub { font-size: var(--t-sm); font-weight: 600; color: var(--ink-2); }
+  @media (min-width: 760px) {
+    .methods { grid-template-columns: 1fr 1fr; }
+  }

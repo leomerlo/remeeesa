@@ -1,6 +1,10 @@
 import { Check, ChevronRight, TriangleAlert } from 'lucide-react'
 import type { ReactElement } from 'react'
-import { formatAmount, formatCurrency } from '@/lib/expenses'
+import {
+  formatAmount,
+  formatCompactCurrency,
+  formatCurrency,
+} from '@/lib/expenses'
 import type { Category, Expense } from '@/lib/expenses'
 import type { Pendiente } from '@/lib/pendientes'
 import type { CardPurchase } from '@/lib/cards'
@@ -240,13 +244,16 @@ export function Donut({
     readonly share: number
   }[]
 }): ReactElement | null {
-  if (rows.length === 0) return null
-  const total = rows.reduce((sum, row) => sum + row.total, 0)
+  // A category with nothing in it is not a slice and not a line: it was
+  // listed at 0% of a total it took nothing out of.
+  const spent = rows.filter((row) => row.total > 0)
+  if (spent.length === 0) return null
+  const total = spent.reduce((sum, row) => sum + row.total, 0)
   const circumference = 2 * Math.PI * 52
-  const arcs = rows.map((row, index) => ({
+  const arcs = spent.map((row, index) => ({
     row,
     length: row.share * circumference,
-    offset: rows
+    offset: spent
       .slice(0, index)
       .reduce((sum, earlier) => sum + earlier.share * circumference, 0),
   }))
@@ -276,7 +283,7 @@ export function Donut({
             ))}
           </g>
           <text className="hole" x="70" y="68" textAnchor="middle">
-            {formatCurrency(total)}
+            {formatCompactCurrency(total)}
           </text>
           <text className="holesub" x="70" y="84" textAnchor="middle">
             EN TOTAL
@@ -284,14 +291,19 @@ export function Donut({
         </svg>
       </div>
       <div className="dlist">
-        {rows.map((row) => (
-          <div className="dline" key={row.categoryId}>
-            <i style={{ background: row.color }} />
-            <span className="nm">{row.name}</span>
-            <span className="pc">{Math.round(row.share * 100)}%</span>
-            <span className="amt">{formatCurrency(row.total)}</span>
-          </div>
-        ))}
+        {spent.map((row) => {
+          const percent = Math.round(row.share * 100)
+          return (
+            <div className="dline" key={row.categoryId}>
+              <i style={{ background: row.color }} />
+              <span className="nm">{row.name}</span>
+              <span className="pc">
+                {percent === 0 ? '<1%' : `${String(percent)}%`}
+              </span>
+              <span className="amt">{formatCurrency(row.total)}</span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
