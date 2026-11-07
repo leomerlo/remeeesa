@@ -1,16 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { CalendarClock, CreditCard, Info } from 'lucide-react'
+import { ArrowRight, CalendarClock, CreditCard } from 'lucide-react'
 import type { ReactElement } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { cardsDueNextMonth, listResumenCuotas } from '@/lib/cards'
-import type { ResumenCuota } from '@/lib/cards'
-import type { Card as PaymentMethod } from '@/lib/cards'
+import { Link, useSearchParams } from 'react-router-dom'
 import { formatAmount } from '@/lib/expenses'
-import type { Pendiente } from '@/lib/pendientes'
-import { DEFAULT_CURRENCY } from '@/lib/money'
-import { cuentasFigures } from '../figures'
+import { billsOnCard, billsOnCardTotal, cuentasFigures } from '../figures'
 
-import { CardBrandMark } from '../CardBrandMark'
 import { ListSkeleton, NameSkel } from '../Skeleton'
 import { Figure } from '../Figure'
 import { useMonth } from '../MonthContext'
@@ -36,31 +30,24 @@ export function Cuentas({
   }
   const householdId = session.householdId ?? null
   const now = new Date()
-  const { monthStart } = useMonth()
+  const { monthStart, monthEnd } = useMonth()
 
   const data = useQuery({
     queryKey: ['beta', 'cuentas', householdId, monthStart.toISOString()],
     enabled: householdId !== null,
     queryFn: async () => {
       const id = householdId as string
-      const [pendientes, categories, cards, household] = await Promise.all([
+      const [pendientes, categories, household, settled] = await Promise.all([
         session.db.listPendientes({ householdId: id }),
         session.db.listCategories(id),
-        session.db.listCards({ householdId: id }),
         session.db.getHousehold(id),
+        session.db.listPaidPendientesDueInMonth({
+          householdId: id,
+          monthStart,
+          monthEnd,
+        }),
       ])
-      // The statements the cards will send for the month after the one on
-      // screen, read off the Resúmenes the app already keeps -- the same
-      // documents the v1's "Tarjetas el mes que viene" reads. Recomputing
-      // them from this month's purchases missed every cuota of an older
-      // one.
-      const resumenes = cardsDueNextMonth(pendientes, monthStart)
-      const cuotas = await Promise.all(
-        resumenes.map((resumen) =>
-          listResumenCuotas({ db: session.db, householdId: id, resumen }),
-        ),
-      )
-      return { pendientes, categories, cards, household, resumenes, cuotas }
+      return { pendientes, categories, household, settled }
     },
   })
 
@@ -101,8 +88,11 @@ export function Cuentas({
     )
   }
 
-  const { pendientes, categories, cards, household, resumenes, cuotas } =
-    data.data
+  const { pendientes, categories, household, settled } = data.data
+
+  // Bills of this month settled with a credit card -- see figures.ts for
+  // why this reads the paid ones. Where they end up is Tarjetas.
+  const onCard = billsOnCard(settled)
 
   const { bills, owed, owedUsd, late } = cuentasFigures({
     pendientes,
@@ -110,43 +100,72 @@ export function Cuentas({
     now,
   })
 
+  const header = (
+    <Title
+      text="Cuentas"
+      sub={`Lo que ${household.name} tiene que pagar, y con qué lo paga.`}
+      pager
+    />
+  )
+
   if (view === 'tarjetas') {
+    const total = billsOnCardTotal(settled)
     return (
       <>
-        <Title
-          text="Cuentas"
-          sub={`Lo que ${household.name} tiene que pagar, y lo que va a pedir la tarjeta.`}
-          pager
-        />
+        {header}
         {segment}
-        <div className="card alert alert-info">
-          <span className="tile" aria-hidden="true">
-            <Info />
-          </span>
-          <p>
-            Lo que van a pedir los resúmenes de{' '}
-            <b>{monthName(nextMonthOf(monthStart))}</b>. Siempre es un estimado:
-            el monto real lo cargan cuando pagan, porque ahí se le suman
-            impuestos e intereses.
-          </p>
-        </div>
-        <Cards
-          cards={cards}
-          resumenes={resumenes}
-          cuotas={cuotas}
-          monthStart={monthStart}
-        />
+        {onCard.length === 0 ? (
+          <div className="card empty">
+            <span className="orb" aria-hidden="true">
+              <CreditCard />
+            </span>
+            <h3>Ninguna cuenta se pagó con tarjeta</h3>
+            <p>
+              Cuando marquen una cuenta como pagada con una tarjeta de crédito
+              va a aparecer acá: esa plata no sale este mes, llega en el
+              resumen.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="card hero">
+              <div className="label">
+                Cuentas de {monthName(monthStart)} que pagaron con tarjeta
+              </div>
+              <div className="figure">
+                <Figure amount={total} />
+              </div>
+              <div className="legend">
+                <span>
+                  Esta plata no salió este mes: va al resumen de{' '}
+                  {monthName(nextMonthOf(monthStart))}.
+                </span>
+              </div>
+            </div>
+            <div className="sec">
+              {onCard.map((bill) => (
+                <BillRow
+                  key={bill.id}
+                  bill={bill}
+                  categories={categories}
+                  monthStart={monthStart}
+                  now={now}
+                />
+              ))}
+            </div>
+            <Link className="btn btn-secondary btn-wide" to="/tarjetas">
+              <ArrowRight />
+              Ver el resumen completo
+            </Link>
+          </>
+        )}
       </>
     )
   }
 
   return (
     <>
-      <Title
-        text="Cuentas"
-        sub={`Lo que ${household.name} tiene que pagar, y lo que va a pedir la tarjeta.`}
-        pager
-      />
+      {header}
       {segment}
       {bills.length === 0 ? (
         <div className="card empty">
@@ -204,132 +223,4 @@ export function Cuentas({
 
 function nextMonthOf(monthStart: Date): Date {
   return new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1)
-}
-
-function Cards({
-  cards,
-  resumenes,
-  cuotas,
-  monthStart,
-}: {
-  readonly cards: readonly PaymentMethod[]
-  readonly resumenes: readonly Pendiente[]
-  readonly cuotas: readonly (readonly ResumenCuota[])[]
-  readonly monthStart: Date
-}): ReactElement {
-  const credit = cards.filter((card) => card.kind === 'credito')
-
-  if (credit.length === 0) {
-    return (
-      <div className="card empty">
-        <span className="orb" aria-hidden="true">
-          <CreditCard />
-        </span>
-        <h3>No cargaron ninguna tarjeta</h3>
-        <p>
-          Con una tarjeta cargada podemos decirles qué va a venir en el próximo
-          resumen.
-        </p>
-      </div>
-    )
-  }
-
-  const next = nextMonthOf(monthStart)
-
-  return (
-    <>
-      {credit.map((card) => {
-        const mine = resumenes
-          .map((resumen, index) => ({ resumen, lines: cuotas[index] ?? [] }))
-          .filter(({ resumen }) => resumen.cardId === card.id)
-        return (
-          <div className="card cardblk" key={card.id}>
-            <div className="ch">
-              {/* The brand's own mark, the way the v1 draws it: nobody has
-                  to read the name to know which card it is. */}
-              <span className="tile brand" aria-hidden="true">
-                <CardBrandMark brand={card.brand} />
-              </span>
-              <span className="nm">{card.name}</span>
-              <span className="no">
-                {card.currency === 'BOTH'
-                  ? 'En pesos y en dólares'
-                  : card.currency === 'USD'
-                    ? 'En dólares'
-                    : 'En pesos'}
-              </span>
-            </div>
-            {mine.length === 0 ? (
-              <div className="resumen">
-                <div className="hint">
-                  Sin consumos para el resumen de {monthName(next)}.
-                </div>
-              </div>
-            ) : (
-              mine.map(({ resumen, lines }) => (
-                <Resumen
-                  key={resumen.id}
-                  resumen={resumen}
-                  lines={lines}
-                  showCurrency={card.currency === 'BOTH'}
-                />
-              ))
-            )}
-          </div>
-        )
-      })}
-    </>
-  )
-}
-
-function Resumen({
-  resumen,
-  lines,
-  showCurrency,
-}: {
-  readonly resumen: Pendiente
-  readonly lines: readonly ResumenCuota[]
-  readonly showCurrency: boolean
-}): ReactElement {
-  const currency = resumen.currency ?? DEFAULT_CURRENCY
-  // Added up from the rows listed below it, not read off the Resumen's
-  // stored total: this figure's job is to be what that list comes to. The
-  // v1 computes it the same way, for the same reason.
-  const total =
-    lines.reduce(
-      (cents, { cuota }) => cents + Math.round(cuota.amount * 100),
-      0,
-    ) / 100
-  const loaded = resumen.expectedAmount
-
-  return (
-    <div className="resumen">
-      <div className="rh">
-        <span className="rt">
-          Resumen de {monthName(resumen.dueDate)}
-          {showCurrency ? (currency === 'USD' ? ' · dólares' : ' · pesos') : ''}
-        </span>
-        <span className="rv">{formatAmount(total, currency)}</span>
-      </div>
-      {/* A card that closes on a different day every month cannot be
-          promised a date here -- the v1 rejected a fixed closing day for
-          exactly that reason. */}
-      <div className="hint">
-        {loaded === null
-          ? 'Estimado. Cuando llegue el resumen cargan el monto real.'
-          : `Ya cargaron el resumen: ${formatAmount(loaded, currency)}.`}
-      </div>
-      {lines.map(({ purchase, cuota }) => (
-        <div className="cuota" key={`${purchase.id}-${String(cuota.number)}`}>
-          <span className="cn">{purchase.name}</span>
-          <span className="cm">
-            {purchase.cuotas === 1
-              ? 'Un solo pago'
-              : `Cuota ${String(cuota.number)} de ${String(purchase.cuotas)}`}
-          </span>
-          <span className="ca">{formatAmount(cuota.amount, currency)}</span>
-        </div>
-      ))}
-    </div>
-  )
 }

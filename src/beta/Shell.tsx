@@ -1,19 +1,49 @@
-import { CalendarClock, History, House, Plus, UserRound } from 'lucide-react'
+import {
+  CalendarClock,
+  ChartPie,
+  CreditCard,
+  History,
+  House,
+  Plus,
+  UserRound,
+} from 'lucide-react'
 import type { ReactElement, ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import logo from '@/assets/logo.png'
 import { Dolar } from './Dolar'
 
+// `bar` is whether the tab also appears in a phone's bottom bar. Six fit
+// the desktop rail; a phone's bar holds four and the one action, so
+// Categorías is reached there from the ring on Inicio, which is where
+// anyone looking for it is already looking.
 const TABS = [
-  { to: '/', label: 'Inicio', Icon: House, end: true },
-  { to: '/gastos', label: 'Gastos', Icon: History, end: false },
-  { to: '/cuentas', label: 'Cuentas', Icon: CalendarClock, end: false },
-  { to: '/perfil', label: 'Perfil', Icon: UserRound, end: false },
+  { to: '/', label: 'Inicio', Icon: House, end: true, bar: true },
+  { to: '/gastos', label: 'Gastos', Icon: History, end: false, bar: true },
+  {
+    to: '/cuentas',
+    label: 'Cuentas',
+    Icon: CalendarClock,
+    end: false,
+    bar: true,
+  },
+  {
+    to: '/tarjetas',
+    label: 'Tarjetas',
+    Icon: CreditCard,
+    end: false,
+    bar: true,
+  },
+  {
+    to: '/categorias',
+    label: 'Categorías',
+    Icon: ChartPie,
+    end: false,
+    bar: false,
+  },
+  { to: '/perfil', label: 'Perfil', Icon: UserRound, end: false, bar: true },
 ] as const
 
-// Four tabs and the one action, which is as many as a phone's bar holds.
-// Categorías lives inside Gastos for that reason -- it is a view of the
-// same data, so it belongs where the data is.
+// The rail on a desktop, the bar on a phone, and the one action.
 export function Shell({
   children,
   home,
@@ -33,8 +63,13 @@ export function Shell({
                 white for its own dark rail the same way. */}
             <img src={logo} alt="reméeesa" />
           </div>
-          {TABS.map(({ to, label, Icon, end }) => (
-            <NavLink key={to} to={to} end={end} className="tab">
+          {TABS.map(({ to, label, Icon, end, bar }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              className={bar ? 'tab' : 'tab rail-only'}
+            >
               <span className="gl" aria-hidden="true">
                 <Icon />
               </span>

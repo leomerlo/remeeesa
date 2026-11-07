@@ -10,6 +10,8 @@ import { DEMO_SCENARIOS, DEMO_USER_ID, seedDemoHousehold } from '@/demo/seed'
 import type { DemoScenario } from '@/demo/seed'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import {
+  billsOnCard,
+  billsOnCardTotal,
   cuentasFigures,
   gastosFigures,
   homeFigures,
@@ -255,6 +257,59 @@ describe('the beta says the same month on every screen', () => {
     // ...and this month's budget does not, because it was September's
     // money. That is the whole of the October bug, as a test.
     expect(cents(home.owed)).toBe(cents(owedBefore))
+  })
+
+  // A bill settled with a credit card is the one case where a bill and a
+  // card meet. No seeded household has one -- the seed never calls
+  // markPendientePaidWithCard -- so it is built here. The money has not
+  // left: it is not in what the month paid, it is not in what the month
+  // still owes, and it belongs beside the cards.
+  it('puts a bill paid with a card on the card, not on the month', () => {
+    const base = snapshots.get('completa·este mes')
+    if (base === undefined) throw new Error('missing snapshot')
+    const [model] = base.pendientes.filter(
+      (pendiente) =>
+        pendiente.cardId === undefined &&
+        (pendiente.currency ?? 'ARS') === 'ARS' &&
+        pendiente.expectedAmount !== null,
+    )
+    if (model === undefined) throw new Error('no peso bill to model on')
+
+    const onCard: Pendiente = {
+      ...model,
+      id: `${model.id}-con-tarjeta`,
+      name: 'Prepaga con la Visa',
+      status: 'paid',
+      paidExpenseId: null,
+      paidPurchaseId: 'compra-de-la-prepaga',
+      paidAt: base.now,
+      dueDate: new Date(
+        base.monthStart.getFullYear(),
+        base.monthStart.getMonth(),
+        12,
+      ),
+    }
+    const snap: Snapshot = {
+      ...base,
+      pendientes: [...base.pendientes, onCard],
+    }
+    const home = homeFigures(snap)
+    const before = homeFigures(base)
+
+    // Nothing about the month changed: it was not paid out of this
+    // month's money and it is not owed either.
+    expect(cents(home.paid)).toBe(cents(before.paid))
+    expect(cents(home.owed)).toBe(cents(before.owed))
+    expect(home.bills.map((bill) => bill.id)).not.toContain(onCard.id)
+
+    // It is on the card, and counted there.
+    expect(billsOnCard([onCard]).map((bill) => bill.id)).toEqual([onCard.id])
+    expect(cents(billsOnCardTotal([onCard]))).toBe(
+      cents(onCard.expectedAmount ?? 0),
+    )
+
+    // A bill paid the ordinary way is not on a card.
+    expect(billsOnCard([{ ...onCard, paidPurchaseId: null }])).toEqual([])
   })
 
   // The hero says what is left; the legend under it says what it was

@@ -15,6 +15,7 @@ import { Cuentas } from './screens/Cuentas'
 import { Gastos } from './screens/Gastos'
 import { Home } from './screens/Home'
 import { Perfil } from './screens/Perfil'
+import { Tarjetas } from './screens/Tarjetas'
 import { Proyecciones } from './screens/Proyecciones'
 
 // Hash routing, not paths: beta.html is a second static entry, and a path
@@ -62,6 +63,7 @@ export function BetaRoutes(): ReactElement {
             element={<Categorias session={session} />}
           />
           <Route path="/cuentas" element={<Cuentas session={session} />} />
+          <Route path="/tarjetas" element={<Tarjetas session={session} />} />
           <Route path="/perfil" element={<Perfil session={session} />} />
           <Route
             path="/proyeccion"

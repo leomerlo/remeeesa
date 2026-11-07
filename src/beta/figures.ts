@@ -229,6 +229,33 @@ export function cuentasFigures(input: {
   }
 }
 
+// The bills of a month that were settled with a credit card. The money
+// did not leave the household: it went onto the card and arrives in that
+// card's Resumen, so it belongs beside the cards and not among what is
+// still owed.
+//
+// This is the only link the database holds between a bill and a card.
+// There is no field saying a bill *will* be charged to one, so it can only
+// be known after it has been marked paid that way -- which is why this
+// takes the month's already-paid bills rather than its pending ones.
+export function billsOnCard(
+  settled: readonly Pendiente[],
+): readonly Pendiente[] {
+  return settled.filter((bill) => (bill.paidPurchaseId ?? null) !== null)
+}
+
+// What those bills come to in pesos. Dollars are left out, like every
+// other peso figure.
+export function billsOnCardTotal(settled: readonly Pendiente[]): number {
+  return sumIn(
+    billsOnCard(settled).map((bill) => ({
+      price: bill.expectedAmount ?? 0,
+      currency: bill.currency ?? DEFAULT_CURRENCY,
+    })),
+    DEFAULT_CURRENCY,
+  )
+}
+
 export type ProjectionKind = 'cargado' | 'anterior' | 'servicio'
 
 export type ProjectionLine = {

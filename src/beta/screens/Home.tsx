@@ -180,7 +180,7 @@ export function Home({
                 Cuentas que vencen y todavía no pagaron.
               </span>
             </div>
-            <Link className="card cardtot" to="/cuentas?ver=tarjetas">
+            <Link className="card cardtot" to="/tarjetas">
               <span className="cap">
                 <span className="dot dot-card" />
                 Con la tarjeta
