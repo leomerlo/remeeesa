@@ -151,6 +151,7 @@ export function BillRow({
   now,
   several = false,
   paidBy = null,
+  paidWith = null,
   onEdit,
   onPay,
 }: {
@@ -164,6 +165,9 @@ export function BillRow({
   // Who paid it, where it is paid and the payment left a gasto with a
   // name on it. Nobody has paid an open bill, so it carries none.
   readonly paidBy?: string | null
+  // And with what. It belongs to the payment, not to the bill: the same
+  // servicio can be cash one month and a card the next.
+  readonly paidWith?: string | null
   readonly onEdit?: () => void
   readonly onPay?: () => void
 }): ReactElement {
@@ -213,11 +217,9 @@ export function BillRow({
             {state === 'paid' ? (
               <span className="tag paid">
                 <Check />
-                {bill.paidPurchaseId != null
-                  ? 'Pagado con tarjeta'
-                  : bill.paidAt === null
-                    ? 'Pagado'
-                    : `Pagado el ${String(bill.paidAt.getDate())}`}
+                {bill.paidAt === null
+                  ? 'Pagado'
+                  : `Pagado el ${String(bill.paidAt.getDate())}`}
               </span>
             ) : state === 'late' ? (
               <span className="tag late">
@@ -229,6 +231,14 @@ export function BillRow({
                 <TriangleAlert />
                 Ya venció este mes
               </span>
+            ) : null}
+            {/* What it was paid with, which only a paid bill has. Named
+                where the name is known, and "con tarjeta" where the card
+                behind the payment could not be read. */}
+            {state !== 'paid' ? null : paidWith != null ? (
+              <span className="tag soft">Con {paidWith}</span>
+            ) : bill.paidPurchaseId != null ? (
+              <span className="tag soft">Con tarjeta</span>
             ) : null}
             {currency !== DEFAULT_CURRENCY ? (
               <span className="tag usd">En dólares</span>

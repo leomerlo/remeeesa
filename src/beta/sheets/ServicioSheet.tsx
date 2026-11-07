@@ -53,6 +53,7 @@ export function ServicioSheet({
   bill,
   categories,
   today,
+  paidWith = null,
 }: {
   readonly open: boolean
   readonly onClose: () => void
@@ -60,6 +61,11 @@ export function ServicioSheet({
   readonly bill: Pendiente | null
   readonly categories: readonly Category[]
   readonly today: Date
+  // What the payment was made with, where it has been paid. Read-only
+  // here on purpose: it is chosen at the moment of paying rather than set
+  // on the bill, so the same servicio can go in cash one month and on a
+  // card the next.
+  readonly paidWith?: string | null
 }): ReactElement {
   const [name, setName] = useState(bill?.name ?? '')
   const [amount, setAmount] = useState(
@@ -191,6 +197,17 @@ export function ServicioSheet({
       ) : null}
       {bill === null || bill.status !== 'paid' ? null : (
         <>
+          {paidWith === null ? null : (
+            <div className="field">
+              <span className="flabel">Pagado con</span>
+              <p className="codebox">{paidWith}</p>
+            </div>
+          )}
+          <p className="fnote">
+            Con qué se paga se elige al pagarlo, no acá: el mismo servicio puede
+            ir en efectivo un mes y con tarjeta el siguiente. Para cambiarlo,
+            deshacé el pago y volvé a pagarlo.
+          </p>
           <p className="fnote">
             Deshacer el pago lo devuelve a la lista de lo que falta pagar, y
             saca el gasto que ese pago había anotado. Si lo pagaron con tarjeta,

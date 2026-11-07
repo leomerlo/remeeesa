@@ -62,7 +62,35 @@ export function Servicios({
           }),
           session.db.listMembers(id),
         ])
-      return { pendientes, categories, methods, settled, expenses, members }
+      // A bill paid with a credit card wrote a consumo, not a gasto, so
+      // the card it was paid with is on the purchase. Fetched by id in one
+      // call: the purchase can be from any month, so no month query finds
+      // it.
+      //
+      // Over both lists, and that is the whole point: listPendientes
+      // returns only what is still owed, so a paid bill -- the only kind
+      // that has a payment to name -- lives in `settled` alone. Reading
+      // one list left every card payment saying "con tarjeta" instead of
+      // naming the card.
+      const purchaseIds = [...pendientes, ...settled]
+        .map((pendiente) => pendiente.paidPurchaseId)
+        .filter((purchaseId): purchaseId is string => purchaseId != null)
+      const payments =
+        purchaseIds.length === 0
+          ? []
+          : await session.db.getCardPurchases({
+              householdId: id,
+              purchaseIds,
+            })
+      return {
+        pendientes,
+        categories,
+        methods,
+        settled,
+        expenses,
+        members,
+        payments,
+      }
     },
   })
 
@@ -103,8 +131,15 @@ export function Servicios({
     )
   }
 
-  const { pendientes, categories, methods, settled, expenses, members } =
-    data.data
+  const {
+    pendientes,
+    categories,
+    methods,
+    settled,
+    expenses,
+    members,
+    payments,
+  } = data.data
   const several = members.length > 1
   const authorOf = new Map(
     expenses.map((expense) => [expense.id, expense.authorDisplayName]),
@@ -115,6 +150,29 @@ export function Servicios({
     bill.paidExpenseId === null
       ? null
       : (authorOf.get(bill.paidExpenseId) ?? null)
+  // What it was paid with. Decided at the moment of payment, not on the
+  // bill -- a servicio paid in cash for a year and then put on automatic
+  // debit is the same servicio -- so it is read off whatever that payment
+  // wrote: a gasto with a method on it, or a consumo on a card.
+  const cardName = new Map(methods.map((method) => [method.id, method.name]))
+  const expenseById = new Map(expenses.map((expense) => [expense.id, expense]))
+  const purchaseById = new Map(
+    payments.map((purchase) => [purchase.id, purchase]),
+  )
+  const paidWithOf = (bill: Pendiente): string | null => {
+    if (bill.paidPurchaseId != null) {
+      const purchase = purchaseById.get(bill.paidPurchaseId)
+      return purchase === undefined
+        ? null
+        : (cardName.get(purchase.cardId) ?? null)
+    }
+    if (bill.paidExpenseId === null) return null
+    const expense = expenseById.get(bill.paidExpenseId)
+    if (expense === undefined) return null
+    return expense.paymentMethodId === null
+      ? 'efectivo'
+      : (cardName.get(expense.paymentMethodId) ?? null)
+  }
 
   // Bills of this month settled with a credit card -- see figures.ts for
   // why this reads the paid ones. Where they end up is Tarjetas.
@@ -182,6 +240,7 @@ export function Servicios({
                   now={now}
                   several={several}
                   paidBy={paidByOf(bill)}
+                  paidWith={paidWithOf(bill)}
                 />
               ))}
             </div>
@@ -254,6 +313,7 @@ export function Servicios({
                   now={now}
                   several={several}
                   paidBy={paidByOf(bill)}
+                  paidWith={paidWithOf(bill)}
                   onEdit={() => setEditing(bill)}
                   onPay={() => setPaying(bill)}
                 />
@@ -275,6 +335,7 @@ export function Servicios({
                   now={now}
                   several={several}
                   paidBy={paidByOf(bill)}
+                  paidWith={paidWithOf(bill)}
                   onEdit={() => setEditing(bill)}
                 />
               ))}
@@ -298,6 +359,7 @@ export function Servicios({
           bill={editing === 'nuevo' ? null : editing}
           categories={categories}
           today={now}
+          paidWith={editing === 'nuevo' ? null : paidWithOf(editing)}
         />
       )}
       {paying === null ? null : (
