@@ -5,6 +5,7 @@ import type { ReactElement } from 'react'
 import { HashRouter, Route, Routes } from 'react-router-dom'
 import { createFirebaseClient, readFirebaseEnv } from '@/lib/firebase'
 import { FirebaseProvider, useFirebase } from '@/lib/firebaseContext'
+import { MonthProvider } from './MonthContext'
 import { useBetaSession } from './data'
 import { Shell } from './Shell'
 import { SignIn } from './SignIn'
@@ -43,14 +44,16 @@ function Routed(): ReactElement {
   }
 
   return (
-    <Shell>
-      <Routes>
-        <Route path="/" element={<Home session={session} />} />
-        <Route path="/gastos" element={<Gastos session={session} />} />
-        <Route path="/cuentas" element={<Cuentas session={session} />} />
-        <Route path="/perfil" element={<Perfil session={session} />} />
-      </Routes>
-    </Shell>
+    <MonthProvider>
+      <Shell>
+        <Routes>
+          <Route path="/" element={<Home session={session} />} />
+          <Route path="/gastos" element={<Gastos session={session} />} />
+          <Route path="/cuentas" element={<Cuentas session={session} />} />
+          <Route path="/perfil" element={<Perfil session={session} />} />
+        </Routes>
+      </Shell>
+    </MonthProvider>
   )
 }
 

@@ -3,13 +3,14 @@ import { Search, SearchX, X } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import {
-  currentMonthRange,
   formatAmount,
   formatCurrency,
   summarizeByCategory,
 } from '@/lib/expenses'
 import type { Category, Expense } from '@/lib/expenses'
 import { matchesSearch } from '@/lib/search/fuzzyMatch'
+import { MonthPager } from '../MonthPager'
+import { useMonth } from '../MonthContext'
 import { CategoryTile } from '../Tile'
 import { categoryMark, monthName } from '../format'
 import type { BetaSession } from '../data'
@@ -22,8 +23,7 @@ export function Gastos({
   const [view, setView] = useState<'lista' | 'cats'>('lista')
   const [query, setQuery] = useState('')
   const householdId = session.householdId ?? null
-  const now = new Date()
-  const { monthStart, monthEnd } = currentMonthRange(now)
+  const { monthStart, monthEnd } = useMonth()
 
   const data = useQuery({
     queryKey: ['beta', 'gastos', householdId, monthStart.toISOString()],
@@ -88,6 +88,7 @@ export function Gastos({
     return (
       <>
         <Title text="Gastos" />
+        <MonthPager />
         {segment}
         <Breakdown expenses={expenses} categories={categories} />
       </>
@@ -111,6 +112,7 @@ export function Gastos({
   return (
     <>
       <Title text="Gastos" />
+      <MonthPager />
       {segment}
       <div className="search">
         <span className="mag" aria-hidden="true">

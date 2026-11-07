@@ -779,3 +779,14 @@
       radial-gradient(760px 480px at 102% 8%, #e2ecfb 0%, transparent 58%),
       var(--page); }
   .auth-shell .app { max-width: 440px; margin: auto; padding-block: 24px; }
+
+  /* The beta reads the household and does not write to it yet, so every
+     control that would save is held shut rather than hidden -- the screen
+     should show what it will be. */
+  .btn:disabled, .add:disabled, .quiet:disabled { opacity: .5; cursor: not-allowed; }
+  .dolar .mine-reset { appearance: none; border: 0; background: none; padding: 0;
+                       font: inherit; color: inherit; text-decoration: underline;
+                       cursor: pointer; }
+  .readonly { background: var(--amber-50); color: var(--amber-700);
+              border-radius: 999px; padding: 8px 16px; font-size: var(--t-xs);
+              font-weight: 700; justify-self: start; }

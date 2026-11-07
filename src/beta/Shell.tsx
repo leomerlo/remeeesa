@@ -2,6 +2,7 @@ import { CalendarClock, History, House, Plus, UserRound } from 'lucide-react'
 import type { ReactElement, ReactNode } from 'react'
 import { NavLink } from 'react-router-dom'
 import logo from '@/assets/logo.png'
+import { Dolar } from './Dolar'
 
 const TABS = [
   { to: '/', label: 'Inicio', Icon: House, end: true },
@@ -35,7 +36,13 @@ export function Shell({
               {label}
             </NavLink>
           ))}
-          <button className="add" type="button" aria-label="Anotar un gasto">
+          <Dolar />
+          <button
+            className="add"
+            type="button"
+            aria-label="Anotar un gasto"
+            disabled
+          >
             <span className="plus" aria-hidden="true">
               <Plus />
             </span>

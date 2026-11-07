@@ -1,33 +1,21 @@
 import { useQuery } from '@tanstack/react-query'
-import { CalendarClock, CreditCard, Info, TriangleAlert } from 'lucide-react'
+import { CalendarClock, CreditCard, Info } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { cuotasOf } from '@/lib/cards/cuotas'
 import type { Cuota } from '@/lib/cards/cuotas'
 import type { Card as PaymentMethod, CardPurchase } from '@/lib/cards'
-import { currentMonthRange, formatAmount, formatCurrency } from '@/lib/expenses'
-import type { Category } from '@/lib/expenses'
+import { formatAmount, formatCurrency } from '@/lib/expenses'
 import { isBillToPay } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import { DEFAULT_CURRENCY } from '@/lib/money'
 import type { Currency } from '@/lib/money'
-import { CategoryTile } from '../Tile'
-import { categoryMark, monthName } from '../format'
+import { MonthPager } from '../MonthPager'
+import { useMonth } from '../MonthContext'
+import { BillRow, sortBills } from '../rows'
+import { monthName } from '../format'
 import type { BetaSession } from '../data'
 import { LoadFailed, Title } from './Gastos'
-
-type BillState = 'late' | 'due' | 'open'
-
-// Three states, decided from the bill's own due date against today: carried
-// over from a month that has closed, already past its day this month, or
-// still ahead. The order is the same rule -- oldest debt first.
-function stateOf(bill: Pendiente, now: Date): BillState {
-  const { monthStart } = currentMonthRange(now)
-  if (bill.dueDate < monthStart) return 'late'
-  return bill.dueDate < now ? 'due' : 'open'
-}
-
-const RANK: Record<BillState, number> = { late: 0, due: 1, open: 2 }
 
 export function Cuentas({
   session,
@@ -37,7 +25,7 @@ export function Cuentas({
   const [view, setView] = useState<'pagar' | 'tarjetas'>('pagar')
   const householdId = session.householdId ?? null
   const now = new Date()
-  const { monthStart, monthEnd } = currentMonthRange(now)
+  const { monthStart, monthEnd } = useMonth()
 
   const data = useQuery({
     queryKey: ['beta', 'cuentas', householdId, monthStart.toISOString()],
@@ -66,11 +54,7 @@ export function Cuentas({
   }
 
   const { pendientes, categories, cards, purchases } = data.data
-  const bills = [...pendientes.filter(isBillToPay)].sort(
-    (a, b) =>
-      RANK[stateOf(a, now)] - RANK[stateOf(b, now)] ||
-      a.dueDate.getTime() - b.dueDate.getTime(),
-  )
+  const bills = sortBills(pendientes.filter(isBillToPay), monthStart, now)
 
   const segment = (
     <div className="segment">
@@ -95,6 +79,7 @@ export function Cuentas({
     return (
       <>
         <Title text="Cuentas" />
+        <MonthPager />
         {segment}
         <div className="card alert alert-info">
           <span className="tile" aria-hidden="true">
@@ -124,6 +109,7 @@ export function Cuentas({
   return (
     <>
       <Title text="Cuentas" />
+      <MonthPager />
       {segment}
       {bills.length === 0 ? (
         <div className="card empty">
@@ -159,6 +145,7 @@ export function Cuentas({
                 key={bill.id}
                 bill={bill}
                 categories={categories}
+                monthStart={monthStart}
                 now={now}
               />
             ))}
@@ -166,68 +153,6 @@ export function Cuentas({
         </>
       )}
     </>
-  )
-}
-
-function BillRow({
-  bill,
-  categories,
-  now,
-}: {
-  readonly bill: Pendiente
-  readonly categories: readonly Category[]
-  readonly now: Date
-}): ReactElement {
-  const mark = categoryMark(categories, bill.categoryId)
-  const state = stateOf(bill, now)
-  const day = bill.dueDate.getDate()
-
-  return (
-    <div className="card row">
-      <CategoryTile name={mark.name} color={mark.color} />
-      <span className="name">{bill.name}</span>
-      <span className="amt">
-        {bill.expectedAmount === null
-          ? 'A confirmar'
-          : formatAmount(
-              bill.expectedAmount,
-              bill.currency ?? DEFAULT_CURRENCY,
-            )}
-      </span>
-      <span className="meta">
-        <span className="cat">
-          {state === 'late'
-            ? `Vencía el ${String(day)} de ${monthName(bill.dueDate)}`
-            : state === 'due'
-              ? `Vencía el ${String(day)}`
-              : mark.name}
-        </span>
-        <span className="badges">
-          {state === 'late' ? (
-            <span className="tag late">
-              <TriangleAlert />
-              Quedó sin pagar en {monthName(bill.dueDate)}
-            </span>
-          ) : state === 'due' ? (
-            <span className="tag due">
-              <TriangleAlert />
-              Ya venció este mes
-            </span>
-          ) : (
-            <span className="tag next">Vence el {day}</span>
-          )}
-          {(bill.currency ?? DEFAULT_CURRENCY) !== DEFAULT_CURRENCY ? (
-            <span className="tag usd">En dólares</span>
-          ) : null}
-          {bill.recurring ? (
-            <span className="tag soft">Todos los meses</span>
-          ) : null}
-          {bill.autoDebit ? (
-            <span className="tag soft">Débito automático</span>
-          ) : null}
-        </span>
-      </span>
-    </div>
   )
 }
 
