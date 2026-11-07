@@ -40,7 +40,9 @@ export function ConfirmDestructive({
     >
       <div className="flex w-full flex-col gap-6">
         <div className="flex flex-col gap-2">
-          <h2 className="text-title font-semibold">{title}</h2>
+          {/* No heading: the Sheet's header row already asks this exact
+              question, and a second copy of it under the first was the
+              whole top half of the card. */}
           <p className="text-muted-foreground text-sm">{description}</p>
           <p className="text-error text-sm font-semibold">
             Esto no se puede deshacer.
