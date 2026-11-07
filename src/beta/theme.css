@@ -1106,7 +1106,18 @@
                    background: color-mix(in srgb, var(--pc) 18%, #fff); }
   .projhead .tg { grid-column: 3; grid-row: 1 / span 2; }
   .projcard .sub { font-size: var(--t-sm); font-weight: 400; color: var(--ink-2); }
+  /* The amount is a figure being edited, not a form field taking the
+     width of the card: it hugs, and sits where every other amount in the
+     app sits -- the right-hand edge of its row. Same face as the fields
+     in a sheet, down to the 52px and the 12px corner. */
+  .projcard .money-in { width: auto; justify-self: end; min-height: 52px;
+                        padding-left: 14px; padding-right: 4px; }
+  .projcard .money-in input { font-size: var(--t-md); font-weight: 700;
+                              color: var(--ink); padding: 12px 12px 12px 6px;
+                              width: 7.5em; text-align: right;
+                              font-variant-numeric: tabular-nums; }
   .projcard .money-in input:disabled { color: var(--ink-2); }
+  .projcard.off .money-in { opacity: .7; }
   /* The category or card being built, shown as it will look in the list. */
   .catpreview { display: grid; grid-template-columns: auto 1fr; gap: 2px 14px;
                 align-items: center; background: var(--page); border-radius: 16px;
