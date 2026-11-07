@@ -163,6 +163,7 @@ export function Perfil({
       <HogarSheet
         open={sheet === 'hogar'}
         onClose={() => setSheet(null)}
+        session={session}
         household={household}
         members={members}
       />

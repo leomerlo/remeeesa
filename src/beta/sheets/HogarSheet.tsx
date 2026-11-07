@@ -1,37 +1,46 @@
 import { Copy, UserRound } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
+import { renameHousehold } from '@/lib/households'
 import type { Household, HouseholdMember } from '@/lib/households'
 import { Sheet, SheetFoot } from '../Sheet'
 import { TextField } from '../fields'
 import { monthName } from '../format'
 import { inviteLink } from '../invite'
+import { useSave } from '../useSave'
 import type { BetaSession } from '../data'
 
 // The household's name and who is in it.
 //
-// The one form in the app that cannot be saved, and the reason is not a
-// missing wire: there is only one household and it is the real one. Renaming
-// it would be writing over something that was already there, which is the
-// line the beta does not cross -- and unlike a gasto there is no second
-// household to invent and practise on. So the form is here, filled in and
-// honest about why its button is shut.
+// A house the beta set up is the beta's to name -- that is the one the
+// onboarding just made, and the one the demo runs on. The house Flor and
+// Leo already live in is not: renaming it would be writing over something
+// that was there before the beta existed, which is the line this does not
+// cross. So the form is the same either way, and it says which of the two
+// it is looking at.
 const HOUSEHOLD_IS_REAL =
   'Este es el hogar de verdad, no uno de prueba. La beta no le cambia el ' +
   'nombre ni toca a los integrantes: eso se hace desde la versión 1.'
+
 export function HogarSheet({
   open,
   onClose,
+  session,
   household,
   members,
 }: {
   readonly open: boolean
   readonly onClose: () => void
+  readonly session: BetaSession
   readonly household: Household
   readonly members: readonly HouseholdMember[]
 }): ReactElement {
   const [name, setName] = useState(household.name)
   const named = name.trim() !== ''
+  const { saving, failed, run } = useSave(onClose)
+  const locked: string | null = session.sandbox.owns('household', household.id)
+    ? null
+    : HOUSEHOLD_IS_REAL
 
   return (
     <Sheet
@@ -41,11 +50,19 @@ export function HogarSheet({
       footer={
         <SheetFoot
           label="Guardar"
-          saving={false}
+          saving={saving}
           blocked={!named}
-          locked={HOUSEHOLD_IS_REAL}
-          failed={null}
-          onSave={() => undefined}
+          locked={locked}
+          failed={failed}
+          onSave={() => {
+            run(() =>
+              renameHousehold({
+                db: session.db,
+                householdId: household.id,
+                name: name.trim(),
+              }),
+            )
+          }}
         />
       }
     >

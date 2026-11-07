@@ -22,6 +22,11 @@ export function Gastos({
 }): ReactElement {
   const [view, setView] = useState<'mes' | 'tarjeta'>('mes')
   const [editing, setEditing] = useState<Expense | null>(null)
+  const [adding, setAdding] = useState(false)
+  // The same form, over a consumo on a card instead of a gasto.
+  const [editingPurchase, setEditingPurchase] = useState<CardPurchase | null>(
+    null,
+  )
   const householdId = session.householdId ?? null
   const { monthStart, monthEnd } = useMonth()
 
@@ -149,11 +154,26 @@ export function Gastos({
               ? 'Cuando anoten un gasto lo van a ver acá, ordenado por día.'
               : 'Lo que compren con una tarjeta de crédito va a aparecer acá, y lo van a pagar cuando llegue el resumen.'}
           </p>
-          <button className="btn btn-primary" type="button" disabled>
+          <button
+            className="btn btn-primary"
+            type="button"
+            onClick={() => setAdding(true)}
+          >
             <Plus />
             Anotar un gasto
           </button>
         </div>
+        {adding ? (
+          <GastoSheet
+            open
+            onClose={() => setAdding(false)}
+            session={session}
+            expense={null}
+            categories={categories}
+            methods={methods}
+            today={new Date()}
+          />
+        ) : null}
       </>
     )
   }
@@ -214,6 +234,7 @@ export function Gastos({
                 categories={categories}
                 several={several}
                 mine={session.sandbox.invented('purchase', item.id)}
+                onEdit={() => setEditingPurchase(item.purchase ?? null)}
               />
             ) : (
               <ExpenseRow
@@ -233,6 +254,18 @@ export function Gastos({
           onClose={() => setEditing(null)}
           session={session}
           expense={editing}
+          categories={categories}
+          methods={methods}
+          today={new Date()}
+        />
+      )}
+      {editingPurchase === null ? null : (
+        <GastoSheet
+          open
+          onClose={() => setEditingPurchase(null)}
+          session={session}
+          expense={null}
+          purchase={editingPurchase}
           categories={categories}
           methods={methods}
           today={new Date()}

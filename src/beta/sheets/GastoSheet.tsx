@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import type { ReactElement } from 'react'
-import type { Card as PaymentMethod } from '@/lib/cards'
-import { createCardPurchase } from '@/lib/cards'
+import type { Card as PaymentMethod, CardPurchase } from '@/lib/cards'
+import {
+  createCardPurchase,
+  deleteCardPurchase,
+  updateCardPurchase,
+} from '@/lib/cards'
 import type { Category, Expense } from '@/lib/expenses'
 import { createExpense, deleteExpense, updateExpense } from '@/lib/expenses'
 import { createPendiente } from '@/lib/pendientes'
@@ -86,11 +90,26 @@ export function draftFromExpense(
   }
 }
 
+export function draftFromPurchase(purchase: CardPurchase): GastoDraft {
+  return {
+    name: purchase.name,
+    amount: String(purchase.total),
+    currency: purchase.currency,
+    categoryId: purchase.categoryId,
+    date: isoDay(purchase.purchaseDate),
+    methodId: purchase.cardId,
+    cuotas: String(purchase.cuotas),
+    comments: purchase.comments,
+    isService: false,
+  }
+}
+
 export function GastoSheet({
   open,
   onClose,
   session,
   expense,
+  purchase = null,
   categories,
   methods,
   today,
@@ -100,12 +119,19 @@ export function GastoSheet({
   readonly session: BetaSession
   // Null when adding.
   readonly expense: Expense | null
+  // Set when what is being edited is a consumo on a credit card rather than
+  // a gasto. It is the same form -- a consumo is a gasto that has not
+  // happened to the month yet -- so the fields, the validation and the lock
+  // are written once.
+  readonly purchase?: CardPurchase | null
   readonly categories: readonly Category[]
   readonly methods: readonly PaymentMethod[]
   readonly today: Date
 }): ReactElement {
   const [draft, setDraft] = useState<GastoDraft>(() =>
-    draftFromExpense(expense, categories[0]?.id ?? '', today),
+    purchase === null
+      ? draftFromExpense(expense, categories[0]?.id ?? '', today)
+      : draftFromPurchase(purchase),
   )
   const save = useSave(onClose)
   const set = <K extends keyof GastoDraft>(
@@ -126,26 +152,44 @@ export function GastoSheet({
   const memberId = session.userId ?? ''
   const author = session.displayName ?? 'Alguien'
 
-  // Three ways this form can be one the beta will not write.
+  // Four ways this form can be one the beta will not write.
   const locked: string | null =
     expense !== null && !session.sandbox.owns('expense', expense.id)
       ? NOT_MINE_NOTE
-      : // A purchase does not only add a row: its cuotas go into that card's
-        // resúmenes, which for a real card are real rows. A card the beta
-        // made has no statements belonging to anybody else.
-        expense === null &&
-          onCredit &&
-          method !== undefined &&
-          !session.sandbox.owns('card', method.id)
-        ? `Comprar con ${method.name} le tocaría el resumen, que ya existe. Para probar esto, agregá una tarjeta de prueba en Perfil y usá esa.`
-        : householdId === '' || memberId === ''
-          ? 'Todavía estamos leyendo el hogar. Probá de nuevo en un segundo.'
-          : null
+      : purchase !== null && !session.sandbox.owns('purchase', purchase.id)
+        ? NOT_MINE_NOTE
+        : // A purchase does not only add a row: its cuotas go into that
+          // card's resúmenes, which for a real card are real rows. A card
+          // the beta made has no statements belonging to anybody else.
+          expense === null &&
+            purchase === null &&
+            onCredit &&
+            method !== undefined &&
+            !session.sandbox.owns('card', method.id)
+          ? `Comprar con ${method.name} le tocaría el resumen, que ya existe. Para probar esto, agregá una tarjeta de prueba en Perfil y usá esa.`
+          : householdId === '' || memberId === ''
+            ? 'Todavía estamos leyendo el hogar. Probá de nuevo en un segundo.'
+            : null
 
   const onSave = (): void => {
     save.run(async () => {
       const amount = moneyValue(draft.amount)
       const date = dayFromIso(draft.date)
+      if (purchase !== null) {
+        return updateCardPurchase({
+          db: session.db,
+          householdId,
+          purchaseId: purchase.id,
+          cardId: draft.methodId,
+          categoryId: draft.categoryId,
+          name: draft.name.trim(),
+          total: amount,
+          cuotas: Number(draft.cuotas),
+          purchaseDate: date,
+          comments: draft.comments,
+          currency: draft.currency,
+        })
+      }
       if (expense !== null) {
         return updateExpense({
           db: session.db,
@@ -211,12 +255,12 @@ export function GastoSheet({
 
   return (
     <Sheet
-      title={expense === null ? 'Anotar un gasto' : 'Editar el gasto'}
+      title={title(expense, purchase)}
       open={open}
       onClose={onClose}
       footer={
         <SheetFoot
-          label={expense === null ? 'Anotar' : 'Guardar'}
+          label={expense === null && purchase === null ? 'Anotar' : 'Guardar'}
           saving={save.saving}
           blocked={blocked}
           locked={locked}
@@ -272,15 +316,22 @@ export function GastoSheet({
         // The second line says what kind of method it is, not what it does
         // to the month: "sale hoy" under every option but one was three
         // words of nothing, and cash needs no explaining at all.
+        // Editing a consumo offers only the credit cards: a consumo lives
+        // on a card by definition, and moving it to cash is not an edit but
+        // a different record. Borrarlo y anotarlo de nuevo is the way.
         options={[
-          { value: '', k: 'Efectivo' },
-          ...methods.map((candidate) => ({
-            value: candidate.id,
-            k: candidate.name,
-            ...(candidate.kind === 'efectivo'
-              ? {}
-              : { v: kindOf(candidate.kind) }),
-          })),
+          ...(purchase === null ? [{ value: '', k: 'Efectivo' }] : []),
+          ...methods
+            .filter(
+              (candidate) => purchase === null || candidate.kind === 'credito',
+            )
+            .map((candidate) => ({
+              value: candidate.id,
+              k: candidate.name,
+              ...(candidate.kind === 'efectivo'
+                ? {}
+                : { v: kindOf(candidate.kind) }),
+            })),
         ]}
       />
       {onCredit ? (
@@ -321,6 +372,22 @@ export function GastoSheet({
               : 'Falta elegir una categoría.'}
         </p>
       ) : null}
+      {purchase === null ? null : (
+        <DangerAction
+          label="Borrar este consumo"
+          saving={save.saving}
+          locked={locked}
+          onPress={() => {
+            save.run(() =>
+              deleteCardPurchase({
+                db: session.db,
+                householdId,
+                purchaseId: purchase.id,
+              }),
+            )
+          }}
+        />
+      )}
       {expense === null ? null : (
         <DangerAction
           label="Borrar este gasto"
@@ -339,4 +406,11 @@ export function GastoSheet({
       )}
     </Sheet>
   )
+}
+
+// A consumo and a gasto are the same form, and the title is where it says
+// which one you are looking at.
+function title(expense: Expense | null, purchase: CardPurchase | null): string {
+  if (purchase !== null) return 'Editar el consumo'
+  return expense === null ? 'Anotar un gasto' : 'Editar el gasto'
 }

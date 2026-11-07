@@ -101,11 +101,13 @@ export function PurchaseRow({
   categories,
   several,
   mine = false,
+  onEdit,
 }: {
   readonly purchase: CardPurchase
   readonly categories: readonly Category[]
   readonly several: boolean
   readonly mine?: boolean
+  readonly onEdit?: () => void
 }): ReactElement {
   const mark = categoryMark(categories, purchase.categoryId)
   return (
@@ -115,6 +117,16 @@ export function PurchaseRow({
       <span className="amt">
         {formatAmount(purchase.total, purchase.currency)}
       </span>
+      {onEdit === undefined ? null : (
+        <button
+          className="rowedit"
+          type="button"
+          aria-label={`Editar ${purchase.name}`}
+          onClick={onEdit}
+        >
+          <Pencil />
+        </button>
+      )}
       <span className="meta">
         <span className="cat">{mark.name}</span>
         <span className="badges">
