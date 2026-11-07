@@ -6,7 +6,7 @@ import { HashRouter, Route, Routes } from 'react-router-dom'
 import { createFirebaseClient, readFirebaseEnv } from '@/lib/firebase'
 import { FirebaseProvider, useFirebase } from '@/lib/firebaseContext'
 import { MonthProvider } from './MonthContext'
-import { useBetaSession } from './data'
+import { useBetaSession, useHouseholdName } from './data'
 import { Shell } from './Shell'
 import { BootSkeleton } from './Skeleton'
 import { SignIn } from './SignIn'
@@ -27,6 +27,7 @@ import { Proyecciones } from './screens/Proyecciones'
 export function BetaRoutes(): ReactElement {
   const firebase = useFirebase()
   const session = useBetaSession()
+  const home = useHouseholdName(session)
 
   async function signIn(): Promise<void> {
     await signInWithPopup(firebase.auth, new GoogleAuthProvider())
@@ -51,7 +52,7 @@ export function BetaRoutes(): ReactElement {
 
   return (
     <MonthProvider>
-      <Shell>
+      <Shell home={home}>
         <Routes>
           <Route path="/" element={<Home session={session} />} />
           <Route path="/gastos" element={<Gastos session={session} />} />

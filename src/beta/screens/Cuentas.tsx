@@ -72,14 +72,14 @@ export function Cuentas({
         aria-pressed={view === 'pagar'}
         onClick={() => setView('pagar')}
       >
-        Por pagar
+        Del mes
       </button>
       <button
         type="button"
         aria-pressed={view === 'tarjetas'}
         onClick={() => setView('tarjetas')}
       >
-        Tarjetas
+        Con tarjeta
       </button>
     </div>
   )

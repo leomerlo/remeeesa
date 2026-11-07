@@ -789,6 +789,10 @@
   .dolar .ok { background: var(--side-active-ink); color: #1d1630; }
   .dolar .no { background: transparent; color: var(--side-ink-2); }
 
+  /* ===== the desktop bar ===== */
+  /* The phone has no room for one and does not need it. */
+  .topbar { display: none; }
+
   /* ===== nav ===== */
   .nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
          background: var(--card); box-shadow: var(--lift-nav);
@@ -890,8 +894,29 @@
 
   /* ===== wide ===== */
   @media (min-width: 760px) {
-    .shell { display: grid; grid-template-columns: 240px minmax(0,1fr); align-items: start; }
-    .app { max-width: 700px; margin-inline: auto; padding-inline: 28px;
+    /* Two rows now, so the bar can sit over the content column while the
+       rail runs the full height beside both. */
+    .shell { display: grid; grid-template-columns: 240px minmax(0,1fr);
+             grid-template-rows: auto minmax(0, 1fr); align-items: start; }
+    .nav { grid-column: 1; grid-row: 1 / -1; }
+    .topbar { grid-column: 2; grid-row: 1;
+              display: flex; align-items: center; justify-content: space-between;
+              gap: 16px; padding: 12px 28px; min-height: 68px;
+              background: var(--card); border-bottom: 1px solid var(--hair);
+              position: sticky; top: 0; z-index: 10; }
+    .topbar .where { display: inline-flex; align-items: center; gap: 8px;
+                     font-size: var(--t-sm); font-weight: 700; color: var(--ink);
+                     min-width: 0; }
+    .topbar .where svg { width: 18px; height: 18px; stroke-width: 1.8;
+                         color: var(--ink-2); flex: none; }
+    /* Holds the name's place while it is read, so the bar never reflows. */
+    .topbar .ph { display: block; width: 110px; height: 15px; border-radius: 8px;
+                  background: var(--hair); }
+    /* The household's name has a fixed place up here now, so each screen's
+       title stops repeating it. */
+    .head-home { display: none; }
+    .app { grid-column: 2; grid-row: 2;
+           max-width: 700px; margin-inline: auto; padding-inline: 28px;
            padding-block: 0 56px; gap: 20px; }
     .nav { position: sticky; top: 0; left: auto; right: auto; bottom: auto;
            height: 100vh; background: var(--side); box-shadow: none; padding: 0; }
@@ -928,14 +953,9 @@
     .head { padding-top: 48px; }
     .dolar { display: block; order: 98; margin-top: auto; margin-bottom: 12px;
              background: var(--side-active); border-radius: 16px; padding: 12px; }
-    .add { order: 99; margin-top: 0; position: static; width: 100%; height: auto;
-           border-radius: 999px; display: inline-flex; align-items: center;
-           justify-content: center; gap: 8px; padding: 10px 20px; min-height: 44px;
-           box-shadow: none; font-size: var(--t-sm); font-weight: 600;
-           line-height: 1.15; }
-    .add .plus { display: grid; place-items: center; line-height: 0; }
-    .add .plus svg { width: 18px; height: 18px; }
-    .add .lbl { display: block; }
+    /* The action lives in the bar up top here. Two of them in one view
+       would be two answers to "where do I press to add something". */
+    .add { display: none; }
     .sheet { border-radius: var(--r); margin-bottom: 4vh; }
     .scrim { align-items: center; padding: 20px; }
   }

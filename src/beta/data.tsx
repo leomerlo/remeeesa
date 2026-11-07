@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import { createContext, useContext, useMemo } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 import { createFirestoreHouseholdsDb } from '@/lib/households'
@@ -55,4 +56,21 @@ export function useBetaSession(): BetaSession {
     displayName: membership?.displayName ?? null,
     db,
   }
+}
+
+// The household's name on its own, for the desktop bar, which sits outside
+// every screen and so cannot read it from any screen's query. One small
+// document, under its own key, so the bar does not wait on whatever else a
+// screen happens to be fetching.
+export function useHouseholdName(session: BetaSession): string | undefined {
+  const householdId = session.householdId ?? null
+  const query = useQuery({
+    queryKey: ['beta', 'household-name', householdId],
+    enabled: householdId !== null,
+    queryFn: async () => {
+      const household = await session.db.getHousehold(householdId as string)
+      return household.name
+    },
+  })
+  return query.data
 }
