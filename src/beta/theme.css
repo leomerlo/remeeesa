@@ -556,8 +556,11 @@
   /* The same row as a category's, plus the badge that says where the
      figure came from -- a real total, last month's carried over, or a bill
      still owed. */
+  /* A button, since every line of the guess can be argued with: the row
+     is the target, not a control tucked inside it. */
   .projrow { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 12px;
-             align-items: center; padding: 16px; }
+             align-items: center; padding: 16px; width: 100%; text-align: left;
+             appearance: none; font: inherit; cursor: pointer; }
   .projrow .name { grid-column: 2; font-size: var(--t-md); font-weight: 700; }
   .projrow .amt { grid-column: 3; grid-row: 1; font-size: var(--t-md); font-weight: 800;
                   font-variant-numeric: tabular-nums; }

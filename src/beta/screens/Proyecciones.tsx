@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { LineChart } from 'lucide-react'
+import { useState } from 'react'
 import type { ReactElement } from 'react'
 import {
   buildProjection,
@@ -16,6 +17,8 @@ import { useMonth } from '../MonthContext'
 import { CategoryTile } from '../Tile'
 import { monthName } from '../format'
 import type { BetaSession } from '../data'
+import { ProyeccionSheet } from '../sheets/ProyeccionSheet'
+import type { ProjectionRow } from '../sheets/ProyeccionSheet'
 import { LoadFailed, Title } from './Gastos'
 
 // Where a line's figure comes from, which is the one thing worth knowing
@@ -34,6 +37,9 @@ export function Proyecciones({
   readonly session: BetaSession
 }): ReactElement {
   const householdId = session.householdId ?? null
+  // The line whose figure is being argued with. Null is the list as it
+  // stands.
+  const [editing, setEditing] = useState<ProjectionRow | null>(null)
   const { monthStart, monthEnd } = useMonth()
   const previousStart = new Date(
     monthStart.getFullYear(),
@@ -224,8 +230,8 @@ export function Proyecciones({
             <LineChart />
           </span>
           <p>
-            Hay líneas que ajustaron a mano desde la versión actual. Se ven acá,
-            pero por ahora se editan allá.
+            Hay líneas ajustadas a mano. Tocá cualquiera para cambiarla o para
+            dejarla fuera del mes.
           </p>
         </div>
       ) : null}
@@ -234,9 +240,17 @@ export function Proyecciones({
           const off = excluded.has(monthKey(row.key))
           const amount = amountOf(row.key, row.price)
           return (
-            <div
+            <button
+              type="button"
               className={off ? 'card projrow off' : 'card projrow'}
               key={row.key}
+              onClick={() =>
+                setEditing({
+                  key: row.key,
+                  label: row.label,
+                  price: row.price,
+                })
+              }
             >
               <CategoryTile name={row.label} color={row.color} />
               <span className="name">{row.label}</span>
@@ -244,12 +258,29 @@ export function Proyecciones({
                 {BADGE[row.kind]}
               </span>
               <span className="amt">{formatCurrency(amount)}</span>
-              {off ? <span className="sub">No cuenta en el total</span> : null}
-            </div>
+              {off ? (
+                <span className="sub">No cuenta en el total</span>
+              ) : overrides[monthKey(row.key)] === undefined ? null : (
+                <span className="sub">
+                  Lo pusieron a mano, en vez de {formatCurrency(row.price)}
+                </span>
+              )}
+            </button>
           )
         })}
       </div>
       <Compare current={current} categories={categories} />
+      {editing === null ? null : (
+        <ProyeccionSheet
+          open
+          onClose={() => setEditing(null)}
+          session={session}
+          row={editing}
+          monthStart={monthStart}
+          excluded={excluded}
+          overrides={overrides}
+        />
+      )}
     </>
   )
 }

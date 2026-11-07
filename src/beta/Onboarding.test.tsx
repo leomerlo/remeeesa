@@ -25,6 +25,7 @@ function setUp(): {
       displayName: null,
       db: raw,
       adopt,
+      rename: vi.fn(),
     },
   }
 }

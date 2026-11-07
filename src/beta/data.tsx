@@ -18,6 +18,10 @@ export type BetaSession = {
   // the user changed, so without this the app would sit on the last step of
   // the onboarding looking at a household it had already created.
   adopt(householdId: string): void
+  // Same idea, for your own name: the membership underneath is read once
+  // per signed-in user, so renaming yourself would otherwise keep greeting
+  // you by the old name until the next reload.
+  rename(displayName: string): void
 }
 
 // Set only by the beta's own demo page, which runs the whole interface on
@@ -57,6 +61,7 @@ export function useBetaSession(): BetaSession {
     householdsDb: db,
   })
   const [adopted, setAdopted] = useState<string | null>(null)
+  const [renamed, setRenamed] = useState<string | null>(null)
 
   return {
     userId: currentUserId,
@@ -65,9 +70,10 @@ export function useBetaSession(): BetaSession {
       (membership === undefined
         ? undefined
         : (membership?.householdId ?? null)),
-    displayName: membership?.displayName ?? null,
+    displayName: renamed ?? membership?.displayName ?? null,
     db,
     adopt: setAdopted,
+    rename: setRenamed,
   }
 }
 

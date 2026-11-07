@@ -31,6 +31,7 @@ describe('walking into a house with a code', () => {
       displayName: null,
       db: base.asUser(LEO),
       adopt,
+      rename: vi.fn(),
     }
 
     renderWithProviders(
@@ -65,6 +66,7 @@ describe('walking into a house with a code', () => {
       displayName: null,
       db: base.asUser(LEO),
       adopt: vi.fn(),
+      rename: vi.fn(),
     }
 
     renderWithProviders(

@@ -1,9 +1,11 @@
+import { Merge } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import type { Category } from '@/lib/expenses'
 import {
   deleteCategory,
   findOrCreateCategory,
+  mergeCategories,
   renameCategory,
   updateCategoryBudget,
   updateCategoryColor,
@@ -16,6 +18,7 @@ import { useSave } from '../useSave'
 import type { BetaSession } from '../data'
 import {
   MoneyField,
+  SelectField,
   TextField,
   moneyIsValid,
   moneyValue,
@@ -194,6 +197,24 @@ export function CategoriaSheet({
         </p>
       ) : null}
       {category === null ? null : (
+        <Juntar
+          category={category}
+          existing={existing}
+          saving={save.saving}
+          disabled={locked !== null}
+          onMerge={(survivorCategoryId) => {
+            save.run(() =>
+              mergeCategories({
+                db: session.db,
+                householdId,
+                sourceCategoryId: category.id,
+                survivorCategoryId,
+              }),
+            )
+          }}
+        />
+      )}
+      {category === null ? null : (
         <DangerAction
           label="Borrar esta categoría"
           saving={save.saving}
@@ -210,5 +231,84 @@ export function CategoriaSheet({
         />
       )}
     </Sheet>
+  )
+}
+
+// Joining this category into another one.
+//
+// Two shapes that mean the same thing get written down twice -- "Súper" and
+// "Supermercado" -- and once there are gastos in both, deleting either one
+// is refused and renaming one into the other is refused too. This is the
+// only way out, and it is the v1's: every gasto, servicio and consumo moves
+// onto the category that stays, and this one disappears.
+//
+// It asks twice. Not because it is dangerous to the money -- nothing is
+// lost, every row survives with a different category -- but because it
+// cannot be undone by pressing it again.
+function Juntar({
+  category,
+  existing,
+  saving,
+  disabled,
+  onMerge,
+}: {
+  readonly category: Category
+  readonly existing: readonly Category[]
+  readonly saving: boolean
+  readonly disabled: boolean
+  readonly onMerge: (survivorCategoryId: string) => void
+}): ReactElement | null {
+  const [open, setOpen] = useState(false)
+  const others = existing.filter((other) => other.id !== category.id)
+  const [into, setInto] = useState(others[0]?.id ?? '')
+  const survivor = others.find((other) => other.id === into)
+
+  if (others.length === 0) return null
+
+  if (!open) {
+    return (
+      <button
+        className="btn btn-secondary btn-block"
+        type="button"
+        disabled={saving || disabled}
+        onClick={() => setOpen(true)}
+      >
+        <Merge />
+        Juntarla con otra
+      </button>
+    )
+  }
+
+  return (
+    <>
+      <SelectField
+        label={`Pasar todo lo de ${category.name} a…`}
+        value={into}
+        onChange={setInto}
+        options={others.map((other) => ({
+          value: other.id,
+          label: other.name,
+        }))}
+      />
+      <p className="fnote">
+        Todos los gastos, servicios y consumos de <b>{category.name}</b> pasan a{' '}
+        <b>{survivor?.name ?? 'la otra'}</b>, y {category.name} desaparece. No
+        se pierde nada, pero no se puede deshacer.
+      </p>
+      <button
+        className="btn btn-secondary btn-block"
+        type="button"
+        disabled={saving || disabled || survivor === undefined}
+        onClick={() => {
+          if (survivor !== undefined) onMerge(survivor.id)
+        }}
+      >
+        <Merge />
+        {saving ? 'Juntando…' : `Juntar con ${survivor?.name ?? ''}`}
+      </button>
+      <button className="skip" type="button" onClick={() => setOpen(false)}>
+        Mejor no
+      </button>
+    </>
   )
 }

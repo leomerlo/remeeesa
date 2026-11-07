@@ -18,6 +18,8 @@ import { CardBrandMark } from '../CardBrandMark'
 import { ProfileSkeleton } from '../Skeleton'
 import type { BetaSession } from '../data'
 import { HogarSheet, InvitarSheet } from '../sheets/HogarSheet'
+import { CuentaSheet } from '../sheets/CuentaSheet'
+import { ExportarSheet } from '../sheets/ExportarSheet'
 import { MetodoSheet } from '../sheets/MetodoSheet'
 import { LoadFailed, Title } from './Gastos'
 
@@ -33,7 +35,9 @@ export function Perfil({
   readonly session: BetaSession
 }): ReactElement {
   const firebase = useFirebase()
-  const [sheet, setSheet] = useState<'hogar' | 'invitar' | null>(null)
+  const [sheet, setSheet] = useState<
+    'hogar' | 'invitar' | 'exportar' | 'cuenta' | null
+  >(null)
   const [method, setMethod] = useState<PaymentMethod | 'nueva' | null>(null)
   const householdId = session.householdId ?? null
 
@@ -60,9 +64,10 @@ export function Perfil({
   }
 
   const { household, members, cards } = data.data
-  const others = members.filter(
-    (member) => member.displayName !== session.displayName,
-  )
+  // By id, never by name: two people called Flor are two people, and
+  // somebody who has just renamed themselves is still the same person.
+  const others = members.filter((member) => member.userId !== session.userId)
+  const me = members.find((member) => member.userId === session.userId)
 
   return (
     <>
@@ -74,8 +79,9 @@ export function Perfil({
         <div className="plist">
           <Item
             Icon={UserRound}
-            k={session.displayName ?? 'Vos'}
+            k={me?.displayName ?? session.displayName ?? 'Vos'}
             v={firebase.auth.currentUser?.email ?? 'Sin correo'}
+            onOpen={() => setSheet('cuenta')}
           />
           <Item
             Icon={House}
@@ -83,7 +89,7 @@ export function Perfil({
             v={
               others.length > 0
                 ? [
-                    session.displayName ?? 'Vos',
+                    me?.displayName ?? session.displayName ?? 'Vos',
                     ...others.map((m) => m.displayName),
                   ].join(' y ')
                 : 'Solo vos. Podés invitar a quien viva con vos.'
@@ -136,6 +142,7 @@ export function Perfil({
               Icon={Download}
               k="Descargar los datos"
               v="Una planilla con el mes que elijas"
+              onOpen={() => setSheet('exportar')}
             />
           </div>
         </div>
@@ -158,6 +165,19 @@ export function Perfil({
         session={session}
         household={household}
         members={members}
+      />
+      <CuentaSheet
+        open={sheet === 'cuenta'}
+        onClose={() => setSheet(null)}
+        session={session}
+        householdName={household.name}
+        alone={members.length < 2}
+      />
+      <ExportarSheet
+        open={sheet === 'exportar'}
+        onClose={() => setSheet(null)}
+        session={session}
+        household={household}
       />
       <InvitarSheet
         open={sheet === 'invitar'}

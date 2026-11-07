@@ -57,6 +57,8 @@ function saying(error: unknown): string {
       return 'Ese resumen ya está pagado, así que no admite cambios.'
     case 'PendienteAlreadyPaidError':
       return 'Ese servicio ya figura como pagado.'
+    case 'PendienteNotPaidError':
+      return 'Ese servicio no figura como pagado.'
     default:
       return error.message
   }

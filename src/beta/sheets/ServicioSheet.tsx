@@ -1,3 +1,4 @@
+import { Undo2 } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import type { Card as PaymentMethod } from '@/lib/cards'
@@ -9,6 +10,7 @@ import {
   createPendiente,
   deletePendiente,
   markPendientePaid,
+  unmarkPendientePaid,
   updatePendiente,
 } from '@/lib/pendientes'
 import { DangerAction, Sheet, SheetFoot } from '../Sheet'
@@ -187,6 +189,32 @@ export function ServicioSheet({
               : 'Falta elegir una categoría.'}
         </p>
       ) : null}
+      {bill === null || bill.status !== 'paid' ? null : (
+        <>
+          <p className="fnote">
+            Deshacer el pago lo devuelve a la lista de lo que falta pagar, y
+            saca el gasto que ese pago había anotado. Si lo pagaron con tarjeta,
+            también saca el consumo del resumen.
+          </p>
+          <button
+            className="btn btn-secondary btn-block"
+            type="button"
+            disabled={save.saving || locked !== null}
+            onClick={() => {
+              save.run(() =>
+                unmarkPendientePaid({
+                  db: session.db,
+                  householdId,
+                  pendienteId: bill.id,
+                }),
+              )
+            }}
+          >
+            <Undo2 />
+            Deshacer el pago
+          </button>
+        </>
+      )}
       {bill === null ? null : (
         <DangerAction
           label="Borrar este servicio"
