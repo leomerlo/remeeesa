@@ -1,18 +1,17 @@
 import { useQuery } from '@tanstack/react-query'
-import { CreditCard, Plus, ReceiptText, Search, SearchX, X } from 'lucide-react'
+import { CreditCard, Plus, ReceiptText } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 import { computeSpentThisMonth, formatAmount } from '@/lib/expenses'
 import type { Expense } from '@/lib/expenses'
 import type { CardPurchase } from '@/lib/cards'
 import type { Currency } from '@/lib/money'
-import { matchesSearch } from '@/lib/search/fuzzyMatch'
-import { ListSkeleton, NameSkel, SearchSkel } from '../Skeleton'
+import { ListSkeleton, NameSkel } from '../Skeleton'
 import { Figure } from '../Figure'
 import { MonthPager } from '../MonthPager'
 import { useMonth } from '../MonthContext'
 import { ExpenseRow, PurchaseRow } from '../rows'
-import { categoryMark, monthName } from '../format'
+import { monthName } from '../format'
 import type { BetaSession } from '../data'
 
 export function Gastos({
@@ -21,7 +20,6 @@ export function Gastos({
   readonly session: BetaSession
 }): ReactElement {
   const [view, setView] = useState<'mes' | 'tarjeta'>('mes')
-  const [query, setQuery] = useState('')
   const householdId = session.householdId ?? null
   const { monthStart, monthEnd } = useMonth()
 
@@ -82,7 +80,6 @@ export function Gastos({
       <>
         <Title text="Gastos" sub={<NameSkel />} pager />
         {segment}
-        <SearchSkel />
         <ListSkeleton label="Cargando los gastos" />
       </>
     )
@@ -119,8 +116,6 @@ export function Gastos({
           date: expense.expenseDate,
           price: expense.price,
           currency: expense.currency,
-          author: expense.authorDisplayName,
-          comments: expense.comments,
           expense,
         }))
       : purchases.map((purchase) => ({
@@ -130,8 +125,6 @@ export function Gastos({
           date: purchase.purchaseDate,
           price: purchase.total,
           currency: purchase.currency,
-          author: purchase.authorDisplayName,
-          comments: null,
           purchase,
         }))
 
@@ -163,119 +156,72 @@ export function Gastos({
     )
   }
 
-  // The v1's forgiving search, used as-is: accents and case ignored, terms
-  // matched in any order, a character or two allowed wrong.
-  const found = query
-    ? items.filter((item) =>
-        matchesSearch(query, [
-          item.name,
-          categoryMark(categories, item.categoryId).name,
-          item.author,
-          item.comments,
-        ]),
-      )
-    : items
   // Pesos only, like every other peso figure in the app: a $45 expense in
   // dollars is not 45 pesos, and adding it in made this screen's total
   // disagree with the Home's by exactly that much. The dollars are still
   // listed below, and said on their own line.
-  const shown = computeSpentThisMonth(found)
-  const shownUsd = sumIn(found, 'USD')
-  const rows = found.map((item, index) => ({
+  const shown = computeSpentThisMonth(items)
+  const shownUsd = sumIn(items, 'USD')
+  const rows = items.map((item, index) => ({
     item,
     // A day gets a header the first time it appears.
     header:
-      index === 0 || found[index - 1]?.date.getDate() !== item.date.getDate(),
+      index === 0 || items[index - 1]?.date.getDate() !== item.date.getDate(),
   }))
 
   return (
     <>
       {header}
       {segment}
-      <div className="search">
-        <span className="mag" aria-hidden="true">
-          <Search />
-        </span>
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Buscar un gasto"
-          aria-label="Buscar un gasto"
-          autoComplete="off"
-        />
-        {query ? (
-          <button
-            className="clr"
-            type="button"
-            onClick={() => setQuery('')}
-            aria-label="Borrar la búsqueda"
-          >
-            <X />
-          </button>
-        ) : null}
-      </div>
-      <div className="card hero">
-        <div className="label">
-          {query
-            ? `${String(found.length)} de ${String(items.length)} movimientos`
-            : view === 'mes'
+      <div className="hood solo">
+        <div className="card hero">
+          <div className="label">
+            {view === 'mes'
               ? `Pagado en ${monthName(monthStart)}`
               : `Con tarjeta en ${monthName(monthStart)}`}
-        </div>
-        <div className="figure">
-          <Figure amount={shown} />
-        </div>
-        <div className="legend">
-          <span>
-            {view === 'mes'
-              ? 'Plata que ya salió de la cuenta.'
-              : 'No sale este mes: llega repartido en los resúmenes.'}
-          </span>
-          {shownUsd > 0 ? (
+          </div>
+          <div className="figure">
+            <Figure amount={shown} />
+          </div>
+          <div className="legend">
             <span>
-              Y <b>{formatAmount(shownUsd, 'USD')}</b> en dólares, que no entran
-              en el total en pesos.
+              {view === 'mes'
+                ? 'Plata que ya salió de la cuenta.'
+                : 'No sale este mes: llega repartido en los resúmenes.'}
             </span>
-          ) : null}
+            {shownUsd > 0 ? (
+              <span>
+                Y <b>{formatAmount(shownUsd, 'USD')}</b> en dólares, que no
+                entran en el total en pesos.
+              </span>
+            ) : null}
+          </div>
         </div>
       </div>
-      {found.length === 0 ? (
-        <div className="card empty">
-          <span className="orb" aria-hidden="true">
-            <SearchX />
-          </span>
-          <h3>No encontramos nada</h3>
-          <p>
-            Probá con otra palabra. La búsqueda aguanta acentos y errores de
-            tipeo.
-          </p>
-        </div>
-      ) : (
-        <div className="sec">
-          {rows.map(({ item, header: dayHeader }) => (
-            <div key={item.id}>
-              {dayHeader ? (
-                <div className="daymark">
-                  {item.date.getDate()} de {monthName(item.date)}
-                </div>
-              ) : null}
-              {item.expense === undefined ? (
-                <PurchaseRow
-                  purchase={item.purchase as CardPurchase}
-                  categories={categories}
-                  several={several}
-                />
-              ) : (
-                <ExpenseRow
-                  expense={item.expense}
-                  categories={categories}
-                  several={several}
-                />
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="sec">
+        {rows.map(({ item, header: dayHeader }) => (
+          <div key={item.id}>
+            {dayHeader ? (
+              <div className="daymark">
+                {item.date.getDate()} de {monthName(item.date)}
+              </div>
+            ) : null}
+            {item.expense === undefined ? (
+              <PurchaseRow
+                purchase={item.purchase as CardPurchase}
+                categories={categories}
+                several={several}
+              />
+            ) : (
+              <ExpenseRow
+                expense={item.expense}
+                categories={categories}
+                several={several}
+              />
+            )}
+          </div>
+        ))}
+      </div>
     </>
   )
 }
@@ -288,8 +234,6 @@ type Movement = {
   readonly date: Date
   readonly price: number
   readonly currency: Currency
-  readonly author: string
-  readonly comments: string | null
   readonly expense?: Expense
   readonly purchase?: CardPurchase
 }

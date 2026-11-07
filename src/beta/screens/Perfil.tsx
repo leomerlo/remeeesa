@@ -134,7 +134,7 @@ export function Perfil({
       </section>
 
       <button
-        className="btn btn-secondary btn-block"
+        className="btn btn-secondary btn-wide"
         type="button"
         onClick={() => {
           void firebase.auth.signOut()

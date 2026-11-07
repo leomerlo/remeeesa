@@ -136,9 +136,11 @@ export function ListSkeleton({
   return (
     <Loading label={label}>
       {hero ? (
-        <div className="card hero">
-          <Skel w={150} h={15} />
-          <Skel w={240} h={42} r={12} />
+        <div className="hood solo">
+          <div className="card hero">
+            <Skel w={150} h={15} />
+            <Skel w={240} h={42} r={12} />
+          </div>
         </div>
       ) : null}
       <section className="sec">

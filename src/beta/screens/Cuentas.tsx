@@ -128,18 +128,20 @@ export function Cuentas({
           </div>
         ) : (
           <>
-            <div className="card hero">
-              <div className="label">
-                Cuentas de {monthName(monthStart)} que pagaron con tarjeta
-              </div>
-              <div className="figure">
-                <Figure amount={total} />
-              </div>
-              <div className="legend">
-                <span>
-                  Esta plata no salió este mes: va al resumen de{' '}
-                  {monthName(nextMonthOf(monthStart))}.
-                </span>
+            <div className="hood solo">
+              <div className="card hero">
+                <div className="label">
+                  Cuentas de {monthName(monthStart)} que pagaron con tarjeta
+                </div>
+                <div className="figure">
+                  <Figure amount={total} />
+                </div>
+                <div className="legend">
+                  <span>
+                    Esta plata no salió este mes: va al resumen de{' '}
+                    {monthName(nextMonthOf(monthStart))}.
+                  </span>
+                </div>
               </div>
             </div>
             <div className="sec">
@@ -180,28 +182,30 @@ export function Cuentas({
         </div>
       ) : (
         <>
-          <div className="card hero">
-            <div className="label">Falta pagar</div>
-            <div className="figure">
-              <Figure amount={owed} />
-            </div>
-            <div className="legend">
-              <span>
-                {bills.length} {bills.length === 1 ? 'cuenta' : 'cuentas'} sin
-                pagar
-              </span>
-              {late.length > 0 ? (
+          <div className="hood solo">
+            <div className="card hero">
+              <div className="label">Falta pagar</div>
+              <div className="figure">
+                <Figure amount={owed} />
+              </div>
+              <div className="legend">
                 <span>
-                  {late.length === 1
-                    ? 'Una viene de un mes anterior'
-                    : `${String(late.length)} vienen de meses anteriores`}
+                  {bills.length} {bills.length === 1 ? 'cuenta' : 'cuentas'} sin
+                  pagar
                 </span>
-              ) : null}
-              {owedUsd > 0 ? (
-                <span>
-                  Y <b>{formatAmount(owedUsd, 'USD')}</b> en dólares
-                </span>
-              ) : null}
+                {late.length > 0 ? (
+                  <span>
+                    {late.length === 1
+                      ? 'Una viene de un mes anterior'
+                      : `${String(late.length)} vienen de meses anteriores`}
+                  </span>
+                ) : null}
+                {owedUsd > 0 ? (
+                  <span>
+                    Y <b>{formatAmount(owedUsd, 'USD')}</b> en dólares
+                  </span>
+                ) : null}
+              </div>
             </div>
           </div>
           <div className="sec">

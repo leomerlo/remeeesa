@@ -85,10 +85,15 @@ function CategoryBars({
   readonly expenses: readonly Expense[]
   readonly categories: readonly Category[]
 }): ReactElement {
-  const rows = summarizeByCategory({ expenses, categories })
   const capOf = (categoryId: string): number =>
     categories.find((category) => category.id === categoryId)?.monthlyBudget ??
     0
+  // A category with nothing spent and no cap is doing nothing this month,
+  // and listing it at "$0 · 0% de lo que gastaron" is a row that says
+  // nothing. One with a cap stays: zero against a tope is news.
+  const rows = summarizeByCategory({ expenses, categories }).filter(
+    (row) => row.total > 0 || capOf(row.categoryId) > 0,
+  )
   const max = rows[0]?.total ?? 0
 
   return (
@@ -127,7 +132,7 @@ function CategoryBars({
           )
         })}
       </div>
-      <button className="btn btn-secondary btn-block" type="button" disabled>
+      <button className="btn btn-secondary btn-wide" type="button" disabled>
         <Settings2 />
         Administrar categorías y topes
       </button>

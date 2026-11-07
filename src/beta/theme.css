@@ -396,6 +396,11 @@
     border-radius: 24px; display: grid; overflow: hidden;
   }
 
+  /* The panel holding one figure and nothing else, which is what every
+     screen but Inicio needs from it: no month above it to leave room for,
+     so no margin of its own. */
+  .hood.solo { margin-top: 0; }
+
   /* A hairline where a gap between two cards used to be. */
   .hood .band { gap: 0; }
   .hood .band > * + * { border-top: 1px solid var(--hood-line); }
