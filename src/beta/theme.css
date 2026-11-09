@@ -1178,6 +1178,12 @@
                               font-variant-numeric: tabular-nums; }
   .projcard .money-in input:disabled { color: var(--ink-2); }
   .projcard.off .money-in { opacity: .7; }
+  /* The line's own band: what it has to say, and the figure it says it
+     about. Stacked on a phone, where 60% of 310px would turn three lines
+     of text into eight; side by side as soon as there is width for it. */
+  .projbody { display: grid; gap: 8px; }
+  .projsay { display: grid; gap: 4px; justify-items: start; }
+  .projsay:empty { display: none; }
   /* The way back from a figure put in by hand. Against the left edge,
      under the name it belongs to -- it answers that line, not the card,
      so it does not take the amount's right-hand edge. */
@@ -1227,6 +1233,9 @@
 
   /* ===== wide ===== */
   @media (min-width: 760px) {
+    .projbody { grid-template-columns: minmax(0, 60%) 1fr; align-items: center;
+                gap: 16px; }
+    .projbody .money-in { grid-column: 2; }
     /* Two rows now, so the bar can sit over the content column while the
        rail runs the full height beside both. */
     .shell { display: grid; grid-template-columns: 240px minmax(0,1fr);

@@ -414,49 +414,60 @@ export function Proyecciones({
                   <i />
                 </span>
               </button>
-              <div className="money-in">
-                <span className="pre" aria-hidden="true">
-                  $
-                </span>
-                <input
-                  aria-label={`Cuánto va a ser ${row.label}`}
-                  // A zero is left as the placeholder rather than typed
-                  // into the field: tapping a field that already says 0
-                  // and typing lands "025000" in it.
-                  value={typed ?? (row.price === 0 ? '' : String(row.price))}
-                  inputMode="decimal"
-                  autoComplete="off"
-                  placeholder="0"
-                  disabled={!on}
-                  onChange={(event) =>
-                    type(row.key, event.target.value, row.price)
-                  }
-                />
-              </div>
-              {/* A card's figure is the one on the screen that is knowably
-                  short -- it is the cuotas already signed, and next
-                  month's own shopping is not in it -- so it is the one
-                  that says out loud that it can be typed over. Once it
-                  has been, the line offers the way back instead. */}
-              {typed !== undefined ? (
-                <div className="projpin">
-                  <button
-                    className="btn btn-tertiary"
-                    type="button"
-                    onClick={() => unpin(row.key)}
-                  >
-                    <RotateCcw />
-                    Volver al estimado ({formatCurrency(row.price)})
-                  </button>
+              {/* What the line has to say, beside its figure rather than
+                  under both: on a wide screen the explanation took a row
+                  of its own while the space next to the amount sat empty.
+                  Held to 60% there, so it never reaches the input. */}
+              <div className="projbody">
+                <div className="projsay">
+                  {/* A card's figure is the one on the screen that is
+                      knowably short -- it is the cuotas already signed,
+                      and next month's own shopping is not in it -- so it
+                      is the one that says out loud that it can be typed
+                      over. Once it has been, the line offers the way back
+                      instead. */}
+                  {typed !== undefined ? (
+                    <div className="projpin">
+                      <button
+                        className="btn btn-tertiary"
+                        type="button"
+                        onClick={() => unpin(row.key)}
+                      >
+                        <RotateCcw />
+                        Volver al estimado ({formatCurrency(row.price)})
+                      </button>
+                    </div>
+                  ) : row.kind === 'tarjeta' ? (
+                    <p className="sub">
+                      Son las cuotas que ya compraron para{' '}
+                      {monthName(monthStart)}. Lo que compren ese mes todavía no
+                      está acá: si sabés que va a ser más, escribilo.
+                    </p>
+                  ) : null}
+                  {on ? null : (
+                    <span className="sub">No cuenta en el total</span>
+                  )}
                 </div>
-              ) : row.kind === 'tarjeta' ? (
-                <p className="sub">
-                  Son las cuotas que ya compraron para {monthName(monthStart)}.
-                  Lo que compren ese mes todavía no está acá: si sabés que va a
-                  ser más, escribilo.
-                </p>
-              ) : null}
-              {on ? null : <span className="sub">No cuenta en el total</span>}
+                <div className="money-in">
+                  <span className="pre" aria-hidden="true">
+                    $
+                  </span>
+                  <input
+                    aria-label={`Cuánto va a ser ${row.label}`}
+                    // A zero is left as the placeholder rather than typed
+                    // into the field: tapping a field that already says 0
+                    // and typing lands "025000" in it.
+                    value={typed ?? (row.price === 0 ? '' : String(row.price))}
+                    inputMode="decimal"
+                    autoComplete="off"
+                    placeholder="0"
+                    disabled={!on}
+                    onChange={(event) =>
+                      type(row.key, event.target.value, row.price)
+                    }
+                  />
+                </div>
+              </div>
             </div>
           )
         })}
