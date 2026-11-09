@@ -205,9 +205,22 @@ export function Proyecciones({
   // the same money the card lines above already carry -- the bill counted
   // twice. The card has a bill of its own in this month; that is the line
   // that speaks for it.
-  const tarjetaId = categories.find(
+  //
+  // Read off the bills themselves rather than looked up by name: the
+  // category is created as "Tarjeta", but a household can rename it and a
+  // rename changes nothing but the name -- so matching on the name alone
+  // stops finding the very category whose money is being counted twice.
+  // The name is kept as a second way in, for a household that has the
+  // category but no card bill pending right now.
+  const cardCategories = new Set(
+    pendientes
+      .filter((pendiente) => pendiente.cardId !== undefined)
+      .map((pendiente) => pendiente.categoryId),
+  )
+  const named = categories.find(
     (category) => category.name === RESUMEN_CATEGORY_NAME,
-  )?.id
+  )
+  if (named !== undefined) cardCategories.add(named.id)
   const byId = new Map(categories.map((category) => [category.id, category]))
   const nameOf = (categoryId: string): string =>
     byId.get(categoryId)?.name ?? 'Sin categoría'
@@ -230,7 +243,7 @@ export function Proyecciones({
     current,
     servicios.map((servicio) => servicio.name),
   )
-    .filter((row) => row.categoryId !== tarjetaId)
+    .filter((row) => !cardCategories.has(row.categoryId))
     .map((row) => ({
       key: row.categoryId,
       label: nameOf(row.categoryId),
@@ -269,7 +282,10 @@ export function Proyecciones({
   // nothing to the total until it is typed over, which is the point.
   const spoken = new Set(carried.map((row) => row.key))
   const quiet: readonly Row[] = categories
-    .filter((category) => category.id !== tarjetaId && !spoken.has(category.id))
+    .filter(
+      (category) =>
+        !cardCategories.has(category.id) && !spoken.has(category.id),
+    )
     .map((category) => ({
       key: category.id,
       label: category.name,

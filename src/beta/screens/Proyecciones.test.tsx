@@ -62,6 +62,13 @@ async function houseWithACardBill(): Promise<BetaSession> {
 
 // The screen pages its own month, but it still sits inside the app's --
 // the pager reads it to know whether there is a month ahead to go to.
+// A day inside the month before the one the screen opens on, which is
+// next month: the clock is frozen at 25 Sep 2026, so the screen shows
+// October and carries September.
+function lastMonth(): Date {
+  return new Date(2026, 8, 15, 12)
+}
+
 function render(session: BetaSession): void {
   renderWithProviders(
     <MonthProvider>
@@ -69,6 +76,50 @@ function render(session: BetaSession): void {
     </MonthProvider>,
   )
 }
+
+// Paying a card bill writes its gastos into the card's own category, so
+// carrying that category over from last month is a second guess at the
+// same money the card line already carries. The line stands; the category
+// does not -- and it has to stop being carried whatever it is called,
+// because a household can rename it and the money does not care.
+describe('the card is counted once', () => {
+  it('leaves the card category out, even renamed', async () => {
+    const session = await houseWithACardBill()
+    const id = session.householdId as string
+    const tarjeta = await session.db.findOrCreateCategory({
+      householdId: id,
+      name: RESUMEN_CATEGORY_NAME,
+    })
+    // Last month's card bill, paid: this is what would be carried.
+    await session.db.createExpense({
+      householdId: id,
+      categoryId: tarjeta.id,
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      name: 'Visa',
+      price: 500_000,
+      comments: '',
+      expenseDate: lastMonth(),
+      currency: 'ARS',
+      paymentMethodId: null,
+    })
+    await session.db.renameCategory({
+      householdId: id,
+      categoryId: tarjeta.id,
+      name: 'Tarjeta de crédito',
+    })
+
+    render(session)
+
+    // The card's own line, and nothing else for the card: not the
+    // $500.000 of last month's bill, and not a row for the category.
+    expect(await screen.findByLabelText('Cuánto va a ser Visa')).toHaveValue(
+      '60000',
+    )
+    expect(screen.queryByText('Tarjeta de crédito')).toBeNull()
+    expect(screen.getByText('$60.000')).toBeInTheDocument()
+  })
+})
 
 // A projection is where somebody says "este mes sí vamos a gastar en
 // esto", so every category the household has is on it -- including the
