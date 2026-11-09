@@ -1,3 +1,4 @@
+import { Banknote } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import type { Card as PaymentMethod, CardPurchase } from '@/lib/cards'
@@ -8,16 +9,17 @@ import {
 } from '@/lib/cards'
 import type { Category, Expense } from '@/lib/expenses'
 import { createExpense, deleteExpense, updateExpense } from '@/lib/expenses'
-import { createPendiente } from '@/lib/pendientes'
+import { createPendiente, markPendientePaid } from '@/lib/pendientes'
 import type { Currency } from '@/lib/money'
+import { CardBrandMark } from '../CardBrandMark'
 import { DangerAction, Sheet, SheetFoot } from '../Sheet'
 import { useSave } from '../useSave'
 import { kindOf } from '../format'
 import type { BetaSession } from '../data'
 import {
   DateField,
-  MoneyField,
-  OptionList,
+  MoneyRow,
+  PickField,
   SelectField,
   TextField,
   Toggle,
@@ -42,11 +44,12 @@ export type GastoDraft = {
   readonly methodId: string
   readonly cuotas: string
   readonly comments: string
-  readonly isService: boolean
-  // Only ever read when isService is on, and only when creating: they are
-  // what makes a bill a bill rather than one month's figure.
+  // The v1's two questions, which between them decide what gets written:
+  // a one-off already paid is a gasto, and anything else is a bill of the
+  // month -- created, and settled on the spot if it was already paid.
   readonly recurring: boolean
   readonly autoDebit: boolean
+  readonly paid: boolean
 }
 
 function isoDay(date: Date): string {
@@ -77,11 +80,11 @@ export function draftFromExpense(
       methodId: '',
       cuotas: '1',
       comments: '',
-      isService: false,
-      // A bill that comes every month is the ordinary case -- that is what
-      // makes it a servicio -- and the bank debiting it is not.
-      recurring: true,
+      // A gasto is a one-off already paid: that is what anotar un gasto
+      // means, and the two switches are there for when it is not.
+      recurring: false,
       autoDebit: false,
+      paid: true,
     }
   }
   return {
@@ -93,9 +96,9 @@ export function draftFromExpense(
     methodId: expense.paymentMethodId ?? '',
     cuotas: '1',
     comments: expense.comments,
-    isService: expense.isService,
-    recurring: true,
+    recurring: false,
     autoDebit: false,
+    paid: true,
   }
 }
 
@@ -109,9 +112,9 @@ export function draftFromPurchase(purchase: CardPurchase): GastoDraft {
     methodId: purchase.cardId,
     cuotas: String(purchase.cuotas),
     comments: purchase.comments,
-    isService: false,
-    recurring: true,
+    recurring: false,
     autoDebit: false,
+    paid: true,
   }
 }
 
@@ -152,12 +155,23 @@ export function GastoSheet({
     setDraft((current) => ({ ...current, [key]: value }))
   }
 
-  const method = methods.find((candidate) => candidate.id === draft.methodId)
+  // Nothing is paid with anything until it is paid: a bill still owed
+  // carries no method, and the one it ends up being settled with is chosen
+  // that day. So while "Ya lo pagué" is off the method is not read at all,
+  // which also keeps a credit card from booking a consumo for something
+  // nobody has bought.
+  const method = draft.paid
+    ? methods.find((candidate) => candidate.id === draft.methodId)
+    : undefined
   // Only a credit method changes what gets written. The rest are labels on
   // money that has already gone.
   const onCredit = method?.kind === 'credito'
   const named = draft.name.trim() !== ''
-  const priced = moneyIsValid(draft.amount)
+  // A bill that has not been paid may not have a figure yet -- the light
+  // bill arrives when it arrives -- and that is the one case where the
+  // amount can be left empty. The v1 draws the line in the same place.
+  const needsAmount = draft.paid || onCredit
+  const priced = moneyIsValid(draft.amount, { required: needsAmount })
   const blocked = !named || !priced || draft.categoryId === ''
   const householdId = session.householdId ?? ''
   const memberId = session.userId ?? ''
@@ -169,6 +183,55 @@ export function GastoSheet({
     householdId === '' || memberId === ''
       ? 'Todavía estamos leyendo el hogar. Probá de nuevo en un segundo.'
       : null
+
+  // Every way this household pays, each with its own mark. Efectivo is the
+  // one nobody creates, so it is written in here rather than read.
+  //
+  // Editing a consumo offers only the credit cards: a consumo lives on a
+  // card by definition, and moving it to cash is not an edit but a
+  // different record -- borrarlo y anotarlo de nuevo is the way. Editing a
+  // gasto offers everything but credit, for the mirror reason: paying with
+  // credit books a consumo, not a gasto.
+  const offered = methods.filter((candidate) =>
+    purchase !== null
+      ? candidate.kind === 'credito'
+      : expense === null || candidate.kind !== 'credito',
+  )
+  const methodOptions = [
+    ...(purchase === null
+      ? [{ value: '', k: 'Efectivo', mark: <Banknote /> }]
+      : []),
+    ...offered.map((candidate) => ({
+      value: candidate.id,
+      k: candidate.name,
+      ...(candidate.kind === 'efectivo' ? {} : { v: kindOf(candidate.kind) }),
+      mark: <CardBrandMark brand={candidate.brand} />,
+    })),
+    // Whatever it was actually saved with, when that is not on the list
+    // above -- a gasto paid with a credit card before this form stopped
+    // offering them. Shown rather than silently swapped for the first
+    // option on save.
+    ...methods
+      .filter(
+        (candidate) =>
+          candidate.id === draft.methodId &&
+          !offered.some((one) => one.id === candidate.id),
+      )
+      .map((candidate) => ({
+        value: candidate.id,
+        k: candidate.name,
+        v: kindOf(candidate.kind),
+        mark: <CardBrandMark brand={candidate.brand} />,
+      })),
+  ]
+
+  // Under the amount, and only when there is something to say about it.
+  const amountSays =
+    draft.currency === 'USD'
+      ? 'En dólares: se anota y se muestra, pero no entra en el presupuesto en pesos.'
+      : draft.paid
+        ? null
+        : 'Si todavía no sabés cuánto, dejalo vacío.'
 
   const onSave = (): void => {
     save.run(async () => {
@@ -199,7 +262,10 @@ export function GastoSheet({
           categoryId: draft.categoryId,
           comments: draft.comments,
           expenseDate: date,
-          isService: draft.isService,
+          // Left exactly as it was found. It is the v1's old flag, which
+          // nothing writes true any more; editing a gasto is no reason to
+          // change what it already says.
+          isService: expense.isService,
           currency: draft.currency,
           paymentMethodId: draft.methodId === '' ? null : draft.methodId,
         })
@@ -220,21 +286,33 @@ export function GastoSheet({
           currency: draft.currency,
         })
       }
-      // Ticking "es un servicio" on something new does not write a gasto at
-      // all: a servicio is a bill of the month, and it lives on the
-      // Servicios screen until somebody marks it paid. The same toggle on an
-      // existing gasto is the v1's own flag, above.
-      if (draft.isService) {
-        return createPendiente({
+      // From here on it is the v1's own decision, in its order: a one-off
+      // already paid is a gasto and nothing else. Everything else is a
+      // bill of the month -- it comes every month, or it is still owed --
+      // so it is written as one and then settled on the spot if it was
+      // already paid. That is what makes it come back next month.
+      if (draft.recurring || !draft.paid) {
+        const created = await createPendiente({
           db: session.db,
           householdId,
           categoryId: draft.categoryId,
           name: draft.name.trim(),
           dueDate: date,
-          expectedAmount: amount,
+          expectedAmount: draft.amount.trim() === '' ? null : amount,
           recurring: draft.recurring,
           autoDebit: draft.autoDebit,
           currency: draft.currency,
+        })
+        if (!draft.paid) return created
+        return markPendientePaid({
+          db: session.db,
+          householdId,
+          pendienteId: created.id,
+          memberId,
+          authorDisplayName: author,
+          finalAmount: amount,
+          paymentDate: date,
+          paymentMethodId: draft.methodId === '' ? null : draft.methodId,
         })
       }
       return createExpense({
@@ -275,65 +353,34 @@ export function GastoSheet({
         onChange={(next) => set('name', next)}
         placeholder="Super, nafta, cumpleaños…"
       />
-      <MoneyField
-        label="Cuánto"
-        prefix={draft.currency === 'USD' ? 'US$' : '$'}
-        value={draft.amount}
-        onChange={(next) => set('amount', next)}
-        {...(draft.currency === 'USD'
-          ? {
-              hint: 'En dólares: se anota y se muestra, pero no entra en el presupuesto en pesos.',
-            }
-          : {})}
-      />
-      <SelectField
-        label="Moneda"
-        value={draft.currency}
-        onChange={(next) => set('currency', next as Currency)}
-        options={[
-          { value: 'ARS', label: 'Pesos' },
-          { value: 'USD', label: 'Dólares' },
-        ]}
-      />
-      <SelectField
-        label="Categoría"
-        value={draft.categoryId}
-        onChange={(next) => set('categoryId', next)}
-        options={categories.map((category) => ({
-          value: category.id,
-          label: category.name,
-        }))}
-      />
-      <DateField
-        label="Cuándo"
-        value={draft.date}
-        onChange={(next) => set('date', next)}
-      />
-      <OptionList
-        label="Con qué lo pagaron"
-        value={draft.methodId}
-        onChange={(next) => set('methodId', next)}
-        // The second line says what kind of method it is, not what it does
-        // to the month: "sale hoy" under every option but one was three
-        // words of nothing, and cash needs no explaining at all.
-        // Editing a consumo offers only the credit cards: a consumo lives
-        // on a card by definition, and moving it to cash is not an edit but
-        // a different record. Borrarlo y anotarlo de nuevo is the way.
-        options={[
-          ...(purchase === null ? [{ value: '', k: 'Efectivo' }] : []),
-          ...methods
-            .filter(
-              (candidate) => purchase === null || candidate.kind === 'credito',
-            )
-            .map((candidate) => ({
-              value: candidate.id,
-              k: candidate.name,
-              ...(candidate.kind === 'efectivo'
-                ? {}
-                : { v: kindOf(candidate.kind) }),
-            })),
-        ]}
-      />
+      {/* Before the amount, because it is the answer that decides what the
+          amount is: on a credit card it is not money leaving this month at
+          all. A dropdown with each method's own logo rather than a column
+          of big radios -- the list was taking more of the form than the
+          figure was, and a card is recognised by its logo before its name
+          is read. */}
+      {draft.paid ? (
+        <PickField
+          label="¿Con qué lo pagaron?"
+          value={draft.methodId}
+          onChange={(next) => set('methodId', next)}
+          options={methodOptions}
+        />
+      ) : (
+        <PickField
+          label="¿Con qué lo van a pagar?"
+          value=""
+          onChange={() => undefined}
+          disabled
+          options={[
+            {
+              value: '',
+              k: 'Se elige al pagarlo',
+              v: 'Lo mismo puede ir en efectivo un mes y con tarjeta el siguiente.',
+            },
+          ]}
+        />
+      )}
       {onCredit ? (
         <SelectField
           label="En cuántas cuotas"
@@ -345,49 +392,60 @@ export function GastoSheet({
             label: count === 1 ? 'Un solo pago' : `${String(count)} cuotas`,
           }))}
         />
-      ) : (
-        <Toggle
-          k="Es un servicio"
-          v={
-            expense === null
-              ? 'Una cuenta del hogar, no un gasto suelto: se guarda en Servicios y queda por pagar.'
-              : 'Marcalo si esto es una cuenta del hogar y no un gasto suelto.'
-          }
-          checked={draft.isService}
-          onChange={(next) => {
-            setDraft((current) => ({
-              ...current,
-              isService: next,
-              recurring: next ? current.recurring : false,
-              autoDebit: next ? current.autoDebit : false,
-            }))
-          }}
-        />
-      )}
-      {/* Both of them always, the way the v1 has them: a question that
-          appears only after another one is answered is a question nobody
-          knows is there. Débito automático is held shut until Todos los
-          meses is on -- the bank does not debit a one-off -- which is the
-          v1's rule too.
+      ) : null}
+      <MoneyRow
+        label={draft.paid ? 'Cuánto' : 'Cuánto va a ser'}
+        amount={draft.amount}
+        onAmount={(next) => set('amount', next)}
+        currency={draft.currency}
+        onCurrency={(next) => set('currency', next as Currency)}
+        currencies={[
+          { value: 'ARS', label: '$' },
+          { value: 'USD', label: 'US$' },
+        ]}
+        {...(amountSays === null ? {} : { hint: amountSays })}
+      />
+      <SelectField
+        label="Categoría"
+        value={draft.categoryId}
+        onChange={(next) => set('categoryId', next)}
+        options={categories.map((category) => ({
+          value: category.id,
+          label: category.name,
+        }))}
+      />
+      <DateField
+        label={draft.paid ? 'Cuándo' : 'Cuándo vence'}
+        value={draft.date}
+        onChange={(next) => set('date', next)}
+      />
+      {/* The three questions that decide what this becomes, and only when
+          anotando algo nuevo: an existing record already is one thing or
+          the other, and turning a saved gasto into a servicio is a
+          conversion rather than an edit.
 
-          Only when anotando uno nuevo: on an existing gasto the toggle
-          above is the v1's own flag and writes no bill, so there would be
-          nothing for these two to write. */}
-      {expense === null && purchase === null ? (
+          None of them on a credit card: a consumo already happened, it
+          does not come every month, and the bank does not debit it. */}
+      {expense === null && purchase === null && !onCredit ? (
         <>
+          <Toggle
+            k="Ya lo pagué"
+            v="Si no, queda esperando en Servicios con esa fecha de vencimiento."
+            checked={draft.paid}
+            onChange={(next) => {
+              setDraft((current) => ({ ...current, paid: next }))
+            }}
+          />
           <Toggle
             k="Todos los meses"
             v="Se vuelve a crear solo cuando arranca el mes siguiente."
             checked={draft.recurring}
             onChange={(next) => {
-              // Something that comes every month is a cuenta del hogar,
-              // not a gasto suelto -- the v1 decides the same way. And
-              // switching it off takes the bank's debit with it, or it
+              // Switching it off takes the bank's debit with it, or it
               // would come back the moment it is switched on again.
               setDraft((current) => ({
                 ...current,
                 recurring: next,
-                isService: next ? true : current.isService,
                 autoDebit: next ? current.autoDebit : false,
               }))
             }}
@@ -401,12 +459,6 @@ export function GastoSheet({
           />
         </>
       ) : null}
-      <TextField
-        label="Nota"
-        value={draft.comments}
-        onChange={(next) => set('comments', next)}
-        placeholder="Opcional"
-      />
       {blocked ? (
         <p className="fproblem" role="alert">
           {!named

@@ -20,12 +20,11 @@ describe('filling the gasto form from what is already there', () => {
       methodId: '',
       cuotas: '1',
       comments: '',
-      isService: false,
-      // What the two servicio questions default to. They are only read
-      // when "es un servicio" is ticked, and a bill that comes every
-      // month is what makes it one.
-      recurring: true,
+      // What anotar un gasto means: a one-off that already happened. The
+      // two switches below it are there for everything that is not that.
+      recurring: false,
       autoDebit: false,
+      paid: true,
     })
   })
 
@@ -49,7 +48,6 @@ describe('filling the gasto form from what is already there', () => {
       date: '2026-10-03',
       methodId: 'card-visa',
       comments: 'con la vecina',
-      isService: true,
     })
   })
 
@@ -77,12 +75,11 @@ describe('filling the gasto form from what is already there', () => {
       methodId: 'card-visa',
       cuotas: '3',
       comments: '',
-      // Never: a consumo is not a servicio, and the toggle is not even
-      // shown while the form is on a card -- so neither are the two
-      // questions behind it.
-      isService: false,
-      recurring: true,
+      // A consumo already happened and does not come every month, and
+      // none of these three is even asked while the form is on a card.
+      recurring: false,
       autoDebit: false,
+      paid: true,
     })
   })
 })
