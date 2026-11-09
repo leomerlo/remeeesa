@@ -20,6 +20,7 @@ import type { BetaSession } from '../data'
 import {
   DateField,
   MoneyField,
+  MoneyRow,
   PickField,
   SelectField,
   TextField,
@@ -149,21 +150,20 @@ export function ServicioSheet({
         onChange={setName}
         placeholder="Luz, gas, expensas…"
       />
-      <MoneyField
+      {/* The same field anotar un gasto asks the amount with: the currency
+          on the same line, as the sign it is, rather than a question of
+          its own underneath. */}
+      <MoneyRow
         label="Cuánto"
-        prefix={currency === 'USD' ? 'US$' : '$'}
-        value={amount}
-        onChange={setAmount}
-        hint="Si todavía no sabés el monto, dejalo vacío: va a decir «A confirmar» y no cuenta contra el presupuesto hasta que lo pongas."
-      />
-      <SelectField
-        label="Moneda"
-        value={currency}
-        onChange={(next) => setCurrency(next as Currency)}
-        options={[
-          { value: 'ARS', label: 'Pesos' },
-          { value: 'USD', label: 'Dólares' },
+        amount={amount}
+        onAmount={setAmount}
+        currency={currency}
+        onCurrency={(next) => setCurrency(next as Currency)}
+        currencies={[
+          { value: 'ARS', label: '$' },
+          { value: 'USD', label: 'US$' },
         ]}
+        hint="Si todavía no sabés el monto, dejalo vacío: va a decir «A confirmar» y no cuenta contra el presupuesto hasta que lo pongas."
       />
       <SelectField
         label="Categoría"

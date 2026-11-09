@@ -55,8 +55,9 @@ export function TextField({
   )
 }
 
-// An amount, written and read the way this country writes one: dots
-// between thousands, a comma before cents.
+// An amount in one currency, which is most of them: the sign is fixed and
+// the figure is the big thing on the form. The shape below is the same
+// field with the currency chosen instead of fixed.
 export function MoneyField({
   label,
   value,
@@ -118,7 +119,7 @@ export function MoneyRow({
   return (
     <Field label={label} {...(hint === undefined ? {} : { hint })}>
       {(id) => (
-        <div className="moneyrow">
+        <div className="money-in withcur">
           <select
             className="cur"
             aria-label="Moneda"
@@ -133,7 +134,6 @@ export function MoneyRow({
           </select>
           <input
             id={id}
-            className="big"
             value={amount}
             inputMode="decimal"
             autoComplete="off"

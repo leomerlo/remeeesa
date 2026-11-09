@@ -1066,25 +1066,27 @@
               line-height: 1.4; color: var(--red-700); }
   /* The currency sign belongs to the field, not to what you type: typing
      over your own "$" is the oldest annoyance in this kind of form. */
-  .money-in { display: grid; grid-template-columns: auto 1fr; align-items: center;
+  /* The amount is the number the whole form is about, so it is the biggest
+     thing on it wherever it is asked -- un gasto, un servicio, un pago, un
+     presupuesto, el tope de una categoría. One look, in two shapes: the
+     sign fixed, or the currency chosen on the same line, which is what the
+     sign is anyway. */
+  .money-in { display: grid; grid-template-columns: auto 1fr; align-items: stretch;
               background-color: var(--page); border: 1px solid #ddd5ec;
               border-radius: 12px; padding-left: 16px; }
-  .money-in .pre { font-size: var(--t-md); font-weight: 700; color: var(--ink-2); }
-  .money-in input { border: 0; background: transparent; padding-left: 8px; }
-  /* The amount is the number the whole form is about, so it is the biggest
-     thing on it, and the currency is its sign rather than a question of
-     its own: one line, the sign on the left the way it is written. */
-  .moneyrow { display: grid; grid-template-columns: auto 1fr; align-items: stretch;
-              background-color: var(--page); border: 1px solid #ddd5ec;
-              border-radius: 12px; }
-  .moneyrow .cur { border: 0; border-right: 1px solid #ddd5ec;
+  .money-in .pre { font-size: var(--t-lg); font-weight: 700; color: var(--ink-2);
+                   align-self: center; }
+  .money-in input { border: 0; background: transparent; min-height: 64px;
+                    font-size: var(--t-3xl); font-weight: 800; letter-spacing: -.01em;
+                    font-variant-numeric: tabular-nums; padding: 0 16px 0 10px; }
+  /* The currency takes the place of the sign, so the field gives it the
+     sign's own room rather than padding of its own. */
+  .money-in.withcur { padding-left: 0; }
+  .money-in .cur { border: 0; border-right: 1px solid #ddd5ec;
                    background-color: transparent; border-radius: 12px 0 0 12px;
                    width: auto; min-height: 64px; font-size: var(--t-lg);
                    font-weight: 700; color: var(--ink-2);
                    padding: 0 30px 0 16px; background-position: right 8px center; }
-  .moneyrow .big { border: 0; background: transparent; min-height: 64px;
-                   font-size: var(--t-3xl); font-weight: 800; letter-spacing: -.01em;
-                   font-variant-numeric: tabular-nums; padding: 0 16px; }
   /* A choice that wears its own mark. Shut, it is one field-high row; open,
      the options sit under it in the form rather than floating over it --
      the sheet's body is what scrolls, and a floating panel gets cut off by
@@ -1167,7 +1169,10 @@
      in a sheet, down to the 52px and the 12px corner. */
   .projcard .money-in { width: auto; justify-self: end; min-height: 52px;
                         padding-left: 14px; padding-right: 4px; }
+  /* Smaller than the amount in a form, because this one is a figure in a
+     row rather than the question the card is asking. */
   .projcard .money-in input { font-size: var(--t-md); font-weight: 700;
+                              min-height: 52px; letter-spacing: 0;
                               color: var(--ink); padding: 12px 12px 12px 6px;
                               width: 7.5em; text-align: right;
                               font-variant-numeric: tabular-nums; }
