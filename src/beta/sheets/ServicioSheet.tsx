@@ -1,4 +1,4 @@
-import { Undo2 } from 'lucide-react'
+import { Banknote, Undo2 } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import type { Card as PaymentMethod } from '@/lib/cards'
@@ -13,13 +13,14 @@ import {
   unmarkPendientePaid,
   updatePendiente,
 } from '@/lib/pendientes'
+import { CardBrandMark } from '../CardBrandMark'
 import { DangerAction, Sheet, SheetFoot } from '../Sheet'
 import { useSave } from '../useSave'
 import type { BetaSession } from '../data'
 import {
   DateField,
   MoneyField,
-  OptionList,
+  PickField,
   SelectField,
   TextField,
   Toggle,
@@ -351,20 +352,24 @@ export function PagarSheet({
             })}
       />
       <DateField label="Cuándo" value={paidOn} onChange={setPaidOn} />
-      <OptionList
+      {/* The same dropdown anotar un gasto asks with, because it is the
+          same question: every method the household has, each wearing its
+          own logo. The second line says what kind of method it is, not
+          what it does to the month -- the note below says the one
+          consequence that matters. */}
+      <PickField
         label="Con qué lo pagaron"
         value={methodId}
         onChange={setMethodId}
-        // What kind of method it is, not what it does to the month: the
-        // line below already says the one consequence that matters.
         options={[
-          { value: '', k: 'Efectivo' },
+          { value: '', k: 'Efectivo', mark: <Banknote /> },
           ...methods.map((candidate) => ({
             value: candidate.id,
             k: candidate.name,
             ...(candidate.kind === 'efectivo'
               ? {}
               : { v: kindOf(candidate.kind) }),
+            mark: <CardBrandMark brand={candidate.brand} />,
           })),
         ]}
       />

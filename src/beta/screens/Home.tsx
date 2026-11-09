@@ -15,6 +15,7 @@ import { Link } from 'react-router-dom'
 import { formatCurrency } from '@/lib/expenses'
 import type { Expense } from '@/lib/expenses'
 import type { CardPurchase } from '@/lib/cards'
+import type { Pendiente } from '@/lib/pendientes'
 import { Figure } from '../Figure'
 import { homeFigures } from '../figures'
 import type { HomeFigures } from '../figures'
@@ -32,6 +33,7 @@ import {
 import { monthName } from '../format'
 import type { BetaSession } from '../data'
 import { GastoSheet } from '../sheets/GastoSheet'
+import { PagarSheet, ServicioSheet } from '../sheets/ServicioSheet'
 import { PresupuestoSheet } from '../sheets/PresupuestoSheet'
 import { LoadFailed } from './Gastos'
 
@@ -49,6 +51,12 @@ export function Home({
   const [editingPurchase, setEditingPurchase] = useState<CardPurchase | null>(
     null,
   )
+  // Inicio shows the same two lists the other screens show, so it answers
+  // them the same way: a row opens its own form, and a bill can be marked
+  // paid without going anywhere first. A card that does something on one
+  // screen and nothing on another is two cards.
+  const [editingBill, setEditingBill] = useState<Pendiente | null>(null)
+  const [paying, setPaying] = useState<Pendiente | null>(null)
   const householdId = session.householdId ?? null
   const now = new Date()
   const { monthStart, monthEnd } = useMonth()
@@ -305,6 +313,9 @@ export function Home({
                   categories={categories}
                   monthStart={monthStart}
                   now={now}
+                  several={several}
+                  onEdit={() => setEditingBill(bill)}
+                  onPay={() => setPaying(bill)}
                 />
               ))}
               <Link className="btn btn-secondary btn-wide" to="/servicios">
@@ -358,6 +369,26 @@ export function Home({
           expense={null}
           purchase={editingPurchase}
           categories={categories}
+          methods={methods}
+          today={new Date()}
+        />
+      )}
+      {editingBill === null ? null : (
+        <ServicioSheet
+          open
+          onClose={() => setEditingBill(null)}
+          session={session}
+          bill={editingBill}
+          categories={categories}
+          today={new Date()}
+        />
+      )}
+      {paying === null ? null : (
+        <PagarSheet
+          open
+          onClose={() => setPaying(null)}
+          session={session}
+          bill={paying}
           methods={methods}
           today={new Date()}
         />

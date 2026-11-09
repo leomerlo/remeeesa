@@ -1,0 +1,106 @@
+import { fireEvent, screen } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+import { describe, expect, it, vi } from 'vitest'
+import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
+import { renderWithProviders } from '@/test/renderWithProviders'
+import { MonthProvider } from '../MonthContext'
+import { Home } from './Home'
+import type { BetaSession } from '../data'
+
+const FLOR = 'flor'
+// The suite's clock is frozen at 25 Sep 2026, and Inicio shows the month
+// that is running -- so everything below is dated inside September.
+
+async function house(): Promise<BetaSession> {
+  const db = createMemoryHouseholdsDb().asUser(FLOR)
+  const { household } = await db.createHouseholdAndMembership({
+    userId: FLOR,
+    name: 'Casa Merlo',
+    monthlyBudget: 500_000,
+    displayName: 'Flor',
+  })
+  const servicios = await db.findOrCreateCategory({
+    householdId: household.id,
+    name: 'Servicios',
+  })
+  await db.createExpense({
+    householdId: household.id,
+    categoryId: servicios.id,
+    memberId: FLOR,
+    authorDisplayName: 'Flor',
+    name: 'Verdulería',
+    price: 12_400,
+    comments: '',
+    expenseDate: new Date(2026, 8, 20, 12),
+    currency: 'ARS',
+    paymentMethodId: null,
+  })
+  await db.createPendiente({
+    householdId: household.id,
+    categoryId: servicios.id,
+    name: 'Luz',
+    dueDate: new Date(2026, 8, 28, 12),
+    expectedAmount: 36_800,
+    recurring: true,
+    autoDebit: false,
+    currency: 'ARS',
+  })
+  return {
+    userId: FLOR,
+    householdId: household.id,
+    displayName: 'Flor',
+    db,
+    adopt: vi.fn(),
+    rename: vi.fn(),
+  }
+}
+
+function render(session: BetaSession): void {
+  renderWithProviders(
+    // Inicio links out to the other screens, so it needs somewhere for
+    // those links to point.
+    <MemoryRouter>
+      <MonthProvider>
+        <Home session={session} />
+      </MonthProvider>
+    </MemoryRouter>,
+  )
+}
+
+// Inicio shows the same two lists Gastos and Servicios show, so a row on
+// it does what the same row does over there. A card that opens something
+// on one screen and nothing on another is two cards, and nobody can tell
+// which one they are looking at.
+describe('the two lists on Inicio', () => {
+  it('opens a movement from Últimos movimientos', async () => {
+    render(await house())
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Editar Verdulería' }),
+    )
+
+    expect(
+      await screen.findByRole('heading', { name: 'Editar el gasto' }),
+    ).toBeInTheDocument()
+  })
+
+  it('opens a bill from Servicios por pagar', async () => {
+    render(await house())
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar Luz' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Editar el servicio' }),
+    ).toBeInTheDocument()
+  })
+
+  it('marks a bill paid from Servicios por pagar, without going there first', async () => {
+    render(await house())
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Ya lo pagué' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Pagar Luz' }),
+    ).toBeInTheDocument()
+  })
+})
