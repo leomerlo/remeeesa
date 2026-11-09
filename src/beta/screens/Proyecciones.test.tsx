@@ -70,6 +70,36 @@ function render(session: BetaSession): void {
   )
 }
 
+// A projection is where somebody says "este mes sí vamos a gastar en
+// esto", so every category the household has is on it -- including the
+// ones neither month has anything in, which reading the two months alone
+// never yields.
+describe('the categories with nothing in them', () => {
+  it('lists them at zero, beside the ones that have something', async () => {
+    render(await houseWithACardBill())
+
+    expect(await screen.findByLabelText('Cuánto va a ser Visa')).toHaveValue(
+      '60000',
+    )
+    // Ropa is the category the purchase was filed under, and nothing was
+    // ever spent in it: a card purchase is not a gasto of any month.
+    // Empty rather than a literal 0: the 0 is the placeholder, so typing
+    // into it does not land "025000".
+    expect(screen.getByLabelText('Cuánto va a ser Ropa')).toHaveValue('')
+    expect(screen.getAllByText('Sin movimientos').length).toBeGreaterThan(0)
+  })
+
+  it('counts one as soon as a figure is typed into it', async () => {
+    render(await houseWithACardBill())
+
+    fireEvent.change(await screen.findByLabelText('Cuánto va a ser Ropa'), {
+      target: { value: '25000' },
+    })
+
+    expect(screen.getByText('$85.000')).toBeInTheDocument()
+  })
+})
+
 // The card's line is the one the app can fill in before the bill exists --
 // and the one that is knowably short, because next month's own shopping is
 // not in it. So it has to be possible to put a figure in over it, and to

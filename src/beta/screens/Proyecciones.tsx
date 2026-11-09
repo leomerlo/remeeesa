@@ -38,13 +38,14 @@ const SAVE_DEBOUNCE_MS = 700
 
 // Where a line's figure comes from, which is the one thing worth knowing
 // about it. The v1's three, plus the card -- see the comment on the rows.
-type Kind = 'cargado' | 'anterior' | 'servicio' | 'tarjeta'
+type Kind = 'cargado' | 'anterior' | 'servicio' | 'tarjeta' | 'vacio'
 
 const BADGE: Readonly<Record<Kind, string>> = {
   cargado: 'Ya cargado',
   anterior: 'Del mes anterior',
   servicio: 'Servicio sin pagar',
   tarjeta: 'Cuotas ya compradas',
+  vacio: 'Sin movimientos',
 }
 
 // A figure typed over the suggested one. The badge's whole job is saying
@@ -213,55 +214,80 @@ export function Proyecciones({
   const colorOf = (categoryId: string): string =>
     byId.get(categoryId)?.color ?? '#9aa0a6'
 
-  const rows: readonly {
+  type Row = {
     key: string
     label: string
     kind: Kind
     color: string
     price: number
-  }[] = [
-    ...buildProjection(
-      previous,
-      current,
-      servicios.map((servicio) => servicio.name),
-    )
-      .filter((row) => row.categoryId !== tarjetaId)
-      .map((row) => ({
-        key: row.categoryId,
-        label: nameOf(row.categoryId),
-        kind:
-          row.source === 'actual'
-            ? ('cargado' as const)
-            : ('anterior' as const),
-        color: colorOf(row.categoryId),
-        price: row.price,
-      })),
-    // A card bill is the one line the app can fill in before it arrives:
-    // the cuotas already bought that land in this month add up to a figure
-    // it has been keeping all along (estimatedAmount). It was listed at $0
-    // -- correct for a bill nobody has seen, and useless in a projection,
-    // which is a guess by definition. Still only an estimate: next month's
-    // own purchases are not in it, so this line is the one most worth
-    // typing over.
-    ...servicios.map((pendiente) => ({
-      key: `servicio-${pendiente.id}`,
-      label: pendiente.name,
+  }
+
+  // What the two months say, which is what the screen is built on: a
+  // category spent in this one, or last one's figure where this one has
+  // nothing yet.
+  const carried: readonly Row[] = buildProjection(
+    previous,
+    current,
+    servicios.map((servicio) => servicio.name),
+  )
+    .filter((row) => row.categoryId !== tarjetaId)
+    .map((row) => ({
+      key: row.categoryId,
+      label: nameOf(row.categoryId),
       kind:
-        pendiente.cardId === undefined
-          ? ('servicio' as const)
-          : ('tarjeta' as const),
-      color: colorOf(pendiente.categoryId),
-      price:
-        pendiente.expectedAmount ??
-        (pendiente.cardId === undefined ? 0 : (pendiente.estimatedAmount ?? 0)),
-    })),
-  ]
-    // Biggest first, like every other list of amounts in this app: the
-    // line worth arguing about is the one at the top.
+        row.source === 'actual' ? ('cargado' as const) : ('anterior' as const),
+      color: colorOf(row.categoryId),
+      price: row.price,
+    }))
+
+  // A card bill is the one line the app can fill in before it arrives:
+  // the cuotas already bought that land in this month add up to a figure
+  // it has been keeping all along (estimatedAmount). It was listed at $0
+  // -- correct for a bill nobody has seen, and useless in a projection,
+  // which is a guess by definition. Still only an estimate: next month's
+  // own purchases are not in it, so this line is the one most worth
+  // typing over.
+  const billed: readonly Row[] = servicios.map((pendiente) => ({
+    key: `servicio-${pendiente.id}`,
+    label: pendiente.name,
+    kind:
+      pendiente.cardId === undefined
+        ? ('servicio' as const)
+        : ('tarjeta' as const),
+    color: colorOf(pendiente.categoryId),
+    price:
+      pendiente.expectedAmount ??
+      (pendiente.cardId === undefined ? 0 : (pendiente.estimatedAmount ?? 0)),
+  }))
+
+  // And every other category the household has, at zero.
+  //
+  // Reading the two months only ever yields the categories that had
+  // something in them, so a category nobody spent in last month was not
+  // on the screen at all -- and a projection is exactly where somebody
+  // wants to say "este mes sí vamos a gastar en esto". A line at $0 adds
+  // nothing to the total until it is typed over, which is the point.
+  const spoken = new Set(carried.map((row) => row.key))
+  const quiet: readonly Row[] = categories
+    .filter((category) => category.id !== tarjetaId && !spoken.has(category.id))
+    .map((category) => ({
+      key: category.id,
+      label: category.name,
+      kind: 'vacio' as const,
+      color: category.color,
+      price: 0,
+    }))
+
+  // Biggest first, like every other list of amounts in this app: the line
+  // worth arguing about is the one at the top, and the empty ones fall to
+  // the bottom by themselves.
+  const rows: readonly Row[] = [...carried, ...billed, ...quiet]
     .slice()
     .sort((a, b) => b.price - a.price)
 
-  if (rows.length === 0) {
+  // Nothing in either month and no bills: a column of zeroes would be a
+  // list of everything the household could spend on and nothing it does.
+  if (carried.length === 0 && billed.length === 0) {
     return (
       <>
         {header}
@@ -394,7 +420,10 @@ export function Proyecciones({
                 </span>
                 <input
                   aria-label={`Cuánto va a ser ${row.label}`}
-                  value={typed ?? String(row.price)}
+                  // A zero is left as the placeholder rather than typed
+                  // into the field: tapping a field that already says 0
+                  // and typing lands "025000" in it.
+                  value={typed ?? (row.price === 0 ? '' : String(row.price))}
                   inputMode="decimal"
                   autoComplete="off"
                   placeholder="0"
