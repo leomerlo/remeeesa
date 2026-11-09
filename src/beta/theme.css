@@ -1119,6 +1119,11 @@
                               font-variant-numeric: tabular-nums; }
   .projcard .money-in input:disabled { color: var(--ink-2); }
   .projcard.off .money-in { opacity: .7; }
+  /* The way back from a figure put in by hand. Against the left edge,
+     under the name it belongs to -- it answers that line, not the card,
+     so it does not take the amount's right-hand edge. */
+  .projpin { display: flex; justify-content: flex-start; }
+  .projpin .btn { margin-left: -12px; }
   /* The category or card being built, shown as it will look in the list. */
   .catpreview { display: grid; grid-template-columns: auto 1fr; gap: 2px 14px;
                 align-items: center; background: var(--page); border-radius: 16px;

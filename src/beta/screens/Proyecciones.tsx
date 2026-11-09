@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Info, LineChart } from 'lucide-react'
+import { Info, LineChart, RotateCcw } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import {
@@ -46,6 +46,12 @@ const BADGE: Readonly<Record<Kind, string>> = {
   servicio: 'Servicio sin pagar',
   tarjeta: 'Cuotas ya compradas',
 }
+
+// A figure typed over the suggested one. The badge's whole job is saying
+// where a line's figure comes from, so once it comes from the household it
+// says that instead -- a line pinned at 150.000 is not "las cuotas ya
+// compradas" any more.
+const PINNED = 'Puesto a mano'
 
 export function Proyecciones({
   session,
@@ -322,6 +328,14 @@ export function Proyecciones({
     else nextOverrides[monthKey(key)] = raw
     apply(excluded, nextOverrides)
   }
+  // Back to whatever the month says, without having to remember what it
+  // said. Emptying the field does the same thing, which is no use to
+  // anybody who cannot see that it does.
+  const unpin = (key: string): void => {
+    const nextOverrides: Record<string, string> = { ...overrides }
+    delete nextOverrides[monthKey(key)]
+    apply(excluded, nextOverrides)
+  }
 
   return (
     <>
@@ -368,7 +382,7 @@ export function Proyecciones({
                 <CategoryTile name={row.label} color={row.color} />
                 <span className="name">{row.label}</span>
                 <span className="tag" style={cssVars({ '--pc': row.color })}>
-                  {BADGE[row.kind]}
+                  {typed === undefined ? BADGE[row.kind] : PINNED}
                 </span>
                 <span className="tg" aria-hidden="true">
                   <i />
@@ -390,6 +404,29 @@ export function Proyecciones({
                   }
                 />
               </div>
+              {/* A card's figure is the one on the screen that is knowably
+                  short -- it is the cuotas already signed, and next
+                  month's own shopping is not in it -- so it is the one
+                  that says out loud that it can be typed over. Once it
+                  has been, the line offers the way back instead. */}
+              {typed !== undefined ? (
+                <div className="projpin">
+                  <button
+                    className="btn btn-tertiary"
+                    type="button"
+                    onClick={() => unpin(row.key)}
+                  >
+                    <RotateCcw />
+                    Volver al estimado ({formatCurrency(row.price)})
+                  </button>
+                </div>
+              ) : row.kind === 'tarjeta' ? (
+                <p className="sub">
+                  Son las cuotas que ya compraron para {monthName(monthStart)}.
+                  Lo que compren ese mes todavía no está acá: si sabés que va a
+                  ser más, escribilo.
+                </p>
+              ) : null}
               {on ? null : <span className="sub">No cuenta en el total</span>}
             </div>
           )
