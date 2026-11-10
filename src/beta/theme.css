@@ -3703,3 +3703,60 @@ a.card {
     padding: 24px 20px;
   }
 }
+
+/* The movements behind a slice of the ring. Flatter than a row on a
+     screen: no tile, because the sheet's own title already says which
+     category these are, and the badge sits under the figure rather than
+     beside the name, so each one is two short lines instead of a card. */
+.movs {
+  display: grid;
+  gap: 10px;
+}
+.movrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 12px;
+  align-items: baseline;
+  padding: 14px 16px;
+  background: var(--card);
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+}
+.movrow .nm {
+  font-size: var(--t-md);
+  font-weight: 700;
+  min-width: 0;
+}
+.movrow .amt {
+  font-size: var(--t-md);
+  font-weight: 800;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.movrow .when {
+  font-size: var(--t-xs);
+  font-weight: 400;
+  color: var(--ink-2);
+}
+.movrow .tag {
+  justify-self: end;
+}
+
+/* A category's dollars, under its pesos. Two currencies are two
+     figures, never one sum -- there is no rate this app is willing to
+     pick -- so they stack rather than sitting side by side. */
+.dline .amt .usd {
+  display: block;
+  font-size: 0.92em;
+  color: var(--green-700);
+}
+/* A category with only dollars has no share of a ring that divides up
+     pesos. A dash, so the column still lines up. */
+.pc-none {
+  font-size: var(--t-mini);
+  font-weight: 700;
+  color: var(--ink-2);
+  text-align: center;
+  min-width: 2.6em;
+}

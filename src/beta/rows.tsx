@@ -345,6 +345,11 @@ export function Donut({
     readonly name: string
     readonly color: string
     readonly total: number
+    // What the category took in dollars, kept apart rather than
+    // converted: there is no rate this app is willing to pick. A
+    // category spent entirely in dollars was invisible here, which is
+    // how a month of subscriptions went missing.
+    readonly totalUsd: number
     readonly share: number
   }[]
   // What the cards ask for this month. Said under the ring instead of
@@ -359,8 +364,11 @@ export function Donut({
   readonly onPick: (categoryId: string) => void
 }): ReactElement | null {
   // A category with nothing in it is not a slice and not a line: it was
-  // listed at 0% of a total it took nothing out of.
-  const spent = rows.filter((row) => row.total > 0)
+  // listed at 0% of a total it took nothing out of. One with only
+  // dollars in it is a line without a slice -- the ring divides up the
+  // pesos, and leaving the category out altogether said the month had
+  // not spent there at all.
+  const spent = rows.filter((row) => row.total > 0 || row.totalUsd > 0)
   if (spent.length === 0) return null
   // In cents: this is the figure in the hole, and it has to be what the
   // lines under it come to.
@@ -431,14 +439,27 @@ export function Donut({
             >
               <i style={{ background: row.color }} />
               <span className="nm">{row.name}</span>
-              <span className="amt">{formatCurrency(row.total)}</span>
+              <span className="amt">
+                {row.total > 0 ? formatCurrency(row.total) : null}
+                {row.totalUsd > 0 ? (
+                  <span className="usd">
+                    {formatAmount(row.totalUsd, 'USD')}
+                  </span>
+                ) : null}
+              </span>
               {/* The share after the figure it is a share of, as a pill in
                   the slice's own colour washed down to a tint so the
                   number on it stays near-black. Grey text floating between
                   the name and the amount read as neither. */}
-              <span className="pc" style={cssVars({ '--pc': row.color })}>
-                {percent === 0 ? '<1%' : `${String(percent)}%`}
-              </span>
+              {/* No share for a category with only dollars in it: the
+                  ring divides up the pesos, and it has none. */}
+              {row.total === 0 ? (
+                <span className="pc pc-none">—</span>
+              ) : (
+                <span className="pc" style={cssVars({ '--pc': row.color })}>
+                  {percent === 0 ? '<1%' : `${String(percent)}%`}
+                </span>
+              )}
             </button>
           )
         })}

@@ -663,6 +663,28 @@ describe('the beta says the same month on every screen', () => {
     )
   })
 
+  // Her own: paging Inicio back to a month whose bills were all paid
+  // showed next month's, labelled "ya venció este mes" against a month
+  // they do not belong to. Inicio's list was every pending bill the
+  // household had, of any month, judged against whatever month was on
+  // screen.
+  it('lists the bills of the month on screen, not of every month', () => {
+    const base = snapshots.get('completa·el mes pasado')
+    if (base === undefined) throw new Error('missing snapshot')
+    const home = homeFigures(base)
+    for (const bill of home.bills) {
+      const carried = home.late.some((other) => other.id === bill.id)
+      expect(
+        carried ||
+          (bill.dueDate >= base.monthStart && bill.dueDate <= base.monthEnd),
+        bill.name,
+      ).toBe(true)
+    }
+    // And a month that has closed carries nothing in: that only happens
+    // on the month that is running.
+    expect(home.late).toEqual([])
+  })
+
   // Shares of a whole, so they come to a whole -- allowing for the one
   // cent that rounding thirteen categories can cost.
   each('the ring shares come to one', (snap, key) => {

@@ -81,6 +81,54 @@ export function onCreditCard(
   return bill.paymentMethodId != null && credit.has(bill.paymentMethodId)
 }
 
+// The month's unpaid bills, and of those the ones carried in from an
+// earlier month.
+//
+// One rule, read by Inicio and by Servicios, because they are the same
+// list and used not to be: Inicio asked for every pending bill the
+// household had, of any month, and then labelled them against whatever
+// month was on screen. Paging back to October showed November's bills
+// saying "ya venció este mes" over a month whose bills were all paid.
+//
+// Carrying forward only happens on the month that is running: a bill
+// left unpaid follows the household forward, but it does not travel
+// backwards into a month that had already closed without it.
+export function billsForMonth(input: {
+  readonly pendientes: readonly Pendiente[]
+  readonly methods: readonly PaymentMethod[]
+  readonly monthStart: Date
+  readonly monthEnd: Date
+  readonly now: Date
+}): {
+  readonly unpaid: readonly Pendiente[]
+  readonly late: readonly Pendiente[]
+} {
+  const credit = creditMethodIds(input.methods)
+  const mine = (bill: Pendiente): boolean =>
+    bill.status === 'pending' &&
+    isBillToPay(bill) &&
+    !onCreditCard(bill, credit)
+  const running = input.now >= input.monthStart && input.now <= input.monthEnd
+  const late = running
+    ? input.pendientes.filter(
+        (bill) => mine(bill) && bill.dueDate < input.monthStart,
+      )
+    : []
+  const thisMonth = input.pendientes.filter(
+    (bill) =>
+      mine(bill) &&
+      bill.dueDate >= input.monthStart &&
+      bill.dueDate <= input.monthEnd,
+  )
+  return {
+    unpaid: [
+      ...sortBills(late, input.monthStart, input.now),
+      ...sortBills(thisMonth, input.monthStart, input.now),
+    ],
+    late,
+  }
+}
+
 export type HomeFigures = {
   // The month's budget, or 0 when the household has not set one.
   readonly budget: number
@@ -106,8 +154,9 @@ export type HomeFigures = {
   readonly perDay: number
   readonly pctSpent: number
   readonly pctOwed: number
-  // Unpaid bills, soonest trouble first; and of those, the ones left over
-  // from an earlier month.
+  // Every servicio of the month, paid and unpaid, by the date it falls
+  // due -- the column on Inicio is "Servicios", not "Servicios por
+  // pagar", and a month where everything is paid still has servicios.
   readonly bills: readonly Pendiente[]
   readonly late: readonly Pendiente[]
   readonly byCategory: ReturnType<typeof summarizeByCategory>
@@ -126,6 +175,9 @@ export type HomeInput = {
   readonly purchases: readonly CardPurchase[]
   readonly allExpenses: readonly Expense[]
   readonly pendientes: readonly Pendiente[]
+  // The month's bills that have already been paid. Firestore keeps these
+  // out of listPendientes' own result, so they are fetched separately.
+  readonly settled: readonly Pendiente[]
   readonly categories: readonly Category[]
   // Every way the household pays, which is what says whether a bill comes
   // out of this month or goes onto a card.
@@ -159,14 +211,20 @@ export function homeFigures(input: HomeInput): HomeFigures {
   const cards = cardsDueNextMonthTotals(pendientes, monthStart)
   const budget = monthlyBudgetFor(household, monthStart, now)
 
-  const unpaid = pendientes.filter(
-    (pendiente) =>
-      pendiente.status === 'pending' &&
-      isBillToPay(pendiente) &&
-      !onCreditCard(pendiente, credit),
-  )
-  const bills = sortBills(unpaid, monthStart, now)
-  const late = bills.filter((bill) => bill.dueDate < monthStart)
+  const { unpaid, late } = billsForMonth({
+    pendientes,
+    methods: input.methods,
+    monthStart,
+    monthEnd,
+    now,
+  })
+  // Paid ones among them, by the day they fall due: the column says
+  // "Servicios", so a month where everything is settled still has a
+  // list, and the order is the one somebody reads a month in.
+  const bills = [
+    ...unpaid,
+    ...input.settled.filter((one) => isBillToPay(one)),
+  ].sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
 
   // A month already over is compared whole against the month before it; a
   // month still running is cut at today. Anchoring on `now` whatever month
@@ -400,7 +458,6 @@ function monthPieces(input: MonthInput): {
   }[]
 } {
   const cards = cardCategoryIds(input)
-  const credit = creditMethodIds(input.methods)
   return {
     expenses: input.expenses.filter(
       (expense) => !cards.has(expense.categoryId),
@@ -411,14 +468,20 @@ function monthPieces(input: MonthInput): {
       input.monthEnd,
     ).filter(
       (pendiente) =>
-        // A Resumen, a bill the bank takes from a credit card, and a
-        // card's statement written by hand: none of the three is a thing
-        // the month spent money on. The second counts here on the day the
-        // bank takes it, as the consumo it becomes; the other two are
-        // said under the ring -- see cardBillTotals.
-        pendiente.cardId === undefined &&
-        !onCreditCard(pendiente, credit) &&
-        !cards.has(pendiente.categoryId),
+        // A Resumen, and a card's statement written by hand: neither is
+        // a thing the month spent money on, and both are said under the
+        // ring instead -- see cardBillTotals.
+        //
+        // A bill the bank takes from a credit card *is* one, and counts
+        // here: Edenor is this month's light whether it comes out of the
+        // account or goes on the Visa. "No importa con qué lo pagué" --
+        // her words, and the whole of what this ring answers. It leaves
+        // the month's *owed* figure, which is about money going out, and
+        // it stays in this one, which is about what the month used. It
+        // cannot be counted twice: the day the bank takes it the bill is
+        // paid and drops out of here, and the consumo it becomes lands
+        // in the same category in the same month.
+        pendiente.cardId === undefined && !cards.has(pendiente.categoryId),
     ),
     purchases: input.purchases.flatMap((purchase) => {
       const amount = cuotaInMonth(purchase, input.monthStart)
@@ -624,15 +687,14 @@ export function serviciosFigures(input: {
   // The month on screen is the month that is running when today falls
   // inside it. Only then does anything get carried forward.
   const current = input.now >= input.monthStart && input.now <= input.monthEnd
-  const late = current
-    ? input.pendientes.filter(
-        (pendiente) =>
-          bill(pendiente) &&
-          pendiente.status === 'pending' &&
-          pendiente.dueDate < input.monthStart &&
-          !card(pendiente),
-      )
-    : []
+  // The same rule Inicio reads, so the two lists cannot drift apart.
+  const { late } = billsForMonth({
+    pendientes: input.pendientes,
+    methods: input.methods,
+    monthStart: input.monthStart,
+    monthEnd: input.monthEnd,
+    now: input.now,
+  })
 
   const unpaidThisMonth = input.pendientes.filter(
     (pendiente) =>

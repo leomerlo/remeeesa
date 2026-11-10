@@ -249,6 +249,36 @@ export function Servicios({
     />
   )
 
+  // Both sheets, built once and mounted in both views. They used to live
+  // only after the "del mes" return, so tapping a row on "con tarjeta"
+  // set the state and rendered nothing at all.
+  const sheets = (
+    <>
+      {editing === null ? null : (
+        <ServicioSheet
+          open
+          onClose={() => setEditing(null)}
+          session={session}
+          bill={editing}
+          categories={categories}
+          methods={methods}
+          today={now}
+          paidWith={paidWithOf(editing)}
+        />
+      )}
+      {paying === null ? null : (
+        <PagarSheet
+          open
+          onClose={() => setPaying(null)}
+          session={session}
+          bill={paying}
+          methods={methods}
+          today={now}
+        />
+      )}
+    </>
+  )
+
   if (view === 'tarjetas') {
     return (
       <>
@@ -312,6 +342,7 @@ export function Servicios({
             </Link>
           </>
         )}
+        {sheets}
       </>
     )
   }
@@ -425,28 +456,7 @@ export function Servicios({
           ) : null}
         </>
       )}
-      {editing === null ? null : (
-        <ServicioSheet
-          open
-          onClose={() => setEditing(null)}
-          session={session}
-          bill={editing}
-          categories={categories}
-          methods={methods}
-          today={now}
-          paidWith={paidWithOf(editing)}
-        />
-      )}
-      {paying === null ? null : (
-        <PagarSheet
-          open
-          onClose={() => setPaying(null)}
-          session={session}
-          bill={paying}
-          methods={methods}
-          today={now}
-        />
-      )}
+      {sheets}
     </>
   )
 }

@@ -74,6 +74,7 @@ export function Home({
         allExpenses,
         purchases,
         cuotas,
+        settled,
         categories,
         members,
         methods,
@@ -104,6 +105,14 @@ export function Home({
           ),
           monthEnd,
         }),
+        // The month's bills already paid: Firestore keeps them out of
+        // listPendientes, and the column on Inicio says "Servicios", not
+        // "Servicios por pagar".
+        session.db.listPaidPendientesDueInMonth({
+          householdId: id,
+          monthStart,
+          monthEnd,
+        }),
         session.db.listCategories(id),
         session.db.listMembers(id),
         // Only so a movement can be opened from here: the form needs the
@@ -119,6 +128,7 @@ export function Home({
         allExpenses,
         purchases,
         cuotas,
+        settled,
         categories,
         members,
         methods,
@@ -165,6 +175,7 @@ export function Home({
     allExpenses,
     purchases,
     cuotas,
+    settled,
     categories,
     members,
     methods,
@@ -178,6 +189,7 @@ export function Home({
     purchases: cuotas,
     allExpenses,
     pendientes,
+    settled,
     categories,
     methods,
     monthStart,
@@ -336,7 +348,7 @@ export function Home({
         <div className="col">
           {bills.length > 0 ? (
             <section className="sec">
-              <h2>Servicios por pagar</h2>
+              <h2>Servicios</h2>
               {soonest.map((bill) => (
                 <BillRow
                   key={bill.id}
@@ -429,10 +441,6 @@ export function Home({
           name={
             categories.find((one) => one.id === openCategory)?.name ??
             'Sin categoría'
-          }
-          color={
-            categories.find((one) => one.id === openCategory)?.color ??
-            '#6b7280'
           }
           monthStart={monthStart}
           movements={categoryMovements({

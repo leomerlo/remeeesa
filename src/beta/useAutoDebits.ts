@@ -60,20 +60,21 @@ export function useAutoDebits(session: BetaSession): void {
       } catch {
         return
       }
-      // Only the ones that say what they are debited from.
+      // All of them, including the ones that do not say what takes them.
       //
-      // A bill on débito automático is taken from an account or a card --
-      // never from cash, which is the one thing "no method" would end up
-      // recording. Settling a bill that has not been told yet would write
-      // "pagado en efectivo" onto something the bank put on the Visa, and
-      // that is worse than leaving it sitting there: it is a wrong answer
-      // instead of a missing one, and the household would have to undo
-      // the payment to correct it.
+      // They used to wait: recording a payment with no method read as
+      // "efectivo", and writing cash onto something the bank put on the
+      // Visa is a wrong answer rather than a missing one. But waiting is
+      // its own wrong answer -- a bill the bank has already taken sits
+      // unpaid and goes red, and there is nothing the household can do
+      // about it from the one screen that shows it.
       //
-      // So a bill with no method waits, wearing its badge, until somebody
-      // says what takes it. Which is one tap in its own form.
-      const told = due.filter((bill) => bill.paymentMethodId != null)
-      if (told.length === 0 || cancelled) return
+      // What changed is the label: a payment with no method now reads
+      // "efectivo o transferencia", and a débito automático out of an
+      // account is a transfer. So it settles, and setting its method
+      // (one tap in its own form) only makes it more precise.
+      if (due.length === 0 || cancelled) return
+      const told = due
 
       const byId = new Map(methods.map((method) => [method.id, method]))
       let settled = false

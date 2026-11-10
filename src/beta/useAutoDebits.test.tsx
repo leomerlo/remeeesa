@@ -112,20 +112,31 @@ describe('what the bank already took', () => {
     expect(bill?.paidExpenseId).toBeNull()
   })
 
-  // A bill on débito automático is taken from an account or a card, never
-  // from cash -- which is the one thing "no method" would end up
-  // recording. A wrong answer is worse than a missing one here: the
-  // household would have to undo the payment to correct it.
-  it('leaves alone a bill that does not say what takes it', async () => {
+  // Even one that does not say what takes it. It used to wait, so that
+  // the app would not record cash for money the bank put on a card --
+  // but then it sat unpaid for ever and went red, and the household
+  // could do nothing about it. A payment with no method reads "efectivo
+  // o transferencia" now, and a débito automático out of an account is a
+  // transfer.
+  it('settles one that does not say what takes it', async () => {
     const { session, householdId, billId } = await house({ onCard: false })
     renderWithProviders(<Mounted session={session} />)
 
-    await new Promise((resolve) => setTimeout(resolve, 50))
+    await waitFor(async () => {
+      const bill = await session.db.getPendiente({
+        householdId,
+        pendienteId: billId,
+      })
+      expect(bill?.status).toBe('paid')
+    })
+
     const bill = await session.db.getPendiente({
       householdId,
       pendienteId: billId,
     })
-    expect(bill?.status).toBe('pending')
+    // As a gasto, with no method claimed.
+    expect(bill?.paidExpenseId).not.toBeNull()
+    expect(bill?.paidPurchaseId ?? null).toBeNull()
   })
 
   it('settles it as a gasto when it is debited from an account', async () => {

@@ -1,7 +1,6 @@
-import { Check, CreditCard, Clock, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import type { ReactElement } from 'react'
 import { Sheet } from '../Sheet'
-import { CategoryTile } from '../Tile'
 import { formatAmount, monthName } from '../format'
 import type { Movement } from '../figures'
 
@@ -22,14 +21,12 @@ export function CategoriaMesSheet({
   open,
   onClose,
   name,
-  color,
   monthStart,
   movements,
 }: {
   readonly open: boolean
   readonly onClose: () => void
   readonly name: string
-  readonly color: string
   readonly monthStart: Date
   readonly movements: readonly Movement[]
 }): ReactElement | null {
@@ -51,45 +48,33 @@ export function CategoriaMesSheet({
         </div>
       }
     >
-      <div className="sec">
+      <div className="movs">
         {movements.length === 0 ? (
           <p className="sub">
             No hay movimientos de {name} en {monthName(monthStart)}.
           </p>
         ) : (
           movements.map((move) => (
-            <div className="card row" key={`${move.kind}-${move.id}`}>
-              <CategoryTile name={name} color={color} />
-              <span className="name">{move.name}</span>
+            <div className="movrow" key={`${move.kind}-${move.id}`}>
+              <span className="nm">{move.name}</span>
               <span className="amt">
                 {formatAmount(move.amount, move.currency)}
               </span>
-              <span className="cat">
+              <span className="when">
                 {move.date.getDate()} de {monthName(move.date)}
+                {move.cuota === undefined ? '' : ` · cuota ${move.cuota}`}
               </span>
-              <div className="tags">
-                <span
-                  className={
-                    move.kind === 'gasto'
-                      ? 'tag ok'
-                      : move.kind === 'cuenta'
-                        ? 'tag due'
-                        : 'tag next'
-                  }
-                >
-                  {move.kind === 'gasto' ? (
-                    <Check />
-                  ) : move.kind === 'cuenta' ? (
-                    <Clock />
-                  ) : (
-                    <CreditCard />
-                  )}
-                  {WHAT[move.kind]}
-                </span>
-                {move.cuota === undefined ? null : (
-                  <span className="tag soft">Cuota {move.cuota}</span>
-                )}
-              </div>
+              <span
+                className={
+                  move.kind === 'gasto'
+                    ? 'tag ok'
+                    : move.kind === 'cuenta'
+                      ? 'tag due'
+                      : 'tag next'
+                }
+              >
+                {WHAT[move.kind]}
+              </span>
             </div>
           ))
         )}

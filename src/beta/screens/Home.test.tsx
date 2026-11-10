@@ -104,3 +104,41 @@ describe('the two lists on Inicio', () => {
     expect(screen.queryByRole('button', { name: 'Ya lo pagué' })).toBeNull()
   })
 })
+
+// A month spent in dollars was a month with no category at all: the ring
+// divides up pesos, and the breakdown dropped any category whose figure
+// was zero -- so "Suscripciones", paid entirely in dollars, was nowhere
+// on Inicio. Her own case.
+describe('a category spent only in dollars', () => {
+  it('is listed in the breakdown, with its dollars', async () => {
+    const session = await house()
+    const householdId = session.householdId ?? ''
+    const suscripciones = await session.db.findOrCreateCategory({
+      householdId,
+      name: 'Suscripciones',
+    })
+    await session.db.createExpense({
+      householdId,
+      categoryId: suscripciones.id,
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      name: 'Spotify',
+      price: 4.96,
+      comments: '',
+      expenseDate: new Date(2026, 8, 5, 12),
+      currency: 'USD',
+      paymentMethodId: null,
+    })
+    render(session)
+
+    // The breakdown's own row, not the badge on the movement above it.
+    expect(
+      await screen.findByRole('button', {
+        name: 'Ver los movimientos de Suscripciones',
+      }),
+    ).toBeInTheDocument()
+    // Twice over: the movement in the list, and the category's own line
+    // in the breakdown.
+    expect(screen.getAllByText('US$ 4,96')).toHaveLength(2)
+  })
+})
