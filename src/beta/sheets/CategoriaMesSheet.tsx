@@ -14,6 +14,9 @@ import type { Movement } from '../figures'
 const WHAT: Readonly<Record<Movement['kind'], string>> = {
   gasto: 'Pagado',
   cuenta: 'Por pagar',
+  // Still unpaid, but nobody is going to pay it: the bank takes it from
+  // the card on the day. "Por pagar" reads as a chore that is yours.
+  tarjeta: 'La paga la tarjeta',
   consumo: 'Con tarjeta',
 }
 

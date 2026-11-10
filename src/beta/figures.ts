@@ -495,9 +495,10 @@ function monthPieces(input: MonthInput): {
 // so the figures on it add up to the figure on the slice.
 export type Movement = {
   readonly id: string
-  // A gasto already paid, a bill of the month still owed, or a cuota of
+  // A gasto already paid; a bill of the month still owed; a bill the
+  // card pays, which nobody is going to pay out of pocket; or a cuota of
   // something bought on a card.
-  readonly kind: 'gasto' | 'cuenta' | 'consumo'
+  readonly kind: 'gasto' | 'cuenta' | 'tarjeta' | 'consumo'
   readonly name: string
   readonly date: Date
   readonly amount: number
@@ -525,6 +526,7 @@ export function categoryMovements(
   input: MonthInput & { readonly categoryId: string },
 ): readonly Movement[] {
   const pieces = monthPieces(input)
+  const credit = creditMethodIds(input.methods)
   const mine = <T extends { readonly categoryId: string }>(
     items: readonly T[],
   ): readonly T[] => items.filter((one) => one.categoryId === input.categoryId)
@@ -540,7 +542,11 @@ export function categoryMovements(
     })),
     ...mine(pieces.pendientes).map((bill) => ({
       id: bill.id,
-      kind: 'cuenta' as const,
+      // "Por pagar" is a lie on a bill the Visa pays: nobody is going to
+      // pay it out of pocket, the bank takes it on the day. Per direct
+      // feedback, on Edenor.
+      kind: (onCreditCard(bill, credit) ? 'tarjeta' : 'cuenta') as
+        'cuenta' | 'tarjeta',
       name: bill.name,
       date: bill.dueDate,
       amount: bill.expectedAmount ?? 0,

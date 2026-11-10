@@ -11,6 +11,7 @@ import type { DemoScenario } from '@/demo/seed'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import {
   cardCategoryIds,
+  categoryMovements,
   cuotaInMonth,
   categoriasFigures,
   serviciosFigures,
@@ -19,6 +20,7 @@ import {
   projectionFigures,
   sumIn,
 } from './figures'
+import type { Movement } from './figures'
 
 // The arithmetic audit.
 //
@@ -683,6 +685,35 @@ describe('the beta says the same month on every screen', () => {
     // And a month that has closed carries nothing in: that only happens
     // on the month that is running.
     expect(home.late).toEqual([])
+  })
+
+  // "Por pagar" is a lie on a bill the Visa pays: nobody is going to pay
+  // it out of pocket. Her own, on Edenor.
+  it('says who pays a bill the card is debited for', () => {
+    const base = snapshots.get('completa·este mes')
+    if (base === undefined) throw new Error('missing snapshot')
+    const visa = base.cards.find((card) => card.kind === 'credito')
+    if (visa === undefined) throw new Error('the seed has no credit card')
+    const [model] = base.pendientes.filter(
+      (bill) =>
+        bill.cardId === undefined &&
+        bill.status === 'pending' &&
+        bill.dueDate >= base.monthStart &&
+        bill.dueDate <= base.monthEnd,
+    )
+    if (model === undefined) throw new Error('no pending bill this month')
+
+    const read = (bill: Pendiente): Movement | undefined =>
+      categoryMovements({
+        ...base,
+        pendientes: [bill],
+        expenses: [],
+        purchases: [],
+        categoryId: bill.categoryId,
+      })[0]
+
+    expect(read(model)?.kind).toBe('cuenta')
+    expect(read({ ...model, paymentMethodId: visa.id })?.kind).toBe('tarjeta')
   })
 
   // Shares of a whole, so they come to a whole -- allowing for the one
