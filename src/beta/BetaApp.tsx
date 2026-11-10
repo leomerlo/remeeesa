@@ -5,6 +5,7 @@ import { HashRouter, Route, Routes } from 'react-router-dom'
 import { createFirebaseClient, readFirebaseEnv } from '@/lib/firebase'
 import { FirebaseProvider } from '@/lib/firebaseContext'
 import { MonthProvider } from './MonthContext'
+import { Bienvenida } from './Bienvenida'
 import { useAutoDebits } from './useAutoDebits'
 import { useBetaSession, useHouseholdName } from './data'
 import { Shell } from './Shell'
@@ -87,6 +88,9 @@ export function BetaRoutes(): ReactElement {
     <MonthProvider>
       <ScrollToTop />
       <Shell home={home} session={session}>
+        {/* Said once per browser, on whatever screen they land on, and
+            never again -- see Bienvenida. */}
+        <Bienvenida />
         <Routes>
           <Route path="/" element={<Home session={session} />} />
           <Route path="/gastos" element={<Gastos session={session} />} />

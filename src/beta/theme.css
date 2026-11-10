@@ -3805,3 +3805,71 @@ a.card {
     border-top: 1px solid var(--hood-line);
   }
 }
+
+/* ===== the welcome, shown once ===== */
+/* Inside the ordinary sheet, so it is a bottom sheet on a phone and a
+     centred dialog on a desktop with no second layout to maintain. The band
+     is the only gradient in the app: it is the one surface whose job is to
+     say "this is new", and it says it once. Its tint on the darker end of
+     the gradient measures 5.7:1, so the small print on it is read, not
+     decorative. */
+.welcome {
+  display: grid;
+  gap: 18px;
+  padding-top: 4px;
+}
+.welcome-band {
+  border-radius: var(--r);
+  padding: 20px;
+  background: linear-gradient(135deg, var(--grape) 0%, var(--grape-600) 100%);
+  color: #fff;
+  display: grid;
+  gap: 8px;
+}
+.welcome-band .kick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.welcome-band .kick svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.welcome-band p {
+  margin: 0;
+  font-size: var(--t-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.welcome-band .say {
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: #e7dcfa;
+}
+.welcome-list {
+  display: grid;
+  gap: 16px;
+}
+.welcome-list .one {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.welcome-list h4 {
+  margin: 0;
+  font-size: var(--t-md);
+  font-weight: 700;
+}
+.welcome-list p {
+  margin: 4px 0 0;
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+}

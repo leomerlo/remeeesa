@@ -5,6 +5,7 @@ import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import type { HouseholdsDb } from '@/lib/households'
 import { Onboarding } from './Onboarding'
+import { welcomeSeen } from './welcome'
 import type { BetaSession } from './data'
 
 const USER = 'flor'
@@ -111,5 +112,24 @@ describe('setting up a house for the first time', () => {
     // way: it shows what they spent instead of what is left.
     expect(household.monthlyBudget).toBe(0)
     expect(household.name).toBe('Nuestra casa')
+  })
+
+  // The welcome modal tells whoever opens the app that it was redesigned.
+  // For a house set up right here there is no old app to compare it to, so
+  // walking out of these four steps counts as having read it.
+  it('does not then welcome them to a redesign they never saw', async () => {
+    const { session } = setUp()
+    render(session)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Ahora no' }))
+    await waitFor(() => {
+      expect(screen.getByText('Listo, ya pueden empezar')).toBeInTheDocument()
+    })
+
+    expect(welcomeSeen()).toBe(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Ir a mi hogar' }))
+    expect(welcomeSeen()).toBe(true)
   })
 })

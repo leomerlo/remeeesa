@@ -15,6 +15,7 @@ import type { CardBrand, PaymentMethodKind } from '@/lib/cards'
 import { authorDisplayNameFromAuth } from '@/lib/displayName'
 import { useFirebase } from '@/lib/firebaseContext'
 import { CardBrandMark } from './CardBrandMark'
+import { markWelcomeSeen } from './welcome'
 import {
   MoneyField,
   MultiOptionList,
@@ -233,6 +234,9 @@ export function Onboarding({
               return
             }
             if (step === 3) {
+              // Nobody who just set the house up needs to be told the app
+              // was redesigned: for them there is no old one.
+              markWelcomeSeen()
               if (made !== null) session.adopt(made)
               return
             }
