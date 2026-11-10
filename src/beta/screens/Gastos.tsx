@@ -214,9 +214,9 @@ export function Gastos({
               : 'No sale este mes: llega repartido en los resúmenes.'}
           </p>
           {shownUsd > 0 ? (
-            <p className="herosay">
-              Y <b>{formatAmount(shownUsd, 'USD')}</b> en dólares, que no entran
-              en el total en pesos.
+            <p className="usdline">
+              <b>{formatAmount(shownUsd, 'USD')}</b>
+              <span>en dólares, que no entran en el total en pesos</span>
             </p>
           ) : null}
         </div>

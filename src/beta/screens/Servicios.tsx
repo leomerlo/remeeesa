@@ -340,6 +340,16 @@ export function Servicios({
               <div className="figure">
                 <Figure amount={owed} />
               </div>
+              {/* Under the pesos and at a size worth reading, not in the
+                  legend's far corner: a month owed in two currencies is
+                  owed both of them, and the second was sitting there
+                  looking like a footnote to the first. */}
+              {owedUsd > 0 ? (
+                <p className="usdline">
+                  <b>{formatAmount(owedUsd, 'USD')}</b>
+                  <span>en dólares</span>
+                </p>
+              ) : null}
               <div className="legend">
                 <span>
                   {unpaid.length === 0
@@ -351,11 +361,6 @@ export function Servicios({
                     {late.length === 1
                       ? 'Uno viene de un mes anterior'
                       : `${String(late.length)} vienen de meses anteriores`}
-                  </span>
-                ) : null}
-                {owedUsd > 0 ? (
-                  <span>
-                    Y <b>{formatAmount(owedUsd, 'USD')}</b> en dólares
                   </span>
                 ) : null}
               </div>
