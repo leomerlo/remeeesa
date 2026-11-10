@@ -3760,3 +3760,48 @@ a.card {
   text-align: center;
   min-width: 2.6em;
 }
+
+/* Two figures side by side in one dark panel, split by the same
+     hairline the trio uses: the month's own money on the left and the
+     card's on the right. Above the tabs and never changing with them --
+     switching tabs to see the second figure meant losing sight of the
+     first. */
+.duo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+.hood .duo > * + * {
+  border-left: 1px solid var(--hood-line);
+}
+.hood .duo .card {
+  padding: 22px 20px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.duo .label {
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--hood-ink-2);
+}
+.duo .figure {
+  font-size: clamp(28px, 7.5vw, 40px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--hood-ink);
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+}
+.duo .herosay {
+  color: var(--hood-ink-2);
+}
+@media (max-width: 559px) {
+  .duo {
+    grid-template-columns: 1fr;
+  }
+  .hood .duo > * + * {
+    border-left: 0;
+    border-top: 1px solid var(--hood-line);
+  }
+}

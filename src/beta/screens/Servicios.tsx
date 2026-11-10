@@ -249,6 +249,66 @@ export function Servicios({
     />
   )
 
+  // The month's two figures side by side, above the search and the
+  // tabs, the same in both: the month owes one of them and the card pays
+  // the other, and switching tabs to see the second meant losing sight
+  // of the first.
+  const hero = (
+    <div className="hood solo">
+      <div className="duo">
+        <div className="card half">
+          <div className="label">
+            {unpaid.length === 0
+              ? `Pagaron todo en ${monthName(monthStart)}`
+              : 'Falta pagar'}
+          </div>
+          <div className="figure">
+            <Figure amount={owed} />
+          </div>
+          {owedUsd > 0 ? (
+            <p className="usdline">
+              <b>{formatAmount(owedUsd, 'USD')}</b>
+            </p>
+          ) : null}
+          {/* The same badges the rows wear: how many are still owed is
+              the one thing on this card you have to do something about,
+              and in grey it read like a caption. */}
+          <div className="herotags">
+            {unpaid.length === 0 ? (
+              <span className="tag ok">
+                <Check />
+                {`${String(paid.length)} ${paid.length === 1 ? 'servicio pagado' : 'servicios pagados'}`}
+              </span>
+            ) : (
+              <span className="tag due">
+                <TriangleAlert />
+                {`${String(unpaid.length)} ${unpaid.length === 1 ? 'servicio sin pagar' : 'servicios sin pagar'}`}
+              </span>
+            )}
+            {late.length > 0 ? (
+              <span className="tag late">
+                <TriangleAlert />
+                {late.length === 1
+                  ? 'Uno viene de un mes anterior'
+                  : `${String(late.length)} vienen de meses anteriores`}
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <div className="card half">
+          <div className="label">Con tarjeta en {monthName(monthStart)}</div>
+          <div className="figure">
+            <Figure amount={onCardTotal} />
+          </div>
+          <p className="herosay">
+            No sale este mes: va al resumen de{' '}
+            {monthName(nextMonthOf(monthStart))}.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+
   // Both sheets, built once and mounted in both views. They used to live
   // only after the "del mes" return, so tapping a row on "con tarjeta"
   // set the state and rendered nothing at all.
@@ -283,6 +343,7 @@ export function Servicios({
     return (
       <>
         {header}
+        {hero}
         {finder}
         {segment}
         {onCard.length === 0 && asked ? (
@@ -301,26 +362,6 @@ export function Servicios({
           </div>
         ) : (
           <>
-            <div className="hood solo">
-              <div className="card hero">
-                <div className="label">
-                  Servicios de {monthName(monthStart)} que paga la tarjeta
-                </div>
-                <div className="figure">
-                  <Figure amount={onCardTotal} />
-                </div>
-                <div className="legend">
-                  <span>
-                    Esta plata no sale este mes: va al resumen de{' '}
-                    {monthName(nextMonthOf(monthStart))}.
-                  </span>
-                </div>
-              </div>
-            </div>
-            {/* Openable, like every other row: a servicio the card pays
-                is still a servicio, and not being able to tap it is how
-                one ends up with the wrong method on it in the first
-                place. */}
             <div className="sec">
               {onCard.map((bill) => (
                 <BillRow
@@ -350,6 +391,7 @@ export function Servicios({
   return (
     <>
       {header}
+      {hero}
       {finder}
       {segment}
       {unpaid.length === 0 && paid.length === 0 ? (
@@ -369,52 +411,6 @@ export function Servicios({
         )
       ) : (
         <>
-          <div className="hood solo">
-            <div className="card hero">
-              <div className="label">
-                {unpaid.length === 0
-                  ? `Pagaron todo en ${monthName(monthStart)}`
-                  : 'Falta pagar'}
-              </div>
-              <div className="figure">
-                <Figure amount={owed} />
-              </div>
-              {/* Under the pesos and at a size worth reading, not in the
-                  legend's far corner: a month owed in two currencies is
-                  owed both of them, and the second was sitting there
-                  looking like a footnote to the first. */}
-              {owedUsd > 0 ? (
-                <p className="usdline">
-                  <b>{formatAmount(owedUsd, 'USD')}</b>
-                </p>
-              ) : null}
-              {/* The same badges the rows wear, for the same reason: how
-                  many are still owed is the one thing on this card you
-                  have to do something about, and in the legend's grey it
-                  read like a caption. */}
-              <div className="herotags">
-                {unpaid.length === 0 ? (
-                  <span className="tag ok">
-                    <Check />
-                    {`${String(paid.length)} ${paid.length === 1 ? 'servicio pagado' : 'servicios pagados'}`}
-                  </span>
-                ) : (
-                  <span className="tag due">
-                    <TriangleAlert />
-                    {`${String(unpaid.length)} ${unpaid.length === 1 ? 'servicio sin pagar' : 'servicios sin pagar'}`}
-                  </span>
-                )}
-                {late.length > 0 ? (
-                  <span className="tag late">
-                    <TriangleAlert />
-                    {late.length === 1
-                      ? 'Uno viene de un mes anterior'
-                      : `${String(late.length)} vienen de meses anteriores`}
-                  </span>
-                ) : null}
-              </div>
-            </div>
-          </div>
           {unpaid.length > 0 ? (
             <div className="sec">
               {unpaid.map((bill) => (

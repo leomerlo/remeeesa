@@ -115,31 +115,72 @@ export function Gastos({
   // whether the money has left yet. Flattened to one shape here so the
   // search, the day headings and the total are written once: a consumo and
   // a gasto are the same thing to someone looking for what they bought.
-  const items: readonly Movement[] =
-    view === 'mes'
-      ? expenses.map((expense) => ({
-          id: expense.id,
-          name: expense.name,
-          categoryId: expense.categoryId,
-          date: expense.expenseDate,
-          price: expense.price,
-          currency: expense.currency,
-          expense,
-        }))
-      : purchases.map((purchase) => ({
-          id: purchase.id,
-          name: purchase.name,
-          categoryId: purchase.categoryId,
-          date: purchase.purchaseDate,
-          price: purchase.total,
-          currency: purchase.currency,
-          purchase,
-        }))
+  const delMes: readonly Movement[] = expenses.map((expense) => ({
+    id: expense.id,
+    name: expense.name,
+    categoryId: expense.categoryId,
+    date: expense.expenseDate,
+    price: expense.price,
+    currency: expense.currency,
+    expense,
+  }))
+  const conTarjeta: readonly Movement[] = purchases.map((purchase) => ({
+    id: purchase.id,
+    name: purchase.name,
+    categoryId: purchase.categoryId,
+    date: purchase.purchaseDate,
+    price: purchase.total,
+    currency: purchase.currency,
+    purchase,
+  }))
+  const items = view === 'mes' ? delMes : conTarjeta
+
+  // Pesos only, like every other peso figure in the app: a $45 expense in
+  // dollars is not 45 pesos, and adding it in made this screen's total
+  // disagree with the Home's by exactly that much. The dollars are said
+  // on their own line.
+  //
+  // Both sides at once, above the tabs and never changing with them: the
+  // month paid one of these and owes the other, and switching tabs to see
+  // the second figure meant losing sight of the first.
+  const hero = (
+    <div className="hood solo">
+      <div className="duo">
+        <div className="card half">
+          <div className="label">Pagado en {monthName(monthStart)}</div>
+          <div className="figure">
+            <Figure amount={computeSpentThisMonth(delMes)} />
+          </div>
+          {sumIn(delMes, 'USD') > 0 ? (
+            <p className="usdline">
+              <b>{formatAmount(sumIn(delMes, 'USD'), 'USD')}</b>
+            </p>
+          ) : null}
+          <p className="herosay">Plata que ya salió de la cuenta.</p>
+        </div>
+        <div className="card half">
+          <div className="label">Con tarjeta en {monthName(monthStart)}</div>
+          <div className="figure">
+            <Figure amount={computeSpentThisMonth(conTarjeta)} />
+          </div>
+          {sumIn(conTarjeta, 'USD') > 0 ? (
+            <p className="usdline">
+              <b>{formatAmount(sumIn(conTarjeta, 'USD'), 'USD')}</b>
+            </p>
+          ) : null}
+          <p className="herosay">
+            No sale este mes: llega repartido en los resúmenes.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
 
   if (items.length === 0) {
     return (
       <>
         {header}
+        {hero}
         {segment}
         <div className="card empty">
           <span className="orb" aria-hidden="true">
@@ -179,12 +220,6 @@ export function Gastos({
     )
   }
 
-  // Pesos only, like every other peso figure in the app: a $45 expense in
-  // dollars is not 45 pesos, and adding it in made this screen's total
-  // disagree with the Home's by exactly that much. The dollars are still
-  // listed below, and said on their own line.
-  const shown = computeSpentThisMonth(items)
-  const shownUsd = sumIn(items, 'USD')
   const rows = items.map((item, index) => ({
     item,
     // A day gets a header the first time it appears.
@@ -195,32 +230,8 @@ export function Gastos({
   return (
     <>
       {header}
+      {hero}
       {segment}
-      <div className="hood solo">
-        <div className="card hero">
-          <div className="label">
-            {view === 'mes'
-              ? `Pagado en ${monthName(monthStart)}`
-              : `Con tarjeta en ${monthName(monthStart)}`}
-          </div>
-          <div className="figure">
-            <Figure amount={shown} />
-          </div>
-          {/* Sentences, so .herosay: .legend is a flex row of labelled
-              dots and broke this into three columns at the <b>. */}
-          <p className="herosay">
-            {view === 'mes'
-              ? 'Plata que ya salió de la cuenta.'
-              : 'No sale este mes: llega repartido en los resúmenes.'}
-          </p>
-          {shownUsd > 0 ? (
-            <p className="usdline">
-              <b>{formatAmount(shownUsd, 'USD')}</b>
-              <span>no entran en el total en pesos</span>
-            </p>
-          ) : null}
-        </div>
-      </div>
       <div className="sec">
         {rows.map(({ item, header: dayHeader }) => (
           <div key={item.id}>
