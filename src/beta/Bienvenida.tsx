@@ -1,10 +1,4 @@
-import {
-  ArrowRight,
-  CalendarCheck,
-  CreditCard,
-  Eye,
-  Sparkles,
-} from 'lucide-react'
+import { ArrowRight, Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { Sheet } from './Sheet'
@@ -13,34 +7,14 @@ import { markWelcomeSeen, welcomeSeen } from './welcome'
 // The one thing the app ever says about itself: that it is not the app it
 // was. Everybody coming into the beta used the old one for months, so the
 // screen they land on is unrecognisable, and the first question is "¿se
-// perdió todo?" -- which the band answers before the three changes do.
+// perdió todo?" -- which is the only question worth answering here. What
+// changed is how it looks, not what it does, so there is nothing to list:
+// a list of features would read as a list of things to learn.
 //
 // Shown once per browser and never again, by the ordinary dialog every
 // form opens in: a bottom sheet on a phone, centred on a desktop, Escape
 // and the scrim both closing it. Closing it any of those ways is what
 // counts as having read it.
-const WHAT_CHANGED: readonly {
-  readonly Icon: typeof Eye
-  readonly head: string
-  readonly say: string
-}[] = [
-  {
-    Icon: Eye,
-    head: 'Todo más grande',
-    say: 'Números que se leen de una, sin letra chica ni gris sobre gris.',
-  },
-  {
-    Icon: CreditCard,
-    head: 'La tarjeta, por fin clara',
-    say: 'Cada consumo cae en el resumen del mes que lo paga, con sus cuotas.',
-  },
-  {
-    Icon: CalendarCheck,
-    head: 'Los servicios al día',
-    say: 'Lo que falta pagar, con su fecha. El débito automático se marca solo.',
-  },
-]
-
 export function Bienvenida(): ReactElement | null {
   // Read once, on the way in: a flag that changed while the modal is open
   // is this modal changing it.
@@ -66,7 +40,7 @@ export function Bienvenida(): ReactElement | null {
             onClick={close}
           >
             <ArrowRight />
-            Ver mi mes
+            Ir al inicio
           </button>
         </div>
       }
@@ -78,24 +52,12 @@ export function Bienvenida(): ReactElement | null {
             Versión nueva
           </span>
           <p>Rediseñamos la app de cero.</p>
-          <span className="say">
-            Tus datos siguen enteros: todo lo que cargaste está acá, en
-            pantallas nuevas.
-          </span>
+          <span className="say">Más moderna y más fácil de leer.</span>
         </div>
-        <div className="welcome-list">
-          {WHAT_CHANGED.map((one) => (
-            <div className="one" key={one.head}>
-              <span className="tile" aria-hidden="true">
-                <one.Icon />
-              </span>
-              <div>
-                <h4>{one.head}</h4>
-                <p>{one.say}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+        <p className="welcome-say">
+          Las funciones son las mismas de siempre y tus datos siguen enteros:
+          todo lo que cargaste está acá. Lo que cambió es cómo se ve.
+        </p>
       </div>
     </Sheet>
   )

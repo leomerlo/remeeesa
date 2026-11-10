@@ -12,11 +12,13 @@ describe('the welcome', () => {
       screen.getByText('Bienvenidos al nuevo remeeesa'),
     ).toBeInTheDocument()
     expect(screen.getByText('Rediseñamos la app de cero.')).toBeInTheDocument()
+    // The question somebody who used the old app actually arrives with.
+    expect(screen.getByText(/Las funciones son las mismas/)).toBeInTheDocument()
   })
 
   it('does not come back after it is closed', () => {
     const first = render(<Bienvenida />)
-    fireEvent.click(screen.getByRole('button', { name: 'Ver mi mes' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Ir al inicio' }))
     expect(
       screen.queryByText('Bienvenidos al nuevo remeeesa'),
     ).not.toBeInTheDocument()
