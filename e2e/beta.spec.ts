@@ -150,7 +150,9 @@ test('a servicio is created, paid, and arrives among the month gastos', async ({
   await addServicio(page, { name: 'Luz', amount: '36800' })
 
   // Owed, and counted as owed.
-  await expect(page.getByText('Falta pagar')).toBeVisible({ timeout: 20000 })
+  await expect(page.getByText('Servicios que faltan pagar')).toBeVisible({
+    timeout: 20000,
+  })
   await expect(page.getByText('1 servicio sin pagar')).toBeVisible()
   await expect(page.getByText('$ 36.800').first()).toBeVisible()
 
@@ -219,7 +221,9 @@ test('a servicio a credit card pays lands on Con tarjeta, not on the month', asy
 
   await expect(page.getByText('Edenor')).toBeVisible({ timeout: 20000 })
   // The card's own figure, on the panel over both tabs.
-  await expect(page.getByText(/^Con tarjeta en /)).toBeVisible()
+  await expect(
+    page.getByText('Servicios que pagaste con tarjeta de crédito'),
+  ).toBeVisible()
   // Twice over: that figure, and the row's.
   await expect(page.getByText('$ 42.000')).toHaveCount(2)
 })

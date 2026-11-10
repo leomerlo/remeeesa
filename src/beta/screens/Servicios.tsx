@@ -260,7 +260,7 @@ export function Servicios({
           <div className="label">
             {unpaid.length === 0
               ? `Pagaron todo en ${monthName(monthStart)}`
-              : 'Falta pagar'}
+              : 'Servicios que faltan pagar'}
           </div>
           <div className="figure">
             <Figure amount={owed} />
@@ -296,7 +296,9 @@ export function Servicios({
           </div>
         </div>
         <div className="card half">
-          <div className="label">Con tarjeta en {monthName(monthStart)}</div>
+          <div className="label">
+            Servicios que pagaste con tarjeta de crédito
+          </div>
           <div className="figure">
             <Figure amount={onCardTotal} />
           </div>

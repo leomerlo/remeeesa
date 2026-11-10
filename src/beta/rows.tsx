@@ -479,15 +479,19 @@ export function Donut({
               <b>{formatAmount(total, currency)}</b>
             </span>
           ))}{' '}
-          de tarjeta. No entra en el gráfico: son los consumos del mes pasado,
-          que ya se contaron cuando los hicieron.
+          de tarjeta.
         </AlertCard>
       )}
       {/* What the chart counts, at the foot and in grey: it is the small
-          print of the drawing above it, not an announcement. */}
+          print of the drawing above it, not an announcement. The card bill
+          is explained here rather than up in the alert, which says the
+          figure and stops. */}
       <p className="donutsay">
         Este gráfico incluye lo que ya pagaron, lo que les falta pagar y lo que
         compraron con tarjeta.
+        {cardBills.length === 0
+          ? null
+          : ' Lo del resumen no entra: son los consumos del mes pasado, que ya se contaron cuando los hicieron.'}
       </p>
     </div>
   )

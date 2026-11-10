@@ -391,7 +391,10 @@ export function PickField({
       </span>
       <button
         type="button"
-        className="picked"
+        // "flat" when the chosen option has no second line: the mark spans
+        // both rows of the grid, so with an empty second row the single
+        // line of text sat above the middle of the logo beside it.
+        className={chosen?.v === undefined ? 'picked flat' : 'picked'}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -422,7 +425,7 @@ export function PickField({
               key={option.value}
               type="button"
               role="option"
-              className="pickopt"
+              className={option.v === undefined ? 'pickopt flat' : 'pickopt'}
               aria-selected={option.value === value}
               onClick={() => {
                 onChange(option.value)
