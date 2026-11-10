@@ -54,6 +54,7 @@ export function ServicioSheet({
   session,
   bill,
   categories,
+  methods,
   today,
   paidWith = null,
 }: {
@@ -62,11 +63,14 @@ export function ServicioSheet({
   readonly session: BetaSession
   readonly bill: Pendiente | null
   readonly categories: readonly Category[]
+  // Every way the household pays, so a servicio can say which one it goes
+  // out on -- the same question anotar un gasto asks, asked the same way.
+  readonly methods: readonly PaymentMethod[]
   readonly today: Date
-  // What the payment was made with, where it has been paid. Read-only
-  // here on purpose: it is chosen at the moment of paying rather than set
-  // on the bill, so the same servicio can go in cash one month and on a
-  // card the next.
+  // What the payment was actually made with, where it has been paid. A
+  // different thing from the field above: that one is what the bill is
+  // normally paid with, this one is what happened. A servicio can go in
+  // cash one month and on a card the next.
   readonly paidWith?: string | null
 }): ReactElement {
   const [name, setName] = useState(bill?.name ?? '')
@@ -82,6 +86,8 @@ export function ServicioSheet({
   const [due, setDue] = useState(isoDay(bill?.dueDate ?? today))
   const [recurring, setRecurring] = useState(bill?.recurring ?? true)
   const [autoDebit, setAutoDebit] = useState(bill?.autoDebit ?? false)
+  // '' is cash, the method every household has without creating one.
+  const [methodId, setMethodId] = useState(bill?.paymentMethodId ?? '')
   const save = useSave(onClose)
 
   const named = name.trim() !== ''
@@ -111,6 +117,7 @@ export function ServicioSheet({
           expectedAmount,
           recurring,
           autoDebit,
+          paymentMethodId: methodId === '' ? null : methodId,
           currency,
         })
       }
@@ -123,6 +130,7 @@ export function ServicioSheet({
         expectedAmount,
         recurring,
         autoDebit,
+        paymentMethodId: methodId === '' ? null : methodId,
         currency,
       })
     })
@@ -149,6 +157,31 @@ export function ServicioSheet({
         value={name}
         onChange={setName}
         placeholder="Luz, gas, expensas…"
+      />
+      {/* Before the amount, where anotar un gasto asks it, and with the
+          same dropdown. A servicio does have an answer to this: the bank
+          debits the luz from one particular card every month, and nobody
+          is there to choose when it happens. */}
+      <PickField
+        label="¿Con qué se paga?"
+        value={methodId}
+        onChange={setMethodId}
+        options={[
+          { value: '', k: 'Efectivo', mark: <Banknote /> },
+          ...methods.map((candidate) => ({
+            value: candidate.id,
+            k: candidate.name,
+            ...(candidate.kind === 'efectivo'
+              ? {}
+              : { v: kindOf(candidate.kind) }),
+            mark: <CardBrandMark brand={candidate.brand} />,
+          })),
+        ]}
+        hint={
+          autoDebit
+            ? 'De acá lo debita el banco cuando vence.'
+            : 'Lo que viene propuesto cuando lo marques como pagado. Si ese día pagás con otra cosa, elegís otra.'
+        }
       />
       {/* The same field anotar un gasto asks the amount with: the currency
           on the same line, as the sign it is, rather than a question of
@@ -205,9 +238,10 @@ export function ServicioSheet({
             </div>
           )}
           <p className="fnote">
-            Con qué se paga se elige al pagarlo, no acá: el mismo servicio puede
-            ir en efectivo un mes y con tarjeta el siguiente. Para cambiarlo,
-            deshacé el pago y volvé a pagarlo.
+            Esto es con qué se pagó esta vez. Arriba está con qué se paga
+            normalmente, que es lo que va a proponer la próxima: el mismo
+            servicio puede ir en efectivo un mes y con tarjeta el siguiente.
+            Para cambiar este pago, deshacelo y volvé a pagarlo.
           </p>
           <p className="fnote">
             Deshacer el pago lo devuelve a la lista de lo que falta pagar, y
@@ -278,7 +312,10 @@ export function PagarSheet({
     bill.expectedAmount === null ? '' : String(bill.expectedAmount),
   )
   const [paidOn, setPaidOn] = useState(isoDay(today))
-  const [methodId, setMethodId] = useState('')
+  // What the bill says it is paid with, which is what it will almost
+  // always be paid with. Still a choice: this month it may go on another
+  // card, and that is what the field is for.
+  const [methodId, setMethodId] = useState(bill.paymentMethodId ?? '')
   const save = useSave(onClose)
 
   const method = methods.find((candidate) => candidate.id === methodId)

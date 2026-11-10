@@ -208,6 +208,8 @@ export type HouseholdsDb = {
     readonly expectedAmount: number | null
     readonly recurring?: boolean
     readonly autoDebit?: boolean
+    // What it is normally paid with; null or absent for cash.
+    readonly paymentMethodId?: string | null
     // Pesos unless it says otherwise. A dollar bill is recorded and shown
     // in dollars but never counted against the peso budget, the same way a
     // dollar gasto is -- see lib/money/currency.
@@ -238,6 +240,7 @@ export type HouseholdsDb = {
     readonly expectedAmount: number | null
     readonly recurring: boolean
     readonly autoDebit: boolean
+    readonly paymentMethodId: string | null
     readonly currency: Currency
   }): Promise<Pendiente>
   // Recurrence on its own, and the only write a *paid* Pendiente accepts

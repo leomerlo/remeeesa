@@ -38,6 +38,30 @@ describe('parsePendienteDocument', () => {
     })
   })
 
+  // What a bill is normally paid with: the card the bank debits it from.
+  // A document written before the field existed leaves it off entirely,
+  // which is what the case above checks.
+  it('reads the method a bill is paid with, when it says one', () => {
+    const bill = parsePendienteDocument({
+      id: 'q2',
+      data: {
+        household_id: 'h1',
+        category_id: 'c1',
+        name: 'Edenor',
+        due_date: new Date('2026-09-10T12:00:00.000Z'),
+        expected_amount: 36_800,
+        recurring: true,
+        auto_debit: true,
+        payment_method_id: 'card-visa',
+        status: 'pending',
+        paid_expense_id: null,
+        created_at: new Date('2026-08-31T12:00:00.000Z'),
+      },
+    })
+    expect(bill.paymentMethodId).toBe('card-visa')
+    expect(bill.autoDebit).toBe(true)
+  })
+
   it("reads a Resumen's card_id and purchase_ids", () => {
     const resumen = parsePendienteDocument({
       id: 'card-1_2026-10',
@@ -503,6 +527,7 @@ describe('pendienteToDocument', () => {
         expectedAmount: 500,
         recurring: false,
         autoDebit: false,
+        paymentMethodId: null,
         status: 'pending',
         paidExpenseId: null,
         paidAt: null,
@@ -518,6 +543,7 @@ describe('pendienteToDocument', () => {
       expected_amount: 500,
       recurring: false,
       auto_debit: false,
+      payment_method_id: null,
       status: 'pending',
       paid_expense_id: null,
       paid_at: null,

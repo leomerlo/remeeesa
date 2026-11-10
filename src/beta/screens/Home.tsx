@@ -380,6 +380,7 @@ export function Home({
           session={session}
           bill={editingBill}
           categories={categories}
+          methods={methods}
           today={new Date()}
         />
       )}

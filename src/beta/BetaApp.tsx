@@ -5,6 +5,7 @@ import { HashRouter, Route, Routes } from 'react-router-dom'
 import { createFirebaseClient, readFirebaseEnv } from '@/lib/firebase'
 import { FirebaseProvider } from '@/lib/firebaseContext'
 import { MonthProvider } from './MonthContext'
+import { useAutoDebits } from './useAutoDebits'
 import { useBetaSession, useHouseholdName } from './data'
 import { Shell } from './Shell'
 import { BootSkeleton } from './Skeleton'
@@ -31,6 +32,9 @@ import { Proyecciones } from './screens/Proyecciones'
 // guard rather than around them.
 export function BetaRoutes(): ReactElement {
   const session = useBetaSession()
+  // The bank's own payments, recorded once the dates they were taken on
+  // have passed. Mounted here so it runs on any screen and only once.
+  useAutoDebits(session)
   const home = useHouseholdName(session)
   // An invite code travels through the sign-in -- there is nobody to join
   // as until the account exists -- and may also have arrived in the address,

@@ -155,14 +155,15 @@ export function GastoSheet({
     setDraft((current) => ({ ...current, [key]: value }))
   }
 
-  // Nothing is paid with anything until it is paid: a bill still owed
-  // carries no method, and the one it ends up being settled with is chosen
-  // that day. So while "Ya lo pagué" is off the method is not read at all,
-  // which also keeps a credit card from booking a consumo for something
-  // nobody has bought.
-  const method = draft.paid
-    ? methods.find((candidate) => candidate.id === draft.methodId)
-    : undefined
+  // Asked whatever the answer to "Ya lo pagué" is, because a bill has an
+  // answer too: the bank debits the luz from one particular card every
+  // month. What changes is what it means -- what this was paid with, or
+  // what it is going to be paid with.
+  const chosen = methods.find((candidate) => candidate.id === draft.methodId)
+  // Only what has already been paid decides what gets written now: a
+  // credit card books a consumo, and nothing can be a consumo before it
+  // is bought.
+  const method = draft.paid ? chosen : undefined
   // Only a credit method changes what gets written. The rest are labels on
   // money that has already gone.
   const onCredit = method?.kind === 'credito'
@@ -301,6 +302,9 @@ export function GastoSheet({
           expectedAmount: draft.amount.trim() === '' ? null : amount,
           recurring: draft.recurring,
           autoDebit: draft.autoDebit,
+          // What it is paid with, which on a débito automático is the
+          // card the bank takes it from.
+          paymentMethodId: draft.methodId === '' ? null : draft.methodId,
           currency: draft.currency,
         })
         if (!draft.paid) return created
@@ -359,28 +363,19 @@ export function GastoSheet({
           of big radios -- the list was taking more of the form than the
           figure was, and a card is recognised by its logo before its name
           is read. */}
-      {draft.paid ? (
-        <PickField
-          label="¿Con qué lo pagaron?"
-          value={draft.methodId}
-          onChange={(next) => set('methodId', next)}
-          options={methodOptions}
-        />
-      ) : (
-        <PickField
-          label="¿Con qué lo van a pagar?"
-          value=""
-          onChange={() => undefined}
-          disabled
-          options={[
-            {
-              value: '',
-              k: 'Se elige al pagarlo',
-              v: 'Lo mismo puede ir en efectivo un mes y con tarjeta el siguiente.',
-            },
-          ]}
-        />
-      )}
+      <PickField
+        label={draft.paid ? '¿Con qué lo pagaron?' : '¿Con qué se paga?'}
+        value={draft.methodId}
+        onChange={(next) => set('methodId', next)}
+        options={methodOptions}
+        {...(draft.paid
+          ? {}
+          : {
+              hint: draft.autoDebit
+                ? 'De acá lo va a debitar el banco cuando venza.'
+                : 'Lo que va a venir propuesto cuando lo marques como pagado.',
+            })}
+      />
       {onCredit ? (
         <SelectField
           label="En cuántas cuotas"

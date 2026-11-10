@@ -355,6 +355,85 @@ describe('a bill in dollars', () => {
   })
 })
 
+// What a bill is normally paid with -- the card the bank debits it from,
+// above all. A servicio on débito automático has an answer to this that
+// nobody is there to give at the moment it is taken, which is the whole
+// reason the field exists.
+describe('the method a bill is paid with', () => {
+  const PENDIENTE = 'pendiente-edenor'
+
+  async function seedBill(paymentMethodId?: string | null): Promise<void> {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'pendientes', PENDIENTE), {
+        household_id: HOUSEHOLD,
+        category_id: 'cat-1',
+        name: 'Edenor',
+        due_date: Timestamp.fromDate(new Date(2026, 9, 10)),
+        expected_amount: 36_800,
+        recurring: true,
+        auto_debit: true,
+        status: 'pending',
+        paid_expense_id: null,
+        paid_at: null,
+        created_at: Timestamp.now(),
+        ...(paymentMethodId === undefined
+          ? {}
+          : { payment_method_id: paymentMethodId }),
+      })
+    })
+  }
+
+  it('is written when the bill is created', async () => {
+    await assertSucceeds(
+      setDoc(doc(asMember(), 'pendientes', PENDIENTE), {
+        household_id: HOUSEHOLD,
+        category_id: 'cat-1',
+        name: 'Edenor',
+        due_date: Timestamp.fromDate(new Date(2026, 9, 10)),
+        expected_amount: 36_800,
+        recurring: true,
+        auto_debit: true,
+        payment_method_id: 'card-1',
+        status: 'pending',
+        paid_expense_id: null,
+        paid_at: null,
+        created_at: Timestamp.now(),
+      }),
+    )
+  })
+
+  it('can be changed on a bill that is still pending', async () => {
+    await seedBill(null)
+
+    await assertSucceeds(
+      updateDoc(doc(asMember(), 'pendientes', PENDIENTE), {
+        payment_method_id: 'card-1',
+      }),
+    )
+  })
+
+  // Back to cash, which is what null means here.
+  it('can be cleared', async () => {
+    await seedBill('card-1')
+
+    await assertSucceeds(
+      updateDoc(doc(asMember(), 'pendientes', PENDIENTE), {
+        payment_method_id: null,
+      }),
+    )
+  })
+
+  it('refuses anything that is not a card id', async () => {
+    await seedBill(null)
+
+    await assertFails(
+      updateDoc(doc(asMember(), 'pendientes', PENDIENTE), {
+        payment_method_id: 7,
+      }),
+    )
+  })
+})
+
 // Paying a bill with a credit card: nothing leaves the household today, so
 // there is no Expense to point at. The bill links to the CardPurchase the
 // payment created instead, and the two are written in the same commit --

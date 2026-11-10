@@ -1028,6 +1028,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         expectedAmount: input.expectedAmount,
         recurring: input.recurring ?? false,
         autoDebit: input.autoDebit ?? false,
+        paymentMethodId: input.paymentMethodId ?? null,
         currency: input.currency ?? DEFAULT_CURRENCY,
         status: 'pending',
         paidExpenseId: null,
@@ -1113,6 +1114,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         expectedAmount: input.expectedAmount,
         recurring: input.recurring,
         autoDebit: input.autoDebit,
+        paymentMethodId: input.paymentMethodId,
         currency: input.currency,
       }
       state.pendientes.set(input.pendienteId, updated)

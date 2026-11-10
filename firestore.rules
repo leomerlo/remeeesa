@@ -280,7 +280,7 @@ service cloud.firestore {
     // from creating a Pendiente that is already marked paid. Editing, deleting,
     // and marking a pendiente paid are handled by later tickets in this feature.
     function isValidPendiente(data) {
-      return data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'estimated_amount', 'recurring', 'auto_debit', 'status', 'paid_expense_id', 'paid_at', 'created_at', 'card_id', 'currency', 'purchase_ids'])
+      return data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'estimated_amount', 'recurring', 'auto_debit', 'payment_method_id', 'status', 'paid_expense_id', 'paid_at', 'created_at', 'card_id', 'currency', 'purchase_ids'])
         && data.household_id is string
         && data.household_id.size() > 0
         && data.category_id is string
@@ -298,6 +298,12 @@ service cloud.firestore {
         // direct dot-access on a missing key fails closed, hence the
         // membership check first.
         && (!('auto_debit' in data) || data.auto_debit is bool)
+        // What the bill is normally paid with -- the card the bank debits
+        // it from, above all. Null for cash, absent on everything written
+        // before the field existed.
+        && (!('payment_method_id' in data)
+            || data.payment_method_id == null
+            || data.payment_method_id is string)
         // Only a Resumen carries one, and only since a card could hold two
         // currencies; absent everywhere else.
         && (!('currency' in data) || data.currency in ['ARS', 'USD'])
@@ -429,7 +435,7 @@ service cloud.firestore {
       return resource.data.status == 'pending'
         && !('card_id' in resource.data)
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'category_id', 'due_date', 'expected_amount', 'recurring', 'auto_debit', 'currency'])
+          .hasOnly(['name', 'category_id', 'due_date', 'expected_amount', 'recurring', 'auto_debit', 'payment_method_id', 'currency'])
         && !request.resource.data.diff(resource.data).affectedKeys()
           .hasAny(['household_id', 'status', 'paid_expense_id', 'paid_purchase_id', 'paid_at', 'created_at'])
         && request.resource.data.household_id == resource.data.household_id
@@ -442,6 +448,9 @@ service cloud.firestore {
         && request.resource.data.recurring is bool
         && (!('auto_debit' in request.resource.data)
             || request.resource.data.auto_debit is bool)
+        && (!('payment_method_id' in request.resource.data)
+            || request.resource.data.payment_method_id == null
+            || request.resource.data.payment_method_id is string)
         // A bill can be in dollars, and the currency is correctable the
         // same way a gasto's is -- it is picked when the bill is written
         // down, which is when it is easiest to get wrong.

@@ -418,6 +418,7 @@ export function Servicios({
           session={session}
           bill={editing === 'nuevo' ? null : editing}
           categories={categories}
+          methods={methods}
           today={now}
           paidWith={editing === 'nuevo' ? null : paidWithOf(editing)}
         />

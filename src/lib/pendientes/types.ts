@@ -18,6 +18,17 @@ export type Pendiente = {
   // sumar automáticamente".
   readonly expectedAmount: number | null
   readonly recurring: boolean
+  // What this bill is normally paid with: a card the household wrote
+  // down, or null for cash. On a débito automático it is the account or
+  // card the bank actually debits, which is the case it exists for -- the
+  // bank pays the luz with a particular card every month, and nobody is
+  // there to choose at the time.
+  //
+  // It is what the bill is *expected* to be paid with, never a record of
+  // a payment: the payment writes its own method onto the gasto (or books
+  // a consumo on the card), and a bill paid in cash one month is still
+  // the same bill. Absent on everything written before this field.
+  readonly paymentMethodId?: string | null
   // The household does not pay this one: the bank debits it on its own. It
   // still lives here as a Pendiente so the money is budgeted before it
   // leaves, but it settles itself once the due date passes rather than
