@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   createExpense,
   deleteExpense,
@@ -11,13 +11,34 @@ import {
 import { createHouseholdWithMembership } from '@/lib/households'
 import type { Expense } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
-import { createPendiente, markPendientePaid } from '@/lib/pendientes'
+import {
+  createPendiente,
+  getPendiente,
+  markPendientePaid,
+} from '@/lib/pendientes'
+import {
+  createCard,
+  createCardPurchase,
+  listCardPurchasesInMonth,
+  markResumenPaid,
+} from '@/lib/cards'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
+import { MemoryRouter } from 'react-router-dom'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { AddExpenseForm } from './AddExpenseForm'
 import type { EditExpenseTarget } from './AddExpenseForm'
 import { RecentExpensesList } from './RecentExpensesList'
 import { RemainingBudgetDisplay } from './RemainingBudgetDisplay'
+
+// The edit form links to Ajustes when the household has no payment method
+// written down, so it needs a router around it -- exactly as it has in the
+// app, where it only ever renders inside one.
+function renderInRouter(
+  ui: ReactNode,
+  options?: Parameters<typeof renderWithProviders>[1],
+): ReturnType<typeof renderWithProviders> {
+  return renderWithProviders(<MemoryRouter>{ui}</MemoryRouter>, options)
+}
 
 function localDateInputValue(date: Date): string {
   const year = String(date.getFullYear()).padStart(4, '0')
@@ -88,6 +109,8 @@ function EditExpenseHarness(props: {
             memberId: expense.memberId,
             pendienteId: expense.pendienteId,
             isService: expense.isService,
+            currency: expense.currency,
+            paymentMethodId: expense.paymentMethodId,
           })
         }}
       />
@@ -140,7 +163,7 @@ describe('EditExpenseFlow', () => {
       price: 12.5,
     })
 
-    renderWithProviders(
+    renderInRouter(
       <EditExpenseHarness
         db={db}
         householdId={household.id}
@@ -181,7 +204,7 @@ describe('EditExpenseFlow', () => {
       price: 10,
     })
 
-    renderWithProviders(
+    renderInRouter(
       <EditExpenseHarness
         db={db}
         householdId={household.id}
@@ -237,7 +260,7 @@ describe('EditExpenseFlow', () => {
       price: 10,
     })
 
-    renderWithProviders(
+    renderInRouter(
       <EditExpenseHarness
         db={db}
         householdId={household.id}
@@ -295,7 +318,7 @@ describe('EditExpenseFlow', () => {
       price: 10,
     })
 
-    renderWithProviders(
+    renderInRouter(
       <EditExpenseHarness
         db={ownerDb}
         householdId={household.id}
@@ -345,7 +368,7 @@ describe('EditExpenseFlow', () => {
     })
 
     const editorDb = store.asUser('user-2')
-    renderWithProviders(
+    renderInRouter(
       <EditExpenseHarness
         db={editorDb}
         householdId={household.id}
@@ -396,7 +419,7 @@ describe('EditExpenseFlow', () => {
       price: 30,
     })
 
-    renderWithProviders(
+    renderInRouter(
       <EditExpenseHarness
         db={db}
         householdId={household.id}
@@ -407,7 +430,7 @@ describe('EditExpenseFlow', () => {
 
     expect(
       await screen.findByRole('status', {
-        name: 'Presupuesto restante $70',
+        name: /^Te quedan \$70\./,
       }),
     ).toBeInTheDocument()
 
@@ -427,7 +450,7 @@ describe('EditExpenseFlow', () => {
       await screen.findByText('Todavía no anotaron nada'),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('status', { name: 'Presupuesto restante $100' }),
+      screen.getByRole('status', { name: /^Te quedan \$100\./ }),
     ).toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Guardar cambios' }),
@@ -449,7 +472,7 @@ describe('EditExpenseFlow', () => {
       price: 10,
     })
 
-    renderWithProviders(
+    renderInRouter(
       <EditExpenseHarness
         db={db}
         householdId={household.id}
@@ -495,7 +518,7 @@ describe('EditExpenseFlow', () => {
       price: 10,
     })
 
-    renderWithProviders(
+    renderInRouter(
       <EditExpenseHarness
         db={db}
         householdId={household.id}
@@ -528,10 +551,71 @@ describe('EditExpenseFlow', () => {
     })
   })
 
-  // isService is the only way to reclassify an Expense that predates
-  // pendienteId (or was logged as a plain Gasto that should have gone
-  // through Pendientes), since there's no real Pendiente to link it to.
-  it('lets a plain expense be manually flagged as a servicio via the toggle', async () => {
+  // A household's credit cards are deliberately not offered here: what you
+  // pay with credit does not leave this month, it lands in next month's
+  // Resumen, so moving a saved gasto onto one would be a different record
+  // rather than an edit. They used to just be absent, which read as a list
+  // missing half the cards. Per direct feedback.
+  it('says why the credit cards are not among the methods offered', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100000,
+    })
+    await createCard({
+      db,
+      householdId: household.id,
+      name: 'Visa Flor',
+      kind: 'credito',
+      currency: 'BOTH',
+      brand: 'visa',
+    })
+    await createCard({
+      db,
+      householdId: household.id,
+      name: 'Mercado Pago',
+      kind: 'cuenta',
+      currency: 'ARS',
+      brand: 'mercadopago',
+    })
+    await seedCurrentMonthExpense({
+      db,
+      householdId: household.id,
+      name: 'Luz',
+      price: 36800,
+    })
+
+    renderInRouter(
+      <EditExpenseHarness
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar Luz' }))
+
+    const methods = await screen.findByLabelText('Método de pago')
+    expect(
+      within(methods).getByRole('option', { name: 'Mercado Pago' }),
+    ).toBeInTheDocument()
+    expect(
+      within(methods).queryByRole('option', { name: 'Visa Flor' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByText(/tarjetas de crédito no están en esta lista/i),
+    ).toBeInTheDocument()
+  })
+
+  // Recurrente replaced the old "Marcar como servicio" switch, which only
+  // ever set a flag: the gasto showed up under Servicios but never came
+  // back the following month, because recurrence lives on a Pendiente and
+  // a plain Expense has none. Turning it on now rebuilds the record as the
+  // Pendiente the alta would have created. Per direct feedback.
+  it('turns a plain gasto into a real servicio when Recurrente is switched on', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -546,7 +630,7 @@ describe('EditExpenseFlow', () => {
       price: 10,
     })
 
-    renderWithProviders(
+    renderInRouter(
       <EditExpenseHarness
         db={db}
         householdId={household.id}
@@ -558,32 +642,55 @@ describe('EditExpenseFlow', () => {
     fireEvent.click(
       await screen.findByRole('button', { name: 'Editar Gimnasio' }),
     )
-    const toggle = await screen.findByLabelText('Marcar como servicio')
+    const toggle = await screen.findByLabelText('Recurrente')
     expect(toggle).not.toBeChecked()
 
     fireEvent.click(toggle)
-    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Guardar como servicio' }),
+    )
 
+    // The money is still spent exactly once, and now through a Pendiente.
     await waitFor(async () => {
-      const [updated] = await listExpensesInMonth({
+      const expenses = await listExpensesInMonth({
         db,
         householdId: household.id,
         ...currentMonthRange(),
       })
-      expect(updated).toEqual(expect.objectContaining({ isService: true }))
+      expect(expenses).toHaveLength(1)
+      expect(expenses[0]?.pendienteId).not.toBeNull()
+      expect(expenses[0]?.price).toBe(10)
     })
+    const [converted] = await listExpensesInMonth({
+      db,
+      householdId: household.id,
+      ...currentMonthRange(),
+    })
+    expect(
+      await getPendiente({
+        db,
+        householdId: household.id,
+        pendienteId: converted?.pendienteId ?? '',
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        name: 'Gimnasio',
+        recurring: true,
+        status: 'paid',
+      }),
+    )
   })
 
-  // pendienteId already determines "servicio" on its own for an Expense
-  // created by paying a Pendiente -- the manual toggle would have nothing to
-  // change, so it isn't offered.
-  it('hides the servicio toggle for an expense already linked to a Pendiente', async () => {
+  // Switching it off turns the bill back into something owed: the Expense
+  // goes, the Pendiente comes back pending, and the edits made in the same
+  // save land on it.
+  it('puts a servicio back to pending when "Ya lo pagué" is switched off', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
       userId: 'user-1',
       name: 'Casa Verde',
-      monthlyBudget: 100,
+      monthlyBudget: 10000,
     })
     const categories = await listCategories({ db, householdId: household.id })
     const comida = categories.find((category) => category.name === 'Comida')
@@ -608,11 +715,7 @@ describe('EditExpenseFlow', () => {
       paymentDate: currentMonthDate(10),
     })
 
-    // Rendered directly (not via the RecentExpensesList-tap harness the
-    // other tests here use) -- a paid servicio's Expense is deliberately
-    // excluded from "Últimos gastos del mes" (Cuentas por pagar already
-    // shows it), so there's no row to tap it open from there any more.
-    renderWithProviders(
+    renderInRouter(
       <AddExpenseForm
         db={db}
         householdId={household.id}
@@ -628,13 +731,264 @@ describe('EditExpenseFlow', () => {
           memberId: expense.memberId,
           pendienteId: expense.pendienteId,
           isService: expense.isService,
+          currency: expense.currency,
+          paymentMethodId: expense.paymentMethodId,
         }}
       />,
     )
 
-    expect(await screen.findByLabelText('Nombre')).toHaveValue('Internet')
+    fireEvent.click(await screen.findByLabelText('Ya lo pagué'))
+    fireEvent.change(screen.getByLabelText('Monto esperado'), {
+      target: { value: '5200' },
+    })
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Guardar y marcar impago' }),
+    )
+
+    await waitFor(async () => {
+      const reloaded = await getPendiente({
+        db,
+        householdId: household.id,
+        pendienteId: pendiente.id,
+      })
+      expect(reloaded).toEqual(
+        expect.objectContaining({ status: 'pending', expectedAmount: 5200 }),
+      )
+    })
     expect(
-      screen.queryByLabelText('Marcar como servicio'),
-    ).not.toBeInTheDocument()
+      await listExpensesInMonth({
+        db,
+        householdId: household.id,
+        ...currentMonthRange(),
+      }),
+    ).toEqual([])
+  })
+
+  // A servicio's recurrence lives on its Pendiente, so the switch shows
+  // what that says -- and saving writes back to it, paid or not. A paid
+  // Pendiente is otherwise frozen; these two keys have their own door in
+  // the rules precisely because what they decide is still ahead.
+  it("reads and writes a servicio's recurrence through its Pendiente", async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 10000,
+    })
+    const categories = await listCategories({ db, householdId: household.id })
+    const comida = categories.find((category) => category.name === 'Comida')
+    if (comida === undefined) {
+      throw new Error('expected Comida category')
+    }
+    const pendiente = await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: comida.id,
+      name: 'Internet',
+      dueDate: currentMonthDate(10),
+      expectedAmount: 5000,
+      recurring: true,
+    })
+    const { expense } = await markPendientePaid({
+      db,
+      householdId: household.id,
+      pendienteId: pendiente.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 5000,
+      paymentDate: currentMonthDate(10),
+    })
+
+    renderInRouter(
+      <AddExpenseForm
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+        editExpense={{
+          expenseId: expense.id,
+          name: expense.name,
+          price: expense.price,
+          categoryName: 'Comida',
+          comments: expense.comments,
+          expenseDate: expense.expenseDate,
+          memberId: expense.memberId,
+          pendienteId: expense.pendienteId,
+          isService: expense.isService,
+          currency: expense.currency,
+          paymentMethodId: expense.paymentMethodId,
+        }}
+      />,
+    )
+
+    expect(await screen.findByLabelText('Recurrente')).toBeChecked()
+
+    fireEvent.click(screen.getByLabelText('Débito automático'))
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }))
+
+    await waitFor(async () => {
+      const reloaded = await getPendiente({
+        db,
+        householdId: household.id,
+        pendienteId: pendiente.id,
+      })
+      expect(reloaded).toEqual(
+        expect.objectContaining({
+          recurring: true,
+          autoDebit: true,
+          // Still paid: recurrence changed, the payment did not.
+          status: 'paid',
+        }),
+      )
+    })
+  })
+})
+
+describe('deleting an expense a Resumen payment generated', () => {
+  it('undoes the whole payment: every cuota expense and the ajuste go, the Resumen is pending again and its purchases unlock', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 15, 12))
+    try {
+      const db = createMemoryHouseholdsDb().asUser('user-1')
+      const household = await createHouseholdWithMembership({
+        db,
+        userId: 'user-1',
+        name: 'Casa',
+        monthlyBudget: 1000,
+      })
+      const householdId = household.id
+      const [category] = await listCategories({ db, householdId })
+      if (category === undefined) {
+        throw new Error('expected a seeded category')
+      }
+      const visa = await createCard({ db, householdId, name: 'Visa' })
+      for (const name of ['Zapatillas', 'Remera']) {
+        await createCardPurchase({
+          db,
+          householdId,
+          cardId: visa.id,
+          categoryId: category.id,
+          memberId: 'user-1',
+          authorDisplayName: 'Ada',
+          name,
+          total: 100,
+          cuotas: 1,
+          purchaseDate: new Date(2026, 8, 5),
+          comments: '',
+        })
+      }
+      const resumenId = `${visa.id}_2026-10`
+      const { expenses } = await markResumenPaid({
+        db,
+        householdId,
+        resumenId,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        amountPaid: 210,
+        paymentDate: new Date(2026, 9, 15),
+      })
+      const [first] = expenses
+      if (first === undefined) {
+        throw new Error('expected a cuota expense')
+      }
+
+      renderInRouter(
+        <AddExpenseForm
+          db={db}
+          householdId={householdId}
+          memberId="user-1"
+          authorDisplayName="Ada"
+          editExpense={{
+            expenseId: first.id,
+            name: first.name,
+            price: first.price,
+            categoryName: 'Tarjeta',
+            comments: first.comments,
+            expenseDate: first.expenseDate,
+            memberId: first.memberId,
+            pendienteId: first.pendienteId,
+            isService: first.isService,
+            currency: first.currency,
+            paymentMethodId: first.paymentMethodId,
+          }}
+        />,
+      )
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Deshacer pago' }),
+      )
+      fireEvent.click(
+        within(screen.getByRole('alertdialog')).getByRole('button', {
+          name: 'Deshacer pago',
+        }),
+      )
+
+      const range = {
+        monthStart: new Date(2026, 9, 1),
+        monthEnd: new Date(2026, 9, 31, 23, 59, 59, 999),
+      }
+      await waitFor(async () => {
+        expect(
+          await listExpensesInMonth({ db, householdId, ...range }),
+        ).toEqual([])
+      })
+      expect(
+        (await getPendiente({ db, householdId, pendienteId: resumenId }))
+          ?.status,
+      ).toBe('pending')
+      const purchases = await listCardPurchasesInMonth({
+        db,
+        householdId,
+        monthStart: new Date(2026, 8, 1),
+        monthEnd: new Date(2026, 8, 30, 23, 59, 59, 999),
+      })
+      expect(purchases.map((p) => p.paidResumenIds)).toEqual([[], []])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe('editing a Resumen ajuste', () => {
+  it("can't be saved, only undone, since a saved expense can't be negative", async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa',
+      monthlyBudget: 1000,
+    })
+
+    renderInRouter(
+      <AddExpenseForm
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+        editExpense={{
+          expenseId: 'ajuste',
+          name: 'Visa — ajuste',
+          price: -10,
+          categoryName: 'Tarjeta',
+          comments: '',
+          expenseDate: new Date(),
+          memberId: 'user-1',
+          pendienteId: 'card-1_2026-10',
+          isService: false,
+          currency: 'ARS' as const,
+          paymentMethodId: null,
+        }}
+      />,
+    )
+
+    expect(
+      await screen.findByText(
+        'Es el ajuste de un resumen pagado: para cambiarlo, deshacé el pago.',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Guardar cambios' }),
+    ).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Deshacer pago' })).toBeEnabled()
   })
 })

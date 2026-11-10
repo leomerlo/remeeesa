@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { Sheet } from './sheet'
+import { Sheet, SheetFooter, SheetScrollArea } from './sheet'
 
 describe('Sheet', () => {
   it('does not render children when closed', () => {
@@ -47,7 +47,20 @@ describe('Sheet', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
-  it('has a close control with a 44x44 (h-11 w-11) hit area', () => {
+  it('blurs the page behind it, not only dims it', () => {
+    render(
+      <Sheet open onOpenChange={() => {}} title="Sheet title">
+        <p>Sheet body</p>
+      </Sheet>,
+    )
+
+    const overlay = document.querySelector('[data-slot="sheet-overlay"]')
+    // A flat scrim alone still lets every card behind it read, so the modal
+    // competes with the screen it is supposed to sit above.
+    expect(overlay).toHaveClass('backdrop-blur-[6px]', 'bg-black/50')
+  })
+
+  it('has a close control with the same hit area every button has', () => {
     render(
       <Sheet open onOpenChange={() => {}} title="Sheet title">
         <p>Sheet body</p>
@@ -55,7 +68,10 @@ describe('Sheet', () => {
     )
 
     const closeButton = screen.getByRole('button', { name: 'Cerrar' })
-    expect(closeButton).toHaveClass('h-11', 'w-11')
+    // 46px on a phone and 44 on a monitor: bigger than an ordinary icon
+    // button, because it is the way out of a screen-filling form. Per
+    // direct feedback.
+    expect(closeButton).toHaveClass('size-[46px]')
   })
 
   it('calls onOpenChange(false) exactly once when the close control is clicked', () => {
@@ -215,7 +231,9 @@ describe('Sheet', () => {
     )
 
     const content = document.querySelector('[data-slot="sheet-content"]')
-    expect(content).toHaveClass('max-h-[85vh]')
+    // A form fills the phone screen; the 85vh cap is what holds the
+    // centred card from `lg` up.
+    expect(content).toHaveClass('h-full', 'lg:max-h-[85vh]')
 
     const body = document.querySelector('[data-slot="sheet-body"]')
     // `min-h-0` is required here: without it, a flex item's default
@@ -225,12 +243,39 @@ describe('Sheet', () => {
     // action footer) is each Sheet-hosted form's own responsibility -- see
     // e.g. AddExpenseForm -- rather than this body, so a tall form's submit
     // button never scrolls out of reach.
-    expect(body).toHaveClass('flex', 'min-h-0', 'flex-col')
+    expect(body).toHaveClass('flex', 'min-h-0', 'flex-1', 'flex-col')
   })
 
-  it('is a centred modal at every width, not a bottom-anchored sheet on phones', () => {
+  // A form takes the whole phone screen -- squeezed into a card with
+  // margins on four sides there was barely a field visible with the
+  // keyboard up -- and is a centred card from `lg`. Per direct feedback.
+  it('fills the screen on a phone and is a centred card from lg', () => {
     render(
       <Sheet open onOpenChange={() => {}} title="Sheet title">
+        <p>Sheet body</p>
+      </Sheet>,
+    )
+
+    const content = document.querySelector('[data-slot="sheet-content"]')
+    expect(content).toHaveClass('inset-0', 'h-full', 'w-full', 'rounded-none')
+    expect(content).toHaveClass(
+      'lg:top-1/2',
+      'lg:left-1/2',
+      'lg:-translate-x-1/2',
+      'lg:-translate-y-1/2',
+      'lg:rounded-3xl',
+    )
+    // The old bottom-sheet anchoring must be gone at every width: this is a
+    // full panel, not a drawer rising part-way up the screen.
+    expect(content).not.toHaveClass('bottom-0')
+    expect(content).not.toHaveClass('rounded-t-3xl')
+  })
+
+  // Asking "¿seguro?" does not need the whole screen, so a destructive
+  // confirmation stays the centred card it has always been.
+  it('stays a centred card at every width for a prompt', () => {
+    render(
+      <Sheet open onOpenChange={() => {}} title="Sheet title" variant="prompt">
         <p>Sheet body</p>
       </Sheet>,
     )
@@ -242,12 +287,9 @@ describe('Sheet', () => {
       '-translate-x-1/2',
       '-translate-y-1/2',
       'rounded-3xl',
+      'max-h-[85vh]',
     )
-    // The old bottom-sheet anchoring must be gone at every width, including
-    // below `lg` where it used to be the default.
-    expect(content).not.toHaveClass('bottom-0')
-    expect(content).not.toHaveClass('inset-x-0')
-    expect(content).not.toHaveClass('rounded-t-3xl')
+    expect(content).not.toHaveClass('inset-0')
   })
 
   it('keeps the close control outside the scrollable body so it never scrolls out of reach', () => {
@@ -293,5 +335,47 @@ describe('Sheet', () => {
     // The `open` prop was never updated by the parent, so the sheet must
     // remain visible: it should not manage its own open/closed state.
     expect(screen.getByText('Sheet body')).toBeInTheDocument()
+  })
+})
+
+// The two bands every Sheet-hosted form is built from. Same deliberate
+// exception as button.test.tsx: this is a layout invariant -- the action
+// has to stay reachable on a phone with the keyboard up -- not decoration.
+// Per direct feedback: header and footer fixed, content scrolling, in every
+// modal that has both.
+describe('Sheet bands', () => {
+  function renderBands() {
+    return render(
+      <Sheet open onOpenChange={() => {}} title="Sheet title">
+        <form className="flex h-full min-h-0 w-full flex-col">
+          <SheetScrollArea>
+            <p>Field</p>
+          </SheetScrollArea>
+          <SheetFooter>
+            <button type="submit">Guardar</button>
+          </SheetFooter>
+        </form>
+      </Sheet>,
+    )
+  }
+
+  it('gives the fields the leftover height and the only scroll', () => {
+    renderBands()
+
+    const area = screen.getByText('Field').parentElement
+    // flex-1 over min-h-0: without the floor removed a flex child refuses
+    // to shrink below its content, and the region simply overflows instead
+    // of scrolling.
+    expect(area).toHaveClass('flex-1', 'min-h-0', 'overflow-y-auto')
+    // So dragging past the end never chains into the page behind it.
+    expect(area).toHaveClass('overscroll-contain')
+  })
+
+  it('keeps the actions out of the scroll, under a line of their own', () => {
+    renderBands()
+
+    const footer = screen.getByRole('button', { name: 'Guardar' }).parentElement
+    expect(footer).toHaveClass('shrink-0', 'border-t')
+    expect(footer?.className).not.toMatch(/overflow-y-auto/)
   })
 })

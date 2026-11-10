@@ -6,24 +6,34 @@ import {
   useCarouselControls,
 } from '@/components/ui/carousel-arrows'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatBudgetAmount, listCategories } from '@/lib/expenses'
+import { formatAmount, listCategories } from '@/lib/expenses'
 import { iconForCategoryName } from '@/lib/expenses/categoryIcon'
-import { formatDate } from '@/lib/format'
+import { dueDateLabel } from '@/lib/format'
 import { listPendientes, pendientesDueSoon } from '@/lib/pendientes'
+import type { Pendiente } from '@/lib/pendientes'
 import type { HouseholdsDb } from '@/lib/households'
 import { cn } from '@/lib/utils'
+import { ResumenSheet, resumenLabel } from './ResumenSheet'
 import { pendientesQueryKey } from './queryKeys'
 
 export type PendienteDueSoonBannerProps = {
   readonly db: HouseholdsDb
   readonly householdId: string
+  // Who pays a Resumen opened from here.
+  readonly memberId: string
+  readonly authorDisplayName: string
+  // Opens the edit sheet with "Ya lo pagué" pre-checked, the same way
+  // Cuentas por pagar does. A card's Resumen never goes through it -- it
+  // has its own sheet, opened here.
+  readonly onMarkPaid?: (pendiente: Pendiente, categoryName: string) => void
 }
 
 // Home's first content under the page title, above the month navigator and
 // everything else -- there's no push notification in this app, so this is
 // the only place a Pendiente's approaching due date surfaces on its own,
-// without the user going to look for it. Purely informational: no tap
-// action, nothing to dismiss, no unread state to track.
+// without the user going to look for it. Tapping one is the way to pay it
+// -- per direct feedback, if it is the thing about to come due, the obvious
+// thing to want is to settle it. Nothing to dismiss, no unread state.
 //
 // One full-width row at a time (matching Cuentas por pagar / Últimos
 // movimientos' own row width, not a chip), paged by swipe with dot
@@ -39,7 +49,11 @@ export type PendienteDueSoonBannerProps = {
 export function PendienteDueSoonBanner({
   db,
   householdId,
+  memberId,
+  authorDisplayName,
+  onMarkPaid,
 }: PendienteDueSoonBannerProps): ReactElement | null {
+  const [openResumen, setOpenResumen] = useState<Pendiente | null>(null)
   const pendientesQuery = useQuery({
     queryKey: pendientesQueryKey({ householdId }),
     queryFn: async () => {
@@ -108,16 +122,19 @@ export function PendienteDueSoonBanner({
   return (
     <section aria-labelledby="due-soon-heading" className="w-full">
       <div className="flex items-center justify-between gap-2">
+        {/* Not "que se acercan" any more: what is already late is in here
+            too, and it leads. Per direct feedback. */}
         <h2 id="due-soon-heading" className="text-title font-semibold">
-          Vencimientos que se acercan
+          Vencimientos
         </h2>
         {dueSoon.length > 1 ? (
           <CarouselArrows
             controls={carousel}
             label="Vencimientos"
             // Shares its line with the section title, which already wraps at
-            // 375px; on a phone the swipe is the gesture anyway.
-            className="hidden sm:flex"
+            // 375px; on a phone the swipe is the gesture anyway. Gone from
+            // `lg`, where the cards are stacked and nothing pages.
+            className="hidden sm:flex lg:hidden"
           />
         ) : null}
       </div>
@@ -125,7 +142,12 @@ export function PendienteDueSoonBanner({
         ref={scrollerRef}
         onScroll={handleScroll}
         aria-label="Vencimientos próximos"
-        className="mt-3 flex w-full snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] lg:gap-4 [&::-webkit-scrollbar]:hidden"
+        // A swipeable row on a phone, where it sits across the top of Home
+        // and there is no room for a column. From `lg` it is Home's right
+        // column instead, so it stops being a carousel entirely and just
+        // stacks -- a pager for three cards you can already all see is a
+        // control with nothing to do.
+        className="mt-3 flex w-full snap-x snap-mandatory gap-3 overflow-x-auto [scrollbar-width:none] lg:snap-none lg:flex-col lg:overflow-visible [&::-webkit-scrollbar]:hidden"
       >
         {dueSoon.map((pendiente) => {
           const category = categoryById.get(pendiente.categoryId)
@@ -137,53 +159,77 @@ export function PendienteDueSoonBanner({
             // the row is far wider than one of these needs there. With two
             // or fewer due, that is the whole section and the arrows sit
             // disabled; past that it pages.
-            <li
-              key={pendiente.id}
-              className="w-full shrink-0 snap-start lg:w-[calc((100%-1rem)/2)]"
-            >
-              {/* The one filled card in a light interface. Same structure as
-                  every other row on Home, but none of its colours come from
-                  the category: whatever is about to come due should read as
-                  one thing, not as five differently-tinted things. It is
-                  filled flat with --surface-due-soon, the same colour the
-                  budget card lands on once the month is spent and the same
-                  one the destructive button uses -- one danger colour in the
-                  app, not a family of reds. */}
-              <div className="bg-due-soon flex w-full items-center gap-3 rounded-2xl p-4 text-white">
+            <li key={pendiente.id} className="w-full shrink-0 snap-start">
+              {/* An ordinary card with a red outline, not a card filled
+                  red. Filled, three of these across the top of Home were
+                  the loudest thing on the screen by far -- louder than the
+                  budget running out, which is the one figure that should
+                  shout. The outline still says "these are the urgent ones"
+                  without taking the page over. Per direct feedback.
+
+                  None of its colours come from the category: whatever is
+                  about to come due should read as one thing, not as five
+                  differently-tinted things. */}
+              <button
+                type="button"
+                aria-label={
+                  pendiente.cardId === undefined
+                    ? `Marcar pagado ${pendiente.name}`
+                    : `Ver ${resumenLabel(pendiente)}`
+                }
+                onClick={() => {
+                  if (pendiente.cardId === undefined) {
+                    onMarkPaid?.(pendiente, categoryName)
+                    return
+                  }
+                  setOpenResumen(pendiente)
+                }}
+                className="card-surface-error bg-card flex w-full items-start gap-3 rounded-2xl p-4 text-left transition-transform active:scale-[0.98]"
+              >
                 <span
                   aria-hidden="true"
-                  className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white/15"
+                  className="bg-error-surface flex size-11 shrink-0 items-center justify-center rounded-full"
                 >
                   <CategoryIcon
-                    className="size-5 text-white"
+                    className="text-error size-5"
                     aria-hidden="true"
                   />
                 </span>
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="truncate font-medium">
-                      {pendiente.name}
+                {/* Everything stacked, the figure last and largest. The
+                    badge used to share a line with the name, which in a
+                    3-column sidebar on a laptop left the name about four
+                    characters and a "Tarj…". Per direct feedback: stack
+                    that too. */}
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  <span className="font-medium">{pendiente.name}</span>
+                  <span // Wraps rather than truncates: on its own line in a narrow
+                    // sidebar column, "Tarjeta de crédito" cut to "Tarjeta de…"
+                    // says less than two short lines do.
+                    className="bg-muted text-muted-foreground w-fit max-w-full rounded px-1.5 py-0.5 text-xs font-medium"
+                  >
+                    {categoryName}
+                  </span>
+                  {/* "Venció" once the date has passed -- the shared label
+                      every other list uses. Overdue bills are in here now,
+                      and one of them saying "Vence" would read as still to
+                      come. */}
+                  <span className="text-error text-xs font-medium">
+                    {dueDateLabel(pendiente.dueDate)}
+                  </span>
+                  {pendiente.expectedAmount !== null ? (
+                    <span className="money text-error text-xl">
+                      {formatAmount(
+                        pendiente.expectedAmount,
+                        pendiente.currency ?? 'ARS',
+                      )}
                     </span>
-                    {pendiente.expectedAmount !== null ? (
-                      <span className="font-display text-lg">
-                        {formatBudgetAmount(pendiente.expectedAmount)}
-                      </span>
-                    ) : pendiente.recurring ? (
-                      <span className="font-display text-lg text-white/70">
-                        $ --,--
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                    <span className="rounded bg-white/15 px-1.5 py-0.5 font-medium">
-                      {categoryName}
+                  ) : pendiente.recurring ? (
+                    <span className="money text-muted-foreground text-xl">
+                      $ --,--
                     </span>
-                    <span className="font-medium">
-                      Vence {formatDate(pendiente.dueDate)}
-                    </span>
-                  </div>
+                  ) : null}
                 </div>
-              </div>
+              </button>
             </li>
           )
         })}
@@ -215,6 +261,18 @@ export function PendienteDueSoonBanner({
           ))}
         </div>
       ) : null}
+      {/* A card bill opens to its cuotas, never the generic Pendiente
+          form -- the same split Cuentas por pagar makes. */}
+      <ResumenSheet
+        db={db}
+        householdId={householdId}
+        memberId={memberId}
+        authorDisplayName={authorDisplayName}
+        resumen={openResumen}
+        onClose={() => {
+          setOpenResumen(null)
+        }}
+      />
     </section>
   )
 }

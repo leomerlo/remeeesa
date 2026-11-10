@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { createPendiente, markPendientePaid } from '@/lib/pendientes'
 import { listCategories } from '@/lib/expenses'
@@ -25,6 +25,52 @@ async function findCategoryId(input: {
 }
 
 describe('PendienteDueSoonBanner', () => {
+  // Per direct feedback: if it is the thing about to come due, the obvious
+  // thing to want is to settle it.
+  it('opens the pay flow for the bill that was tapped', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100000,
+    })
+    const householdId = household.id
+    await createPendiente({
+      db,
+      householdId,
+      categoryId: await findCategoryId({
+        db,
+        householdId,
+        name: 'Servicios',
+      }),
+      name: 'Luz',
+      // Two days out, inside the week the banner covers.
+      dueDate: new Date(2026, 8, 27),
+      expectedAmount: 36800,
+    })
+    const onMarkPaid = vi.fn()
+
+    renderWithProviders(
+      <PendienteDueSoonBanner
+        db={db}
+        householdId={householdId}
+        memberId="user-1"
+        authorDisplayName="Ada"
+        onMarkPaid={onMarkPaid}
+      />,
+    )
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Marcar pagado Luz' }),
+    )
+
+    expect(onMarkPaid).toHaveBeenCalledTimes(1)
+    expect(onMarkPaid.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ name: 'Luz' }),
+    )
+  })
+
   it('renders nothing when the household has no pendientes at all', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -35,7 +81,12 @@ describe('PendienteDueSoonBanner', () => {
     })
 
     const { container } = renderWithProviders(
-      <PendienteDueSoonBanner db={db} householdId={household.id} />,
+      <PendienteDueSoonBanner
+        db={db}
+        householdId={household.id}
+        memberId="user-1"
+        authorDisplayName="Ada"
+      />,
     )
 
     // Skeleton first (while the query is pending), then nothing at all --
@@ -72,7 +123,12 @@ describe('PendienteDueSoonBanner', () => {
       })
 
       renderWithProviders(
-        <PendienteDueSoonBanner db={db} householdId={household.id} />,
+        <PendienteDueSoonBanner
+          db={db}
+          householdId={household.id}
+          memberId="user-1"
+          authorDisplayName="Ada"
+        />,
       )
 
       await waitFor(() => {
@@ -148,7 +204,12 @@ describe('PendienteDueSoonBanner', () => {
       })
 
       renderWithProviders(
-        <PendienteDueSoonBanner db={db} householdId={household.id} />,
+        <PendienteDueSoonBanner
+          db={db}
+          householdId={household.id}
+          memberId="user-1"
+          authorDisplayName="Ada"
+        />,
       )
 
       const list = await screen.findByRole('list', {
@@ -200,7 +261,12 @@ describe('PendienteDueSoonBanner', () => {
       })
 
       renderWithProviders(
-        <PendienteDueSoonBanner db={db} householdId={household.id} />,
+        <PendienteDueSoonBanner
+          db={db}
+          householdId={household.id}
+          memberId="user-1"
+          authorDisplayName="Ada"
+        />,
       )
 
       const dots = await screen.findAllByRole('tab')
@@ -238,7 +304,12 @@ describe('PendienteDueSoonBanner', () => {
       })
 
       renderWithProviders(
-        <PendienteDueSoonBanner db={db} householdId={household.id} />,
+        <PendienteDueSoonBanner
+          db={db}
+          householdId={household.id}
+          memberId="user-1"
+          authorDisplayName="Ada"
+        />,
       )
 
       await screen.findByText('Internet')

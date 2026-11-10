@@ -10,7 +10,74 @@ import { createHouseholdWithMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
+import { createCard, createCardPurchase } from '@/lib/cards'
 import { PorPagarSection } from './PorPagarSection'
+
+// A card purchase dated the 1st of this month (never in the future) lands
+// its single cuota in next month's Resumen.
+async function seedResumen(
+  db: HouseholdsDb,
+  householdId: string,
+  categoryId: string,
+) {
+  const now = new Date()
+  const card = await createCard({ db, householdId, name: 'Visa' })
+  await createCardPurchase({
+    db,
+    householdId,
+    cardId: card.id,
+    categoryId,
+    memberId: 'user-1',
+    authorDisplayName: 'Ada',
+    name: 'Zapatillas',
+    total: 120,
+    cuotas: 1,
+    purchaseDate: new Date(now.getFullYear(), now.getMonth(), 1),
+    comments: '',
+  })
+  return {
+    monthStart: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+    monthEnd: new Date(
+      now.getFullYear(),
+      now.getMonth() + 2,
+      0,
+      23,
+      59,
+      59,
+      999,
+    ),
+  }
+}
+
+// Next month's Resumen then holds cuota 1/1 of Zapatillas (seedResumen) and
+// cuota 2/3 of a Heladera bought on the 1st of last month.
+async function seedTwoCuotaResumen(
+  db: HouseholdsDb,
+  householdId: string,
+  categoryId: string,
+) {
+  const month = await seedResumen(db, householdId, categoryId)
+  const [card] = await db.listCards({ householdId })
+  if (card === undefined) {
+    throw new Error('expected the seeded card')
+  }
+  const now = new Date()
+  const heladeraDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  await createCardPurchase({
+    db,
+    householdId,
+    cardId: card.id,
+    categoryId,
+    memberId: 'user-1',
+    authorDisplayName: 'Ada',
+    name: 'Heladera',
+    total: 300,
+    cuotas: 3,
+    purchaseDate: heladeraDate,
+    comments: '',
+  })
+  return { month, heladeraDate }
+}
 
 function renderSection(ui: ReactElement, queryClient?: QueryClient) {
   return renderWithProviders(<MemoryRouter>{ui}</MemoryRouter>, {
@@ -371,12 +438,7 @@ describe('PorPagarSection', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  // Paying a recurring pendiente spawns a brand-new pending row for next
-  // month's cycle. That row used to appear here immediately, reading as a
-  // debt due *now*, and needed a "Ya pagaste este mes" badge to explain
-  // itself away. Scoping the section to the viewed month removes the
-  // problem rather than labelling it.
-  it("does not show next month's cycle after paying a recurring bill", async () => {
+  it('removes itself once the only recurring bill this month is paid', async () => {
     const { db, householdId, categoryId } = await seedHousehold()
     const gym = await seedPendiente({
       db,
@@ -401,55 +463,13 @@ describe('PorPagarSection', () => {
       <Section db={db} householdId={householdId} onMarkPaid={vi.fn()} />,
     )
 
-    // Neither the settled cycle nor next month's: nothing is owed for this
-    // month any more, so the section removes itself entirely.
+    // Nothing is owed for this month any more, so the section removes
+    // itself entirely.
     await waitFor(() => {
       expect(screen.queryByRole('status')).not.toBeInTheDocument()
     })
     expect(screen.queryByText('Gimnasio')).not.toBeInTheDocument()
     expect(container).toBeEmptyDOMElement()
-  })
-
-  it('shows that next cycle once the viewed month reaches it', async () => {
-    const { db, householdId, categoryId } = await seedHousehold()
-    const gym = await seedPendiente({
-      db,
-      householdId,
-      categoryId,
-      name: 'Gimnasio',
-      dayOfMonth: 10,
-      expectedAmount: 8000,
-      recurring: true,
-    })
-    await markPendientePaid({
-      db,
-      householdId,
-      pendienteId: gym.id,
-      memberId: 'user-1',
-      authorDisplayName: 'Ada',
-      finalAmount: 8000,
-      paymentDate: new Date(),
-    })
-
-    renderSection(
-      <Section
-        db={db}
-        householdId={householdId}
-        onMarkPaid={vi.fn()}
-        monthStart={new Date(2026, 11, 1)}
-        monthEnd={new Date(2026, 11, 31, 23, 59, 59, 999)}
-      />,
-    )
-
-    const list = await screen.findByRole('list', {
-      name: 'Servicios por pagar',
-    })
-    // Exactly one row, and an actionable one -- not a display-only paid row.
-    const rows = within(list).getAllByText('Gimnasio')
-    expect(rows).toHaveLength(1)
-    expect(
-      within(rows[0]?.closest('li') as HTMLElement).getByRole('button'),
-    ).toBeInTheDocument()
   })
 
   it('keeps showing what is still owed after another bill is paid', async () => {
@@ -539,5 +559,66 @@ describe('PorPagarSection', () => {
     )
 
     expect(await screen.findByText('Gas')).toBeInTheDocument()
+  })
+
+  // A Resumen only belongs in this list once its statement has been loaded
+  // by hand: until then nothing is owed on it, so it would sit here
+  // contributing nothing to the very figures this list is supposed to
+  // match. Per direct feedback -- it was showing twice, here and in
+  // "Tarjetas el mes que viene", which is where an estimate belongs.
+  it('leaves out a card Resumen that is still only an estimate', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    const { month } = await seedTwoCuotaResumen(db, householdId, categoryId)
+
+    const { container } = renderSection(
+      <Section
+        db={db}
+        householdId={householdId}
+        onMarkPaid={vi.fn()}
+        {...month}
+      />,
+    )
+
+    // It is the only bill that month, so the whole section goes.
+    await waitFor(() => {
+      expect(container.firstChild).toBeNull()
+    })
+  })
+
+  // A card bill is an estimate until it is paid, and Home shows those in
+  // "Tarjetas el mes que viene", with their consumos. This strip is what is
+  // owed for the month, so no Resumen belongs in it -- it used to appear
+  // here as soon as somebody typed a statement figure into it. Per direct
+  // feedback: las tarjetas siempre van a ser estimadas.
+  it('leaves a card Resumen out of what is owed this month', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    const { month } = await seedTwoCuotaResumen(db, householdId, categoryId)
+    // An ordinary bill in the same month, so the strip has something to
+    // render and the Resumen's absence is the only difference.
+    await createPendiente({
+      db,
+      householdId,
+      categoryId,
+      name: 'Internet',
+      dueDate: new Date(
+        month.monthStart.getFullYear(),
+        month.monthStart.getMonth(),
+        10,
+      ),
+      expectedAmount: 50000,
+      recurring: false,
+    })
+
+    renderSection(
+      <Section
+        db={db}
+        householdId={householdId}
+        onMarkPaid={vi.fn()}
+        {...month}
+      />,
+    )
+
+    expect(await screen.findByText('Internet')).toBeInTheDocument()
+    expect(screen.queryByText(/^Resumen Visa/)).not.toBeInTheDocument()
   })
 })

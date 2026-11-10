@@ -142,6 +142,81 @@ describe('FormattedAmountInput', () => {
     expect(onChange).toHaveBeenCalledWith('3.90')
   })
 
+  // The period key. Many number pads emit "." no matter what the app shows,
+  // and this used to work only while the amount was under four digits --
+  // past that the first "." is grouping, the typed one was dropped, and the
+  // next digit landed in the pesos. "1234" then "." then "5" stored 12345.
+  it('takes a typed period as the decimal point once the amount is grouped', () => {
+    render(<Controlled />)
+    const input = screen.getByLabelText('Monto') as HTMLInputElement
+
+    fireEvent.change(input, { target: { value: '1234' } })
+    expect(input.value).toBe('1.234')
+
+    fireEvent.change(input, { target: { value: '1.234.' } })
+    expect(input.value).toBe('1.234,')
+
+    fireEvent.change(input, { target: { value: '1.234,5' } })
+    expect(input.value).toBe('1.234,5')
+  })
+
+  it('does not multiply the amount by ten when a period is typed after grouping', () => {
+    const onChange = vi.fn()
+    render(
+      <FormattedAmountInput
+        aria-label="Monto"
+        value="1234"
+        onChange={onChange}
+      />,
+    )
+    const input = screen.getByLabelText('Monto') as HTMLInputElement
+
+    fireEvent.change(input, { target: { value: '1.234.' } })
+
+    expect(onChange).toHaveBeenCalledWith('1234.')
+  })
+
+  it('still reads a trailing period as grouping when three digits follow it', () => {
+    const onChange = vi.fn()
+    render(
+      <FormattedAmountInput aria-label="Monto" value="" onChange={onChange} />,
+    )
+    const input = screen.getByLabelText('Monto') as HTMLInputElement
+
+    // A pasted, already-grouped amount: no decimal point anywhere in it.
+    fireEvent.change(input, { target: { value: '1.234.567' } })
+
+    expect(onChange).toHaveBeenCalledWith('1234567')
+  })
+
+  // Backspace on a grouping separator used to do nothing at all: the "."
+  // is not part of the value, so it reformatted straight back.
+  it('deletes the digit in front of a grouping separator when it is backspaced', () => {
+    render(<Controlled initial="1234" />)
+    const input = screen.getByLabelText('Monto') as HTMLInputElement
+    expect(input.value).toBe('1.234')
+
+    // Backspace with the caret just after the ".": the browser hands us the
+    // value minus that separator, caret where the separator was.
+    fireEvent.change(input, {
+      target: { value: '1234', selectionStart: 1, selectionEnd: 1 },
+    })
+
+    expect(input.value).toBe('234')
+  })
+
+  it('leaves an ordinary digit deletion alone', () => {
+    render(<Controlled initial="1234" />)
+    const input = screen.getByLabelText('Monto') as HTMLInputElement
+
+    // Backspace at the end removes the "4", not anything next to a period.
+    fireEvent.change(input, {
+      target: { value: '1.23', selectionStart: 4, selectionEnd: 4 },
+    })
+
+    expect(input.value).toBe('123')
+  })
+
   it('still round-trips a two-decimal amount untouched', () => {
     render(<Controlled initial="1234.56" />)
     expect((screen.getByLabelText('Monto') as HTMLInputElement).value).toBe(

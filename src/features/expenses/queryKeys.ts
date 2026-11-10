@@ -37,3 +37,11 @@ export function allExpensesQueryKey(input: {
 }): readonly ['expenses', string, 'all'] {
   return [...expensesQueryKey(input), 'all']
 }
+
+// Under the expenses prefix on purpose: every mutation that logs a gasto
+// already invalidates that prefix, card purchases included.
+export function cardPurchasesInMonthQueryKey(input: {
+  readonly householdId: string
+}): readonly ['expenses', string, 'card-purchases'] {
+  return [...expensesQueryKey(input), 'card-purchases']
+}

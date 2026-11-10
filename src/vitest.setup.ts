@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest'
 import { cleanup, configure } from '@testing-library/react'
-import { afterEach, beforeAll, vi } from 'vitest'
+import { afterEach, beforeEach, vi } from 'vitest'
 
 // Testing Library's default 1s budget for waitFor/findBy is fine for a
 // single file but too tight for the whole suite: several screens chain two
@@ -53,12 +53,31 @@ class ResizeObserverStub {
   disconnect(): void {}
 }
 
-beforeAll(() => {
+// Per test, not once per file. A test that stubs a global of its own and
+// tidies up with vi.unstubAllGlobals() takes these with it, and everything
+// after it in that file then runs without localStorage, without fetch and
+// without ResizeObserver -- which shows up as "ResizeObserver is not
+// defined" the first time a later test happens to render a Switch, nowhere
+// near the test that actually caused it. Re-applying them before each test
+// makes that impossible.
+beforeEach(() => {
   vi.stubGlobal('localStorage', localStorageMock)
   vi.stubGlobal('ResizeObserver', ResizeObserverStub)
+  // No test may reach the network; the dólar blue lookup fails gracefully.
+  vi.stubGlobal('fetch', () => Promise.reject(new Error('network disabled')))
 })
 
 afterEach(() => {
   cleanup()
   localStorageMock.clear()
+})
+
+// Tests seed fixed 2026 dates and page "one month back" relative to now, so
+// they only passed while the real clock sat in the right month. Pinning Date
+// (only Date -- timers stay real, waitFor still polls) makes them
+// independent of the day the suite runs. Tests that need another instant
+// override this with their own setSystemTime.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date(2026, 8, 25))
 })

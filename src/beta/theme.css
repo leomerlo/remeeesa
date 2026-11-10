@@ -1,0 +1,3861 @@
+/* The beta's design system.
+ *
+ * Plain CSS, not Tailwind: the v1's utilities carry the v1's decisions, and
+ * the point of this entry is a surface designed from zero. Every value here
+ * was settled against the prototype in docs/beta-design.md -- the grape
+ * palette, the even type scale, the 4px spacing step, a hairline instead of
+ * a shadow, and one button size.
+ *
+ * Contrast is not a matter of taste here: every colour pair below was
+ * measured, and the ones that failed were changed rather than excused.
+ */
+/* Single-theme on purpose: the app commits to a light ground.
+     Rules: shadow OR border, never both, always barely there -- the one
+     exception is an alert, whose 4px bar is what makes it an alert.
+     Nothing below 16px. Every colour pair is measured against WCAG AA. */
+:root {
+  color-scheme: light;
+  --page: #f6f4fa;
+  --card: #ffffff;
+  --ink: #191426;
+  --ink-2: #5d5570;
+
+  /* Grape, as Flor picked it. Unlike the teal it replaced, this one is
+       dark enough that white sits on it at 8.1:1, so the filled button is
+       the brand colour itself with no deeper step needed. */
+  --grape: #4d1f8d; /* white on it: 11.1:1 */
+  --grape-btn: #4d1f8d;
+  --grape-bright: #7b4cc4; /* dots only: decorative, never read */
+  --grape-600: #6b35b5; /* outlines and the progress fill, 7.5:1 on white */
+  --grape-700: #4d1f8d; /* small words: 11.1:1 on white, 9.1:1 on tint */
+  --grape-50: #ece7f6;
+
+  --red: #f4512f;
+  --red-solid: #d93a18;
+  --red-700: #c22f12;
+  --red-50: #ffe6e0;
+
+  --amber-bar: #f0b429;
+  --amber-700: #8a5200;
+  --amber-50: #ffeec6;
+
+  --green-50: #ddf5e6;
+  --green-700: #0b6b3a;
+  --info-50: #ddeefb;
+  --info-700: #14558f;
+  --violet-50: #e7e9fd;
+  --violet-700: #2f3b9e;
+  --blue-50: #ddecfd;
+  --blue-700: #1b4f8f;
+  --rose-50: #ffe4ec;
+  --rose-700: #a02348;
+
+  --side: #1d1630;
+  --side-ink: #f1ecf9;
+  --side-ink-2: #a99fc0;
+  --side-active: #2e2348;
+  --side-active-ink: #c3aee6;
+
+  /* Type scale: even steps only. 14 is the floor; 12 exists for the rare
+       mini label and is used sparingly. */
+  --t-mini: 12px;
+  --t-xs: 14px;
+  --t-sm: 16px;
+  --t-md: 18px;
+  --t-lg: 20px;
+  --t-xl: 22px;
+  --t-2xl: 24px;
+  --t-3xl: 26px;
+  --t-4xl: 28px;
+  --t-5xl: 32px;
+
+  --r: 16px;
+  --hair: #e6e1ef; /* the one line that lifts a card off the page */
+  --lift:
+    0 1px 2px rgba(26, 16, 48, 0.04), 0 10px 26px -14px rgba(26, 16, 48, 0.16);
+  --lift-nav: 0 -2px 24px -12px rgba(26, 16, 48, 0.22);
+  --gutter: max(18px, env(safe-area-inset-left, 0px));
+  --gutter-r: max(18px, env(safe-area-inset-right, 0px));
+}
+
+body {
+  background: var(--page);
+  color: var(--ink);
+  margin: 0;
+  font-size: var(--t-sm);
+  font-family:
+    'Google Sans Flex',
+    system-ui,
+    -apple-system,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+* {
+  box-sizing: border-box;
+}
+
+/* ===== shell ===== */
+.shell {
+  min-height: 100vh;
+}
+.app {
+  /* width, not just max-width: a grid item with auto side margins is
+       sized to its own content, so a screen of narrow rows came out half
+       the width of one with a wide chart in it. Every screen is the same
+       column now, whatever is inside it. */
+  width: 100%;
+  max-width: 460px;
+  margin-inline: auto;
+  padding-left: var(--gutter);
+  padding-right: var(--gutter-r);
+  padding-block: 0 calc(120px + env(safe-area-inset-bottom, 0px));
+  display: grid;
+  gap: 24px;
+  align-content: start;
+}
+/* A band groups what reads as one thing -- the month's figure with its
+     three totals, the chart with the line that explains it -- so that the
+     24px between blocks can mean "a new block". */
+.band {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.cols {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+.col {
+  display: grid;
+  gap: 24px;
+  align-content: start;
+  min-width: 0;
+}
+
+/* ===== header ===== */
+/* The air above the first thing on a screen, on every screen: the panel
+     used to carry it itself, and then only the Home had it. */
+.head {
+  display: grid;
+  gap: 16px;
+  padding-top: 48px;
+}
+.hello {
+  font-size: var(--t-5xl);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+/* A page title inside .hello is the same thing the greeting is: the
+     name of the screen, with a line under it saying what it holds. */
+.hello .page-title {
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  margin: 0;
+}
+/* Regular, not semibold: it is the line that explains the greeting, and
+     two heavy weights stacked made it compete with it. */
+/* No max-width: it wraps where its own column ends. On a wide screen
+     that column is already the half of the header the month is not in. */
+.hello span {
+  display: block;
+  margin-top: 8px;
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+  letter-spacing: 0;
+  line-height: 1.35;
+}
+.page-title {
+  font-size: var(--t-5xl);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0;
+}
+/* A screen's one action, where it has one, on its own line against the
+     right edge -- above the list it adds to, not under it. */
+.rowend {
+  display: flex;
+  justify-content: flex-end;
+}
+.month {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--card);
+  border-radius: 999px;
+  padding: 8px;
+  border: 1px solid var(--hair);
+}
+.month button {
+  appearance: none;
+  border: 0;
+  background: var(--grape-50);
+  color: var(--grape-700);
+  font: inherit;
+  font-size: var(--t-lg);
+  font-weight: 700;
+  line-height: 1;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.month b {
+  font-size: var(--t-md);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+/* The end of the road: there is no month after the one we are in. */
+.month button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* ===== buttons ===== */
+/* One button size in the whole app, on every screen width: the compact
+     one. 44px is the floor a thumb needs, and the padding keeps it reading
+     as small rather than as a slab. */
+/* One button size everywhere, at 600 rather than 700 so it reads as a
+     control and not as a headline. Every button carries an icon; one that
+     spans its container centres its content. */
+.btn {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 10px 20px;
+  min-height: 44px;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  line-height: 1.15;
+}
+.btn svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.btn span {
+  text-wrap: balance;
+}
+.btn-primary {
+  background: var(--grape-btn);
+  color: #fff;
+}
+.btn-secondary {
+  background: transparent;
+  color: var(--grape-700);
+  border: 2px solid var(--grape-600);
+  padding: 8px 16px;
+}
+.btn-sm {
+} /* kept as a no-op: every button is already this size */
+.btn-block {
+  justify-self: stretch;
+  width: 100%;
+}
+/* Full width on a phone, where a button that hugs its text looks lost in
+     the column; its own width and sat against the right edge once there is
+     room, where the eye leaves the list anyway. */
+.btn-wide {
+  justify-self: stretch;
+  width: 100%;
+}
+
+/* ===== cards ===== */
+/* A hairline instead of a shadow: on a desktop full of cards the shadows
+     piled up and nothing read as a group. Shadow is kept only for things
+     that really float -- the sheet, the dropdown, the bottom bar. */
+.card {
+  background: var(--card);
+  border-radius: var(--r);
+  border: 1px solid var(--hair);
+  padding: 20px;
+  min-width: 0;
+}
+.hero {
+  display: grid;
+  gap: 12px;
+}
+/* THE RULE: a line that explains the thing above it is regular. Weight
+     is this app's only hierarchy inside a card -- everything in it is 14
+     or 16px -- so a 600 subtitle under a 700 title flattens the two into
+     one block. Headings, the label above a figure, amounts and navigation
+     keep their weight; explanations give it up. */
+.hero .label {
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+/* Two currencies in one hero are two bills, never one sum: each takes
+     its own line, and the dollar one a size down, since pesos are the
+     household's own money. */
+.hero .figure .one {
+  display: block;
+}
+.hero .figure .one + .one {
+  font-size: 0.62em;
+}
+.hero .figure {
+  font-size: clamp(40px, 12vw, 54px);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.chip {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--red-50);
+  color: var(--red-700);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+}
+.chip svg {
+  width: 15px;
+  height: 15px;
+  flex: none;
+}
+.chip.good {
+  background: var(--green-50);
+  color: var(--green-700);
+}
+.chip.neutral {
+  background: #ebe6f4;
+  color: var(--ink-2);
+}
+.delta {
+  display: grid;
+  gap: 8px;
+}
+.delta p {
+  margin: 0;
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+  line-height: 1.35;
+}
+.h-main {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  min-width: 0;
+}
+.h-side {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  min-width: 0;
+}
+
+/* Two segments: what already went out, and what is owed and will. */
+/* The two segments touch: the spent cap is painted over the owed one, so
+     no track shows between them and neither end goes square. */
+.track {
+  height: 16px;
+  border-radius: 999px;
+  background: var(--grape-50);
+  display: flex;
+}
+.fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--grape-600);
+}
+.fill:first-child {
+  position: relative;
+  z-index: 1;
+  margin-right: -8px;
+}
+.fill.owed {
+  background: var(--amber-bar);
+}
+.fill.over {
+  background: var(--red-solid);
+}
+.legend {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+}
+.legend b {
+  color: var(--ink);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+/* A sentence under a figure, not a row of labelled dots -- .legend is a
+     flex row and breaks a paragraph into columns at every <b>. */
+.herosay {
+  margin: 0;
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+  line-height: 1.45;
+}
+.herosay b {
+  font-weight: 800;
+  color: var(--ink);
+}
+/* The month's dollars, under the pesos rather than off in a corner.
+     A household that keeps a figure in two currencies is owed both of
+     them in the same place and at a size it can read: in the legend's
+     row this sat at the far right in 16px, which reads as a footnote to
+     a number it is not a footnote to. Smaller than the pesos, because
+     the pesos are what the budget is in -- but a figure, not a label. */
+.usdline {
+  margin: -2px 0 0;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+}
+/* The hero's own badges, in the row where the legend used to sit. They
+     are the row badges at the row's size: the card says one number and
+     then what you still have to do about it. */
+.herotags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.usdline b {
+  font-size: clamp(24px, 7.5vw, 32px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.perday {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--grape-50);
+  color: var(--grape-700);
+  border-radius: 16px;
+  padding: 12px 16px;
+  font-size: var(--t-sm);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+/* Pagado, Pendiente and Con la tarjeta are one card three times. On a
+     phone the third takes the full width; from 1040px the three sit side
+     by side under the month's own figure. */
+.trio {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.trio > :nth-child(3) {
+  grid-column: 1 / -1;
+}
+.trio .card {
+  padding: 16px;
+  display: grid;
+  /* Air above and below the figure. At 4px the three lines of a card --
+     what it is, how much, what that means -- were one block of text with
+     a big number in the middle of it. */
+  gap: 8px;
+  align-content: start;
+  text-align: left;
+}
+/* On a wide screen these three are the panel's whole lower half and the
+   cards are 300px across, so the figures can carry at the size they
+   carry in the hero. The phone has its own, larger still, where they
+   stack: see the rule at the foot of this file. */
+.trio .amt {
+  font-size: clamp(var(--t-3xl), 3.6vw, 40px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+}
+/* Two currencies on a card are two bills, never one sum, so each gets
+     its own line -- the second a size down, since pesos are the household's
+     own money and the dollar figure is the footnote. */
+.trio .amt .one {
+  display: block;
+}
+/* The dollar line under a peso one: the household's own money leads,
+     the dollar figure is the footnote. Dollar amounts are short, so it
+     takes a flat step rather than a length-aware one. */
+.trio .amt .one + .one {
+  font-size: 0.72em;
+}
+.trio .foot {
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+  line-height: 1.3;
+}
+.trio .out .cap {
+  color: var(--green-700);
+}
+.trio .wait .cap {
+  color: var(--amber-700);
+}
+/* An action on one of these cards -- today only "poner un presupuesto",
+     on Pagado, when there is no budget for the month. A step away from
+     the figure, so it reads as something to press and not as the card's
+     last line. */
+.trio .card > .btn {
+  margin-top: 10px;
+  justify-self: start;
+}
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.split .card {
+  padding: 16px;
+  display: grid;
+  gap: 4px;
+  align-content: start;
+}
+.cap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t-sm);
+  font-weight: 700;
+}
+.dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex: none;
+}
+/* Named rather than set inline, so the dark panel can answer with its
+     own lighter end of each ramp -- an inline colour cannot be themed, and
+     these greens and reds were picked to be read on white. */
+.dot-paid {
+  background: var(--green-700);
+}
+.dot-owed {
+  background: var(--amber-bar);
+}
+.dot-card {
+  background: var(--red);
+}
+.dot-spent {
+  background: var(--grape-600);
+}
+.hero .figure.over {
+  color: var(--red-700);
+}
+.split .amt {
+  font-size: clamp(var(--t-lg), 6.2vw, var(--t-3xl));
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.split .foot {
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+  line-height: 1.3;
+}
+.out .cap {
+  color: var(--green-700);
+}
+.wait .cap {
+  color: var(--amber-700);
+}
+
+/* the only one of the three you can open */
+/* `border: 0` on a <button> was stripping the card's own hairline. */
+.cardtot {
+  appearance: none;
+  border: 1px solid var(--hair);
+  font: inherit;
+  cursor: pointer;
+  position: relative;
+}
+.cardtot .cap {
+  color: var(--red-700);
+}
+/* Centred on the card's own height rather than pinned to its top: the
+   card grew when the figures did, and the arrow stayed up by the label
+   looking like it belonged to it. */
+.cardtot .go {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+  color: var(--ink-2);
+}
+
+/* Present on every Home and quieter than the month's own figures, but
+     still plainly a thing you press: it reads as a card, not as a line of
+     text that happens to be underlined. */
+.quiet {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0 12px;
+  align-items: center;
+  cursor: pointer;
+  text-align: left;
+  appearance: none;
+  border: 1px solid var(--hair);
+  font: inherit;
+  width: 100%;
+  padding: 16px;
+}
+.quiet .tile {
+  background: var(--grape);
+  color: #fff;
+}
+.quiet .k {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: var(--t-sm);
+  font-weight: 700;
+  color: var(--ink);
+}
+.quiet .v {
+  grid-column: 2;
+  grid-row: 2;
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+}
+.quiet .go {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  color: var(--ink-2);
+}
+.quiet .tile {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+}
+
+/* One step at a time, with how far along you are. A list of four things
+     reads as homework; a step reads as something you are in the middle of. */
+.step-card {
+  display: grid;
+  gap: 16px;
+  justify-items: start;
+}
+/* .tile spans two rows by default, which is right inside a list row and
+     wrong here: it was jumping above the progress bar. */
+.step-card .tile {
+  grid-row: auto;
+}
+.step-card .field,
+.step-card .chips,
+.step-card .btn,
+.step-card .opts {
+  justify-self: stretch;
+  width: 100%;
+}
+.step-top {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+.step-of {
+  font-size: var(--t-mini);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--grape-700);
+}
+.step-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--grape-50);
+  overflow: hidden;
+}
+/* The fill is the whole bar, squashed from the left: growing it with
+     transform rather than with width keeps the browser off the layout
+     path, and the step only changes on a press, which is when a phone is
+     busiest. */
+.step-bar i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: 999px;
+  background: var(--grape);
+  transform-origin: left center;
+  transition: transform 0.3s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .step-bar i {
+    transition: none;
+  }
+}
+.step-card h3 {
+  margin: 0;
+  font-size: var(--t-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.step-card p {
+  margin: 0;
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+  line-height: 1.45;
+}
+/* The greeting above the card: the only screen with no title row. */
+.hello {
+  display: grid;
+  gap: 4px;
+  font-size: var(--t-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.hello span {
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+}
+
+.skip {
+  appearance: none;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+  text-decoration: underline;
+  justify-self: center;
+  padding: 4px;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip-pick {
+  appearance: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 10px 16px;
+  min-height: 44px;
+  background: var(--page);
+  color: var(--ink);
+  border: 1px solid var(--hair);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.chip-pick svg {
+  width: 16px;
+  height: 16px;
+}
+.chip-pick[aria-pressed='true'] {
+  background: var(--grape-50);
+  color: var(--grape-700);
+  border-color: var(--grape-600);
+}
+.chip-x {
+  appearance: none;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+  color: inherit;
+  display: grid;
+  place-items: center;
+  margin-left: 4px;
+}
+.chip-x svg {
+  width: 14px;
+  height: 14px;
+}
+/* A pill stretched across two grid rows renders as a circle. The three
+     controls stack and the button hugs its own label. */
+.addrow {
+  display: grid;
+  gap: 8px;
+}
+.addrow input,
+.addrow select {
+  width: 100%;
+}
+.addrow .btn {
+  justify-self: start;
+}
+
+/* the one card a month with nothing in it shows */
+.start {
+  display: grid;
+  gap: 12px;
+}
+.start h3 {
+  margin: 0;
+  font-size: var(--t-lg);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.start p {
+  margin: 0;
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+  line-height: 1.4;
+}
+.start .btn {
+  justify-self: stretch;
+  width: 100%;
+}
+
+/* alerts: the deliberate exception to shadow-or-border */
+.alert {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  border-left: 4px solid var(--bar);
+  border-radius: var(--r);
+}
+.alert p {
+  margin: 0;
+  font-size: var(--t-sm);
+  font-weight: 400;
+  line-height: 1.42;
+}
+.alert-warn {
+  --bar: var(--amber-bar);
+}
+.alert-warn .tile {
+  background: var(--amber-50);
+  color: var(--amber-700);
+}
+.alert-danger {
+  --bar: var(--red-solid);
+}
+.alert-danger .tile {
+  background: var(--red-50);
+  color: var(--red-700);
+}
+.alert-info {
+  --bar: var(--info-700);
+}
+.alert-info .tile {
+  background: var(--info-50);
+  color: var(--info-700);
+}
+.alert-ok {
+  --bar: var(--green-700);
+}
+.alert-ok .tile {
+  background: var(--green-50);
+  color: var(--green-700);
+}
+
+/* ===== lists ===== */
+.sec {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.sec h2 {
+  margin: 0;
+  font-size: var(--t-md);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-inline: 4px;
+}
+.sec h2 a {
+  color: var(--grape-700);
+  font-size: var(--t-sm);
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+/* The date heads the rows under it, so it needs room below it as well
+     as above -- sitting flush on the first row it was labelling, it read
+     as part of that row rather than as the heading of the group. The
+     section's own 12px gap sits above it, so the two together open the
+     day. */
+.daymark {
+  font-size: var(--t-sm);
+  font-weight: 700;
+  color: var(--ink-2);
+  padding: 8px 4px 12px;
+}
+
+/* Top-aligned, not centred: with the badges under it the tile drifted
+     to the middle of the card and lined up with nothing. The name is what
+     it labels, so it starts where the name starts. */
+.row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: 2px 12px;
+  padding: 16px;
+}
+/* A whole card that opens its own form. Two people who use this every
+     day do not need a button telling them the card is pressable, and on a
+     phone that button cost a row of height on every row of the month. */
+.tap {
+  cursor: pointer;
+  appearance: none;
+  border: 0;
+  background: var(--card);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  width: 100%;
+}
+.card.tap {
+  border: 1px solid var(--hair);
+}
+.tap:hover {
+  background: #fbfafd;
+}
+.tap:focus-visible {
+  outline: 2px solid var(--grape-600);
+  outline-offset: 2px;
+}
+/* A bill: the card holds the tappable part and the footer, so its own
+     padding is zero and the part inside keeps the row's. */
+.rowcard {
+  padding: 0;
+  display: grid;
+}
+.rowcard > .row {
+  border-radius: var(--r) var(--r) 0 0;
+}
+.rowcard > .row:only-child {
+  border-radius: var(--r);
+}
+.tile {
+  grid-row: 1 / span 2;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: var(--grape-50);
+  color: var(--grape-700);
+}
+.tile svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.1;
+}
+.gl svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 2.1;
+}
+.ic svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.2;
+  vertical-align: -4px;
+}
+.row .name {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: var(--t-md);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  min-width: 0;
+}
+.row .amt {
+  grid-column: 3;
+  grid-row: 1;
+  font-size: var(--t-lg);
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  justify-self: end;
+}
+.row .meta {
+  grid-column: 2 / -1;
+  grid-row: 2;
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  padding-top: 2px;
+}
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+/* An action inside a row answers that row, so it is a step smaller than
+     a page-level button. On a bill it gets a footer of its own, divided
+     from the content and bled to the card's edges, as the v1 does it. */
+.row .btn {
+  font-size: var(--t-xs);
+  padding: 8px 16px;
+  min-height: 40px;
+  gap: 6px;
+}
+.row .btn svg {
+  width: 16px;
+  height: 16px;
+}
+/* The one action a tap cannot be, against the right edge. */
+.rowfoot {
+  padding: 12px 16px;
+  border-top: 1px solid var(--hair);
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+/* A step under the row's name and a step over the badges: the date is
+     context, not a heading and not a label. */
+.cat {
+  font-size: var(--t-xs);
+  font-weight: 400;
+  color: var(--ink-2);
+}
+
+/* Badges are the one place the mini step is used: they label something
+     else, they are never the thing you sit down to read. */
+.tag {
+  font-size: var(--t-mini);
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  letter-spacing: 0.01em;
+  line-height: 1.3;
+}
+.tag svg {
+  width: 13px;
+  height: 13px;
+  flex: none;
+}
+.tag.ok {
+  background: var(--green-50);
+  color: var(--green-700);
+}
+.tag.next {
+  background: #ebe6f4;
+  color: var(--ink-2);
+}
+.tag.credit {
+  background: var(--red-50);
+  color: var(--red-700);
+}
+/* The two states that mean "pay this" are the only high-contrast badges
+     on the screen: solid red at 4.6:1 with white, solid amber at 9.1:1
+     with ink. Everything else stays quiet so these two carry. */
+.tag.due {
+  background: var(--amber-bar);
+  color: var(--ink);
+}
+.tag.late {
+  background: var(--red-solid);
+  color: #fff;
+}
+.tag.usd {
+  background: var(--green-50);
+  color: var(--green-700);
+}
+/* Settled: the quietest badge of the set. It is the one state nobody
+     has to do anything about. */
+.tag.paid {
+  background: var(--green-50);
+  color: var(--green-700);
+}
+.tag.soft {
+  background: #ebe6f4;
+  color: var(--ink-2);
+}
+/* The category, wearing the category's own colour -- the same colour as
+     its tile on the left of the row and its slice on the ring. A tint of
+     it, not the colour itself: these sit beside two badges that mean
+     "pay this", and a second saturated pill would argue with them. */
+.tag.cat-tag {
+  background: color-mix(in srgb, var(--pc) 18%, #fff);
+  color: var(--ink);
+}
+/* A bill in trouble keeps the plain white card and the category's own
+     colour. The badge is the whole signal: tinting the row as well put a
+     violet button on a red ground and the screen stopped reading as calm. */
+
+/* ===== categories ===== */
+.catrow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 16px;
+}
+.catrow .name {
+  grid-column: 2;
+  font-size: var(--t-md);
+  font-weight: 700;
+}
+.catrow .amt {
+  grid-column: 3;
+  font-size: var(--t-md);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.catrow .bar {
+  grid-column: 2 / -1;
+  height: 10px;
+  border-radius: 999px;
+  background: #ebe6f4;
+  overflow: hidden;
+}
+.catrow .bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+.catrow .sub {
+  grid-column: 2 / -1;
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+}
+.catrow .sub.over {
+  color: var(--red-700);
+  font-weight: 700;
+}
+
+/* ===== the month, as one dark panel ===== */
+/* Everything from the greeting down to the three figures is one answer
+     to one question, and was four stacked white cards giving it. Here it
+     is a single object in the rail's own dark, with lilac hairlines
+     instead of card edges -- nothing inside it is a card, so the figures
+     themselves carry the structure.
+
+     The only colour in it is each figure's own status, which means those
+     three greens, ambers and reds have to be the light ends of their
+     ramps: the ones the rest of the app uses were chosen to be read on
+     white and go muddy on this ground. */
+.hood {
+  --hood-line: rgba(195, 174, 230, 0.22);
+  --hood-ink: var(--side-ink);
+  /* Lifted a step from the rail's own secondary ink: the lines that use
+       it are set at a regular weight, and a thinner stroke needs more
+       contrast to read the same. 8:1 here. */
+  --hood-ink-2: #c6bcda;
+  --hood-green: #5fd3a0;
+  --hood-amber: #f6c758;
+  --hood-red: #ff8a6b;
+  --hood-grape: #a98cff;
+  /* The rail's lighter violet rather than its darkest: a full-width
+       panel at the rail's own ground read as a hole in the page. */
+  background: var(--side-active);
+  color: var(--hood-ink);
+  border-radius: 24px;
+  display: grid;
+  overflow: hidden;
+}
+
+/* The panel holding one figure and nothing else, which is what every
+     screen but Inicio needs from it: no month above it to leave room for,
+     so no margin of its own. */
+.hood.solo {
+  margin-top: 0;
+}
+
+/* A hairline where a gap between two cards used to be. */
+.hood .band {
+  gap: 0;
+}
+.hood .band > * + * {
+  border-top: 1px solid var(--hood-line);
+}
+
+/* Nothing in here is a card: no ground of its own, no edge, no lift. */
+.hood .card {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  border-radius: 0;
+}
+.hood .hero {
+  padding: 20px;
+  gap: 14px;
+}
+.hood .hero .label {
+  color: var(--hood-ink-2);
+}
+.hood .hero .figure {
+  color: var(--hood-ink);
+}
+.hood .track {
+  background: rgba(255, 255, 255, 0.1);
+}
+.hood .fill {
+  background: var(--hood-grape);
+}
+.hood .fill.owed {
+  background: var(--hood-amber);
+}
+.hood .fill.over {
+  background: var(--hood-red);
+}
+.hood .legend {
+  color: var(--hood-ink-2);
+}
+.hood .legend b {
+  color: var(--hood-ink);
+}
+.hood .herosay {
+  color: var(--hood-ink-2);
+}
+.hood .herosay b {
+  color: var(--hood-ink);
+}
+.hood .usdline {
+  color: var(--hood-ink-2);
+}
+.hood .usdline b {
+  color: var(--hood-ink);
+}
+/* On the dark panel the quiet link has to be light, or it is invisible. */
+.hood .skip {
+  color: var(--hood-ink-2);
+}
+.hood .hero .figure.over {
+  color: var(--hood-red);
+}
+.hood .dot-paid {
+  background: var(--hood-green);
+}
+.hood .dot-owed {
+  background: var(--hood-amber);
+}
+.hood .dot-card {
+  background: var(--hood-red);
+}
+.hood .dot-spent {
+  background: var(--hood-grape);
+}
+/* A tint of the panel rather than a colour of its own, now that the
+     panel itself is that colour. */
+.hood .perday {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--side-active-ink);
+}
+.hood .chip {
+  background: rgba(255, 138, 107, 0.16);
+  color: var(--hood-red);
+}
+.hood .chip.good {
+  background: rgba(95, 211, 160, 0.16);
+  color: var(--hood-green);
+}
+.hood .chip.neutral {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--hood-ink-2);
+}
+
+/* The three figures, divided rather than boxed. Two of them share a row
+     and the third sits under both, so the line between the pair is
+     vertical and the one above the third is not. */
+.hood .trio {
+  gap: 0;
+}
+.hood .trio .card {
+  padding: 22px 20px;
+}
+.hood .trio > :nth-child(2) {
+  border-left: 1px solid var(--hood-line);
+}
+.hood .trio > :nth-child(3) {
+  border-top: 1px solid var(--hood-line);
+}
+/* Same as the greeting's second line: the sentence under a figure
+     explains it, and at 600 it was arguing with it. */
+.hood .trio .foot {
+  color: var(--hood-ink-2);
+  font-weight: 400;
+}
+.hood .trio .amt {
+  color: var(--hood-ink);
+}
+.hood .trio .out .cap {
+  color: var(--hood-green);
+}
+.hood .trio .wait .cap {
+  color: var(--hood-amber);
+}
+.hood .cardtot .cap {
+  color: var(--hood-red);
+}
+.hood .cardtot .go {
+  color: var(--hood-ink-2);
+}
+
+/* The one secondary button inside the panel. */
+.hood .btn-secondary {
+  border-color: var(--hood-line);
+  color: var(--hood-ink);
+}
+
+/* ===== big figures ===== */
+/* Every amount the app says out loud goes through here. The context sets
+     --fig-base, the number's own length picks --fig-k, and the figure gets
+     the product. A peso figure in the millions is fourteen characters
+     wide, which at the size a four-digit one is set in runs straight out
+     of a small card -- and in this country that is the normal month, not
+     the exception. */
+/* In em, so the step is always relative to whatever size the box it
+     sits in was designed at -- the hero's 54px and a small card's 26px
+     both give back the same proportion. A calc() over the clamp() those
+     contexts use is invalid at computed-value time and silently falls
+     back to the inherited size, which is how this looked like it worked
+     and did nothing. */
+.fig {
+  display: block;
+  font-size: 1em;
+  line-height: inherit;
+  white-space: nowrap;
+}
+.fig[data-len='1'] {
+  font-size: 0.86em;
+}
+.fig[data-len='2'] {
+  font-size: 0.74em;
+}
+.fig[data-len='3'] {
+  font-size: 0.64em;
+}
+/* A grid or flex child will not shrink below its content by default,
+     which is how a long figure pushed its own card wider than the screen. */
+.trio .card,
+.hero,
+.card {
+  min-width: 0;
+}
+
+/* ===== loading ===== */
+/* A placeholder shaped like what is coming, so nothing moves when the
+     data lands. The sweep is slow and low-contrast on purpose: a loading
+     state that flashes reads as an error. */
+.loading-in {
+  display: grid;
+  gap: 24px;
+}
+.skel {
+  display: block;
+  width: var(--sw, 100%);
+  height: var(--sh, 16px);
+  border-radius: var(--sr, 8px);
+  background: var(--hair);
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.75) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  animation: sweep 1.4s ease-in-out infinite;
+}
+@keyframes sweep {
+  from {
+    background-position: 140% 0;
+  }
+  to {
+    background-position: -40% 0;
+  }
+}
+/* Still a placeholder, just not a moving one. */
+@media (prefers-reduced-motion: reduce) {
+  .skel {
+    animation: none;
+    background-image: none;
+  }
+}
+/* The placeholders stand in for text, so the boxes they live in need
+     their own height rather than the line-height of absent words. */
+.loading .card.hero {
+  display: grid;
+  gap: 14px;
+}
+.loading .trio .card {
+  gap: 10px;
+}
+.loading .sec h2 {
+  display: block;
+}
+
+/* ===== projection ===== */
+/* The same row as a category's, plus the badge that says where the
+     figure came from -- a real total, last month's carried over, or a bill
+     still owed. */
+/* A button, since every line of the guess can be argued with: the row
+     is the target, not a control tucked inside it. */
+.projrow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 6px 12px;
+  align-items: center;
+  padding: 16px;
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  font: inherit;
+  cursor: pointer;
+}
+.projrow .name {
+  grid-column: 2;
+  font-size: var(--t-md);
+  font-weight: 700;
+}
+.projrow .amt {
+  grid-column: 3;
+  grid-row: 1;
+  font-size: var(--t-md);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.projrow .tag {
+  grid-column: 2;
+  justify-self: start;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: var(--t-xs);
+  font-weight: 800;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--pc) 18%, #fff);
+}
+.projrow .sub {
+  grid-column: 2 / -1;
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+}
+/* A row the household switched off still shows -- it is part of the
+     scenario -- but reads as not counting. */
+.projrow.off .name,
+.projrow.off .amt {
+  color: var(--ink-2);
+  text-decoration: line-through;
+}
+/* The same block as .quiet, with nothing to press. */
+.quiet.static {
+  cursor: default;
+  grid-template-columns: 1fr auto;
+}
+.quiet.static .k {
+  grid-column: 1;
+}
+.quiet.static .v {
+  grid-column: 1;
+}
+
+/* ===== profile ===== */
+.plist {
+  display: grid;
+}
+.pitem {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0 16px;
+  align-items: center;
+  padding: 16px 0;
+  cursor: pointer;
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+  color: inherit;
+}
+.pitem + .pitem {
+  border-top: 1px solid var(--hair);
+}
+.pitem .k {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: var(--t-md);
+  font-weight: 700;
+  line-height: 1.25;
+}
+.pitem .v {
+  grid-column: 2;
+  grid-row: 2;
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+  line-height: 1.3;
+}
+/* An address with no spaces cannot shrink on its own, and pushed the
+     chevron past the screen edge. */
+.pitem .k,
+.pitem .v {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pitem .go {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  color: var(--ink-2);
+  font-size: var(--t-xl);
+}
+
+/* ===== empty states ===== */
+/* Centred, including the action: an empty screen has one thing to say
+     and one thing to press. The ring breathes so the screen does not read
+     as broken, and stops for anyone who asked for less motion. */
+.empty {
+  display: grid;
+  gap: 16px;
+  justify-items: center;
+  text-align: center;
+  padding: 40px 24px;
+}
+.empty .orb {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  position: relative;
+  display: grid;
+  place-items: center;
+  margin-bottom: 8px;
+  background: var(--grape-50);
+  color: var(--grape-700);
+}
+.empty .orb svg {
+  width: 36px;
+  height: 36px;
+  stroke-width: 1.8;
+}
+.empty .orb::before,
+.empty .orb::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--grape-50);
+  animation: ring 2.8s ease-out infinite;
+}
+.empty .orb::after {
+  animation-delay: 1.4s;
+}
+@keyframes ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .empty .orb::before,
+  .empty .orb::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+.empty h3 {
+  margin: 0;
+  font-size: var(--t-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.empty p {
+  margin: 0;
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+  line-height: 1.45;
+  max-width: 32ch;
+}
+.empty .btn {
+  justify-self: center;
+  margin-top: 4px;
+}
+
+/* ===== onboarding checklist ===== */
+.step {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 16px;
+  align-items: center;
+  padding: 16px 0;
+}
+.step + .step {
+  border-top: 1px solid var(--hair);
+}
+.step .num {
+  grid-row: 1 / span 2;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: var(--t-md);
+  font-weight: 800;
+  background: var(--grape-50);
+  color: var(--grape-700);
+}
+.step.done .num {
+  background: var(--grape-btn);
+  color: #fff;
+}
+.step .k {
+  font-size: var(--t-md);
+  font-weight: 700;
+  line-height: 1.25;
+}
+.step .v {
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+  line-height: 1.32;
+}
+.step.done .k {
+  color: var(--ink-2);
+  text-decoration: line-through;
+}
+
+/* The v1's shape: the ring on its own line and every category listed
+     underneath. A legend beside the ring stops working at five entries,
+     and a real household has a dozen. */
+.donut {
+  display: grid;
+  gap: 20px;
+}
+.donut .lead {
+  font-size: var(--t-lg);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+.donut-top {
+  display: grid;
+  justify-items: center;
+}
+/* The ring itself, not every svg in the card -- the line about what the
+   ring counts is an alert now, and it carries an icon.
+   On a phone it takes the width it is given: it is the drawing the card
+   is built around, and at 188px in a 375px screen it read as a vignette
+   with a lot of white around it. */
+.donut-top svg {
+  width: min(280px, 78vw);
+  height: min(280px, 78vw);
+  display: block;
+}
+.donut .hole {
+  font-size: var(--t-md);
+  font-weight: 800;
+  fill: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.donut .holesub {
+  font-size: var(--t-mini);
+  font-weight: 700;
+  fill: var(--ink-2);
+}
+.dlist {
+  display: grid;
+  min-width: 0;
+}
+/* Dot, name, figure, share -- in that order, because the share is a
+     share *of* the figure and reads as noise in front of it. Everything on
+     this list is one size: it is a list of twenty equal things, and three
+     sizes made it look like a ranking of importance it is not. */
+/* A row of the breakdown, and a button: it opens that category's month.
+   Styled as the line it already was -- no border, no background, the
+   card's own text -- because the list is read first and pressed second. */
+.dline {
+  appearance: none;
+  border: 0;
+  background: none;
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  font-size: var(--t-xs);
+  font-weight: 400;
+  padding: 9px 0;
+}
+/* A hairline between rows. Twenty figures with nothing between them read
+     as one block; a line each makes the eye travel across instead of down. */
+.dline + .dline {
+  border-top: 1px solid var(--hair);
+}
+.dline i {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: none;
+  align-self: center;
+}
+/* break-word, not anywhere: "Entretenimiento" was being split mid-word
+     rather than wrapping after the space before it. */
+.dline .nm {
+  color: var(--ink);
+  font-weight: 700;
+  overflow-wrap: break-word;
+}
+/* The share as a pill tinted with the slice's own colour. The tint is
+     the colour washed into white so the figure on it is near-black: the
+     palette's own swatches are too dark to read small text on. */
+.dline .pc {
+  display: inline-block;
+  min-width: 44px;
+  text-align: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--pc) 18%, #fff);
+  font-size: var(--t-mini);
+  font-weight: 800;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+/* A fixed, right-aligned column so every amount in the list ends on the
+     same edge instead of each row ending wherever its own figure does. */
+.dline .amt {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  min-width: 7.4em;
+  text-align: right;
+}
+/* Ring on the left, the list beside it. */
+@media (min-width: 760px) {
+  /* Title, then the line that says what the ring counts, then the ring
+     beside its list. Both of the first two run the width of the card. */
+  .donut {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    column-gap: 40px;
+  }
+  .donut .lead {
+    grid-column: 1 / -1;
+  }
+  .donut .alert {
+    grid-column: 1 / -1;
+  }
+  .donut-top {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .donut-top svg {
+    width: 208px;
+    height: 208px;
+  }
+  .dlist {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .donut .donutsay {
+    grid-column: 1 / -1;
+  }
+}
+/* The second column only once the card is wide enough to hold a long
+     name beside an amount. At 1180 each column came out 253px and
+     "Suscripciones" needed 110 of its 106 -- so it waits. */
+@media (min-width: 1280px) {
+  /* Down the first column, then down the second -- not left-to-right.
+       The list is sorted biggest first, and filling it by rows made that
+       order read as a zigzag between the two halves. */
+  .dlist {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: repeat(var(--rows, 1), auto);
+    grid-auto-flow: column;
+    column-gap: 64px;
+  }
+  /* The hairline belongs between rows, not above whatever lands at the
+       top of the second column. */
+  .dline:first-child,
+  .dline.col-top {
+    border-top: 0;
+  }
+}
+
+/* a card and its resumen */
+.cardblk {
+  display: grid;
+  gap: 16px;
+}
+.cardblk .ch {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0 12px;
+  align-items: center;
+}
+/* Drawn at a card's own proportions. A real one is 85.6 x 54mm -- a
+     ratio of 1.59 -- with a corner radius about a sixteenth of its
+     height. A rounded square with a logo in it reads as an app icon, not
+     as the thing in your wallet. */
+.tile.cardface {
+  width: 58px;
+  height: 37px;
+  border-radius: 5px;
+  background: var(--card);
+  border: 1px solid var(--hair);
+}
+/* In px, not per cent: the box is a centred grid item, so a percentage
+     height has nothing to resolve against and the mark came out a dot.
+     Mastercard's own red and orange need a white face to sit on. */
+.tile.cardface svg {
+  width: 40px;
+  height: 26px;
+  stroke-width: 2;
+}
+.cardblk .ch .nm {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: var(--t-md);
+  font-weight: 700;
+}
+.cardblk .ch .no {
+  grid-column: 2;
+  grid-row: 2;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+/* A statement's header used to be a bold line among bold lines: every
+     row under it is a name in 700 beside an amount in 800, and so was it.
+     It gets a tinted band of its own instead -- "everything below me
+     belongs to this one" -- which also tells the two currencies of one
+     card apart without a rule between them. */
+.resumen {
+  margin-top: 20px;
+  display: grid;
+  gap: 2px;
+}
+.resumen .rh {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: var(--grape-50);
+  border-radius: 14px;
+  padding: 12px 16px;
+}
+.resumen .rt {
+  font-size: var(--t-sm);
+  font-weight: 800;
+  color: var(--grape-700);
+  letter-spacing: -0.01em;
+}
+.resumen .rv {
+  font-size: var(--t-lg);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--grape-700);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.resumen .hint {
+  padding: 8px 0 0;
+}
+/* The rows, which now only have to be rows. They run the full width of
+     the card they are in -- the band above them is the thing with an
+     inset, not them. A hairline between them, none above the first: the
+     band is already its own edge. */
+.cuota {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0 12px;
+  padding: 12px 0;
+}
+.cuota + .cuota {
+  border-top: 1px solid var(--hair);
+}
+.cuota .cn {
+  font-size: var(--t-sm);
+  font-weight: 700;
+}
+.cuota .cm {
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+}
+.cuota .ca {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  font-size: var(--t-sm);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* the projection: a row you can switch off or type over */
+.prow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0 12px;
+  align-items: center;
+  padding: 12px 16px;
+}
+.prow .sw {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+}
+.prow .nm {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: var(--t-md);
+  font-weight: 700;
+}
+.prow .sub {
+  grid-column: 2;
+  grid-row: 2;
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+  line-height: 1.3;
+}
+.prow .tg {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+}
+.prow input {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  width: 112px;
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 800;
+  text-align: right;
+  background: var(--page);
+  border: 2px solid #e0d8ee;
+  border-radius: 12px;
+  padding: 8px 12px;
+  min-height: 44px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.prow.off {
+  opacity: 0.45;
+}
+/* Bringing last month in is a checkbox: you are picking items off a
+     list. The projection is a toggle: you are switching a line on and off
+     to see what it does to the total. */
+.prow .sw {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  line-height: 0;
+  background: var(--grape);
+  color: #fff;
+  display: grid;
+  place-items: center;
+}
+.prow .sw svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  stroke-width: 3;
+}
+.prow.off .sw {
+  background: #ded8ea;
+  color: #8a80a0;
+}
+
+.prow .tg {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  position: relative;
+  background: var(--grape);
+  transition: background 0.15s ease;
+}
+.prow .tg::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transform: translateX(18px);
+  transition: transform 0.15s ease;
+}
+.prow.off .tg {
+  background: #ded8ea;
+}
+.prow.off .tg::after {
+  transform: translateX(0);
+}
+
+/* the category combobox: type, and the matches drop down with their own
+     colour disc, the way the v1 does it */
+.combo {
+  position: relative;
+}
+.combo-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 6;
+  background: var(--card);
+  border-radius: 12px;
+  box-shadow: var(--lift);
+  padding: 4px;
+  max-height: 232px;
+  overflow-y: auto;
+}
+.combo-opt {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 700;
+  color: var(--ink);
+  text-align: left;
+  padding: 8px;
+  border-radius: 8px;
+  min-height: 48px;
+}
+.combo-opt:hover,
+.combo-opt:focus-visible {
+  background: var(--page);
+}
+.combo-opt .tile {
+  grid-row: auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+}
+.combo-opt .tile svg {
+  width: 16px;
+  height: 16px;
+}
+.combo-opt.mk {
+  color: var(--grape-700);
+}
+
+.auth-box {
+  display: grid;
+  gap: 20px;
+  justify-items: center;
+  padding-top: 24px;
+}
+.auth-box img {
+  height: 20px;
+  width: auto;
+}
+.auth-box h1 {
+  margin: 0 0 4px;
+  font-size: var(--t-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  text-align: center;
+  text-wrap: balance;
+}
+.auth-card {
+  background: var(--card);
+  border: 1px solid var(--hair);
+  border-radius: var(--r);
+  padding: 20px;
+  width: 100%;
+  display: grid;
+  gap: 16px;
+}
+.auth-box .btn {
+  justify-self: stretch;
+  width: 100%;
+}
+.auth-alt {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 12px;
+  align-items: center;
+  font-size: var(--t-mini);
+  font-weight: 700;
+  color: var(--ink-2);
+  letter-spacing: 0.08em;
+}
+.auth-alt::before,
+.auth-alt::after {
+  content: '';
+  height: 1px;
+  background: var(--hair);
+}
+.auth-foot {
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+  text-align: center;
+}
+.auth-foot button {
+  appearance: none;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  color: var(--grape-700);
+  text-decoration: underline;
+  padding: 0;
+}
+
+/* the search field on Gastos */
+.search {
+  position: relative;
+}
+.search input {
+  font: inherit;
+  font-size: var(--t-md);
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  padding: 12px 48px;
+  min-height: 52px;
+  width: 100%;
+}
+.search .mag {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-2);
+  line-height: 0;
+}
+.search .mag svg {
+  width: 20px;
+  height: 20px;
+}
+.search .clr {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  appearance: none;
+  border: 0;
+  background: var(--page);
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  font: inherit;
+}
+
+/* The small print at the foot of the chart: what it counts. Grey and
+   regular, because it is a note about the drawing and not a figure. */
+.donutsay {
+  margin: 0;
+  font-size: var(--t-sm);
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+
+.link-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+.link-row code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--t-sm);
+  background: var(--page);
+  border-radius: 12px;
+  padding: 12px 16px;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+}
+
+/* A setting you flip inside a form, with what it means underneath. */
+.swrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 16px;
+  align-items: center;
+}
+.swrow .k {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: var(--t-md);
+  font-weight: 700;
+}
+.swrow .v {
+  grid-column: 1;
+  grid-row: 2;
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+  line-height: 1.35;
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--red-700);
+  border: 1px solid #f0c9bf;
+  padding: 8px 17px;
+}
+/* The one spinner in the app: a button that is doing what it was pressed
+     to do. */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin {
+  animation: spin 1s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}
+.two {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.hint {
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+  line-height: 1.3;
+}
+.hint.new {
+  color: var(--grape-700);
+  font-weight: 700;
+}
+
+/* the category ABM: name, cap and a delete, in one row */
+.abm {
+  display: grid;
+  gap: 8px;
+}
+.abmrow {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px 12px;
+  align-items: center;
+  background: var(--page);
+  border-radius: 16px;
+  padding: 12px;
+}
+.abmrow .tile {
+  grid-row: 1 / span 2;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+}
+.abmrow input {
+  font: inherit;
+  font-weight: 700;
+  background: var(--card);
+  border: 2px solid #e0d8ee;
+  border-radius: 8px;
+  padding: 8px 12px;
+  min-height: 44px;
+  width: 100%;
+  color: var(--ink);
+}
+.abmrow .nm {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: var(--t-sm);
+}
+.abmrow .cp {
+  grid-column: 2;
+  grid-row: 2;
+  font-size: var(--t-sm);
+}
+.abmrow .del {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  background: var(--red-50);
+  color: var(--red-700);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+.abmrow .del[disabled] {
+  background: #ece7f4;
+  color: #9b93ab;
+  cursor: not-allowed;
+}
+.abmrow .why {
+  grid-column: 2 / -1;
+  grid-row: 3;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+/* The dólar blue converter, carried over from the v1. It belongs in the
+     rail: it is a tool you reach for, not part of any one screen. Hidden on
+     a phone, where the rail does not exist. */
+.dolar {
+  display: none;
+}
+/* One size throughout, the way the rail above it is one size: this is a
+     side tool, and three type sizes inside a 200px box made it the
+     loudest thing in the sidebar. The rate still leads, by weight. */
+.dolar .top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--t-xs);
+  font-weight: 500;
+  color: var(--side-ink-2);
+}
+.dolar .rate {
+  font-size: var(--t-xs);
+  font-weight: 800;
+  color: var(--side-ink);
+  font-variant-numeric: tabular-nums;
+}
+.dolar .pair {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+.dolar input {
+  font: inherit;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  width: 100%;
+  background: #271d3f;
+  border: 2px solid #3b2e58;
+  color: var(--side-ink);
+  border-radius: 12px;
+  padding: 8px 8px;
+  min-height: 44px;
+}
+.dolar .swap {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  background: #3b2e58;
+  color: var(--side-active-ink);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+.dolar .edit {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  background: transparent;
+  color: var(--side-ink-2);
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+.dolar .edit svg {
+  width: 16px;
+  height: 16px;
+}
+.dolar .mine {
+  font-size: var(--t-xs);
+  font-weight: 500;
+  color: var(--side-active-ink);
+}
+.dolar .acts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+.dolar .acts button {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 8px;
+  min-height: 40px;
+}
+.dolar .ok {
+  background: var(--side-active-ink);
+  color: #1d1630;
+}
+.dolar .no {
+  background: transparent;
+  color: var(--side-ink-2);
+}
+
+/* ===== the bar up top ===== */
+/* On a phone it is the wordmark and the name of the house, the way the
+     v1 has it: the one line on screen that says whose money all of this
+     is, whatever screen you are on. The action is not up here on a phone
+     -- the bar at the bottom already carries it, by the thumb. */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--card);
+  border-bottom: 1px solid var(--hair);
+  padding: 12px var(--gutter-r) 12px var(--gutter);
+  padding-top: calc(12px + env(safe-area-inset-top, 0px));
+}
+.topbar .topmark {
+  display: block;
+  height: 20px;
+  width: auto;
+  flex: none;
+}
+.topbar .where {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t-sm);
+  font-weight: 700;
+  color: var(--ink);
+  min-width: 0;
+}
+.topbar .where svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 1.8;
+  color: var(--ink-2);
+  flex: none;
+}
+.topbar .where span:not(.ph) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.topbar .ph {
+  display: block;
+  width: 110px;
+  height: 15px;
+  border-radius: 8px;
+  background: var(--hair);
+}
+.topbar .btn {
+  display: none;
+}
+
+/* ===== nav ===== */
+.nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  background: var(--card);
+  box-shadow: var(--lift-nav);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.nav-in {
+  max-width: 460px;
+  margin-inline: auto;
+  padding-left: var(--gutter);
+  padding-right: var(--gutter-r);
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  align-items: center;
+  height: 72px;
+}
+/* The wordmark in the rail, which has no place on a phone. Named
+     `brand` and nothing else may share that name: a card's own face used
+     to, and vanished here along with the logo. */
+.brand {
+  display: none;
+}
+/* The icon alone down here. Six labels under six icons want more width
+     than a phone has, and 14px is this app's floor, so they cannot be
+     shrunk into fitting -- the v1 reached the same conclusion. The lit
+     pill behind the icon is what says which one you are on. */
+.tab {
+  display: grid;
+  justify-items: center;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  color: var(--ink-2);
+  text-decoration: none;
+  min-width: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0;
+}
+/* Hidden to the eye, not to a screen reader: an unlabelled icon still
+     has to be a named destination. */
+.tab .lbl {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+/* 40px, not 44: at seven cells on a 375px phone a wider pill left one
+     pixel between itself and the raised button beside it. */
+.tab .gl {
+  font-size: var(--t-md);
+  line-height: 1;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+}
+.tab[aria-current] {
+  color: var(--grape-700);
+}
+.tab[aria-current] .gl {
+  background: var(--grape-50);
+}
+
+/* Half of it above the bar's own top edge, which is what makes it read
+     as sitting on the bar rather than in it -- and a size down, so the
+     six icons around it get the room back. */
+.add {
+  order: 4;
+  justify-self: center;
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  position: relative;
+  top: -25px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: var(--grape-btn);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 10px 22px -6px rgba(77, 31, 141, 0.5);
+  font-family: inherit;
+}
+/* Three, the action, three -- so the raised button is the exact middle
+     of seven cells. */
+.nav-in .tab:nth-of-type(1) {
+  order: 1;
+}
+.nav-in .tab:nth-of-type(2) {
+  order: 2;
+}
+.nav-in .tab:nth-of-type(3) {
+  order: 3;
+}
+.nav-in .tab:nth-of-type(4) {
+  order: 5;
+}
+.nav-in .tab:nth-of-type(5) {
+  order: 6;
+}
+.nav-in .tab:nth-of-type(6) {
+  order: 7;
+}
+
+/* a segmented control, used for Lista/Por categoría and Casa/Lo mío */
+.segment {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  background: #eae5f3;
+  border-radius: 16px;
+  padding: 4px;
+}
+.segment {
+  border-radius: 999px;
+}
+.segment button {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 700;
+  color: var(--ink-2);
+  background: transparent;
+  border-radius: 999px;
+  padding: 8px 8px;
+  min-height: 44px;
+}
+.segment button[aria-pressed='true'] {
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--hair);
+}
+
+.who {
+  font-size: var(--t-mini);
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: #ebe6f4;
+  color: var(--ink-2);
+  letter-spacing: 0.01em;
+}
+.add .plus {
+  display: grid;
+  place-items: center;
+  line-height: 0;
+}
+.add .plus svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 2.4;
+}
+.add .lbl {
+  display: none;
+}
+
+/* ===== the add sheet ===== */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(16, 8, 34, 0.6);
+  display: grid;
+  align-items: end;
+}
+.sheet {
+  background: var(--card);
+  border-radius: var(--r) var(--r) 0 0;
+  width: 100%;
+  max-width: 520px;
+  margin-inline: auto;
+  max-height: 88vh;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+.sheet-h {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px;
+}
+.sheet-h h3 {
+  margin: 0;
+  font-size: var(--t-xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.sheet-h button {
+  appearance: none;
+  border: 0;
+  background: var(--page);
+  cursor: pointer;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-size: var(--t-lg);
+  color: var(--ink);
+  font-family: inherit;
+}
+.sheet-b {
+  overflow-y: auto;
+  padding: 0 20px 8px;
+  display: grid;
+  gap: 16px;
+}
+.sheet-f {
+  padding: 16px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--hair);
+}
+.field {
+  display: grid;
+  gap: 8px;
+}
+.field > label {
+  font-size: var(--t-sm);
+  font-weight: 700;
+}
+/* The native arrow is glued to the right edge on every platform. Drawing
+     it ourselves puts it the same 16px from the edge as the text is. */
+.field select,
+.addrow select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%235d5570' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  padding-right: 48px;
+}
+.field input,
+.field select {
+  font: inherit;
+  font-size: var(--t-md);
+  font-weight: 600;
+  color: var(--ink);
+  /* background-color, not the shorthand: the shorthand would wipe the
+       chevron drawn on the select above. */
+  background-color: var(--page);
+  border: 1px solid #ddd5ec;
+  border-radius: 12px;
+  padding: 12px 16px;
+  min-height: 52px;
+  width: 100%;
+}
+.opts {
+  display: grid;
+  gap: 8px;
+}
+.opt {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  align-items: center;
+  text-align: left;
+  cursor: pointer;
+  background: var(--page);
+  border: 2px solid #e0d8ee;
+  border-radius: 16px;
+  padding: 16px;
+  font-family: inherit;
+}
+.opt .mark {
+  grid-row: 1 / span 2;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #b6abcd;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+/* More than one way to pay can be true at once, so that list marks with a
+     box and a tick. The add-expense sheet keeps the dot: there you pick one. */
+.opts.multi .mark {
+  border-radius: 7px;
+}
+.opts.multi .opt[aria-pressed='true'] .mark::after {
+  content: '';
+  width: 11px;
+  height: 6px;
+  border-radius: 0;
+  background: none;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(-45deg) translate(1px, -2px);
+}
+.opt .k {
+  font-size: var(--t-md);
+  font-weight: 700;
+  color: var(--ink);
+}
+.opt .v {
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+  line-height: 1.3;
+}
+.opt[aria-pressed='true'] {
+  border-color: var(--grape-600);
+  background: var(--grape-50);
+}
+.opt[aria-pressed='true'] .mark {
+  border-color: var(--grape-btn);
+  background: var(--grape-btn);
+}
+.opt[aria-pressed='true'] .mark::after {
+  content: '';
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+/* ===== what a form is made of ===== */
+.flabel {
+  font-size: var(--t-sm);
+  font-weight: 700;
+}
+/* The line under a field that says what the field means. Regular, like
+     every other explanation in the app. */
+.fhint {
+  font-size: var(--t-xs);
+  font-weight: 400;
+  color: var(--ink-2);
+  line-height: 1.35;
+}
+.fnote {
+  margin: 0;
+  font-size: var(--t-sm);
+  font-weight: 400;
+  line-height: 1.4;
+  background: var(--info-50);
+  color: var(--info-700);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+/* What is missing, said in words and in the colour of something that
+     needs fixing. Not shouted: it appears while a form is half-filled,
+     which is most of the time someone is looking at it. */
+.fproblem {
+  margin: 0;
+  font-size: var(--t-sm);
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--red-700);
+}
+/* The currency sign belongs to the field, not to what you type: typing
+     over your own "$" is the oldest annoyance in this kind of form. */
+/* The amount is the number the whole form is about, so it is the biggest
+     thing on it wherever it is asked -- un gasto, un servicio, un pago, un
+     presupuesto, el tope de una categoría. One look, in two shapes: the
+     sign fixed, or the currency chosen on the same line, which is what the
+     sign is anyway. */
+.money-in {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: stretch;
+  background-color: var(--page);
+  border: 1px solid #ddd5ec;
+  border-radius: 12px;
+  padding-left: 16px;
+}
+.money-in .pre {
+  font-size: var(--t-lg);
+  font-weight: 700;
+  color: var(--ink-2);
+  align-self: center;
+}
+.money-in input {
+  border: 0;
+  background: transparent;
+  min-height: 64px;
+  font-size: var(--t-3xl);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  padding: 0 16px 0 10px;
+}
+/* The currency takes the place of the sign, so the field gives it the
+     sign's own room rather than padding of its own. */
+.money-in.withcur {
+  padding-left: 0;
+}
+.money-in .cur {
+  border: 0;
+  border-right: 1px solid #ddd5ec;
+  background-color: transparent;
+  border-radius: 12px 0 0 12px;
+  width: auto;
+  min-height: 64px;
+  font-size: var(--t-lg);
+  font-weight: 700;
+  color: var(--ink-2);
+  padding: 0 30px 0 16px;
+  background-position: right 8px center;
+}
+/* A choice that wears its own mark. Shut, it is one field-high row; open,
+     the options sit under it in the form rather than floating over it --
+     the sheet's body is what scrolls, and a floating panel gets cut off by
+     it on a phone. */
+.picked {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  align-items: center;
+  text-align: left;
+  cursor: pointer;
+  background-color: var(--page);
+  border: 1px solid #ddd5ec;
+  border-radius: 12px;
+  padding: 10px 16px;
+  min-height: 56px;
+  width: 100%;
+  font-family: inherit;
+}
+/* Shut rather than gone: the question still shows, it just cannot be
+     answered yet. Full ink on the text -- "nada clarito" holds here too. */
+.picked:disabled {
+  cursor: default;
+  background-color: #f0ecf8;
+  border-style: dashed;
+}
+.picked .k {
+  font-size: var(--t-md);
+  font-weight: 700;
+  color: var(--ink);
+  grid-column: 2;
+}
+.picked .v {
+  font-size: var(--t-xs);
+  font-weight: 400;
+  color: var(--ink-2);
+  grid-column: 2;
+  line-height: 1.3;
+}
+.picked .ch {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  display: grid;
+  place-items: center;
+  color: var(--ink-2);
+}
+.picked .ch svg {
+  width: 20px;
+  height: 20px;
+}
+/* Nothing to open while it is shut. */
+.picked:disabled .ch {
+  display: none;
+}
+.picklist {
+  display: grid;
+  gap: 8px;
+}
+.pickopt {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 12px;
+  align-items: center;
+  text-align: left;
+  cursor: pointer;
+  background: var(--page);
+  border: 2px solid #e0d8ee;
+  border-radius: 16px;
+  padding: 12px 16px;
+  min-height: 56px;
+  font-family: inherit;
+}
+.pickopt .k {
+  font-size: var(--t-md);
+  font-weight: 700;
+  color: var(--ink);
+  grid-column: 2;
+}
+.pickopt .v {
+  font-size: var(--t-xs);
+  font-weight: 400;
+  color: var(--ink-2);
+  grid-column: 2;
+  line-height: 1.3;
+}
+.pickopt[aria-selected='true'] {
+  border-color: var(--grape-600);
+  background: var(--grape-50);
+}
+/* The logo sits in the same little plate it has on Perfil and on
+     Tarjetas, so a card looks like itself everywhere in the app. */
+.picked .mk,
+.pickopt .mk {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  width: 48px;
+  height: 30px;
+  border-radius: 4px;
+  background: var(--page);
+  border: 1px solid var(--hair);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+}
+.picked .mk svg,
+.pickopt .mk svg {
+  width: 34px;
+  height: 21px;
+}
+/* A switch that says what saying yes means. */
+.swrow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 16px;
+  align-items: center;
+  text-align: left;
+  cursor: pointer;
+  background: var(--page);
+  border: 2px solid #e0d8ee;
+  border-radius: 16px;
+  padding: 14px 16px;
+  font-family: inherit;
+  width: 100%;
+}
+/* Off has to read as off, not as absent: on a white card a pale track
+     disappears, and "nada clarito" is the rule the whole screen follows. */
+.swrow .tg {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  width: 48px;
+  height: 28px;
+  border-radius: 999px;
+  background: #a899c6;
+  display: grid;
+  align-items: center;
+  padding: 3px;
+  transition: background 0.15s;
+}
+.swrow .tg i {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+  box-shadow: 0 1px 2px rgba(29, 22, 48, 0.35);
+}
+.swrow[aria-checked='true'] {
+  border-color: var(--grape-600);
+  background: var(--grape-50);
+}
+.swrow[aria-checked='true'] .tg {
+  background: var(--grape-btn);
+}
+.swrow[aria-checked='true'] .tg i {
+  transform: translateX(20px);
+}
+.swrow:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* One line of a scenario: a switch that says whether it happens, and
+     the figure it happens for. Both on the card, the way the v1 has it --
+     a sheet per line was one tap too many on a screen whose whole job is
+     trying figures out. */
+.projcard {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+.projcard.off {
+  opacity: 0.55;
+}
+.projhead.swrow {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  gap: 4px 12px;
+}
+.projhead.swrow[aria-checked='true'] {
+  background: transparent;
+  border: 0;
+}
+.projhead .tile {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+}
+.projhead .name {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: var(--t-md);
+  font-weight: 700;
+  min-width: 0;
+}
+.projhead .tag {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: start;
+  padding: 3px 8px;
+  font-size: var(--t-xs);
+  font-weight: 800;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--pc) 18%, #fff);
+}
+.projhead .tg {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+}
+.projcard .sub {
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+}
+/* The amount is a figure being edited, not a form field taking the
+     width of the card: it hugs, and sits where every other amount in the
+     app sits -- the right-hand edge of its row. Same face as the fields
+     in a sheet, down to the 52px and the 12px corner. */
+.projcard .money-in {
+  width: auto;
+  justify-self: end;
+  min-height: 52px;
+  padding-left: 14px;
+  padding-right: 4px;
+}
+/* Smaller than the amount in a form, because this one is a figure in a
+     row rather than the question the card is asking. */
+.projcard .money-in input {
+  font-size: var(--t-md);
+  font-weight: 700;
+  min-height: 52px;
+  letter-spacing: 0;
+  color: var(--ink);
+  padding: 12px 12px 12px 6px;
+  width: 7.5em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.projcard .money-in input:disabled {
+  color: var(--ink-2);
+}
+.projcard.off .money-in {
+  opacity: 0.7;
+}
+/* The line's own band: what it has to say, and the figure it says it
+     about. Stacked on a phone, where 60% of 310px would turn three lines
+     of text into eight; side by side as soon as there is width for it. */
+.projbody {
+  display: grid;
+  gap: 8px;
+}
+.projsay {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+}
+.projsay:empty {
+  display: none;
+}
+/* The way back from a figure put in by hand. Against the left edge,
+     under the name it belongs to -- it answers that line, not the card,
+     so it does not take the amount's right-hand edge. */
+.projpin {
+  display: flex;
+  justify-content: flex-start;
+}
+.projpin .btn {
+  margin-left: -12px;
+}
+/* The category or card being built, shown as it will look in the list. */
+.catpreview {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 14px;
+  align-items: center;
+  background: var(--page);
+  border-radius: 16px;
+  padding: 16px;
+}
+.catpreview .tile {
+  grid-row: 1 / span 2;
+}
+.catpreview .k {
+  font-size: var(--t-md);
+  font-weight: 700;
+}
+.catpreview .v {
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+  line-height: 1.3;
+}
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.swatch {
+  appearance: none;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--cat);
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 2px var(--card) inset;
+}
+.swatch.on {
+  border-color: var(--ink);
+}
+.mlist {
+  display: grid;
+  gap: 8px;
+}
+.mrow {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  align-items: center;
+  background: var(--page);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+.mrow .tile {
+  grid-row: 1 / span 2;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+}
+.mrow .k {
+  font-size: var(--t-sm);
+  font-weight: 700;
+}
+.mrow .v {
+  font-size: var(--t-xs);
+  font-weight: 400;
+  color: var(--ink-2);
+}
+.codebox {
+  margin: 0;
+  font-size: var(--t-xl);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  background: var(--page);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+}
+.linkbox {
+  margin: 0;
+  font-size: var(--t-xs);
+  font-weight: 400;
+  color: var(--ink-2);
+  background: var(--page);
+  border-radius: 12px;
+  padding: 12px 14px;
+  overflow-wrap: anywhere;
+}
+.sheet-acts {
+  display: grid;
+  gap: 10px;
+}
+/* Said once per sheet, under the button it explains. */
+.readonly-note {
+  margin: 0;
+  font-size: var(--t-xs);
+  font-weight: 400;
+  color: var(--ink-2);
+  line-height: 1.35;
+  text-align: center;
+}
+/* Deleting is the one thing in this app that cannot be undone, so its
+     button looks like nothing else and never leads. */
+/* Text and nothing else: no fill, no outline. It stands beside the one
+     button that changes the month, and two framed buttons side by side
+     read as two equal offers. The action colour all the same -- in grey
+     it read as switched off rather than as the quieter of two. */
+.btn-tertiary {
+  background: transparent;
+  color: var(--grape-700);
+  border: 0;
+  padding: 8px 12px;
+}
+.btn-tertiary:hover {
+  background: var(--grape-50);
+}
+.btn-danger {
+  background: transparent;
+  color: var(--red-700);
+  border: 2px solid var(--red-50);
+  padding: 8px 16px;
+}
+
+/* ===== wide ===== */
+@media (min-width: 760px) {
+  .projbody {
+    grid-template-columns: minmax(0, 60%) 1fr;
+    align-items: center;
+    gap: 16px;
+  }
+  .projbody .money-in {
+    grid-column: 2;
+  }
+  /* Two rows now, so the bar can sit over the content column while the
+       rail runs the full height beside both. */
+  .shell {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    align-items: start;
+  }
+  .nav {
+    grid-column: 1;
+    grid-row: 1 / -1;
+  }
+  .topbar {
+    grid-column: 2;
+    grid-row: 1;
+    gap: 16px;
+    padding: 12px 28px;
+    min-height: 68px;
+  }
+  /* The rail has the wordmark here, and the bar gets the action back. */
+  .topbar .topmark {
+    display: none;
+  }
+  .topbar .btn {
+    display: inline-flex;
+  }
+  .app {
+    grid-column: 2;
+    grid-row: 2;
+    max-width: 700px;
+    margin-inline: auto;
+    padding-inline: 28px;
+    padding-block: 0 56px;
+    gap: 20px;
+  }
+  .nav {
+    position: sticky;
+    top: 0;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    height: 100vh;
+    background: var(--side);
+    box-shadow: none;
+    padding: 0;
+  }
+  .nav-in {
+    max-width: none;
+    padding: 24px 16px;
+    height: auto;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    /* The bar's own `align-items: center` means horizontal
+                 centering once this is a column, which is what was
+                 holding the wordmark in the middle of the rail. */
+    align-items: stretch;
+  }
+  /* The same 12px the rows pad by, so the wordmark starts on the line
+       the icons start on. */
+  .brand {
+    display: block;
+    padding: 4px 12px 24px;
+  }
+  /* The v1's wordmark asset is a black silhouette; the v1 flips it to
+       white for its dark sidebar the same way. */
+  .brand img {
+    height: 20px;
+    width: auto;
+    display: block;
+    filter: brightness(0) invert(1);
+  }
+  /* Quieter than the screen it leads to: the rail is a list of places,
+       not a row of headings. 14px at a regular weight, with the icons
+       drawn at the same weight as the words beside them -- a 2.1 stroke
+       under a 700 label was two bold things saying the same word. */
+  .tab {
+    order: 0;
+    grid-template-columns: auto 1fr;
+    justify-items: start;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 16px;
+    font-size: var(--t-xs);
+    font-weight: 500;
+    color: var(--side-ink-2);
+    width: 100%;
+  }
+  .tab .gl {
+    width: 32px;
+    height: 32px;
+    border-radius: 12px;
+    font-size: var(--t-lg);
+  }
+  .tab .gl svg {
+    stroke-width: 1.6;
+  }
+  /* The rail has room for all six names, in the order they are written.
+       The bar's ordering has to be undone at the same specificity it was
+       set with. */
+  .tab .lbl {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip-path: none;
+  }
+  .nav-in .tab:nth-of-type(n) {
+    order: 0;
+  }
+  /* The one you are on is the only thing in the rail that leans on
+       weight, and only by a step. */
+  .tab[aria-current] {
+    background: var(--side-active);
+    color: var(--side-active-ink);
+    font-weight: 600;
+  }
+  .tab[aria-current] .gl {
+    background: transparent;
+  }
+  .tab[aria-current] .gl svg {
+    stroke-width: 1.9;
+  }
+  .head {
+    padding-top: 48px;
+  }
+  .btn-wide {
+    justify-self: end;
+    width: auto;
+  }
+  .dolar {
+    display: block;
+    order: 98;
+    margin-top: auto;
+    margin-bottom: 12px;
+    background: var(--side-active);
+    border-radius: 16px;
+    padding: 12px;
+  }
+  /* The action lives in the bar up top here. Two of them in one view
+       would be two answers to "where do I press to add something". */
+  .add {
+    display: none;
+  }
+  .sheet {
+    border-radius: var(--r);
+    margin-bottom: 4vh;
+  }
+  .scrim {
+    align-items: center;
+    padding: 20px;
+  }
+}
+@media (min-width: 1040px) {
+  .shell {
+    grid-template-columns: 256px minmax(0, 1fr);
+  }
+  .app {
+    max-width: 1060px;
+    gap: 32px;
+    padding-inline: 32px;
+  }
+  .cols {
+    grid-template-columns: minmax(0, 1.06fr) minmax(0, 0.94fr);
+    gap: 32px;
+    align-items: start;
+  }
+  .col {
+    gap: 32px;
+  }
+  .trio {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .trio > :nth-child(3) {
+    grid-column: auto;
+  }
+  /* All three share one row here, so all three lines are vertical. */
+  .hood .trio > :nth-child(3) {
+    border-top: 0;
+    border-left: 1px solid var(--hood-line);
+  }
+  /* ...except when there is no budget: Pagado and Pendiente stay side
+       by side and the card's figure keeps the full width underneath, at
+       every size. Her words: "me es más fácil leerlo así." */
+  .trio.pairplus {
+    grid-template-columns: 1fr 1fr;
+  }
+  .trio.pairplus > :nth-child(3) {
+    grid-column: 1 / -1;
+  }
+  .hood .trio.pairplus > :nth-child(3) {
+    border-top: 1px solid var(--hood-line);
+    border-left: 0;
+  }
+
+  /* Without a budget the hero has little to say and a lot of width: the
+       figure takes the left, the comparison and the one action the right,
+       instead of a column of text against an empty half. */
+  /* The number and its comparison on the left, the one action tucked
+       into the bottom-right corner so the card stays short. */
+  .hero-split {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 16px 32px;
+    padding: 24px 28px;
+  }
+  .hero-split .h-side {
+    align-content: end;
+    justify-items: end;
+  }
+  .head {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+  .month {
+    min-width: 236px;
+  }
+}
+
+/* The sign-in screen, last on purpose: no rail, no bar, one column.
+     Scoped to the shell
+     rather than to a class on <body>, which the prototype could set and a
+     React tree would have to reach outside itself to touch. Without this
+     the shell kept its desktop rail grid and dropped the card into the
+     240px column. */
+.auth-shell .nav {
+  display: none;
+}
+/* Centred with `margin: auto` on the child rather than a centring
+     property on the flex container: when the card is taller than the
+     screen -- creating an account adds a field -- that keeps its top
+     reachable instead of clipping it. */
+.auth-shell {
+  display: flex;
+  min-height: 100vh;
+  background:
+    radial-gradient(900px 520px at 12% -8%, #ece3fb 0%, transparent 62%),
+    radial-gradient(760px 480px at 102% 8%, #e2ecfb 0%, transparent 58%),
+    var(--page);
+}
+.auth-shell .app {
+  max-width: 440px;
+  margin: auto;
+  padding-block: 24px;
+}
+
+/* The beta reads the household and does not write to it yet, so every
+     control that would save is held shut rather than hidden -- the screen
+     should show what it will be. */
+.btn:disabled,
+.add:disabled,
+.quiet:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.dolar .mine-reset {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.readonly {
+  background: var(--amber-50);
+  color: var(--amber-700);
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  justify-self: start;
+}
+
+/* .cardtot is a link so the whole card is one target; without this it
+     inherits the anchor underline and link colour. */
+/* No link in this app is a run of underlined text inside a sentence:
+     they are cards, rows and section actions, which say they are pressable
+     by being a card, a row or a violet label. An underline on any of them
+     is noise, and on a whole card it was a line under the heading. Anything
+     that ever does need one opts back in. */
+.app a {
+  text-decoration: none;
+}
+a.card {
+  color: inherit;
+}
+
+/* Payment methods as a list, each with the mark people recognise before
+     they read the name. Two across once there is room for it. */
+.methods {
+  display: grid;
+  gap: 12px;
+}
+.method {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0 16px;
+  align-items: center;
+  padding: 16px;
+}
+/* The same card shape as on Tarjetas, a size down: a circle was the
+     one thing a credit card is definitely not. */
+.method .brand-mark {
+  grid-row: 1 / span 2;
+  width: 48px;
+  height: 30px;
+  border-radius: 4px;
+  background: var(--page);
+  border: 1px solid var(--hair);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+}
+.method .brand-mark svg {
+  width: 34px;
+  height: 21px;
+}
+.method .name {
+  font-size: var(--t-md);
+  font-weight: 700;
+}
+.method .sub {
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: var(--ink-2);
+}
+@media (min-width: 760px) {
+  .methods {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* On a phone the two stack instead of squeezing: with the budget
+     button on Pagado, two columns at 375px left "Servicios que vencen y
+     todavía no pagaron" on three lines and broke the button across two.
+     Only when there is no budget -- with one, the three cards sit under
+     a hero that has already said the month's figure, and they are
+     glanceable rather than read. */
+@media (max-width: 559px) {
+  .trio {
+    grid-template-columns: 1fr;
+  }
+  .hood .trio > :nth-child(2) {
+    border-left: 0;
+    border-top: 1px solid var(--hood-line);
+  }
+}
+
+/* On a phone the three stack, whatever the month has: side by side, a
+   figure in the millions came out at list size and broke across lines.
+   Stacked they each have the panel's full width, so the number can be
+   the size the number deserves. Her words: "en mobile al ser millones
+   queda un poco ajustado... los tres valores tienen que estar
+   apilados." */
+@media (max-width: 559px) {
+  .trio .amt {
+    font-size: clamp(var(--t-3xl), 10.5vw, 40px);
+  }
+  .hood .trio .card {
+    padding: 24px 20px;
+  }
+}
+
+/* The movements behind a slice of the ring. Flatter than a row on a
+     screen: no tile, because the sheet's own title already says which
+     category these are, and the badge sits under the figure rather than
+     beside the name, so each one is two short lines instead of a card. */
+.movs {
+  display: grid;
+  gap: 10px;
+}
+.movrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 12px;
+  align-items: baseline;
+  padding: 14px 16px;
+  background: var(--card);
+  border: 1px solid var(--hair);
+  border-radius: 14px;
+}
+.movrow .nm {
+  font-size: var(--t-md);
+  font-weight: 700;
+  min-width: 0;
+}
+.movrow .amt {
+  font-size: var(--t-md);
+  font-weight: 800;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.movrow .when {
+  font-size: var(--t-xs);
+  font-weight: 400;
+  color: var(--ink-2);
+}
+.movrow .tag {
+  justify-self: end;
+}
+
+/* A category's dollars, under its pesos. Two currencies are two
+     figures, never one sum -- there is no rate this app is willing to
+     pick -- so they stack rather than sitting side by side. */
+.dline .amt .usd {
+  display: block;
+  font-size: 0.92em;
+  color: var(--green-700);
+}
+/* A category with only dollars has no share of a ring that divides up
+     pesos. A dash, so the column still lines up. */
+.pc-none {
+  font-size: var(--t-mini);
+  font-weight: 700;
+  color: var(--ink-2);
+  text-align: center;
+  min-width: 2.6em;
+}
+
+/* Two figures side by side in one dark panel, split by the same
+     hairline the trio uses: the month's own money on the left and the
+     card's on the right. Above the tabs and never changing with them --
+     switching tabs to see the second figure meant losing sight of the
+     first. */
+.duo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+.hood .duo > * + * {
+  border-left: 1px solid var(--hood-line);
+}
+.hood .duo .card {
+  padding: 22px 20px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.duo .label {
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--hood-ink-2);
+}
+.duo .figure {
+  font-size: clamp(28px, 7.5vw, 40px);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--hood-ink);
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+}
+.duo .herosay {
+  color: var(--hood-ink-2);
+}
+@media (max-width: 559px) {
+  .duo {
+    grid-template-columns: 1fr;
+  }
+  .hood .duo > * + * {
+    border-left: 0;
+    border-top: 1px solid var(--hood-line);
+  }
+}
+
+/* ===== the welcome, shown once ===== */
+/* Inside the ordinary sheet, so it is a bottom sheet on a phone and a
+     centred dialog on a desktop with no second layout to maintain. The band
+     is the only gradient in the app: it is the one surface whose job is to
+     say "this is new", and it says it once. Its tint on the darker end of
+     the gradient measures 5.7:1, so the small print on it is read, not
+     decorative. */
+.welcome {
+  display: grid;
+  gap: 18px;
+  padding-top: 4px;
+}
+.welcome-band {
+  border-radius: var(--r);
+  padding: 20px;
+  background: linear-gradient(135deg, var(--grape) 0%, var(--grape-600) 100%);
+  color: #fff;
+  display: grid;
+  gap: 8px;
+}
+.welcome-band .kick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.welcome-band .kick svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.welcome-band p {
+  margin: 0;
+  font-size: var(--t-xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.welcome-band .say {
+  font-size: var(--t-sm);
+  font-weight: 400;
+  color: #e7dcfa;
+}
+.welcome-say {
+  margin: 0;
+  font-size: var(--t-md);
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--ink);
+}

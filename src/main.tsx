@@ -12,7 +12,12 @@ if (rootElement === null) {
   throw new Error('Missing #root element in index.html')
 }
 
-const client = createFirebaseClient(readFirebaseEnv(import.meta.env))
+// The literal `'1'` comparison is what keeps this out of production: Vite
+// inlines the env var at build time, so a bundle built without it has
+// `useEmulators: false` and the emulator branch is dropped entirely.
+const client = createFirebaseClient(readFirebaseEnv(import.meta.env), {
+  useEmulators: import.meta.env.VITE_FIREBASE_EMULATORS === '1',
+})
 const queryClient = createQueryClient()
 
 createRoot(rootElement).render(

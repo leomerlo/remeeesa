@@ -61,7 +61,7 @@ into two if it proves too large during implementation.
 
 ## Out of scope
 
-- Per-category budgets (still a single total household budget, per `create-household-and-invite.md`).
+- Per-category budgets (still a single total household budget, per `create-household-and-invite.md`). Later covered by `category-budgets.md`.
 - Historical (non-current-month) breakdowns — this screen mirrors Home's "this month" scope for
   now; viewing breakdown for a past month is a future extension once Histórico's month grouping
   is in place and proves the need.

@@ -25,6 +25,11 @@ export type AddPendienteSheetProps = {
   // there instead. Without this the trigger rendered there anyway, per
   // AddExpenseSheet's own showTrigger precedent.
   readonly showTrigger?: boolean
+  // Where focus goes when the sheet closes and there is no trigger to go
+  // back to -- which is every screen that mounts this with showTrigger
+  // false and opens it from a row. Without it focus lands on <body>, and a
+  // keyboard user loses their place in the page entirely.
+  readonly onCloseFocus?: () => void
 }
 
 export function AddPendienteSheet({
@@ -36,8 +41,9 @@ export function AddPendienteSheet({
   authorDisplayName,
   editPendiente = null,
   onEditFinished,
-  triggerClassName = 'w-full lg:w-auto lg:self-start lg:px-6',
+  triggerClassName = 'w-full lg:w-auto lg:self-start',
   showTrigger = true,
+  onCloseFocus,
 }: AddPendienteSheetProps): ReactElement {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -54,10 +60,14 @@ export function AddPendienteSheet({
   // once the trigger has remounted.
   useEffect(() => {
     if (wasOpenRef.current && !sheetOpen) {
-      triggerRef.current?.focus()
+      if (triggerRef.current === null) {
+        onCloseFocus?.()
+      } else {
+        triggerRef.current.focus()
+      }
     }
     wasOpenRef.current = sheetOpen
-  }, [sheetOpen])
+  }, [sheetOpen, onCloseFocus])
 
   function handleOpenChange(next: boolean): void {
     // A submit already in flight must resolve inside the still-mounted

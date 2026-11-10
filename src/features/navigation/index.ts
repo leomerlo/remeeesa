@@ -2,4 +2,8 @@ export { AppShell } from './AppShell'
 export type { AppShellProps } from './AppShell'
 export { AppHeader } from './AppHeader'
 export type { AppHeaderProps } from './AppHeader'
-export { useCurrentMembership, useShowNav } from './useShowNav'
+export {
+  currentMembershipQueryKey,
+  useCurrentMembership,
+  useShowNav,
+} from './useShowNav'

@@ -336,8 +336,12 @@ describe('createExpense', () => {
       price: 10.46,
       comments: 'Friday dinner',
       expenseDate,
+      paymentMethodId: null,
       pendienteId: null,
       isService: false,
+      subcategory: null,
+      // Pesos unless the caller says otherwise, which almost nothing does.
+      currency: 'ARS',
       createdAt: expect.any(Date),
     })
     expect(expense.id.length).toBeGreaterThan(0)
@@ -1471,6 +1475,48 @@ describe('updateExpense', () => {
       comments: 'Commute',
       expenseDate: newDate,
     })
+  })
+
+  // Both are picked at the moment a gasto is logged -- which is exactly
+  // when they are easiest to get wrong -- and until this there was no way
+  // to correct either one short of deleting the gasto and adding it again.
+  // Per direct feedback.
+  it('corrects the currency and the payment method of a saved gasto', async () => {
+    const store = createMemoryHouseholdsDb()
+    const { household, expense, editorDb } = await seedAugustExpense({ store })
+    const card = await editorDb.createCard({
+      householdId: household.id,
+      name: 'Débito Galicia',
+      kind: 'debito',
+      currency: 'ARS',
+      brand: 'visa',
+    })
+
+    const moved = await updateExpense({
+      db: editorDb,
+      householdId: household.id,
+      expenseId: expense.id,
+      currency: 'USD',
+      paymentMethodId: card.id,
+      now: augustNow,
+    })
+    expect(moved).toEqual({
+      ...expense,
+      currency: 'USD',
+      paymentMethodId: card.id,
+    })
+
+    // Back to cash: null is the real value for it, so it has to survive
+    // being sent -- `?? existing` would have read it as "leave it alone".
+    const backToCash = await updateExpense({
+      db: editorDb,
+      householdId: household.id,
+      expenseId: expense.id,
+      paymentMethodId: null,
+      now: augustNow,
+    })
+    expect(backToCash.paymentMethodId).toBeNull()
+    expect(backToCash.currency).toBe('USD')
   })
 
   it('updates each field independently and leaves the rest unchanged', async () => {

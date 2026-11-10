@@ -59,4 +59,28 @@ describe('MonthPager', () => {
       new Date(now.getFullYear(), now.getMonth(), 1),
     )
   })
+
+  it('reaches exactly maxMonthsAhead months past the current one', () => {
+    const now = new Date()
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    const { rerender } = render(
+      <MonthPager
+        viewedMonth={now}
+        onViewedMonthChange={vi.fn()}
+        maxMonthsAhead={1}
+      />,
+    )
+    expect(
+      screen.getByRole('button', { name: 'Mes siguiente' }),
+    ).not.toBeDisabled()
+
+    rerender(
+      <MonthPager
+        viewedMonth={nextMonth}
+        onViewedMonthChange={vi.fn()}
+        maxMonthsAhead={1}
+      />,
+    )
+    expect(screen.getByRole('button', { name: 'Mes siguiente' })).toBeDisabled()
+  })
 })

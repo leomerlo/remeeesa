@@ -1,13 +1,21 @@
 import type { ReactElement } from 'react'
+import { formatCompactCurrency } from '@/lib/expenses'
 import type { CategorySummary } from '@/lib/expenses'
 
 export type CategoryDonutProps = {
   readonly summary: readonly CategorySummary[]
+  // The figure for the hole. Omitted leaves the hole empty, which is what
+  // the places that already print the total right beside the ring want.
+  readonly total?: number
 }
 
 // Geometry in the SVG's own user units; the element is scaled by CSS.
 const SIZE = 120
-const STROKE = 18
+// A thick ring, not a thin one: at 18 the arcs read as lines drawn around a
+// large hole, and the small slices of a month with many categories almost
+// disappeared. At 26 each slice is a band with enough body to be told apart
+// at a glance, which is the only thing this graphic is for.
+const STROKE = 26
 const RADIUS = (SIZE - STROKE) / 2
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 
@@ -20,9 +28,11 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 // in the list beside it, so the graphic is aria-hidden rather than repeating
 // all of it to a screen reader as a meaningless blob of numbers.
 //
-// Nothing is printed in the hole. A month's total in pesos runs to
-// "$250.000,00", which overflows a 90px hole and collides with the ring, so
-// the total belongs in the section heading where it has room.
+// The month's total sits in the hole, which is what the ring is a breakdown
+// *of* -- without it the graphic is shares of an amount stated nowhere near
+// it. Full precision does not fit ("$1.883.200,50" collides with the ring at
+// any size this is rendered), so the hole carries a rounded figure and the
+// exact one stays in the rows underneath.
 type Arc = {
   readonly categoryId: string
   readonly color: string
@@ -48,14 +58,17 @@ function arcsFor(summary: readonly CategorySummary[]): readonly Arc[] {
   return arcs
 }
 
-export function CategoryDonut({ summary }: CategoryDonutProps): ReactElement {
+export function CategoryDonut({
+  summary,
+  total,
+}: CategoryDonutProps): ReactElement {
   const arcs = arcsFor(summary)
 
   return (
     <div className="relative shrink-0">
       <svg
         viewBox={`0 0 ${String(SIZE)} ${String(SIZE)}`}
-        className="size-32 -rotate-90"
+        className="size-36 -rotate-90"
         aria-hidden="true"
         focusable="false"
       >
@@ -81,6 +94,24 @@ export function CategoryDonut({ summary }: CategoryDonutProps): ReactElement {
           />
         ))}
       </svg>
+      {total === undefined ? null : (
+        // Outside the SVG and un-rotated: the ring is drawn rotated -90deg
+        // so it starts at twelve o'clock, and text inside it would be
+        // rotated with it.
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 flex flex-col items-center justify-center gap-0.5"
+        >
+          {/* text-xs, not an arbitrary 10px: nothing in this app renders
+              below 14px, decorative or not (see a11y/tokens.test). */}
+          <span className="text-muted-foreground text-xs font-bold tracking-wide uppercase">
+            Total
+          </span>
+          <span className="money text-foreground text-base">
+            {formatCompactCurrency(total)}
+          </span>
+        </div>
+      )}
     </div>
   )
 }

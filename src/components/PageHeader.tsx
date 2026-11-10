@@ -44,9 +44,12 @@ export function PageHeader({
       <h1
         ref={headingRef}
         tabIndex={-1}
-        // A page title on a monitor can afford a step up from the 20px it
-        // takes on a phone. Per direct feedback.
-        className="flex items-center gap-2 text-title font-semibold outline-none lg:text-2xl"
+        // The top of the app's type hierarchy, and it has to look it: the
+        // screen's name sits above the month, which sits above the group
+        // labels inside it. At text-title it was *smaller* than the month
+        // pager under it, so the page read as if the month were its
+        // subject. Per direct feedback.
+        className="flex items-center gap-2 text-2xl font-extrabold outline-none lg:text-3xl"
       >
         {withHouseIcon ? (
           <Home className="text-primary size-5 shrink-0" aria-hidden="true" />

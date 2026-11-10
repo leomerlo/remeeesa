@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { ReactElement } from 'react'
 import { Home } from 'lucide-react'
 import { Logo } from '@/components/Logo'
+import { AddGastoSheet } from '@/features/expenses'
 import { householdQueryKey } from '@/features/household'
 import { useFirebase } from '@/lib/firebaseContext'
 import { createFirestoreHouseholdsDb, getHousehold } from '@/lib/households'
@@ -33,6 +34,7 @@ export function AppHeader({
   householdsDb,
 }: AppHeaderProps): ReactElement | null {
   const firebase = useFirebase()
+  const [isAddGastoOpen, setIsAddGastoOpen] = useState(false)
   const membership = useCurrentMembership({ currentUserId, householdsDb })
   const db = useMemo(
     () => householdsDb ?? createFirestoreHouseholdsDb(firebase.db),
@@ -61,11 +63,37 @@ export function AppHeader({
       <Logo className="h-5 shrink-0 lg:hidden" />
       {/* Smaller than a page title on purpose: it shares a line with the
           wordmark on a phone, and it is a label for where you are rather
-          than a heading for what you are reading. */}
+          than a heading for what you are reading.
+
+          No flex-1: growing to fill the row left it sitting hard against
+          the wordmark, reading as part of it. Sized to its own content, the
+          header's justify-between pushes it to the opposite edge, which is
+          where a label for "where you are" belongs. min-w-0 stays so a long
+          household name still truncates instead of pushing the row wide.
+          Per direct feedback. */}
       <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-foreground lg:text-base">
         <Home className="size-4 shrink-0" aria-hidden="true" />
         <span className="truncate">{householdQuery.data?.name ?? 'Hogar'}</span>
       </span>
+      {/* One add button in the app, in one place per form factor: up here
+          beside the sidebar, and down in the bar's own raised button on a
+          phone, where the thumb is (see AppShell). The header on a phone is
+          only the wordmark and the household's name. Per direct feedback.
+
+          It used to be desktop-only, so Histórico and Servicios each
+          carried their own -- two buttons a screen apart opening the same
+          form; a servicio is just a gasto with "se repite" ticked. */}
+      <div className="hidden shrink-0 lg:block">
+        <AddGastoSheet
+          open={isAddGastoOpen}
+          onOpenChange={setIsAddGastoOpen}
+
+          db={db}
+          householdId={membership.householdId}
+          memberId={membership.userId}
+          authorDisplayName={membership.displayName}
+        />
+      </div>
     </header>
   )
 }

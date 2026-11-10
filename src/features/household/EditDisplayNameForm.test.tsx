@@ -68,7 +68,12 @@ describe('EditDisplayNameForm', () => {
           userId="user-1"
           currentDisplayName="Miembro"
         />
-        <MemberList db={db} householdId={householdId} currentUserId="user-1" />
+        <MemberList
+          db={db}
+          householdId={householdId}
+          currentUserId="user-1"
+          currentDisplayName="Miembro"
+        />
       </>,
     )
 

@@ -17,24 +17,43 @@ export {
   deleteCategory,
   mergeCategories,
   renameCategory,
+  updateCategoryBudget,
   updateCategoryColor,
 } from './categoryManagement'
 export { CATEGORY_COLOR_PALETTE } from './categoryColor'
 export {
+  computeMonthTotalIn,
   computePendingCommitted,
   computePercentUsed,
   computeRemainingBudget,
   computeSpentThisMonth,
   currentMonthRange,
   formatBudgetAmount,
+  formatAmount,
+  formatCompactCurrency,
   formatCurrency,
   isDateInCurrentMonth,
 } from './remainingBudget'
-export { BUDGET_CALM, BUDGET_SPENT, budgetColor } from './budgetHeat'
+export {
+  BUDGET_SPENT_AT,
+  BUDGET_TIGHT_AT,
+  budgetTone,
+  budgetToneClass,
+  budgetToneLabel,
+} from './budgetHeat'
+export type { BudgetTone } from './budgetHeat'
 export { lastNMonthRanges, MONTHLY_TOTALS_MONTH_COUNT } from './monthlyTotals'
 export type { MonthRange } from './monthlyTotals'
-export { summarizeByCategory } from './summaries'
-export type { CategorySummary } from './summaries'
+export { computeSpendToDate } from './spendToDate'
+export type { SpendToDate } from './spendToDate'
+export { summarizeByCategory, summarizeTarjeta } from './summaries'
+export {
+  categoryBudgetRows,
+  categoryBudgetsOverspill,
+  totalCategoryBudgets,
+} from './categoryBudgets'
+export type { CategoryBudgetRow } from './categoryBudgets'
+export type { CategorySummary, TarjetaLine } from './summaries'
 export { isServicio } from './servicio'
 export {
   categoryDocumentId,
@@ -60,3 +79,5 @@ export type { ExpenseHistoryCursor, ExpenseHistoryPage } from './history'
 export { csvFileNameForMonth, expensesToCsv } from './exportCsv'
 export type { ExportableExpense } from './exportCsv'
 export { listAllExpenses } from './expenses'
+export { buildProjection } from './projection'
+export type { ProjectionRow } from './projection'

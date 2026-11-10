@@ -58,6 +58,9 @@ function fixtureExpenses(count: number) {
     expenseDate: new Date(base - index * 1000),
     pendienteId: null,
     isService: false,
+    subcategory: null,
+    currency: 'ARS' as const,
+    paymentMethodId: null,
     createdAt: new Date(base - index * 1000),
   }))
 }

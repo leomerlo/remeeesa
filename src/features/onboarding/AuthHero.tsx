@@ -13,10 +13,9 @@ export function AuthHero(): ReactElement {
   return (
     <div className="bg-primary flex w-full flex-col items-center gap-3 rounded-3xl p-8">
       <OnboardingIllustration className="h-24 w-32" />
-      <Logo
-        variant="light"
-        className="h-7 drop-shadow-[0_1px_3px_rgba(0,0,0,0.35)]"
-      />
+      {/* No drop-shadow: nothing in this app casts one. The light wordmark
+          carries itself on the dark card without it. */}
+      <Logo variant="light" className="h-7" />
     </div>
   )
 }

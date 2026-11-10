@@ -19,6 +19,7 @@ import {
   markPendientePaid,
 } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
+import { cardsDueNextMonth, createCard, listResumenCuotas } from '@/lib/cards'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { AddPendienteForm } from './AddPendienteForm'
@@ -481,7 +482,7 @@ describe('AddPendienteForm', () => {
     submitPendiente()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'No se pudo guardar la categoría. Volvé a intentar.',
+      /No se pudo guardar\ la\ categoría\. La base rechazó el permiso/,
     )
   })
 
@@ -522,7 +523,7 @@ describe('AddPendienteForm', () => {
     submitPendiente()
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'No se pudo agregar el pendiente. Volvé a intentar.',
+      /No se pudo agregar\ el\ pendiente\. La base rechazó el permiso/,
     )
   })
 
@@ -556,7 +557,7 @@ describe('AddPendienteForm', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Agregar Servicio' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'No se pudo cargar las categorías. Volvé a intentar.',
+      /No se pudo cargar\ las\ categorías\. La base rechazó el permiso/,
     )
   })
 })
@@ -581,6 +582,8 @@ function EditPendienteHarness(props: {
         }}
       />
       <PendientesList
+        memberId="user-1"
+        authorDisplayName="Ada"
         db={props.db}
         householdId={props.householdId}
         onEditPendiente={(pendiente, categoryName) => {
@@ -788,7 +791,79 @@ describe('EditPendienteFlow', () => {
     expect(await listPendientes({ db, householdId })).toHaveLength(1)
   })
 
-  it('discards edits and leaves the pendiente unchanged via "Cancelar edición"', async () => {
+  // Paying the Luz with the Visa: the money does not leave this month, it
+  // goes onto the card and arrives in that card's resumen. Per direct
+  // feedback -- until this, the pay flow could only ever spend now.
+  it('pays a bill with a credit card, booking it into next month instead of spending now', async () => {
+    const { db, householdId } = await seedPendingPendiente({
+      name: 'Luz',
+      expectedAmount: 36800,
+    })
+    await createCard({
+      db,
+      householdId,
+      name: 'Visa Flor',
+      kind: 'credito',
+      currency: 'ARS',
+      brand: 'visa',
+    })
+
+    renderWithProviders(
+      <EditPendienteHarness db={db} householdId={householdId} />,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Editar Luz' }))
+    fireEvent.click(screen.getByLabelText('Ya lo pagué'))
+    fireEvent.change(await screen.findByLabelText('Pagado con'), {
+      target: {
+        value: (await db.listCards({ householdId }))[0]?.id ?? '',
+      },
+    })
+    expect(
+      screen.getByText(/va al resumen de Visa Flor del mes que viene/i),
+    ).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Guardar y marcar pagado' }),
+    )
+
+    // Gone from the bills still to pay -- the only pending Pendiente left
+    // is the card's own resumen, which this payment created.
+    await waitFor(async () => {
+      const pending = await listPendientes({ db, householdId })
+      expect(pending.map((candidate) => candidate.name)).toEqual(['Visa Flor'])
+    })
+    // Nothing spent this month...
+    expect(
+      await listExpensesInMonth({
+        db,
+        householdId,
+        monthStart: new Date(2026, 8, 1),
+        monthEnd: new Date(2026, 9, 1),
+      }),
+    ).toEqual([])
+    // ...and the bill is sitting in next month's resumen as a consumo.
+    const [resumen] = cardsDueNextMonth(
+      await db.listPendientes({ householdId }),
+      new Date(),
+    )
+    if (resumen === undefined) {
+      throw new Error('expected a Resumen due next month')
+    }
+    expect(resumen.estimatedAmount).toBe(36800)
+    expect(
+      (await listResumenCuotas({ db, householdId, resumen })).map(
+        ({ purchase }) => purchase.name,
+      ),
+    ).toEqual(['Luz'])
+  })
+
+  // The footer used to carry "Cancelar edición" beside Guardar. It was a
+  // second way out of a screen the sheet's own header already closes, and
+  // it is gone -- per direct feedback. Dismissing without saving is
+  // covered where the sheet actually is (AddExpenseSheet, PendientesPage);
+  // what this holds is that the footer offers nothing but the two actions
+  // that change something, and that an unsaved edit changes nothing.
+  it('offers only saving and deleting, and writes nothing until one is pressed', async () => {
     const { db, householdId } = await seedPendingPendiente({ name: 'Alquiler' })
 
     renderWithProviders(
@@ -801,14 +876,19 @@ describe('EditPendienteFlow', () => {
     fireEvent.change(screen.getByLabelText('Nombre'), {
       target: { value: 'Cambio descartado' },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Cancelar edición' }))
 
     expect(
-      screen.queryByRole('button', { name: 'Guardar cambios' }),
+      screen.queryByRole('button', { name: 'Cancelar edición' }),
     ).not.toBeInTheDocument()
-    expect(screen.getByText('Alquiler')).toBeInTheDocument()
-    const listed = await listPendientes({ db, householdId })
-    expect(listed).toEqual([expect.objectContaining({ name: 'Alquiler' })])
+    expect(
+      screen.getByRole('button', { name: 'Guardar cambios' }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Eliminar servicio' }),
+    ).toBeInTheDocument()
+    expect(await listPendientes({ db, householdId })).toEqual([
+      expect.objectContaining({ name: 'Alquiler' }),
+    ])
   })
 
   it('closes the edit form with no alert when the pendiente was deleted elsewhere before saving', async () => {
@@ -879,9 +959,15 @@ describe('EditPendienteFlow', () => {
       ).not.toBeInTheDocument()
     })
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    // The row stays -- a servicio is filed under the month it was due, so
+    // being paid turns it into a settled row rather than removing it from
+    // the month -- but it no longer offers to be paid, and the edit that
+    // lost the race was not saved over it.
+    expect(await screen.findByText('Alquiler')).toBeInTheDocument()
+    expect(screen.queryByText('Stale edit')).not.toBeInTheDocument()
     expect(
-      await screen.findByText('Ningún servicio este mes'),
-    ).toBeInTheDocument()
+      screen.queryByRole('button', { name: 'Marcar pagado Alquiler' }),
+    ).not.toBeInTheDocument()
   })
 
   it('closes the confirmation with no persistent error when deleting a pendiente already deleted elsewhere', async () => {

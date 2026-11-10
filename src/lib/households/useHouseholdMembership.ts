@@ -21,9 +21,9 @@ export function useHouseholdMembership(input: {
 }): UseHouseholdMembershipResult {
   const { currentUserId: currentUserIdProp, householdsDb } = input
   const firebase = useFirebase()
-  const [sessionUserId, setSessionUserId] = useState<
-    string | null | undefined
-  >(undefined)
+  const [sessionUserId, setSessionUserId] = useState<string | null | undefined>(
+    undefined,
+  )
   const currentUserId =
     currentUserIdProp !== undefined ? currentUserIdProp : sessionUserId
   const db = useMemo(

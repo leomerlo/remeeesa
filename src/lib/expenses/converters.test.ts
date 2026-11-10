@@ -25,8 +25,41 @@ describe('parseCategoryDocument', () => {
       householdId: 'h1',
       name: 'Comida',
       color: '#7b5cfa',
+      // No stored ceiling: every category written before they existed reads
+      // as "sin tope" rather than failing to parse.
+      monthlyBudget: 0,
       createdAt: new Date('2026-01-15T12:00:00.000Z'),
     })
+  })
+
+  it('reads a stored category ceiling', () => {
+    expect(
+      parseCategoryDocument({
+        id: 'c1',
+        data: {
+          household_id: 'h1',
+          name: 'Comida',
+          color: '#7b5cfa',
+          monthly_budget: 40000,
+          created_at: new Date('2026-01-15T12:00:00.000Z'),
+        },
+      }).monthlyBudget,
+    ).toBe(40000)
+  })
+
+  it('refuses a negative category ceiling', () => {
+    expect(() =>
+      parseCategoryDocument({
+        id: 'c1',
+        data: {
+          household_id: 'h1',
+          name: 'Comida',
+          color: '#7b5cfa',
+          monthly_budget: -1,
+          created_at: new Date('2026-01-15T12:00:00.000Z'),
+        },
+      }),
+    ).toThrow('El presupuesto de la categoría no puede ser negativo')
   })
 
   it('reads a Firestore Timestamp via toDate', () => {
@@ -148,10 +181,34 @@ describe('parseExpenseDocument', () => {
       price: 10.5,
       comments: 'Friday',
       expenseDate: new Date('2026-08-15T00:00:00.000Z'),
+      paymentMethodId: null,
       pendienteId: null,
       isService: false,
+      subcategory: null,
+      currency: 'ARS',
       createdAt: new Date('2026-08-16T12:00:00.000Z'),
     })
+  })
+
+  it("reads a card cuota expense's subcategory and a negative ajuste price", () => {
+    const expense = parseExpenseDocument({
+      id: 'e1',
+      data: {
+        household_id: 'h1',
+        category_id: 'tarjeta',
+        member_id: 'user-1',
+        author_display_name: 'Ada',
+        name: 'Visa — ajuste',
+        price: -10.5,
+        comments: '',
+        expense_date: new Date('2026-08-15T00:00:00.000Z'),
+        pendiente_id: 'card-1_2026-08',
+        subcategory: 'Comida',
+        created_at: new Date('2026-08-16T12:00:00.000Z'),
+      },
+    })
+    expect(expense.price).toBe(-10.5)
+    expect(expense.subcategory).toBe('Comida')
   })
 
   it('defaults pendienteId to null when pendiente_id is missing, e.g. an Expense doc written before the field existed', () => {
@@ -220,12 +277,14 @@ describe('toDocument converters', () => {
         householdId: 'h1',
         name: 'Comida',
         color: '#7b5cfa',
+        monthlyBudget: 40000,
         createdAt,
       }),
     ).toEqual({
       household_id: 'h1',
       name: 'Comida',
       color: '#7b5cfa',
+      monthly_budget: 40000,
       created_at: createdAt,
     })
   })
@@ -243,8 +302,10 @@ describe('toDocument converters', () => {
         price: 10.5,
         comments: 'Friday',
         expenseDate,
+        paymentMethodId: null,
         pendienteId: null,
         isService: false,
+        subcategory: null,
         createdAt,
       }),
     ).toEqual({
@@ -256,8 +317,11 @@ describe('toDocument converters', () => {
       price: 10.5,
       comments: 'Friday',
       expense_date: expenseDate,
+      payment_method_id: null,
       pendiente_id: null,
       is_service: false,
+      subcategory: null,
+      currency: 'ARS',
       created_at: createdAt,
     })
   })

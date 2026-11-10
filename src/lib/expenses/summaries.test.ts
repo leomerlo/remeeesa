@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { colorForCategoryName } from './categoryColor'
-import { summarizeByCategory } from './summaries'
+import { summarizeByCategory, summarizeTarjeta } from './summaries'
 import type { Category, Expense } from './types'
 
 function makeExpense(overrides: Partial<Expense> = {}): Expense {
@@ -16,6 +16,9 @@ function makeExpense(overrides: Partial<Expense> = {}): Expense {
     expenseDate: new Date(2026, 7, 15),
     pendienteId: null,
     isService: false,
+    subcategory: null,
+    currency: 'ARS' as const,
+    paymentMethodId: null,
     createdAt: new Date(2026, 7, 15),
     ...overrides,
   }
@@ -27,6 +30,7 @@ function makeCategory(overrides: Partial<Category> = {}): Category {
     householdId: 'hh-1',
     name: 'Comida',
     color: '#7b5cfa',
+    monthlyBudget: 0,
     createdAt: new Date(2026, 0, 1),
     ...overrides,
   }
@@ -57,6 +61,7 @@ describe('summarizeByCategory', () => {
         name: 'Comida',
         color: comida.color,
         total: 25,
+        totalUsd: 0,
         share: 25 / 33,
       },
       {
@@ -64,6 +69,7 @@ describe('summarizeByCategory', () => {
         name: 'Transporte',
         color: transporte.color,
         total: 8,
+        totalUsd: 0,
         share: 8 / 33,
       },
     ])
@@ -124,6 +130,7 @@ describe('summarizeByCategory', () => {
         name: 'Categoría desconocida',
         color: colorForCategoryName('Categoría desconocida'),
         total: 12,
+        totalUsd: 0,
         share: 1,
       },
     ])
@@ -149,6 +156,7 @@ describe('summarizeByCategory', () => {
         name: 'Comida',
         color: comida.color,
         total: 15.5,
+        totalUsd: 0,
         share: 1,
       },
     ])
@@ -176,6 +184,7 @@ describe('summarizeByCategory with pendientes', () => {
         name: 'Comida',
         color: comida.color,
         total: 100,
+        totalUsd: 0,
         share: 1,
       },
     ])
@@ -196,6 +205,7 @@ describe('summarizeByCategory with pendientes', () => {
         name: 'Servicios',
         color: servicios.color,
         total: 500,
+        totalUsd: 0,
         share: 1,
       },
     ])
@@ -278,5 +288,223 @@ describe('summarizeByCategory share', () => {
 
     expect(summary).toEqual([])
     expect(summary.some((entry) => Number.isNaN(entry.share))).toBe(false)
+  })
+})
+
+// Dollars are kept apart, never converted and never dropped: a household
+// that spent US$45 on hosting should see that said next to what it spent
+// in pesos. Per direct feedback.
+it('counts dollars in their own total, beside the pesos', () => {
+  const summary = summarizeByCategory({
+    expenses: [
+      makeExpense({ categoryId: 'cat-1', price: 100 }),
+      makeExpense({
+        categoryId: 'cat-1',
+        price: 45,
+        currency: 'USD' as const,
+      }),
+    ],
+    categories: [makeCategory({ id: 'cat-1', name: 'Servicios' })],
+    pendientes: [
+      { categoryId: 'cat-1', expectedAmount: 20, currency: 'USD' as const },
+    ],
+  })
+
+  expect(summary).toEqual([
+    expect.objectContaining({ total: 100, totalUsd: 65, share: 1 }),
+  ])
+})
+
+it('lists a category that only ever saw dollars, with no share of the pesos', () => {
+  const summary = summarizeByCategory({
+    expenses: [
+      makeExpense({ categoryId: 'cat-1', price: 100 }),
+      makeExpense({
+        categoryId: 'cat-2',
+        price: 30,
+        currency: 'USD' as const,
+      }),
+    ],
+    categories: [
+      makeCategory({ id: 'cat-1', name: 'Comida' }),
+      makeCategory({ id: 'cat-2', name: 'Viajes' }),
+    ],
+  })
+
+  expect(
+    summary.map((entry) => [entry.name, entry.total, entry.totalUsd]),
+  ).toEqual([
+    ['Comida', 100, 0],
+    ['Viajes', 0, 30],
+  ])
+  // It took nothing out of the budget the donut divides up.
+  expect(summary[1]?.share).toBe(0)
+})
+
+describe('summarizeTarjeta', () => {
+  it('sums cuotas by subcategory, largest first, then a negative ajuste and the unpaid Resúmenes, ignoring other categories', () => {
+    const tarjeta = (overrides: Partial<Expense>) =>
+      makeExpense({ categoryId: 'cat-tarjeta', ...overrides })
+
+    const lines = summarizeTarjeta({
+      categoryId: 'cat-tarjeta',
+      expenses: [
+        tarjeta({ subcategory: 'Ropa', price: 20 }),
+        tarjeta({ subcategory: 'Comida', price: 30 }),
+        tarjeta({ subcategory: 'Ropa', price: 25 }),
+        tarjeta({ subcategory: null, price: -5 }),
+        makeExpense({ categoryId: 'cat-comida', price: 99 }),
+      ],
+      pendientes: [
+        { categoryId: 'cat-tarjeta', expectedAmount: 40 },
+        { categoryId: 'cat-tarjeta', expectedAmount: 2 },
+        { categoryId: 'cat-tarjeta', expectedAmount: null },
+        { categoryId: 'cat-servicios', expectedAmount: 500 },
+      ],
+    })
+
+    expect(lines).toEqual([
+      { name: 'Ropa', total: 45, kind: 'pagado' },
+      { name: 'Comida', total: 30, kind: 'pagado' },
+      { name: 'Ajuste', total: -5, kind: 'pagado' },
+      { name: 'Resumen', total: 42, kind: 'sinPagar' },
+    ])
+  })
+
+  // The third kind, and the one the whole split exists for: a Resumen whose
+  // statement has not arrived is the household's own running record, not a
+  // debt. It is listed, said to be an estimate, and left out of the total
+  // the other lines add up to. Per direct feedback.
+  it('lists a Resumen with no statement yet as an estimate, outside the slice', () => {
+    const expenses = [
+      makeExpense({
+        categoryId: 'cat-tarjeta',
+        subcategory: 'Ropa',
+        price: 45,
+      }),
+    ]
+    const pendientes = [
+      { categoryId: 'cat-tarjeta', expectedAmount: 40 },
+      { categoryId: 'cat-tarjeta', expectedAmount: null, estimatedAmount: 300 },
+    ]
+
+    const lines = summarizeTarjeta({
+      categoryId: 'cat-tarjeta',
+      expenses,
+      pendientes,
+    })
+    expect(lines).toEqual([
+      { name: 'Ropa', total: 45, kind: 'pagado' },
+      { name: 'Resumen', total: 40, kind: 'sinPagar' },
+      { name: 'Consumos cargados', total: 300, kind: 'estimado' },
+    ])
+
+    // Only the counted kinds add up to the slice.
+    const slice = summarizeByCategory({
+      expenses,
+      categories: [makeCategory({ id: 'cat-tarjeta', name: 'Tarjeta' })],
+      pendientes,
+    }).find((entry) => entry.categoryId === 'cat-tarjeta')
+    expect(
+      lines
+        .filter((line) => line.kind !== 'estimado')
+        .reduce((sum, line) => sum + line.total, 0),
+    ).toBe(slice?.total)
+  })
+
+  it('leaves out Ajuste and the bill lines when there is neither', () => {
+    expect(
+      summarizeTarjeta({
+        categoryId: 'cat-tarjeta',
+        expenses: [
+          makeExpense({ categoryId: 'cat-tarjeta', subcategory: 'Ropa' }),
+        ],
+        pendientes: [],
+      }),
+    ).toEqual([{ name: 'Ropa', total: 10, kind: 'pagado' }])
+  })
+
+  it('adds up to the Tarjeta slice of summarizeByCategory given the same input', () => {
+    const expenses = [
+      makeExpense({
+        categoryId: 'cat-tarjeta',
+        subcategory: 'Ropa',
+        currency: 'ARS' as const,
+        paymentMethodId: null,
+        price: 30,
+      }),
+      makeExpense({
+        categoryId: 'cat-tarjeta',
+        subcategory: null,
+        currency: 'ARS' as const,
+        paymentMethodId: null,
+        price: -4.5,
+      }),
+      makeExpense({ categoryId: 'cat-comida', price: 99 }),
+    ]
+    const pendientes = [
+      { categoryId: 'cat-tarjeta', expectedAmount: 12.25 },
+      { categoryId: 'cat-tarjeta', expectedAmount: null },
+      { categoryId: 'cat-comida', expectedAmount: 7 },
+    ]
+
+    const slice = summarizeByCategory({
+      expenses,
+      categories: [
+        makeCategory({ id: 'cat-tarjeta', name: 'Tarjeta' }),
+        makeCategory({ id: 'cat-comida', name: 'Comida' }),
+      ],
+      pendientes,
+    }).find((entry) => entry.categoryId === 'cat-tarjeta')
+    const lines = summarizeTarjeta({
+      categoryId: 'cat-tarjeta',
+      expenses,
+      pendientes,
+    })
+
+    expect(lines.reduce((sum, line) => sum + line.total, 0)).toBe(slice?.total)
+  })
+
+  // A card billed in both currencies settles each as its own Resumen, so a
+  // month can carry a pending dollar one. summarizeByCategory leaves it out
+  // of the peso slice; these lines have to leave it out too, or the
+  // breakdown of the slice adds up to more than the slice it breaks down.
+  it('leaves a dollar Resumen out of the bill line, the same as the slice does', () => {
+    const expenses = [
+      makeExpense({
+        categoryId: 'cat-tarjeta',
+        subcategory: 'Ropa',
+        currency: 'ARS' as const,
+        paymentMethodId: null,
+        price: 30,
+      }),
+    ]
+    const pendientes = [
+      {
+        categoryId: 'cat-tarjeta',
+        expectedAmount: 12,
+        currency: 'ARS' as const,
+        paymentMethodId: null,
+      },
+      {
+        categoryId: 'cat-tarjeta',
+        expectedAmount: 500,
+        currency: 'USD' as const,
+      },
+    ]
+
+    const slice = summarizeByCategory({
+      expenses,
+      categories: [makeCategory({ id: 'cat-tarjeta', name: 'Tarjeta' })],
+      pendientes,
+    }).find((entry) => entry.categoryId === 'cat-tarjeta')
+    const lines = summarizeTarjeta({
+      categoryId: 'cat-tarjeta',
+      expenses,
+      pendientes,
+    })
+
+    expect(lines.find((line) => line.name === 'Resumen')?.total).toBe(12)
+    expect(lines.reduce((sum, line) => sum + line.total, 0)).toBe(slice?.total)
   })
 })

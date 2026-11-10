@@ -1,8 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
+import { Illustration } from '@/components/Illustration'
+import { ILLUSTRATIONS } from '@/components/illustrations'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
+  formatAmount,
+  computeMonthTotalIn,
   computePendingCommitted,
   computeSpentThisMonth,
   currentMonthRange,
@@ -84,7 +88,7 @@ export function SpentThisMonthDisplay({
       <div
         role="status"
         aria-label="Cargando…"
-        className="bg-card flex w-full flex-col gap-2 rounded-3xl p-6"
+        className="bg-card card-surface flex w-full flex-col gap-2 rounded-3xl p-6 lg:flex-[2]"
       >
         <span className="sr-only">Cargando…</span>
         <Skeleton className="h-4 w-36" />
@@ -94,27 +98,75 @@ export function SpentThisMonthDisplay({
   }
 
   const spent = computeSpentThisMonth(expenses)
-  const pendingCommitted = computePendingCommitted(
-    pendientesDueInMonth(pending, monthStart, monthEnd),
-  )
+  const dueThisMonth = pendientesDueInMonth(pending, monthStart, monthEnd)
+  const pendingCommitted = computePendingCommitted(dueThisMonth)
   const formattedSpent = formatCurrency(spent + pendingCommitted)
+  // What the same month came to in dollars. Never added into the figure
+  // above -- the budget is a number of pesos -- but said out loud beside
+  // it, because leaving it out of every total is not the same as hiding
+  // it. Per direct feedback.
+  const usedUsd = computeMonthTotalIn({
+    expenses,
+    pendientes: dueThisMonth,
+    currency: 'USD',
+  })
+
+  // A month with nothing in it yet gets its own card rather than the real
+  // one with a zero in it: the figure is the whole point of this card, and
+  // "$0" flush left under a label is the one state where it says nothing.
+  // Centred, with the mascot and a line that explains the zero instead of
+  // leaving it to be read as an error. The card with real figures is
+  // untouched -- per direct feedback, only the zero changes.
+  if (spent + pendingCommitted === 0 && usedUsd === 0) {
+    return (
+      <div className="bg-card card-surface flex w-full flex-col items-center justify-center gap-4 rounded-3xl p-6 text-center lg:flex-[2]">
+        <span
+          aria-hidden="true"
+          className="bg-muted flex size-24 shrink-0 items-center justify-center rounded-full"
+        >
+          <Illustration src={ILLUSTRATIONS.celebrating} className="size-16" />
+        </span>
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-foreground text-body font-medium">En uso</span>
+          <p
+            role="status"
+            aria-label={`En uso ${formattedSpent}`}
+            className="text-foreground font-heading text-display tabular-money font-extrabold tracking-tight"
+          >
+            {formattedSpent}
+          </p>
+          <p className="text-muted-foreground max-w-xs text-sm">
+            Este mes todavía está limpio. Lo que carguen va saliendo de acá.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="bg-card flex w-full flex-col gap-2 rounded-3xl p-6">
+    <div className="bg-card card-surface flex w-full flex-col gap-2 rounded-3xl p-6 lg:flex-[2]">
       {/* No month label here -- MonthNavigator (Home's shared control above
           both cards) is the one place that says which month is being
           viewed now; repeating it on every card it renders was three
           copies of the same sentence. */}
-      <span className="text-foreground text-body font-medium">
-        Gastos de este mes
-      </span>
+      {/* "En uso", not "Gastado": the figure bundles what has actually
+          left the household with what is still owed this month, and calling
+          that "gastado" claimed more than it knew. Per direct feedback. */}
+      <span className="text-foreground text-body font-medium">En uso</span>
       <p
         role="status"
-        aria-label={`Gastos de este mes ${formattedSpent}`}
-        className="text-foreground font-display text-display tracking-tight"
+        aria-label={`En uso ${formattedSpent}`}
+        className="text-foreground font-heading text-display tabular-money font-extrabold tracking-tight"
       >
         {formattedSpent}
       </p>
+      {/* Its own line, in its own currency, directly under the peso figure
+          it is not part of. */}
+      {usedUsd === 0 ? null : (
+        <p className="text-muted-foreground money -mt-1 text-base">
+          y {formatAmount(usedUsd, 'USD')}
+        </p>
+      )}
       {/* Only shown once there's something to differentiate -- per direct
           feedback, this figure now bundles what's already paid with what's
           still owed, so the breakdown is what tells them apart.
@@ -140,7 +192,7 @@ export function SpentThisMonthDisplay({
                 aria-hidden="true"
                 className="bg-dot-paid size-2.5 shrink-0 rounded-full"
               />
-              Pagado
+              Pagaste
             </dt>
             <dd className="text-foreground shrink-0 font-semibold">
               {formatCurrency(spent)}
@@ -152,7 +204,7 @@ export function SpentThisMonthDisplay({
                 aria-hidden="true"
                 className="bg-dot-pending size-2.5 shrink-0 rounded-full"
               />
-              Pendiente
+              Pendiente de pago
             </dt>
             <dd className="text-foreground shrink-0 font-semibold">
               {formatCurrency(pendingCommitted)}

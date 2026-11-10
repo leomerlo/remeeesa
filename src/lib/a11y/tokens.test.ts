@@ -1,11 +1,12 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { BUDGET_CALM, BUDGET_SPENT } from '@/lib/expenses'
+import { budgetTone, budgetToneClass } from '@/lib/expenses'
 import { contrastRatio } from './contrast'
 
 // Guards the two accessibility rules this app committed to, per direct
-// feedback ("tamaño mínimo de tipografía 14px", "todo tiene que pasar
+// feedback ("tamaño mínimo de tipografía 14px", raised to 15 later when
+// the floor turned out to be carrying most of the page; "todo tiene que pasar
 // contrastes AA"). Both are properties of the token file and of how
 // components spend it, so both are checkable here rather than by eye on
 // every future change.
@@ -16,7 +17,7 @@ const css = readFileSync(join(process.cwd(), 'src/index.css'), 'utf8')
 
 const AA_TEXT = 4.5 // WCAG 1.4.3, normal-size text
 const AA_NON_TEXT = 3 // WCAG 1.4.11, UI components and meaningful graphics
-const MIN_FONT_PX = 14
+const MIN_FONT_PX = 15
 
 // The file declares the light theme at :root and the dark one inside a
 // [data-theme='dark'] block. Splitting on that block keeps a dark-only
@@ -81,6 +82,14 @@ describe('colour tokens meet WCAG AA', () => {
     // "Vencimientos que se acercan" is white on a flat fill of the danger
     // colour, and so is the budget card once the month is spent.
     ['due-soon text on its card', '--text-on-error', '--surface-due-soon'],
+    // The nav is its own dark surface at every width, so its text is read
+    // against that rather than against the page.
+    ['nav label on the nav', '--text-nav', '--surface-nav'],
+    [
+      'the current destination on the nav',
+      '--text-nav-active',
+      '--surface-nav',
+    ],
     ['error text on a card', '--text-error', '--surface-card'],
     [
       'destructive label on its button',
@@ -113,12 +122,36 @@ describe('colour tokens meet WCAG AA', () => {
     })
   }
 
+  // The four coloured cards are flat now, one colour each -- they used to
+  // be two-stop gradients and the check had to cover both ends, since a
+  // gradient is only as readable as its lightest point. Each kept that
+  // light stop, so these are the same numbers measured before.
+  const statCards = [
+    ['violeta (neutral)', '--stat-violet'],
+    ['celeste (ok)', '--stat-sky'],
+    ['fucsia (getting tight)', '--stat-pink'],
+    ['rojo (at the limit)', '--stat-red'],
+  ] as const
+
+  for (const [what, fill] of statCards) {
+    for (const [theme, read] of [
+      ['light', light],
+      ['dark', dark],
+    ] as const) {
+      it(`${theme}: white on the ${what} card`, () => {
+        expect(
+          contrastRatio(read('--text-on-stat'), read(fill)),
+        ).toBeGreaterThanOrEqual(AA_TEXT)
+      })
+    }
+  }
+
   const nonTextPairs = [
     ['input outline against a card', '--border-primary', '--surface-card'],
     ['input outline against the page', '--border-primary', '--surface-page'],
     ['focus ring against the page', '--border-focus', '--surface-page'],
     ['focus ring against a card', '--border-focus', '--surface-card'],
-    // The paid/pending dots under "Gastos de este mes" -- they are what tells
+    // The paid/pending dots under "Gastos del mes" -- they are what tells
     // the two figures apart at a glance, so they carry meaning.
     ['paid dot on a card', '--text-success', '--surface-card'],
     ['pending dot on a card', '--text-warning', '--surface-card'],
@@ -139,20 +172,35 @@ describe('colour tokens meet WCAG AA', () => {
 })
 
 describe('the budget card keeps its colours in step with the tokens', () => {
-  // The hero card computes its fill in TS (it interpolates toward the
-  // danger colour as the budget runs out), so both ends of that ramp are a
-  // second copy of a token value. This is what stops the copies drifting
-  // from the real ones.
-  it('starts from exactly the action token the rest of the app uses', () => {
-    expect(BUDGET_CALM).toBe(light('--surface-action'))
+  // The hero card picks its fill in TS, by name, so the names it picks are
+  // a second copy of something that lives in the stylesheet. This is what
+  // stops a renamed token leaving the card with no background at all --
+  // which would fail silently, since a missing utility renders as nothing
+  // rather than as an error.
+  it('only ever names fills the stylesheet actually declares', () => {
+    for (const percent of [0, 50, 75, 95, 140]) {
+      const [background] = budgetToneClass(budgetTone(percent)).split(' ')
+      const hue = background?.replace('bg-stat-', '')
+      expect(
+        declarations(lightSource).has(`--stat-${String(hue)}`),
+        `${String(background)} has no --stat-${String(hue)} token`,
+      ).toBe(true)
+    }
   })
 
-  it('lands on exactly the danger colour the due-soon card is filled with', () => {
-    expect(BUDGET_SPENT).toBe(light('--surface-due-soon'))
+  // Every colour the card can land on is one of the four that were checked
+  // for white at both stops above; this is what keeps the card inside that
+  // set rather than reaching for a fifth hue nobody measured.
+  it('only ever lands on one of the four measured cards', () => {
+    const measured = ['violet', 'sky', 'pink', 'red']
+    for (const percent of [0, 50, 75, 95, 140]) {
+      const [background] = budgetToneClass(budgetTone(percent)).split(' ')
+      expect(measured).toContain(background?.replace('bg-stat-', ''))
+    }
   })
 })
 
-describe('nothing renders below 14px', () => {
+describe('nothing renders below 15px', () => {
   const remToPx = (value: string): number | null => {
     const rem = /^([\d.]+)rem$/.exec(value.trim())
     if (rem !== null) {
@@ -162,7 +210,7 @@ describe('nothing renders below 14px', () => {
     return px === null ? null : Number(px[1])
   }
 
-  it('every font-size token in the scale is at least 14px', () => {
+  it('every font-size token in the scale is at least 15px', () => {
     const sizes = [...declarations(css).entries()].filter(
       ([name]) => /^--text-[a-z0-9-]+$/.test(name) && !name.endsWith('height'),
     )
@@ -178,7 +226,7 @@ describe('nothing renders below 14px', () => {
     }
   })
 
-  it('no component sets an arbitrary font size below 14px', () => {
+  it('no component sets an arbitrary font size below 15px', () => {
     // Tailwind's arbitrary-value syntax is the one way around the scale, so
     // it is checked against the source of every component rather than
     // against the token file.
@@ -203,5 +251,36 @@ describe('nothing renders below 14px', () => {
     }
     expect(Object.keys(sources).length).toBeGreaterThan(0)
     expect(offenders).toEqual([])
+  })
+})
+
+// Tailwind v4's preflight follows the native default and leaves a button
+// with `cursor: default`, so every button, tab, toggle and card in the app
+// pointed at nothing under a mouse. The app puts it back in one base rule;
+// this holds that rule in place, because the symptom is invisible in a
+// jsdom test and easy to lose in a refactor. Per direct feedback.
+describe('anything clickable says so under a cursor', () => {
+  const rule = css.slice(css.indexOf('@media (hover: hover)'))
+
+  it.each([
+    ['button:not(:disabled)'],
+    ['summary'],
+    ['select:not(:disabled)'],
+    ['a[href]'],
+    ["[role='button']:not([aria-disabled='true'])"],
+    ["[role='switch']:not(:disabled)"],
+    ["[role='option']"],
+    ["[role='tab']"],
+    // A toggle row's label flips the switch, so it points too. `~` because
+    // Radix puts a visually hidden checkbox between the two.
+    ["[role='switch'] ~ label"],
+  ])('covers %s', (selector) => {
+    expect(rule.slice(0, rule.indexOf('cursor: pointer'))).toContain(selector)
+  })
+
+  // Behind `hover: hover` on purpose: a phone has no cursor to change, and
+  // a hybrid device should not get one from its touchscreen half.
+  it('only applies where there is a real cursor', () => {
+    expect(css).toContain('@media (hover: hover)')
   })
 })

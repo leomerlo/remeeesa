@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { useState } from 'react'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import {
   createExpense,
@@ -10,10 +10,21 @@ import {
 import { createHouseholdWithMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
+import { MemoryRouter } from 'react-router-dom'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { AddExpenseSheet } from './AddExpenseSheet'
 import type { AddExpenseSheetProps } from './AddExpenseSheet'
 import type { EditExpenseTarget } from './AddExpenseForm'
+
+// The edit form links to Ajustes when the household has no payment method
+// written down, so it needs a router around it -- exactly as it has in the
+// app, where it only ever renders inside one.
+function renderInRouter(
+  ui: ReactNode,
+  options?: Parameters<typeof renderWithProviders>[1],
+): ReturnType<typeof renderWithProviders> {
+  return renderWithProviders(<MemoryRouter>{ui}</MemoryRouter>, options)
+}
 
 function AddExpenseSheetHarness(
   props: Omit<AddExpenseSheetProps, 'open' | 'onOpenChange'>,
@@ -78,7 +89,7 @@ describe('AddExpenseSheet', () => {
   it('renders only the trigger button when closed and not editing', async () => {
     const { db, householdId } = await seedHousehold()
 
-    renderWithProviders(
+    renderInRouter(
       <AddExpenseSheet
         open={false}
         onOpenChange={() => {}}
@@ -110,9 +121,11 @@ describe('AddExpenseSheet', () => {
       memberId: 'user-1',
       pendienteId: null,
       isService: false,
+      currency: 'ARS' as const,
+      paymentMethodId: null,
     }
 
-    renderWithProviders(
+    renderInRouter(
       <AddExpenseSheet
         open={false}
         onOpenChange={() => {}}
@@ -171,9 +184,11 @@ describe('AddExpenseSheet', () => {
       memberId: 'user-1',
       pendienteId: null,
       isService: false,
+      currency: 'ARS' as const,
+      paymentMethodId: null,
     }
 
-    renderWithProviders(
+    renderInRouter(
       <AddExpenseSheet
         open={false}
         onOpenChange={() => {}}
@@ -215,9 +230,11 @@ describe('AddExpenseSheet', () => {
       memberId: 'user-1',
       pendienteId: null,
       isService: false,
+      currency: 'ARS' as const,
+      paymentMethodId: null,
     }
 
-    renderWithProviders(
+    renderInRouter(
       <AddExpenseSheet
         open={false}
         onOpenChange={() => {}}
@@ -241,7 +258,7 @@ describe('AddExpenseSheet', () => {
   it('restores focus to the trigger button after the sheet closes', async () => {
     const { db, householdId } = await seedHousehold()
 
-    renderWithProviders(
+    renderInRouter(
       <AddExpenseSheetHarness
         db={db}
         householdId={householdId}
@@ -280,7 +297,7 @@ describe('AddExpenseSheet', () => {
       createExpense: async () => create.promise,
     }
 
-    renderWithProviders(
+    renderInRouter(
       <AddExpenseSheetHarness
         db={db}
         householdId={household.id}

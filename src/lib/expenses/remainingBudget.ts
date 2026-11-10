@@ -1,3 +1,5 @@
+import { countedByBudget, DEFAULT_CURRENCY } from '@/lib/money'
+import type { Currency } from '@/lib/money'
 // Argentine peso formatting: thousands separator "." and decimal "," (e.g.
 // $224.300,50) -- no built-in Intl currency style here, since 'ARS' inserts
 // a "$ " with a space that doesn't match how the app's own reference and
@@ -17,17 +19,66 @@ const ARS_WITH_CENTS = new Intl.NumberFormat('es-AR', {
   maximumFractionDigits: 2,
 })
 
+// Negative amounts keep their sign. They used to lose it: this took the
+// magnitude and never printed a minus, so the one expense in the app that
+// can be negative -- the "ajuste" written when a card Resumen is paid for
+// less than it said -- appeared in Histórico as a positive figure. The
+// month total above it subtracted the ajuste correctly, so the rows simply
+// did not add up to the total they were under. Found in the arithmetic
+// audit.
 export function formatCurrency(amount: number): string {
   const magnitude = Math.abs(amount)
   // Rounded to cents first: 0.005 formats as "0,01" with cents, so the
   // decision has to be made on the value that will actually be printed.
   const cents = Math.round(magnitude * 100) % 100
   const format = cents === 0 ? ARS_ROUND : ARS_WITH_CENTS
-  return `$${format.format(magnitude)}`
+  // Tested on the rounded value, so -0.001 is "$0" and not "-$0".
+  const sign = Math.round(amount * 100) < 0 ? '-' : ''
+  return `${sign}$${format.format(magnitude)}`
 }
 
+// The same figure, said in its own currency. Pesos keep the bare "$" the
+// whole app uses; dollars get "US$", which is how an Argentine reads the
+// difference at a glance -- "$" alone always means pesos here.
+export function formatAmount(amount: number, currency: Currency): string {
+  if (currency !== 'USD') {
+    return formatCurrency(amount)
+  }
+  // "US" goes in front of the "$", not in front of the minus: -US$120, not
+  // US-$120.
+  const formatted = formatCurrency(amount)
+  return formatted.startsWith('-')
+    ? `-US${formatted.slice(1)}`
+    : `US${formatted}`
+}
+
+// A money figure short enough to fit somewhere a full one cannot -- today,
+// the hole in the category donut. "$1.883.200,50" becomes "$1,88 M" and
+// "$883.200,50" becomes "$883 mil". Deliberately only used where the exact
+// figure is printed somewhere close by: this one is a label, not a number
+// anyone should do arithmetic with.
+export function formatCompactCurrency(amount: number): string {
+  const sign = amount < 0 ? '-' : ''
+  const magnitude = Math.abs(amount)
+  if (magnitude >= 1_000_000) {
+    const millions = magnitude / 1_000_000
+    // Two decimals below ten million, none above: "$12,34 M" is more digits
+    // than the hole of a donut can carry.
+    const digits = millions >= 10 ? 0 : 2
+    return `${sign}$${millions.toFixed(digits).replace('.', ',')} M`
+  }
+  if (magnitude >= 1000) {
+    return `${sign}$${String(Math.round(magnitude / 1000))} mil`
+  }
+  return `${sign}${formatCurrency(magnitude)}`
+}
+
+// Kept as its own name because it reads as what it is at the call sites
+// that use it (a budget figure, which is the one that routinely goes
+// negative), but it no longer adds anything: formatCurrency carries the
+// sign itself now, and prefixing a second one here produced "--$50".
 export function formatBudgetAmount(amount: number): string {
-  return amount < 0 ? `-${formatCurrency(amount)}` : formatCurrency(amount)
+  return formatCurrency(amount)
 }
 
 // The one summation every figure on the budget card is derived from: what
@@ -35,14 +86,21 @@ export function formatBudgetAmount(amount: number): string {
 // per figure so "spent" always means the same sum everywhere it appears --
 // the ascending "Gastado" card, the descending "Presupuesto restante" card,
 // and the progress bar's percentage all read from this same number.
+// Dollar amounts are left out, here and in every other figure the budget
+// drives: the budget is a number of pesos, and adding a dollar to it would
+// mean picking an exchange rate. See lib/money/currency.
 export function computeSpentThisMonth(
-  expenses: readonly { price: number }[],
+  expenses: readonly { price: number; currency: Currency }[],
 ): number {
-  let sum = 0
-  for (const expense of expenses) {
-    sum += expense.price
+  // Summed in cents, like computeMonthTotalIn and spendToDate: this
+  // figure is subtracted from the budget and compared against the same
+  // month added up elsewhere, and two sums of one month must not each
+  // carry their own floating-point drift.
+  let cents = 0
+  for (const expense of countedByBudget(expenses)) {
+    cents += Math.round(expense.price * 100)
   }
-  return sum
+  return cents / 100
 }
 
 // Every currently-pending Pendiente's own expected amount, summed -- money
@@ -53,21 +111,69 @@ export function computeSpentThisMonth(
 // Pendiente regardless of due date (an overdue bill from three months ago
 // stays actionable until paid), so "how much would paying everything owed
 // take out of this budget" reads the same full list.
+//
+// Dollar Pendientes -- the dollar Resumen of a card billed in both
+// currencies -- are left out, the same as every other dollar amount: this
+// is a number of pesos being taken off a budget of pesos. A Pendiente
+// written before a card could hold two currencies carries none, and was a
+// peso one.
 export function computePendingCommitted(
-  pendientes: readonly { expectedAmount: number | null }[],
+  pendientes: readonly {
+    expectedAmount: number | null
+    currency?: Currency
+  }[],
 ): number {
-  let sum = 0
-  for (const pendiente of pendientes) {
+  const counted = countedByBudget(
+    pendientes.map((pendiente) => ({
+      ...pendiente,
+      currency: pendiente.currency ?? DEFAULT_CURRENCY,
+    })),
+  )
+  let cents = 0
+  for (const pendiente of counted) {
     if (pendiente.expectedAmount !== null) {
-      sum += pendiente.expectedAmount
+      cents += Math.round(pendiente.expectedAmount * 100)
     }
   }
-  return sum
+  return cents / 100
+}
+
+// The month's total in one named currency: expenses plus the bills due in
+// it, which is exactly what "En uso" counts, asked about dollars instead of
+// pesos.
+//
+// The peso pair above (computeSpentThisMonth / computePendingCommitted) is
+// what the budget is made of and stays as it is. This exists because
+// leaving a dollar amount out of every total is not the same as hiding it:
+// per direct feedback the household wants to see what it spent in dollars
+// said out loud, beside the pesos, everywhere a total appears. The two are
+// never added together -- see lib/money/currency for why no rate is picked.
+export function computeMonthTotalIn(input: {
+  readonly expenses: readonly { price: number; currency: Currency }[]
+  readonly pendientes?: readonly {
+    readonly expectedAmount: number | null
+    readonly currency?: Currency
+  }[]
+  readonly currency: Currency
+}): number {
+  let cents = 0
+  for (const expense of input.expenses) {
+    if (expense.currency === input.currency) {
+      cents += Math.round(expense.price * 100)
+    }
+  }
+  for (const pendiente of input.pendientes ?? []) {
+    const currency = pendiente.currency ?? DEFAULT_CURRENCY
+    if (currency === input.currency && pendiente.expectedAmount !== null) {
+      cents += Math.round(pendiente.expectedAmount * 100)
+    }
+  }
+  return cents / 100
 }
 
 export function computeRemainingBudget(
   monthlyBudget: number,
-  expenses: readonly { price: number }[],
+  expenses: readonly { price: number; currency: Currency }[],
   // Per direct feedback: the budget is meant to cover every expense, paid
   // or not, so a Pendiente still owed has to count against what's "left"
   // the same as a paid one already does -- not just once it's paid.
@@ -78,14 +184,17 @@ export function computeRemainingBudget(
 
 // A 0 (or negative) monthlyBudget has nothing meaningful to divide by, so
 // it's treated as 0% used with no spend and 100% used the moment there is
-// any spend, rather than dividing by zero into NaN/Infinity. Any result is
-// clamped to [0, 100] and rounded to the nearest whole percent -- spending
-// past the budget reports 100%, not e.g. 150%, since a progress bar has
-// nowhere to put the overflow (computeRemainingBudget already surfaces the
-// exact over-budget amount as a negative remaining).
+// any spend, rather than dividing by zero into NaN/Infinity.
+//
+// Not capped at 100: a month that is over budget reports 128%, and the card
+// says so. It used to clamp, which meant a household $107.000 past its
+// budget read "100% usado" beside a negative figure -- the one moment the
+// number most needs to be blunt was the moment it stopped counting. The
+// progress *bar* still clamps, since it has nowhere to put the overflow;
+// that clamping belongs at the bar, not here. Per direct feedback.
 export function computePercentUsed(
   monthlyBudget: number,
-  expenses: readonly { price: number }[],
+  expenses: readonly { price: number; currency: Currency }[],
   pendingCommitted = 0,
 ): number {
   const spent = computeSpentThisMonth(expenses) + pendingCommitted
@@ -93,7 +202,7 @@ export function computePercentUsed(
     return spent > 0 ? 100 : 0
   }
   const percent = Math.round((spent / monthlyBudget) * 100)
-  return Math.min(100, Math.max(0, percent))
+  return Math.max(0, percent)
 }
 
 export function currentMonthRange(now: Date = new Date()): {

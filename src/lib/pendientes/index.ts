@@ -1,8 +1,10 @@
 export type { Pendiente, PendienteStatus } from './types'
-export { DUE_SOON_WINDOW_DAYS, pendientesDueSoon } from './dueSoon'
+export type { RecurrenteToCarry } from './pendientes'
+export { DUE_SOON_WINDOW_DAYS, isBillToPay, pendientesDueSoon } from './dueSoon'
 export { pendientesDueInMonth } from './pendingForMonth'
 export { autoDebitsToSettle } from './autoDebit'
 export {
+  carryRecurrentes,
   createPendiente,
   PendienteAlreadyPaidError,
   PendienteNotFoundError,
@@ -11,7 +13,9 @@ export {
   getPendiente,
   listPendientes,
   listPendientesForMonth,
+  listRecurrentesToCarry,
   markPendientePaid,
+  setPendienteRecurrence,
   unmarkPendientePaid,
   updatePendiente,
 } from './pendientes'
@@ -25,3 +29,7 @@ export {
   parsePendienteDocument,
   toFirestorePendienteDate,
 } from './converters'
+export {
+  convertExpenseToPendiente,
+  GastoAlreadyServicioError,
+} from './convertGasto'

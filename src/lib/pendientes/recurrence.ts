@@ -1,8 +1,5 @@
 // Advances a Pendiente due date by exactly one month for the next recurring
-// cycle. Kept pure and synchronous on purpose: both HouseholdsDb adapters
-// call it between the mark-paid status check and the writes, and that stretch
-// has to stay free of awaits (and of anything that could throw mid-way
-// through the writes) for the three-write transaction to stay atomic.
+// cycle -- used when "Pasar recurrentes" carries a bill into the next month.
 //
 // Short months clamp to the last day of the target month (Jan 31 -> Feb 28,
 // or Feb 29 in a leap year). The clamp is permanent by design: the next cycle

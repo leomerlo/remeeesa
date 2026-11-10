@@ -24,6 +24,7 @@ describe('parseHouseholdDocument', () => {
       id: 'h1',
       name: 'Casa Verde',
       monthlyBudget: 1500.5,
+      monthlyBudgets: {},
       createdAt: new Date('2026-01-15T12:00:00.000Z'),
     })
   })
@@ -191,6 +192,7 @@ describe('toDocument converters', () => {
     const createdAt = new Date('2026-01-15T12:00:00.000Z')
     expect(
       householdToDocument({
+        monthlyBudgets: {},
         name: 'Casa Verde',
         monthlyBudget: 1500.5,
         createdAt,
@@ -198,6 +200,7 @@ describe('toDocument converters', () => {
     ).toEqual({
       name: 'Casa Verde',
       monthly_budget: 1500.5,
+      monthly_budgets: {},
       created_at: createdAt,
     })
   })

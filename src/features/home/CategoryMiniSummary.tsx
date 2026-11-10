@@ -62,7 +62,7 @@ export function CategoryMiniSummary({
     queryFn: () => listCategories({ db, householdId }),
   })
   // Still-unpaid bills count toward their category too, so this breakdown
-  // reconciles with "Gastos de este mes" (which also counts them). Same
+  // reconciles with "Gastos del mes" (which also counts them). Same
   // key/shape as the budget cards' own pending query, so they share one
   // fetch.
   const pendingQuery = useQuery({
@@ -79,7 +79,7 @@ export function CategoryMiniSummary({
     categories === undefined ||
     pending === undefined
   ) {
-    return <LoadingIndicator />
+    return <LoadingIndicator compact />
   }
 
   const summary = summarizeByCategory({
@@ -107,12 +107,18 @@ export function CategoryMiniSummary({
       <h2 className="text-title font-semibold self-start">
         Gastos por categoría
       </h2>
-      <div className="bg-card divide-border-subtle flex w-full flex-col divide-y rounded-2xl text-sm">
+      <div className="bg-card card-surface divide-border-subtle flex w-full flex-col divide-y rounded-2xl text-sm">
         {/* A ring drawn from a single slice says only "100%", which the one
             row below it already says in words. */}
         {summary.length > 1 ? (
           <div className="flex justify-center p-5">
-            <CategoryDonut summary={summary} />
+            {/* The ring is shares *of* this, and nothing else on this panel
+                states it -- the rows underneath are the parts, not the
+                whole. */}
+            <CategoryDonut
+              summary={summary}
+              total={summary.reduce((sum, entry) => sum + entry.total, 0)}
+            />
           </div>
         ) : null}
         <ul

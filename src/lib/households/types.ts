@@ -1,3 +1,7 @@
+import type { CardCurrency, Currency } from '@/lib/money'
+import type { CardBrand, PaymentMethodKind } from '@/lib/cards/types'
+import type { Projection } from '@/lib/proyecciones'
+import type { Card, CardPurchase } from '@/lib/cards/types'
 import type { Pendiente } from '@/lib/pendientes/types'
 import type { Category, Expense } from '@/lib/expenses/types'
 import type { ExpenseHistoryCursor } from '@/lib/expenses/history'
@@ -10,7 +14,15 @@ export type HouseholdDraft = {
 export type Household = {
   readonly id: string
   readonly name: string
+  // The figure in force now, and the fallback for a household that has no
+  // snapshots yet. Read a *month's* budget with monthlyBudgetFor, never
+  // this field directly -- see lib/households/monthlyBudget.
   readonly monthlyBudget: number
+  // What the budget was in each month it was set, keyed "2026-09". A month
+  // with no entry inherits the last one set before it, so leaving the
+  // budget alone carries it forward and changing it never rewrites a month
+  // that has already been lived.
+  readonly monthlyBudgets: Readonly<Record<string, number>>
   readonly createdAt: Date
 }
 
@@ -42,14 +54,20 @@ export type HouseholdsDb = {
   getHousehold(householdId: string): Promise<Household>
   listMembers(householdId: string): Promise<readonly HouseholdMember[]>
   getMembership(userId: string): Promise<HouseholdMember | null>
+  // monthlyBudgets is the whole map, recomputed by the caller with the
+  // edited month written in -- see withMonthlyBudgetFor. Sent wholesale
+  // because it lives on the household document; the edited month is never
+  // merged in by the adapter.
   updateMonthlyBudget(input: {
     readonly householdId: string
     readonly monthlyBudget: number
+    readonly monthlyBudgets: Readonly<Record<string, number>>
   }): Promise<Household>
   updateHousehold(input: {
     readonly householdId: string
     readonly name: string
     readonly monthlyBudget: number
+    readonly monthlyBudgets: Readonly<Record<string, number>>
   }): Promise<Household>
   getOrCreateInvite(input: {
     readonly householdId: string
@@ -80,6 +98,14 @@ export type HouseholdsDb = {
     readonly householdId: string
     readonly categoryId: string
     readonly color: string
+  }): Promise<Category>
+  // The category's own ceiling inside the monthly budget. Zero clears it.
+  // A plain field update for the same reason color is: the doc id is
+  // derived from the name, and this does not touch the name.
+  updateCategoryBudget(input: {
+    readonly householdId: string
+    readonly categoryId: string
+    readonly monthlyBudget: number
   }): Promise<Category>
   // Creates a doc at the new name's id (carrying over color and createdAt),
   // repoints every referencing Expense and Pendiente, then deletes the old doc.
@@ -112,6 +138,12 @@ export type HouseholdsDb = {
     readonly price: number
     readonly comments: string
     readonly expenseDate: Date
+    // Pesos when omitted. A dollar amount is recorded but never counted --
+    // see lib/money/currency.
+    readonly currency?: Currency
+    // Which of the household's own payment methods it was paid with.
+    // Omitted for cash, which every household has without creating it.
+    readonly paymentMethodId?: string | null
   }): Promise<Expense>
   listExpensesInMonth(input: {
     readonly householdId: string
@@ -158,6 +190,11 @@ export type HouseholdsDb = {
     readonly memberId: string
     readonly authorDisplayName: string
     readonly isService: boolean
+    // Both correctable after the fact: the method a gasto was paid with and
+    // the currency it is in are picked at the moment it is logged, which is
+    // exactly when they are easiest to get wrong.
+    readonly currency: Currency
+    readonly paymentMethodId: string | null
   }): Promise<Expense>
   deleteExpense(input: {
     readonly householdId: string
@@ -171,6 +208,12 @@ export type HouseholdsDb = {
     readonly expectedAmount: number | null
     readonly recurring?: boolean
     readonly autoDebit?: boolean
+    // What it is normally paid with; null or absent for cash.
+    readonly paymentMethodId?: string | null
+    // Pesos unless it says otherwise. A dollar bill is recorded and shown
+    // in dollars but never counted against the peso budget, the same way a
+    // dollar gasto is -- see lib/money/currency.
+    readonly currency?: Currency
   }): Promise<Pendiente>
   getPendiente(input: {
     readonly householdId: string
@@ -183,7 +226,7 @@ export type HouseholdsDb = {
   // only ever returns status == 'pending'. This is the one place a paid
   // Pendiente can still be found, scoped by when it was paid (paidAt) rather
   // than its due date, since paying it doesn't change when it was due.
-  listPendientesPaidInMonth(input: {
+  listPaidPendientesDueInMonth(input: {
     readonly householdId: string
     readonly monthStart: Date
     readonly monthEnd: Date
@@ -195,6 +238,19 @@ export type HouseholdsDb = {
     readonly name: string
     readonly dueDate: Date
     readonly expectedAmount: number | null
+    readonly recurring: boolean
+    readonly autoDebit: boolean
+    readonly paymentMethodId: string | null
+    readonly currency: Currency
+  }): Promise<Pendiente>
+  // Recurrence on its own, and the only write a *paid* Pendiente accepts
+  // besides being unpaid again: what these two decide -- whether this bill
+  // comes back next month -- is still ahead even once this month's copy is
+  // settled. Deliberately not folded into updatePendiente, which keeps a
+  // paid Pendiente's name, amount and due date frozen.
+  setPendienteRecurrence(input: {
+    readonly householdId: string
+    readonly pendienteId: string
     readonly recurring: boolean
     readonly autoDebit: boolean
   }): Promise<Pendiente>
@@ -209,21 +265,183 @@ export type HouseholdsDb = {
     readonly authorDisplayName: string
     readonly finalAmount: number
     readonly paymentDate: Date
-    // nextPendiente is the auto-created next cycle for a recurring Pendiente,
-    // written in the same transaction; null for a non-recurring one. Declared
-    // as `Pendiente | null` rather than an optional property so every adapter has
-    // to state the non-recurring case explicitly instead of omitting it.
+    // What paid it, when it was one of the methods the household wrote
+    // down. Null for cash. Never a credit method: that one settles next
+    // month and goes through markPendientePaidWithCard instead.
+    readonly paymentMethodId?: string | null
   }): Promise<{
     pendiente: Pendiente
     expense: Expense
-    nextPendiente: Pendiente | null
   }>
-  // Reverses markPendientePaid: restores status to 'pending' and deletes the
-  // Expense that payment created. Leaves any next-cycle Pendiente a
-  // recurring payment spawned untouched -- see unmarkPendientePaid's own
-  // comment for why.
+  // Paying a bill with a credit card. One transaction, all or nothing: it
+  // books a CardPurchase on that card, lands its cuotas in the card's
+  // Resúmenes, and marks the bill paid through paid_purchase_id -- with no
+  // Expense anywhere, because no money left this month. It arrives when
+  // that Resumen is paid, like every other consumo.
+  markPendientePaidWithCard(input: {
+    readonly householdId: string
+    readonly pendienteId: string
+    readonly cardId: string
+    readonly resumenCategoryId: string
+    readonly memberId: string
+    readonly authorDisplayName: string
+    readonly finalAmount: number
+    readonly cuotas: number
+    readonly paymentDate: Date
+    readonly currency: Currency
+  }): Promise<{
+    pendiente: Pendiente
+    purchase: CardPurchase
+  }>
+  // Reverses markPendientePaid, markPendientePaidWithCard or
+  // markResumenPaid: restores status to 'pending' and deletes whatever that
+  // payment created -- every Expense, or the CardPurchase and its cuotas (a
+  // Resumen's also unlock its purchases).
   unmarkPendientePaid(input: {
     readonly householdId: string
     readonly pendienteId: string
   }): Promise<Pendiente>
+  // One transaction, all or nothing: writes one Expense per cuota of the
+  // Resumen in tarjetaCategoryId (subcategory = the purchase's category name)
+  // plus the ajuste when amountPaid differs from the total (see
+  // resumenPayment), marks the Resumen paid, and locks each of its purchases
+  // (CardPurchase.paidResumenIds). Rejects with PendienteNotFoundError,
+  // ResumenAlreadyPaidError or ResumenNotYetPayableError.
+  markResumenPaid(input: {
+    readonly householdId: string
+    readonly resumenId: string
+    readonly memberId: string
+    readonly authorDisplayName: string
+    readonly amountPaid: number
+    readonly paymentDate: Date
+    readonly tarjetaCategoryId: string
+    // The Resumen's own currency, stamped on every Expense the payment
+    // creates. A dollar Resumen settles in dollars, and those expenses are
+    // recorded without ever reaching the budget.
+    readonly currency: Currency
+  }): Promise<{
+    readonly pendiente: Pendiente
+    readonly expenses: readonly Expense[]
+  }>
+  // The household's hand edits to one month's projection. Null when nobody
+  // has touched that month yet -- which is the common case, and is not an
+  // error.
+  getProjection(input: {
+    readonly householdId: string
+    readonly monthStart: Date
+  }): Promise<Projection | null>
+  // Writes the whole set of edits for the month, creating the document the
+  // first time. Last write wins: two members editing the same month at once
+  // is a thing that can happen, and the alternative -- merging two
+  // scratchpads field by field -- would produce a scenario neither of them
+  // built.
+  saveProjection(input: {
+    readonly householdId: string
+    readonly monthStart: Date
+    readonly excluded: readonly string[]
+    readonly overrides: Readonly<Record<string, string>>
+  }): Promise<Projection>
+  listCards(input: { readonly householdId: string }): Promise<readonly Card[]>
+  createCard(input: {
+    readonly householdId: string
+    readonly name: string
+    readonly kind: PaymentMethodKind
+    readonly currency: CardCurrency
+    readonly brand: CardBrand
+  }): Promise<Card>
+  // Everything a card's own edit form can change, in one write -- one form
+  // with one "Guardar" means one call. Renaming also renames every Resumen
+  // of the card, whatever its status; expenses a payment already saved keep
+  // the name they were saved with.
+  updateCard(input: {
+    readonly householdId: string
+    readonly cardId: string
+    readonly name: string
+    readonly kind: PaymentMethodKind
+    readonly currency: CardCurrency
+    readonly brand: CardBrand
+  }): Promise<Card>
+  // Only a card nothing points at. Rejects with CardInUseError when it has
+  // any purchase or any Resumen, since deleting it would leave those with a
+  // card id that resolves to nothing.
+  deleteCard(input: {
+    readonly householdId: string
+    readonly cardId: string
+  }): Promise<void>
+  // One batch: the card's name and the name of every Resumen of the card,
+  // whatever its status. Rejects with CardNotFoundError for a card outside
+  // the household.
+  renameCard(input: {
+    readonly householdId: string
+    readonly cardId: string
+    readonly name: string
+  }): Promise<Card>
+  // Only the card itself: expenses a past Resumen already wrote keep the
+  // currency stamped on them, so this changes what the card means from here
+  // on and never rewrites what was already settled.
+  updateCardCurrency(input: {
+    readonly householdId: string
+    readonly cardId: string
+    readonly currency: CardCurrency
+  }): Promise<Card>
+  // One transaction: writes the purchase and adds each of its cuotas to the
+  // card's Resumen of that month (a Pendiente with id resumenIdFor, created
+  // in resumenCategoryId if missing). Rejects -- writing nothing -- with
+  // ResumenAlreadyPaidError when any of those Resúmenes is already paid.
+  createCardPurchase(input: {
+    readonly householdId: string
+    readonly cardId: string
+    readonly categoryId: string
+    readonly resumenCategoryId: string
+    readonly memberId: string
+    readonly authorDisplayName: string
+    readonly name: string
+    readonly total: number
+    readonly cuotas: number
+    readonly purchaseDate: Date
+    readonly comments: string
+    // The purchase's currency, which also picks which of the card's
+    // Resúmenes of each month its cuotas land in -- see resumenIdFor.
+    readonly currency: Currency
+  }): Promise<CardPurchase>
+  // One transaction: rewrites the purchase and moves its cuotas between
+  // Resúmenes (see resumenChanges), creating a missing one in
+  // resumenCategoryId and deleting one left with no purchase. Rejects --
+  // writing nothing -- with CardPurchaseNotFoundError, CardNotFoundError, or
+  // ResumenAlreadyPaidError when any Resumen it is in before or after is paid.
+  // Firestore rules deny reading a purchase outside the caller's household,
+  // so there an outsider gets CardPurchaseNotFoundError rather than the
+  // memory adapter's HouseholdAccessDeniedError.
+  updateCardPurchase(input: {
+    readonly householdId: string
+    readonly purchaseId: string
+    readonly cardId: string
+    readonly categoryId: string
+    readonly resumenCategoryId: string
+    readonly name: string
+    readonly total: number
+    readonly cuotas: number
+    readonly purchaseDate: Date
+    readonly comments: string
+    readonly currency: Currency
+  }): Promise<CardPurchase>
+  // Same transaction and rejections as updateCardPurchase, with no cuotas
+  // after.
+  deleteCardPurchase(input: {
+    readonly householdId: string
+    readonly purchaseId: string
+  }): Promise<void>
+  listCardPurchasesInMonth(input: {
+    readonly householdId: string
+    readonly monthStart: Date
+    readonly monthEnd: Date
+  }): Promise<readonly CardPurchase[]>
+  // In purchaseIds order. An id with no purchase of this household behind it
+  // (missing, or another household's -- rules deny reading those) is
+  // skipped rather than failing the whole Resumen -- in Firestore that also
+  // means a caller outside the household gets an empty list.
+  getCardPurchases(input: {
+    readonly householdId: string
+    readonly purchaseIds: readonly string[]
+  }): Promise<readonly CardPurchase[]>
 }

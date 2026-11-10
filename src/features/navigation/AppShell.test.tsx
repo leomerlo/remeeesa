@@ -94,7 +94,7 @@ describe('AppShell', () => {
     expect(
       within(nav).getByRole('link', { name: /ajustes/i }),
     ).toBeInTheDocument()
-    expect(within(nav).getAllByRole('link')).toHaveLength(5)
+    expect(within(nav).getAllByRole('link')).toHaveLength(6)
   })
 
   // Per direct feedback: Servicios is a top-level destination at every
@@ -122,6 +122,7 @@ describe('AppShell', () => {
       'Histórico',
       'Servicios',
       'Categorías',
+      'Proyecciones',
       'Ajustes',
     ])
     for (const link of within(nav).getAllByRole('link')) {
@@ -151,6 +152,45 @@ describe('AppShell', () => {
     expect(
       within(nav).getByRole('link', { name: /inicio/i }),
     ).not.toHaveAttribute('aria-current', 'page')
+  })
+
+  // Six labels stacked under six icons wanted 458px of a 374px bar, which
+  // pushed Ajustes off the screen entirely. The bar is icons alone on a
+  // phone now -- including the active one, which used to unfurl into its
+  // label and shove its neighbours along as you moved between tabs -- but
+  // every one of them keeps its name for a screen reader, which is what
+  // makes an icon-only bar legitimate.
+  it('is icons alone on a phone, without hiding any destination from assistive technology', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderShell({ currentUserId: 'user-1', householdsDb: db })
+
+    const nav = await screen.findByRole('navigation')
+    // Every destination is still reachable by its name.
+    for (const name of [
+      /inicio/i,
+      /histórico/i,
+      /servicios/i,
+      /categorías/i,
+      /proyecciones/i,
+      /ajustes/i,
+    ]) {
+      expect(within(nav).getByRole('link', { name })).toBeInTheDocument()
+    }
+
+    // Every label, active or not, is the icon alone below `lg` and a named
+    // row from `lg` up where the sidebar has the room for it.
+    for (const name of [/inicio/i, /proyecciones/i]) {
+      expect(
+        within(nav).getByRole('link', { name }).querySelector('span'),
+      ).toHaveClass('sr-only', 'lg:not-sr-only')
+    }
   })
 
   it('gives each nav link a 44px touch-target floor', async () => {

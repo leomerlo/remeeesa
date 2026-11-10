@@ -8,11 +8,20 @@ web
 
 ## Users
 
-Flor and Leo, a two-person household (a couple) tracking their shared finances. Not a
-multi-tenant audience — every household-facing default and flow can be tailored to this specific
-couple's real financial life rather than staying generic. The underlying data model supports
-multiple households (for households other than theirs to sign up independently), but the product
-is not designed, marketed, or optimized as a general-audience SaaS.
+**Flor and Leo, a two-person household.** In late October 2026 this looked like it was
+about to change: the beta was going to open the app to other people, starting with Flor's
+father-in-law. **It did not.** On 7 November 2026 Flor said so plainly — *"no lo va a ver mi
+suegro, esto es la actualizacion de la v1 en una v2 para mi"*. The beta (see `docs/adr/0007`
+and `docs/beta-design.md`) is the **v2 of this household's own app**, not a product for
+outside users.
+
+What the detour left behind is worth keeping anyway, because it is good practice rather than
+a concession to a stranger: **nothing may rely on having been there while it was built.** A
+screen that only reads correctly if you remember the fix it came from is a defect, and the
+onboarding exists because a house that starts empty should still make sense. A household of
+one stays a first-class case — it costs nothing and it is one branch of the same code.
+
+Flor and Leo keep the v1 interface until the beta replaces it.
 
 Primary usage is mobile, in short, frequent sessions: logging a purchase on the spot (a coffee, a
 bag of cat litter), checking whether a bill is due, glancing at what's left in the month's
@@ -91,9 +100,18 @@ exist or should be fabricated — this is a private tool, not a marketed product
 
 ## Accessibility & Inclusion
 
-Mobile-first. Interactive elements (buttons, inputs, tap targets) must meet real touch-target
-sizing (44×44pt/px minimum) so they're comfortably tappable by finger — not merely visually
-present, which today's undersized controls fail at. Standard web accessibility practice
-(accessible roles/labels, keyboard operability) is already used throughout the existing codebase
-and must continue. No formal accessibility standard (e.g. WCAG audit) is required — solid
-practice, not certification.
+Mobile-first. Interactive elements must be comfortably tappable by finger, not merely visually
+present. Standard web accessibility practice (accessible roles/labels, keyboard operability) is
+used throughout the codebase and must continue.
+
+**For the beta, accessibility is a requirement rather than a floor, and the owner's words are
+the brief:**
+
+> Nada chiquito, nada clarito. Alto contraste, tamaños grandes. Simplificación, patrones que
+> se entiendan y claridad. Dentro de toda la complejidad de la herramienta, llevarlo al
+> usuario de forma sencilla.
+
+"Nada clarito" is literal: washed-out greys and low-contrast text are banned, not discouraged.
+The v1's own sizing trades — a 24×24 floor, 44×44 for icon-only controls, text buttons sized by
+padding, and later a flat 46px for everything — were made for and with Flor on her own phone.
+**They do not carry over.** The beta sets its own, larger, from the first screen.

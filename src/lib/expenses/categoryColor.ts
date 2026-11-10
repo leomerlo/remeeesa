@@ -1,42 +1,70 @@
-// Values are copied from the design tokens in src/index.css where a token
-// exists (magenta and the stronger yellow/green don't have their own scale
-// yet, so those are hand-picked hex values instead). Twenty visually
-// distinct swatches -- the approved Home comp already relied on eight
-// genuinely different hues side by side, and two steps of the same hue read
-// as "the same category" at a glance, which defeats the point of
-// color-coding. Grown from twelve per direct feedback: a real household hit
-// fifteen categories and five pairs of them collided on the same swatch.
-// Keep this list in sync with src/index.css if the tokens are ever
-// regenerated.
+import { relativeLuminance } from '@/lib/a11y/contrast'
+
+// Twenty swatches, built as two laps around the colour wheel rather than
+// picked by hand. The hand-picked list this replaced had drifted into four
+// near-identical violets and a pair of teals nobody could tell apart, which
+// is exactly the thing a category colour exists to prevent.
 //
-// Order matters: CategoryColorPicker renders these in array order, so it's
-// deliberately interleaved (violet, then teal, then orange...) rather than
-// grouped by hue -- otherwise same-family swatches (the two violets, the two
-// yellows, the two greens, magenta next to pink) would sit side by side and
-// be hard to tell apart at a glance. Preserve that spread if this list is
-// ever reordered or extended.
+// Lap one is ten hues, evenly spaced *perceptually* (in CIE Lab, not HSL --
+// even steps in HSL crowd the greens and stretch the blues, which is how the
+// old list ended up with its violets). Lap two is the same ten hues offset
+// by half a step and lighter, so it interleaves between lap one rather than
+// repeating it: no two swatches in the whole set share a hue. Each is as
+// saturated as sRGB allows at its own lightness.
+//
+// Both laps are held under the lightness at which a white icon stops
+// working (3:1, what WCAG asks of a graphic). An earlier lap two sat well
+// above it, so half the discs had to carry a near-black icon and a list of
+// categories read as two different things. Darkening that lap is what buys
+// one ink for all twenty. Per direct feedback.
+//
+// The closest pair in the whole set is 26.7 ΔE apart (CIE76) -- past the
+// ~25 at which two colours stop being tellable apart side by side.
+//
+// The *order* is not the order they were generated in. Categories are
+// assigned by walking forward from a free slot, so neighbours in this list
+// become neighbours on screen -- and generated in hue order, that handed a
+// household five greens in a row. Shuffled so that any two entries within
+// four places of each other are at least 33 ΔE apart, which is what keeps a
+// run of newly-created categories looking like a palette rather than a ramp.
+//
+// categoryColor.test.ts asserts both floors, so neither a swatch nor the
+// order can be edited into something that collides.
 export const CATEGORY_COLOR_PALETTE = [
-  '#7b5cfa', // purple-400
-  '#df473c', // red-400 (coral)
-  '#5bb9b6', // teal-400
-  '#f2a25c', // orange-400
-  '#5394c7', // blue-400
-  '#f6a925', // yellow-400
-  '#59c07f', // green-400
-  '#c2138f', // magenta
-  '#eab308', // yellow, stronger/more saturated than yellow-400
-  '#2c06c6', // purple-600
-  '#16a34a', // green, distinct from the softer green-400
-  '#f472b6', // pink-400
-  '#0ea5e9', // sky -- brighter and cooler than blue-400
-  '#a16207', // brown/dark amber -- reads as its own hue next to the yellows
-  '#84cc16', // lime -- yellow-green, clear of both greens
-  '#e11d48', // rose -- pink-leaning red, clear of the orange-leaning coral
-  '#0f766e', // deep teal -- much darker than teal-400
-  '#64748b', // slate -- the one neutral, for a category that wants no hue
-  '#d946ef', // fuchsia -- brighter than magenta, cooler than pink
-  '#1e40af', // navy -- deep blue, clear of both violets
+  '#9c9600', // oliva claro
+  '#5a8eff', // azul claro
+  '#00a77c', // turquesa claro
+  '#00607d', // petróleo
+  '#953d00', // ocre
+  '#b30046', // rojo
+  '#b975e6', // violeta claro
+  '#006731', // verde
+  '#009be3', // celeste
+  '#00a2b1', // turquesa
+  '#284dc3', // violeta
+  '#f359a3', // rosa
+  '#486000', // oliva
+  '#ce8118', // ámbar
+  '#f46355', // salmón
+  '#0059a5', // azul
+  '#006459', // esmeralda
+  '#a10e8c', // magenta
+  '#715400', // mostaza
+  '#53a436', // lima
 ] as const
+
+// Which ink reads on a swatch. Every colour in the palette above is white
+// today -- that is the point of holding both laps under this threshold, and
+// categoryColor.test.ts asserts it, so no swatch can be added that breaks
+// it. The dark branch is the safety net for a colour from outside the
+// palette: a household's own pick, if that ever becomes a thing.
+//
+// 0.30 is the luminance at which white drops below the 3:1 WCAG asks of a
+// graphic. It was 0.42, which let through ten swatches a white icon was
+// barely visible on (2.1:1) -- hence the near-black ink on half the list.
+export function inkForCategoryColor(color: string): string {
+  return relativeLuminance(color) > 0.3 ? '#1d1c20' : '#ffffff'
+}
 
 function hashCategoryName(name: string): number {
   const normalized = name.trim().toLowerCase()
@@ -47,8 +75,39 @@ function hashCategoryName(name: string): number {
   return hash
 }
 
+// The colour a name hashes to, with nothing else taken. Still used wherever
+// a colour is needed for something that was never stored with one -- a
+// member avatar, a category that has gone missing -- and as the starting
+// point for nextCategoryColor below.
 export function colorForCategoryName(name: string): string {
   return CATEGORY_COLOR_PALETTE[
     hashCategoryName(name) % CATEGORY_COLOR_PALETTE.length
-  ]
+  ] as string
+}
+
+// The colour to give a *new* category, given the ones the household is
+// already using.
+//
+// Hashing the name alone is what put four categories on the same violet: a
+// hash into twenty buckets collides long before the buckets run out -- with
+// eleven categories it is more likely than not, and the household sees two
+// identical dots and a donut with two identical slices. Starting from the
+// hash keeps a given name landing on the same colour when it can, and
+// walking forward from there means a free colour is always preferred to a
+// taken one. Only past twenty categories does it have to repeat.
+export function nextCategoryColor(
+  name: string,
+  taken: readonly string[],
+): string {
+  const used = new Set(taken.map((color) => color.trim().toLowerCase()))
+  const start = hashCategoryName(name) % CATEGORY_COLOR_PALETTE.length
+  for (let step = 0; step < CATEGORY_COLOR_PALETTE.length; step += 1) {
+    const candidate = CATEGORY_COLOR_PALETTE[
+      (start + step) % CATEGORY_COLOR_PALETTE.length
+    ] as string
+    if (!used.has(candidate.toLowerCase())) {
+      return candidate
+    }
+  }
+  return CATEGORY_COLOR_PALETTE[start] as string
 }

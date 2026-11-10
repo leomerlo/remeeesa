@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent, ReactElement } from 'react'
 import { cssVars } from '@/lib/cssVars'
+import { inkForCategoryColor } from '@/lib/expenses/categoryColor'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { useSheetContainer } from '@/components/ui/sheet'
@@ -40,9 +41,15 @@ function CategorySwatch({
     <span
       aria-hidden="true"
       className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[var(--swatch-color)]"
-      style={cssVars({ '--swatch-color': color })}
+      style={cssVars({
+        '--swatch-color': color,
+        '--swatch-ink': inkForCategoryColor(color),
+      })}
     >
-      <CategoryIcon className="size-3.5 text-white" aria-hidden="true" />
+      <CategoryIcon
+        className="size-3.5 text-[var(--swatch-ink)]"
+        aria-hidden="true"
+      />
     </span>
   )
 }

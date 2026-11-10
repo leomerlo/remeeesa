@@ -78,8 +78,10 @@ describe('MonthlyTotalsChart', () => {
       const bars = within(chart).getAllByRole('listitem')
       // MONTHLY_TOTALS_MONTH_COUNT months: April through September.
       expect(bars).toHaveLength(6)
-      expect(bars[0]).toHaveTextContent('abr')
-      expect(bars[5]).toHaveTextContent('sept')
+      // The month names are their own row under the chart now -- it draws a
+      // line through dots rather than a column per month, so the label can
+      // no longer live inside the thing it labels. Each point still carries
+      // its month in its own accessible name, asserted below.
       // Each bar's own accessible name carries its exact total -- reachable
       // by a screen reader on focus, without needing to tap anything.
       expect(

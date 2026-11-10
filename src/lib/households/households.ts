@@ -9,6 +9,7 @@ import {
   parseMemberDisplayName,
   parseMonthlyBudget,
 } from './validate'
+import { withMonthlyBudgetFor } from './monthlyBudget'
 
 // Matches parseHouseholdMemberDocument's own fallback for a membership doc
 // with no display_name at all -- keeps "no name given" meaning the same
@@ -60,6 +61,7 @@ export const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
   listCategories: 'cargar las categorías',
   findOrCreateCategory: 'guardar la categoría',
   updateCategoryColor: 'guardar el color de la categoría',
+  updateCategoryBudget: 'guardar el presupuesto de la categoría',
   renameCategory: 'renombrar la categoría',
   deleteCategory: 'borrar la categoría',
   mergeCategories: 'unir las categorías',
@@ -74,11 +76,40 @@ export const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
   createPendiente: 'agregar el pendiente',
   getPendiente: 'cargar el pendiente',
   listPendientes: 'cargar los pendientes',
-  listPendientesPaidInMonth: 'cargar los pendientes pagados',
+  listPaidPendientesDueInMonth: 'cargar los pendientes pagados',
   updatePendiente: 'guardar el pendiente',
+  setPendienteRecurrence: 'guardar si el pendiente es recurrente',
   deletePendiente: 'eliminar el pendiente',
   markPendientePaid: 'marcar el pendiente como pagado',
+  markPendientePaidWithCard: 'pagar el pendiente con la tarjeta',
   unmarkPendientePaid: 'deshacer el pago del pendiente',
+  markResumenPaid: 'pagar el resumen',
+  getProjection: 'cargar la proyección del mes',
+  saveProjection: 'guardar la proyección del mes',
+  listCards: 'cargar las tarjetas',
+  updateCard: 'guardar la tarjeta',
+  deleteCard: 'borrar la tarjeta',
+  createCard: 'guardar la tarjeta',
+  renameCard: 'renombrar la tarjeta',
+  updateCardCurrency: 'cambiar la moneda de la tarjeta',
+  createCardPurchase: 'guardar la compra con tarjeta',
+  updateCardPurchase: 'guardar los cambios de la compra',
+  deleteCardPurchase: 'eliminar la compra',
+  listCardPurchasesInMonth: 'cargar las compras con tarjeta',
+  getCardPurchases: 'cargar las compras del resumen',
+}
+
+// What the household should do about it, which is not the same for every
+// failure. A refused write is the one that matters: "volvé a intentar" is
+// a lie there -- the same write will be refused every time, and the usual
+// cause is a tab that has been open since before the last deploy, sending
+// a shape the rules no longer accept. That exact pair cost a day of
+// "no se pudo guardar" with nothing to act on. Per direct feedback: los
+// errores no dicen qué falla.
+function adviceFor(code: string): string {
+  return code === 'permission-denied'
+    ? 'La base rechazó el permiso, así que reintentar no lo arregla. Recargá la página (Ctrl/Cmd + Shift + R) por si quedó abierta una versión vieja de la app.'
+    : 'Volvé a intentar.'
 }
 
 export class FirestoreDeniedError extends Error {
@@ -98,7 +129,12 @@ export class FirestoreDeniedError extends Error {
   }) {
     const action =
       FIRESTORE_OPERATION_ACTIONS[input.operation] ?? input.operation
-    super(`No se pudo ${action}. Volvé a intentar.`)
+    // The operation's own name rides along in brackets: it is the one
+    // thing that says *which* write was refused, and without it every
+    // failure in the app reads the same.
+    super(
+      `No se pudo ${action}. ${adviceFor(input.code)} [${input.operation}/${input.code}]`,
+    )
     this.operation = input.operation
     this.code = input.code
     this.detail = input.detail
@@ -139,15 +175,26 @@ export async function createHouseholdWithMembership(input: {
   return household
 }
 
+// Editing the budget writes it for one month -- `month`, defaulting to the
+// month it is being edited in. Every other month keeps the figure it was
+// run on, which is the point: the budget is what the household decided it
+// could spend *that* month. See lib/households/monthlyBudget.
 export async function updateHouseholdBudget(input: {
   readonly db: HouseholdsDb
   readonly householdId: string
   readonly monthlyBudget: number
+  readonly month?: Date
 }): Promise<Household> {
   const monthlyBudget = parseMonthlyBudget(input.monthlyBudget)
+  const household = await input.db.getHousehold(input.householdId)
   return input.db.updateMonthlyBudget({
     householdId: input.householdId,
     monthlyBudget,
+    monthlyBudgets: withMonthlyBudgetFor({
+      household,
+      month: input.month ?? new Date(),
+      monthlyBudget,
+    }),
   })
 }
 
@@ -156,13 +203,40 @@ export async function updateHousehold(input: {
   readonly householdId: string
   readonly name: string
   readonly monthlyBudget: number
+  readonly month?: Date
 }): Promise<Household> {
   const name = parseHouseholdName(input.name)
   const monthlyBudget = parseMonthlyBudget(input.monthlyBudget)
+  const household = await input.db.getHousehold(input.householdId)
   return input.db.updateHousehold({
     householdId: input.householdId,
     name,
     monthlyBudget,
+    monthlyBudgets: withMonthlyBudgetFor({
+      household,
+      month: input.month ?? new Date(),
+      monthlyBudget,
+    }),
+  })
+}
+
+// Renaming the house and deciding what a month may cost are two different
+// decisions, so they are two different calls. updateHousehold writes both at
+// once, which meant saving a new name also wrote a budget for whichever
+// month a picker happened to be on. This carries the budgets through
+// untouched. Per direct feedback.
+export async function renameHousehold(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly name: string
+}): Promise<Household> {
+  const name = parseHouseholdName(input.name)
+  const household = await input.db.getHousehold(input.householdId)
+  return input.db.updateHousehold({
+    householdId: input.householdId,
+    name,
+    monthlyBudget: household.monthlyBudget,
+    monthlyBudgets: household.monthlyBudgets,
   })
 }
 

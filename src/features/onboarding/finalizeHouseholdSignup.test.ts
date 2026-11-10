@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
+import { monthKey } from '@/lib/households'
 import {
   createHouseholdWithMembership,
   listHouseholdMembers,
@@ -24,6 +25,7 @@ describe('finalizeHouseholdSignup', () => {
       id: expect.any(String),
       name: 'The Smiths',
       monthlyBudget: 1500,
+      monthlyBudgets: { [monthKey(new Date())]: 1500 },
       createdAt: expect.any(Date),
     })
     await expect(

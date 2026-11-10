@@ -59,7 +59,7 @@ export function InviteLinkPanel({
     <div className="flex w-full flex-col gap-2">
       <Button
         type="button"
-        className="lg:w-auto lg:self-end lg:px-8"
+        className="lg:w-auto lg:self-end"
         onClick={() => void onGenerate()}
       >
         Generar link de invitación

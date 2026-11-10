@@ -4,12 +4,14 @@ import {
   parseRequiredString,
   parseTimestamp,
 } from '@/lib/firestore/documentParsing'
+import { DEFAULT_CURRENCY, parseCurrency } from '@/lib/money'
+import type { Currency } from '@/lib/money'
 import { colorForCategoryName } from './categoryColor'
 import type { Category, Expense } from './types'
 import {
+  parseCategoryBudget,
   parseCategoryName,
   parseExpenseName,
-  parseExpensePrice,
 } from './validate'
 
 function parseNullableString(value: unknown, field: string): string | null {
@@ -50,7 +52,7 @@ export function parseCategoryDocument(input: {
     throw new Error('Category document must be an object')
   }
 
-  const { household_id, name, color, created_at } = input.data
+  const { household_id, name, color, monthly_budget, created_at } = input.data
   if (typeof name !== 'string') {
     throw new Error('Category name must be a string')
   }
@@ -71,6 +73,12 @@ export function parseCategoryDocument(input: {
     householdId: parseRequiredString(household_id, 'household_id'),
     name: parsedName,
     color: parsedColor,
+    // Missing on every category written before ceilings existed, which is
+    // all of them -- read as "sin tope" rather than rejecting the document.
+    monthlyBudget:
+      typeof monthly_budget === 'number'
+        ? parseCategoryBudget(monthly_budget)
+        : 0,
     createdAt: parseTimestamp(created_at, 'created_at'),
   }
 }
@@ -79,17 +87,20 @@ export function categoryToDocument(input: {
   readonly householdId: string
   readonly name: string
   readonly color: string
+  readonly monthlyBudget: number
   readonly createdAt: Date
 }): {
   readonly household_id: string
   readonly name: string
   readonly color: string
+  readonly monthly_budget: number
   readonly created_at: Date
 } {
   return {
     household_id: input.householdId,
     name: input.name,
     color: input.color,
+    monthly_budget: input.monthlyBudget,
     created_at: input.createdAt,
   }
 }
@@ -116,12 +127,15 @@ export function parseExpenseDocument(input: {
     expense_date,
     pendiente_id,
     is_service,
+    subcategory,
+    currency,
+    payment_method_id,
     created_at,
   } = input.data
   if (typeof name !== 'string') {
     throw new Error('Expense name must be a string')
   }
-  if (typeof price !== 'number') {
+  if (typeof price !== 'number' || !Number.isFinite(price)) {
     throw new Error('Expense price must be a number')
   }
   if (typeof comments !== 'string') {
@@ -141,13 +155,23 @@ export function parseExpenseDocument(input: {
       'author_display_name',
     ),
     name: parseExpenseName(name),
-    price: parseExpensePrice(price),
+    // Not parseExpensePrice: a card Resumen's ajuste is negative when less
+    // was paid than its total.
+    price: Math.round(price * 100) / 100,
     comments,
     expenseDate: parseTimestamp(expense_date, 'expense_date'),
     // Missing (not just null) on any Expense doc written before this field
     // existed -- treated the same as "not from a Pendiente".
     pendienteId: parseNullableString(pendiente_id, 'pendiente_id'),
     isService: parseOptionalBoolean(is_service, 'is_service', false),
+    subcategory: parseNullableString(subcategory, 'subcategory'),
+    currency: parseCurrency(currency),
+    // Missing on every Expense written before payment methods existed, and
+    // on every cash one since -- both of which read as "cash".
+    paymentMethodId: parseNullableString(
+      payment_method_id,
+      'payment_method_id',
+    ),
     createdAt: parseTimestamp(created_at, 'created_at'),
   }
 }
@@ -178,6 +202,12 @@ export function expenseToDocument(input: {
   readonly expenseDate: Date
   readonly pendienteId: string | null
   readonly isService: boolean
+  readonly subcategory: string | null
+  // Optional at the door: almost every Expense written is in pesos, and a
+  // required field here would mean restating that at a dozen call sites.
+  readonly currency?: Currency
+  // Same: cash, and everything written before methods existed, is null.
+  readonly paymentMethodId?: string | null
   readonly createdAt: Date
 }): {
   readonly household_id: string
@@ -190,6 +220,9 @@ export function expenseToDocument(input: {
   readonly expense_date: Date
   readonly pendiente_id: string | null
   readonly is_service: boolean
+  readonly subcategory: string | null
+  readonly currency: Currency
+  readonly payment_method_id: string | null
   readonly created_at: Date
 } {
   return {
@@ -203,6 +236,9 @@ export function expenseToDocument(input: {
     expense_date: input.expenseDate,
     pendiente_id: input.pendienteId,
     is_service: input.isService,
+    subcategory: input.subcategory,
+    currency: input.currency ?? DEFAULT_CURRENCY,
+    payment_method_id: input.paymentMethodId ?? null,
     created_at: input.createdAt,
   }
 }

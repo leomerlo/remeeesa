@@ -16,7 +16,12 @@ describe('MemberList', () => {
     })
 
     renderWithProviders(
-      <MemberList db={db} householdId={household.id} currentUserId="user-1" />,
+      <MemberList
+        db={db}
+        householdId={household.id}
+        currentUserId="user-1"
+        currentDisplayName="Miembro"
+      />,
     )
 
     expect(await screen.findByText('Vos')).toBeInTheDocument()
@@ -38,7 +43,12 @@ describe('MemberList', () => {
     })
 
     renderWithProviders(
-      <MemberList db={db} householdId={household.id} currentUserId="user-1" />,
+      <MemberList
+        db={db}
+        householdId={household.id}
+        currentUserId="user-1"
+        currentDisplayName="Miembro"
+      />,
     )
 
     const row = (await screen.findByText('Florencia')).closest('li')
@@ -64,7 +74,12 @@ describe('MemberList', () => {
     })
 
     renderWithProviders(
-      <MemberList db={db} householdId={household.id} currentUserId="user-1" />,
+      <MemberList
+        db={db}
+        householdId={household.id}
+        currentUserId="user-1"
+        currentDisplayName="Miembro"
+      />,
     )
 
     await waitFor(() => {

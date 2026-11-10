@@ -1,10 +1,15 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { createPendiente } from '@/lib/pendientes/pendientes'
-import { createExpense, listCategories } from '@/lib/expenses'
+import {
+  createExpense,
+  listCategories,
+  updateCategoryBudget,
+} from '@/lib/expenses'
 import { CATEGORY_COLOR_PALETTE } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
+import { currentMonthRange } from '@/lib/expenses'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { CategoryManager } from './CategoryManager'
@@ -45,6 +50,8 @@ async function openEditorFor(name: string): Promise<void> {
   await screen.findByRole('dialog')
 }
 
+const { monthStart, monthEnd } = currentMonthRange()
+
 describe('CategoryManager', () => {
   // The breakdown above only lists categories with spend this month, so an
   // untouched category would otherwise be unreachable -- and an unused one is
@@ -52,7 +59,14 @@ describe('CategoryManager', () => {
   it('lists every category, including ones with no expenses', async () => {
     const { db, householdId } = await seedHousehold()
 
-    renderWithProviders(<CategoryManager db={db} householdId={householdId} />)
+    renderWithProviders(
+      <CategoryManager
+        db={db}
+        householdId={householdId}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />,
+    )
 
     const list = await screen.findByRole('list', {
       name: 'Todas las categorías',
@@ -71,7 +85,14 @@ describe('CategoryManager', () => {
       throw new Error('expected the seeded Comida category')
     }
 
-    renderWithProviders(<CategoryManager db={db} householdId={householdId} />)
+    renderWithProviders(
+      <CategoryManager
+        db={db}
+        householdId={householdId}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />,
+    )
     await openEditorFor('Comida')
 
     fireEvent.change(screen.getByLabelText('Nombre'), {
@@ -85,10 +106,115 @@ describe('CategoryManager', () => {
     expect(renamed?.color).toBe(comida.color)
   })
 
+  it('sets a ceiling on a category, and leaves it blank for one with none', async () => {
+    const { db, householdId } = await seedHousehold()
+
+    renderWithProviders(
+      <CategoryManager
+        db={db}
+        householdId={householdId}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />,
+    )
+    await openEditorFor('Comida')
+
+    // A category is born with no ceiling, so the field opens empty rather
+    // than showing a zero nobody typed.
+    expect(screen.getByLabelText('Presupuesto del mes')).toHaveValue('')
+
+    fireEvent.change(screen.getByLabelText('Presupuesto del mes'), {
+      target: { value: '30000' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    await screen.findByRole('button', { name: 'Editar Comida' })
+    const after = await listCategories({ db, householdId })
+    expect(after.find((c) => c.name === 'Comida')?.monthlyBudget).toBe(30000)
+  })
+
+  it('clears a ceiling when the field is emptied', async () => {
+    const { db, householdId, byName } = await seedHousehold()
+    const comida = byName.get('Comida')
+    if (comida === undefined) {
+      throw new Error('expected the seeded Comida category')
+    }
+    await updateCategoryBudget({
+      db,
+      householdId,
+      categoryId: comida.id,
+      monthlyBudget: 30000,
+    })
+
+    renderWithProviders(
+      <CategoryManager
+        db={db}
+        householdId={householdId}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />,
+    )
+    await openEditorFor('Comida')
+
+    expect(screen.getByLabelText('Presupuesto del mes')).toHaveValue('30.000')
+    fireEvent.change(screen.getByLabelText('Presupuesto del mes'), {
+      target: { value: '' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    await screen.findByRole('button', { name: 'Editar Comida' })
+    const after = await listCategories({ db, householdId })
+    expect(after.find((c) => c.name === 'Comida')?.monthlyBudget).toBe(0)
+  })
+
+  // A rename is a create-repoint-delete, so anything the old document
+  // carried has to be copied across or it is silently lost.
+  it('keeps the ceiling through a rename', async () => {
+    const { db, householdId, byName } = await seedHousehold()
+    const comida = byName.get('Comida')
+    if (comida === undefined) {
+      throw new Error('expected the seeded Comida category')
+    }
+    await updateCategoryBudget({
+      db,
+      householdId,
+      categoryId: comida.id,
+      monthlyBudget: 30000,
+    })
+
+    renderWithProviders(
+      <CategoryManager
+        db={db}
+        householdId={householdId}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />,
+    )
+    await openEditorFor('Comida')
+
+    fireEvent.change(screen.getByLabelText('Nombre'), {
+      target: { value: 'Comida y bebida' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    await screen.findByRole('button', { name: 'Editar Comida y bebida' })
+    const after = await listCategories({ db, householdId })
+    expect(after.find((c) => c.name === 'Comida y bebida')?.monthlyBudget).toBe(
+      30000,
+    )
+  })
+
   it('shows the collision message pointing at merge, inline', async () => {
     const { db, householdId } = await seedHousehold()
 
-    renderWithProviders(<CategoryManager db={db} householdId={householdId} />)
+    renderWithProviders(
+      <CategoryManager
+        db={db}
+        householdId={householdId}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />,
+    )
     await openEditorFor('Comida')
 
     fireEvent.change(screen.getByLabelText('Nombre'), {
@@ -112,7 +238,14 @@ describe('CategoryManager', () => {
     const nextColor =
       CATEGORY_COLOR_PALETTE.find((color) => color !== comida.color) ?? ''
 
-    renderWithProviders(<CategoryManager db={db} householdId={householdId} />)
+    renderWithProviders(
+      <CategoryManager
+        db={db}
+        householdId={householdId}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />,
+    )
     await openEditorFor('Comida')
 
     fireEvent.click(screen.getByRole('radio', { name: `Color ${nextColor}` }))
@@ -127,11 +260,17 @@ describe('CategoryManager', () => {
   it('deletes a category nothing references, after a confirmation', async () => {
     const { db, householdId } = await seedHousehold()
 
-    renderWithProviders(<CategoryManager db={db} householdId={householdId} />)
-    await openEditorFor('Salud')
+    renderWithProviders(
+      <CategoryManager
+        db={db}
+        householdId={householdId}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />,
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Borrar Salud' }))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Borrar categoría' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Sí, borrar' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Sí, borrar' }))
 
     await waitFor(() => {
       expect(
@@ -148,19 +287,24 @@ describe('CategoryManager', () => {
     }
     await seedExpense({ db, householdId, categoryId: comida.id })
 
-    renderWithProviders(<CategoryManager db={db} householdId={householdId} />)
-    await openEditorFor('Comida')
+    renderWithProviders(
+      <CategoryManager
+        db={db}
+        householdId={householdId}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />,
+    )
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Borrar Comida' }),
+    )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Borrar categoría' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Sí, borrar' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Sí, borrar' }))
 
+    // The confirmation closes and the refusal is said on the section
+    // itself, where the category it is about is still listed.
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent('Uníla con otra')
-    // The sheet stays open on the refusal, so the merge control the message
-    // points at is right there. (The rows behind it are aria-hidden while the
-    // dialog is open, which is why the category's survival is checked in the
-    // db rather than by querying for its row.)
-    expect(screen.getByRole('dialog')).toBeInTheDocument()
     const after = await listCategories({ db, householdId })
     expect(after.map((c) => c.id)).toContain(comida.id)
   })
@@ -186,13 +330,20 @@ describe('CategoryManager', () => {
       expectedAmount: 500,
     })
 
-    renderWithProviders(<CategoryManager db={db} householdId={householdId} />)
+    renderWithProviders(
+      <CategoryManager
+        db={db}
+        householdId={householdId}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />,
+    )
     await openEditorFor('Comida')
 
     fireEvent.change(screen.getByLabelText('Unir con otra categoría'), {
       target: { value: transporte.id },
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Unir' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Unir y guardar' }))
 
     await waitFor(() => {
       expect(
@@ -211,7 +362,14 @@ describe('CategoryManager', () => {
   it('does not offer the category itself as a merge target', async () => {
     const { db, householdId } = await seedHousehold()
 
-    renderWithProviders(<CategoryManager db={db} householdId={householdId} />)
+    renderWithProviders(
+      <CategoryManager
+        db={db}
+        householdId={householdId}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />,
+    )
     await openEditorFor('Comida')
 
     const select = screen.getByLabelText('Unir con otra categoría')
@@ -222,7 +380,14 @@ describe('CategoryManager', () => {
   it('adds a new category from the Agregar button and shows it in the list', async () => {
     const { db, householdId } = await seedHousehold()
 
-    renderWithProviders(<CategoryManager db={db} householdId={householdId} />)
+    renderWithProviders(
+      <CategoryManager
+        db={db}
+        householdId={householdId}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+      />,
+    )
     await screen.findByRole('list', { name: 'Todas las categorías' })
 
     fireEvent.click(screen.getByRole('button', { name: 'Agregar' }))

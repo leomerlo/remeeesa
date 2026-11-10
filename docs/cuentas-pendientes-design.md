@@ -22,7 +22,7 @@ UI is reachable and testable on its own; `home-dashboard.md` wires it into the n
 3. `src/lib/pendientes/pendientes.ts` — `createPendiente`, `listPendientes`, `updatePendiente` (blocks
    edits when not pending), `deletePendiente`, `markPendientePaid`. New `PendienteAlreadyPaidError`.
 4. `HouseholdsDb` gains the above plus `getPendiente`; `markPendientePaid` returns
-   `{ pendiente, expense, nextPendiente }`.
+   `{ pendiente, expense }`.
 
 ## The mark-paid transaction (the load-bearing piece)
 
@@ -32,8 +32,13 @@ Single `runTransaction` (same pattern as `createHouseholdAndMembership`/`joinHou
 Firestore's snapshot isolation means a second concurrent call either sees the already-`paid`
 status on its own `tx.get`, or gets aborted/retried and re-reads post-commit — either way exactly
 one `Expense` is ever created. Inside the same transaction: update Pendiente → paid + `paidExpenseId`,
-create the Expense doc, and — if recurring — create the next cycle's Pendiente (due date +1 month,
-amount blank). All three writes, one transaction: a partial failure rolls back everything.
+create the Expense doc. Both writes, one transaction: a partial failure rolls back everything.
+
+**Recurring bills are carried over by hand.** Paying one used to spawn the next cycle in this same
+transaction; undoing a payment and paying again then left the bill twice in the following month.
+Now nothing spawns on pay: the Servicios screen has a "Pasar recurrentes" button that lists the
+previous month's recurring bills as a checklist (`listRecurrentesToCarry`; ones already in the
+viewed month are listed but locked) and creates the ticked ones a month on (`carryRecurrentes`).
 
 **Short months:** "+1 month" clamps to the last day of the target month (Jan 31 → Feb 28, or Feb 29
 in a leap year). The clamp is permanent by design — each cycle is computed from the previous
@@ -64,4 +69,4 @@ that story's design doc.
 4. Edit and delete a pending Pendiente
 5. Mark-paid transaction (atomic + idempotent) — domain/Firestore layer
 6. Mark-paid UI (bottom sheet)
-7. Recurring: auto-create next cycle on mark-paid
+7. Recurring: carry bills into the next month by hand ("Pasar recurrentes")

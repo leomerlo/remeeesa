@@ -1,3 +1,5 @@
+import { parseCurrency } from '@/lib/money'
+import type { Currency } from '@/lib/money'
 import { Timestamp } from 'firebase/firestore'
 import {
   isRecord,
@@ -65,18 +67,47 @@ export function parsePendienteDocument(input: {
     paid_expense_id,
     paid_at,
     created_at,
+    card_id,
+    purchase_ids,
+    paid_expense_ids,
+    paid_purchase_id,
+    estimated_amount,
+    currency,
+    payment_method_id,
   } = input.data
   if (typeof name !== 'string') {
     throw new Error('Pendiente name must be a string')
   }
 
+  // A Resumen written before the estimate and the bill were told apart
+  // carried its cuota total in expected_amount, which made what the
+  // household had been logging into a debt on its own. Under the model
+  // that replaced it, that figure is the estimate and the bill is simply
+  // not known yet -- so these read as "esperando el resumen" until
+  // somebody loads what the card actually billed. Per direct feedback.
+  // Loading it writes both fields, so a document only reads as legacy
+  // once.
+  const isLegacyResumen =
+    card_id !== undefined && estimated_amount === undefined
+  // A card bill is an estimate until it is paid: what the card charges
+  // includes taxes and interest nobody can add up in advance, so the real
+  // figure is typed at the moment of paying and nowhere else. Documents
+  // written before that carry a figure somebody typed while the bill was
+  // still pending -- it is ignored, the same way a legacy one is, and the
+  // cuotas are what the Resumen is worth. Per direct feedback: las
+  // tarjetas siempre van a ser estimadas, nunca puede ser un número fijo.
+  const isUnpaidResumen =
+    card_id !== undefined && parsePendienteStatus(status) !== 'paid'
   return {
     id: input.id,
     householdId: parseRequiredString(household_id, 'household_id'),
     categoryId: parseRequiredString(category_id, 'category_id'),
     name: parsePendienteName(name),
     dueDate: parseTimestamp(due_date, 'due_date'),
-    expectedAmount: parseNullableNumber(expected_amount, 'expected_amount'),
+    expectedAmount:
+      isLegacyResumen || isUnpaidResumen
+        ? null
+        : parseNullableNumber(expected_amount, 'expected_amount'),
     recurring: parseBoolean(recurring, 'recurring'),
     // Missing on any Pendiente written before auto-debit existed -- absent
     // means the household pays it themselves, which is what every one of
@@ -84,13 +115,73 @@ export function parsePendienteDocument(input: {
     autoDebit:
       auto_debit === undefined ? false : parseBoolean(auto_debit, 'auto_debit'),
     status: parsePendienteStatus(status),
+    // What the bill is normally paid with. Absent on everything written
+    // before the field existed, and on every bill nobody has said it
+    // about -- left off rather than written as null, like
+    // paid_purchase_id above.
+    ...(payment_method_id === undefined
+      ? {}
+      : {
+          paymentMethodId: parseNullableString(
+            payment_method_id,
+            'payment_method_id',
+          ),
+        }),
+    // Any Pendiente may carry one, not just a Resumen: a bill can be in
+    // dollars (a subscription, a service billed abroad). Absent means
+    // pesos, which is what every bill written before this was. It used to
+    // be read only inside the Resumen branch below, so a dollar bill came
+    // back as a peso one. Per direct feedback.
+    currency: parseCurrency(currency),
     paidExpenseId: parseNullableString(paid_expense_id, 'paid_expense_id'),
+    // Absent on every Pendiente not paid with a credit card, which is
+    // almost all of them -- so it is left off rather than written as null.
+    ...(paid_purchase_id === undefined
+      ? {}
+      : {
+          paidPurchaseId: parseNullableString(
+            paid_purchase_id,
+            'paid_purchase_id',
+          ),
+        }),
     // Missing (not just null) on any Pendiente doc written before this field
     // existed -- treated the same as "never paid", matching every other
     // field this session has widened with a legacy-doc fallback.
     paidAt: parseOptionalTimestamp(paid_at, 'paid_at'),
     createdAt: parseTimestamp(created_at, 'created_at'),
+    // Only a Resumen carries these; every other Pendiente leaves them out.
+    ...(card_id === undefined
+      ? {}
+      : {
+          cardId: parseRequiredString(card_id, 'card_id'),
+          purchaseIds: parseStringList(purchase_ids, 'purchase_ids'),
+          estimatedAmount: isLegacyResumen
+            ? (parseNullableNumber(expected_amount, 'expected_amount') ?? 0)
+            : (parseNullableNumber(estimated_amount, 'estimated_amount') ?? 0),
+          // Absent until the Resumen is first paid.
+          ...(paid_expense_ids === undefined
+            ? {}
+            : {
+                paidExpenseIds: parseStringList(
+                  paid_expense_ids,
+                  'paid_expense_ids',
+                ),
+              }),
+        }),
   }
+}
+
+export function parseStringList(
+  value: unknown,
+  field: string,
+): readonly string[] {
+  if (
+    !Array.isArray(value) ||
+    !value.every((item): item is string => typeof item === 'string')
+  ) {
+    throw new Error(`${field} must be a list of strings`)
+  }
+  return value
 }
 
 export function pendienteToDocument(input: {
@@ -101,10 +192,12 @@ export function pendienteToDocument(input: {
   readonly expectedAmount: number | null
   readonly recurring: boolean
   readonly autoDebit: boolean
+  readonly paymentMethodId: string | null
   readonly status: PendienteStatus
   readonly paidExpenseId: string | null
   readonly paidAt: Date | null
   readonly createdAt: Date
+  readonly currency: Currency
 }): {
   readonly household_id: string
   readonly category_id: string
@@ -113,10 +206,12 @@ export function pendienteToDocument(input: {
   readonly expected_amount: number | null
   readonly recurring: boolean
   readonly auto_debit: boolean
+  readonly payment_method_id: string | null
   readonly status: PendienteStatus
   readonly paid_expense_id: string | null
   readonly paid_at: Date | null
   readonly created_at: Date
+  readonly currency: Currency
 } {
   return {
     household_id: input.householdId,
@@ -126,7 +221,9 @@ export function pendienteToDocument(input: {
     expected_amount: input.expectedAmount,
     recurring: input.recurring,
     auto_debit: input.autoDebit,
+    payment_method_id: input.paymentMethodId,
     status: input.status,
+    currency: input.currency,
     paid_expense_id: input.paidExpenseId,
     paid_at: input.paidAt,
     created_at: input.createdAt,

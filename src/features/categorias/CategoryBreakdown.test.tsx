@@ -1,11 +1,24 @@
-import { screen, within } from '@testing-library/react'
+import { fireEvent, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
-import { createExpense, listCategories } from '@/lib/expenses'
+import {
+  createExpense,
+  findOrCreateCategory,
+  listCategories,
+  updateCategoryBudget,
+} from '@/lib/expenses'
+import { createCard, createCardPurchase, markResumenPaid } from '@/lib/cards'
 import { createHouseholdWithMembership } from '@/lib/households'
+import { listPendientes } from '@/lib/pendientes'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
+import { MemoryRouter } from 'react-router-dom'
+import type { ReactElement } from 'react'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { CategoryBreakdown } from './CategoryBreakdown'
+
+function renderInRouter(ui: ReactElement) {
+  return renderWithProviders(<MemoryRouter>{ui}</MemoryRouter>)
+}
 
 async function seedHousehold() {
   const db = createMemoryHouseholdsDb().asUser('user-1')
@@ -45,10 +58,177 @@ async function seed(input: {
 }
 
 describe('CategoryBreakdown', () => {
+  describe('topes por categoría', () => {
+    it('says nothing at all while no category has a ceiling', async () => {
+      const { db, householdId, byName } = await seedHousehold()
+      const comida = byName.get('Comida')
+      if (comida === undefined) {
+        throw new Error('expected seeded categories')
+      }
+      await seed({
+        db,
+        householdId,
+        categoryId: comida.id,
+        name: 'A',
+        price: 75,
+      })
+
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
+
+      await screen.findByText('Gastos por categoría')
+      expect(screen.queryByText('Cerca del tope')).not.toBeInTheDocument()
+    })
+
+    it('shows what is left of a ceiling', async () => {
+      const { db, householdId, byName } = await seedHousehold()
+      const comida = byName.get('Comida')
+      if (comida === undefined) {
+        throw new Error('expected seeded categories')
+      }
+      await updateCategoryBudget({
+        db,
+        householdId,
+        categoryId: comida.id,
+        monthlyBudget: 300,
+      })
+      await seed({
+        db,
+        householdId,
+        categoryId: comida.id,
+        name: 'A',
+        price: 240,
+      })
+
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
+
+      // Scoped to the ceilings list: the same figure is also the
+      // category's own line in the breakdown beside it.
+      const topes = within(
+        (await screen.findByRole('heading', { name: 'Cerca del tope' }))
+          .parentElement as HTMLElement,
+      )
+      expect(topes.getByText('$240')).toBeInTheDocument()
+      expect(topes.getByText('de $300')).toBeInTheDocument()
+      expect(topes.getByText('Quedan $60')).toBeInTheDocument()
+    })
+
+    it('says how far past a ceiling the month has gone', async () => {
+      const { db, householdId, byName } = await seedHousehold()
+      const comida = byName.get('Comida')
+      if (comida === undefined) {
+        throw new Error('expected seeded categories')
+      }
+      await updateCategoryBudget({
+        db,
+        householdId,
+        categoryId: comida.id,
+        monthlyBudget: 100,
+      })
+      await seed({
+        db,
+        householdId,
+        categoryId: comida.id,
+        name: 'A',
+        price: 175,
+      })
+
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
+
+      expect(
+        await screen.findByText('$75 por encima del tope'),
+      ).toBeInTheDocument()
+    })
+
+    // Before anything has been spent is the most useful moment to look at a
+    // ceiling, and summarizeByCategory drops a category with no spending.
+    // It used to list every ceiling, including the ones with nothing spent
+    // against them -- which buried the one actually about to go over. The
+    // tope itself is printed on each category's own tile either way. Per
+    // direct feedback.
+    it('leaves out a ceiling nothing has gone into yet', async () => {
+      const { db, householdId, byName } = await seedHousehold()
+      const comida = byName.get('Comida')
+      const salud = byName.get('Salud')
+      if (comida === undefined || salud === undefined) {
+        throw new Error('expected seeded categories')
+      }
+      await updateCategoryBudget({
+        db,
+        householdId,
+        categoryId: salud.id,
+        monthlyBudget: 300,
+      })
+      await seed({
+        db,
+        householdId,
+        categoryId: comida.id,
+        name: 'A',
+        price: 75,
+      })
+
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
+
+      await screen.findByText('Gastos por categoría')
+      expect(screen.queryByText('Cerca del tope')).not.toBeInTheDocument()
+      expect(screen.queryByText('de $300')).not.toBeInTheDocument()
+    })
+
+    // Per direct feedback the ceilings do not have to add up -- but promising
+    // more than the household has is worth saying out loud.
+    it('warns when the ceilings add up to more than the monthly budget', async () => {
+      const { db, householdId, byName } = await seedHousehold()
+      const comida = byName.get('Comida')
+      const salud = byName.get('Salud')
+      if (comida === undefined || salud === undefined) {
+        throw new Error('expected seeded categories')
+      }
+      await updateCategoryBudget({
+        db,
+        householdId,
+        categoryId: comida.id,
+        monthlyBudget: 800,
+      })
+      await updateCategoryBudget({
+        db,
+        householdId,
+        categoryId: salud.id,
+        monthlyBudget: 500,
+      })
+
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
+
+      // monthlyBudget is 1000; 800 + 500 promises 300 more than that.
+      expect(
+        await screen.findByText(/suman \$300 más que el presupuesto del mes/),
+      ).toBeInTheDocument()
+    })
+
+    it('stays quiet while the ceilings fit inside the monthly budget', async () => {
+      const { db, householdId, byName } = await seedHousehold()
+      const comida = byName.get('Comida')
+      if (comida === undefined) {
+        throw new Error('expected seeded categories')
+      }
+      await updateCategoryBudget({
+        db,
+        householdId,
+        categoryId: comida.id,
+        monthlyBudget: 300,
+      })
+
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
+
+      await screen.findByText('Todavía no hay nada para repartir')
+      expect(
+        screen.queryByText(/más que el presupuesto/),
+      ).not.toBeInTheDocument()
+    })
+  })
+
   it('shows an empty state instead of an arc-less donut when the month has no expenses', async () => {
     const { db, householdId } = await seedHousehold()
 
-    const { container } = renderWithProviders(
+    const { container } = renderInRouter(
       <CategoryBreakdown db={db} householdId={householdId} />,
     )
 
@@ -57,6 +237,41 @@ describe('CategoryBreakdown', () => {
     ).toBeInTheDocument()
     expect(container.querySelector('svg')).toBeNull()
   })
+
+  // A category's id is `householdId_name` run through encodeURIComponent,
+  // so any name with a space or an accent carries %20 / %C3%A9 *inside the
+  // id*. Dropped into a query string raw, the browser decodes those when it
+  // parses, and Histórico ends up filtering on an id that does not exist:
+  // no rows, and a chip with no name in it. Single-word categories were
+  // fine, which is why this went unnoticed -- the demo's are all single
+  // words. Per direct feedback: "me manda al filtro con cualquier cosa".
+  it.each([
+    ['Herramientas digitales'],
+    ['Uber / Cabi'],
+    ['Tarjeta de crédito'],
+  ])(
+    'links to Histórico with an id that survives the URL: %s',
+    async (name) => {
+      const { db, householdId } = await seedHousehold()
+      const category = await findOrCreateCategory({ db, householdId, name })
+      await seed({
+        db,
+        householdId,
+        categoryId: category.id,
+        name: 'Canva',
+        price: 12,
+      })
+
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
+
+      const link = await screen.findByRole('link', { name: new RegExp(name) })
+      const href = link.getAttribute('href') ?? ''
+      const parsed = new URLSearchParams(
+        new URL(href, 'http://localhost').search,
+      ).get('category')
+      expect(parsed).toBe(category.id)
+    },
+  )
 
   it('lists categories by amount descending, with each share of the month', async () => {
     const { db, householdId, byName } = await seedHousehold()
@@ -80,7 +295,7 @@ describe('CategoryBreakdown', () => {
       price: 75,
     })
 
-    renderWithProviders(<CategoryBreakdown db={db} householdId={householdId} />)
+    renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
 
     const list = await screen.findByRole('list', {
       name: 'Gastos por categoría',
@@ -92,6 +307,12 @@ describe('CategoryBreakdown', () => {
     expect(items[1]).toHaveTextContent('Transporte')
     expect(items[1]).toHaveTextContent('25%')
     expect(items[1]).toHaveTextContent('$25')
+    const now = new Date()
+    const month = `${String(now.getFullYear())}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    expect(within(items[0]!).getByRole('link')).toHaveAttribute(
+      'href',
+      `/historico?month=${month}&category=${comida.id}`,
+    )
   })
 
   // The total lives beside the heading, not inside the donut's hole: a real
@@ -113,12 +334,12 @@ describe('CategoryBreakdown', () => {
       price: 25,
     })
 
-    const { container } = renderWithProviders(
+    const { container } = renderInRouter(
       <CategoryBreakdown db={db} householdId={householdId} />,
     )
 
     const heading = await screen.findByRole('heading', {
-      name: 'Por categoría',
+      name: 'Gastos por categoría',
     })
     expect(heading.parentElement).toHaveTextContent('$100')
     expect(container.querySelector('svg')?.textContent).toBe('')
@@ -135,7 +356,7 @@ describe('CategoryBreakdown', () => {
     await seed({ db, householdId, categoryId: comida.id, name: 'A', price: 75 })
     await seed({ db, householdId, categoryId: comida.id, name: 'B', price: 25 })
 
-    const { container } = renderWithProviders(
+    const { container } = renderInRouter(
       <CategoryBreakdown db={db} householdId={householdId} />,
     )
 
@@ -167,7 +388,7 @@ describe('CategoryBreakdown', () => {
       price: 25,
     })
 
-    const { container } = renderWithProviders(
+    const { container } = renderInRouter(
       <CategoryBreakdown db={db} householdId={householdId} />,
     )
     await screen.findByRole('list', { name: 'Gastos por categoría' })
@@ -201,7 +422,7 @@ describe('CategoryBreakdown', () => {
       })
     }
 
-    const { container } = renderWithProviders(
+    const { container } = renderInRouter(
       <CategoryBreakdown db={db} householdId={householdId} />,
     )
     await screen.findByRole('list', { name: 'Gastos por categoría' })
@@ -262,7 +483,7 @@ describe('CategoryBreakdown', () => {
       999,
     )
 
-    renderWithProviders(
+    renderInRouter(
       <CategoryBreakdown
         db={db}
         householdId={householdId}
@@ -295,7 +516,7 @@ describe('CategoryBreakdown', () => {
       999,
     )
 
-    renderWithProviders(
+    renderInRouter(
       <CategoryBreakdown
         db={db}
         householdId={householdId}
@@ -308,5 +529,150 @@ describe('CategoryBreakdown', () => {
     expect(
       screen.queryByText('Todavía no hay nada para repartir'),
     ).not.toBeInTheDocument()
+  })
+  describe('Tarjeta', () => {
+    // Visa's Resumen of this month is paid $10 over its cuotas (the ajuste);
+    // Master's is still unpaid. Both come from purchases dated last month,
+    // whose single cuota lands in this month's Resumen.
+    async function seedCards() {
+      const s = await seedHousehold()
+      const comida = s.byName.get('Comida')
+      const transporte = s.byName.get('Transporte')
+      if (comida === undefined || transporte === undefined) {
+        throw new Error('expected seeded categories')
+      }
+      const now = new Date()
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 15)
+      const visa = await createCard({ ...s, name: 'Visa' })
+      const master = await createCard({ ...s, name: 'Master' })
+      const buy = (
+        cardId: string,
+        categoryId: string,
+        name: string,
+        total: number,
+      ) =>
+        createCardPurchase({
+          db: s.db,
+          householdId: s.householdId,
+          cardId,
+          categoryId,
+          memberId: 'user-1',
+          authorDisplayName: 'Ada',
+          name,
+          total,
+          cuotas: 1,
+          purchaseDate: lastMonth,
+          comments: '',
+        })
+      await buy(visa.id, comida.id, 'Super grande', 300)
+      await buy(master.id, transporte.id, 'Peaje', 50)
+      const pendientes = await listPendientes(s)
+      const visaResumen = pendientes.find((p) => p.cardId === visa.id)
+      const masterResumen = pendientes.find((p) => p.cardId === master.id)
+      if (visaResumen === undefined || masterResumen === undefined) {
+        throw new Error('expected both Resúmenes')
+      }
+      // Visa's bill was paid, $10 over what was logged; Master's is still
+      // an estimate, which is all a card bill ever is until it is paid.
+      await markResumenPaid({
+        db: s.db,
+        householdId: s.householdId,
+        resumenId: visaResumen.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        amountPaid: 310,
+        paymentDate: now,
+      })
+      await seed({ ...s, categoryId: comida.id, name: 'Verdura', price: 75 })
+      return s
+    }
+
+    it('is its own slice, ajuste and unpaid Resúmenes included, and card spending stays out of the other categories', async () => {
+      const { db, householdId } = await seedCards()
+
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
+
+      const list = await screen.findByRole('list', {
+        name: 'Gastos por categoría',
+      })
+      const items = within(list)
+        .getAllByRole('listitem')
+        .filter((item) => item.parentElement === list)
+      expect(items).toHaveLength(2)
+      expect(items[0]).toHaveTextContent('Tarjeta')
+      // The Visa payment and its ajuste. Master's estimate is outside the
+      // slice: an estimate is not money spent.
+      expect(items[0]).toHaveTextContent('$310')
+      expect(items[1]).toHaveTextContent('Comida')
+      expect(items[1]).toHaveTextContent('$75')
+    })
+
+    it('opens into its subcategories, with Ajuste and the estimate as their own lines', async () => {
+      const { db, householdId } = await seedCards()
+
+      renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
+
+      const toggle = await screen.findByText('Tarjeta')
+      const lines = screen.getByRole('list', { name: 'Tarjeta por categoría' })
+      expect(lines).not.toBeVisible()
+
+      fireEvent.click(toggle)
+
+      expect(lines).toBeVisible()
+      const rows = within(lines).getAllByRole('listitem')
+      expect(rows.map((row) => row.textContent)).toEqual([
+        // Each kind of money is named where it starts. Per direct feedback.
+        expect.stringMatching(/^Pagado del resumen.*Comida.*\$300/),
+        expect.stringMatching(/^Ajuste.*\$10/),
+        expect.stringMatching(
+          /^Todavía sin resumen.*no suma.*Consumos cargados.*\$50/,
+        ),
+      ])
+    })
+
+    // Two cards, neither paid: both are estimates, and an estimate is
+    // outside the slice -- so there is no Tarjeta at all. There used to be
+    // a third state here, "the statement arrived and is owed", and it is
+    // gone. Per direct feedback: las tarjetas siempre van a ser estimadas.
+    it('shows no Tarjeta at all while every card bill is an estimate', async () => {
+      const s = await seedHousehold()
+      const comida = s.byName.get('Comida')
+      if (comida === undefined) {
+        throw new Error('expected seeded categories')
+      }
+      const now = new Date()
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 15)
+      const visa = await createCard({ ...s, name: 'Visa' })
+      const master = await createCard({ ...s, name: 'Master' })
+      for (const [cardId, total] of [
+        [visa.id, 300],
+        [master.id, 80],
+      ] as const) {
+        await createCardPurchase({
+          db: s.db,
+          householdId: s.householdId,
+          cardId,
+          categoryId: comida.id,
+          memberId: 'user-1',
+          authorDisplayName: 'Ada',
+          name: 'Super',
+          total,
+          cuotas: 1,
+          purchaseDate: lastMonth,
+          comments: '',
+        })
+      }
+
+      renderInRouter(
+        <CategoryBreakdown db={s.db} householdId={s.householdId} />,
+      )
+
+      // Nothing has been spent: the cuotas are an estimate of bills nobody
+      // has paid, and an estimate is not money out.
+      expect(
+        await screen.findByText('Todavía no hay nada para repartir'),
+      ).toBeInTheDocument()
+      expect(screen.queryByText('Tarjeta')).not.toBeInTheDocument()
+    })
   })
 })

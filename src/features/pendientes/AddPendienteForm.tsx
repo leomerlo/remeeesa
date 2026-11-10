@@ -7,6 +7,7 @@ import { FormattedAmountInput } from '@/components/ui/formatted-amount-input'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { SheetFooter, SheetScrollArea } from '@/components/ui/sheet'
 import {
   categoriesQueryKey,
   CategoryCombobox,
@@ -33,6 +34,16 @@ import {
 } from '@/lib/expenses'
 import type { Category } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
+import {
+  listCards,
+  markPendientePaidWithCard,
+  MAX_CUOTAS,
+  parseCuotas,
+} from '@/lib/cards'
+import { Select } from '@/components/ui/select'
+import { cardsQueryKey } from '@/features/household/cardsQueryKey'
+import { cardAccepts, DEFAULT_CURRENCY } from '@/lib/money'
+import type { Currency } from '@/lib/money'
 import { pendientesQueryKey } from './queryKeys'
 
 export type EditPendienteTarget = {
@@ -43,6 +54,9 @@ export type EditPendienteTarget = {
   readonly expectedAmount: number | null
   readonly recurring: boolean
   readonly autoDebit: boolean
+  // Pesos unless it says otherwise. A dollar bill is recorded and shown in
+  // dollars and counted against no peso budget.
+  readonly currency?: Currency
   // Pre-checks "Ya lo pagué" -- set by entry points whose whole purpose is
   // paying (Home's "Cuentas por pagar" cards, PendientesList's "Pagar"
   // button), so the toggle already reflects that intent rather than making
@@ -79,7 +93,7 @@ type PendienteFormFields = {
   readonly autoDebit: boolean
 }
 
-function localDateInputValue(date: Date): string {
+export function localDateInputValue(date: Date): string {
   const year = String(date.getFullYear()).padStart(4, '0')
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
@@ -138,7 +152,7 @@ function parseDateInput(value: string): Date {
 // Separate from parseDateInput above -- same malformed-string shape, but a
 // payment date needs "de pago" wording (and a past-or-today check a due
 // date deliberately skips; see the Fecha de vencimiento field below).
-function parsePaymentDateInput(value: string): Date {
+export function parsePaymentDateInput(value: string): Date {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
   if (match === null) {
     throw new Error('La fecha de pago no es válida')
@@ -280,6 +294,26 @@ function PendienteFormBody({
   const [paymentDate, setPaymentDate] = useState(
     localDateInputValue(new Date()),
   )
+  const [currency, setCurrency] = useState<Currency>(
+    editPendiente?.currency ?? DEFAULT_CURRENCY,
+  )
+  // '' is cash: the method every household has without writing it down.
+  const [payMethodId, setPayMethodId] = useState('')
+  const [payCuotas, setPayCuotas] = useState('1')
+  const cardsQuery = useQuery({
+    queryKey: cardsQueryKey({ householdId }),
+    queryFn: () => listCards({ db, householdId }),
+  })
+  // A credit card can only settle a bill the bank can bill it in: a card
+  // the bank does not bill in dollars cannot pay a dollar subscription.
+  const payMethods = (cardsQuery.data ?? []).filter(
+    (card) => card.kind !== 'credito' || cardAccepts(card.currency, currency),
+  )
+  const payMethod = payMethods.find((card) => card.id === payMethodId)
+  // The one that changes what paying means: with credit nothing leaves the
+  // household today, it goes onto the card and arrives in that card's
+  // Resumen. Per direct feedback.
+  const paysWithCredit = payMethod?.kind === 'credito'
   const [error, setError] = useState<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const today = localDateInputValue(new Date())
@@ -289,6 +323,42 @@ function PendienteFormBody({
     // exact-key invalidation, same convention as the expense form.
     await queryClient.invalidateQueries({ queryKey: categoriesKey })
     await queryClient.invalidateQueries({ queryKey: pendientesKey })
+  }
+
+  // How a bill gets settled, which is one of two different things. Credit
+  // books a purchase into next month's Resumen and leaves this month
+  // alone; everything else is money already gone, recorded as a gasto with
+  // the method on it.
+  async function settlePendiente(input: {
+    readonly pendienteId: string
+    readonly finalAmount: number
+    readonly paymentDate: Date
+  }): Promise<void> {
+    if (paysWithCredit && payMethod !== undefined) {
+      await markPendientePaidWithCard({
+        db,
+        householdId,
+        pendienteId: input.pendienteId,
+        cardId: payMethod.id,
+        memberId,
+        authorDisplayName,
+        finalAmount: input.finalAmount,
+        cuotas: Number(payCuotas),
+        paymentDate: input.paymentDate,
+        currency,
+      })
+      return
+    }
+    await markPendientePaid({
+      db,
+      householdId,
+      pendienteId: input.pendienteId,
+      memberId,
+      authorDisplayName,
+      finalAmount: input.finalAmount,
+      paymentDate: input.paymentDate,
+      paymentMethodId: payMethodId === '' ? null : payMethodId,
+    })
   }
 
   const mutation = useMutation({
@@ -312,17 +382,15 @@ function PendienteFormBody({
           dueDate: fields.dueDate,
           expectedAmount: fields.expectedAmount,
           recurring: fields.recurring,
+          autoDebit: fields.autoDebit,
+          currency,
         })
         if (shouldMarkPaid) {
           // fields.expectedAmount === null is caught before mutate() is
           // called (see onSubmit) -- parsedPaymentDate is likewise never
           // null here, both guarded by the same `markPaid` flag.
-          await markPendientePaid({
-            db,
-            householdId,
+          await settlePendiente({
             pendienteId: editPendiente.pendienteId,
-            memberId,
-            authorDisplayName,
             finalAmount: fields.expectedAmount ?? 0,
             paymentDate: parsedPaymentDate ?? new Date(),
           })
@@ -337,17 +405,14 @@ function PendienteFormBody({
         dueDate: fields.dueDate,
         expectedAmount: fields.expectedAmount,
         recurring: fields.recurring,
+        currency,
       })
       if (shouldMarkPaid) {
         // Same "fields.expectedAmount === null is caught before mutate()"
         // guard as the editing branch above -- markPaid can't reach here
         // with a null amount or a null paymentDate.
-        await markPendientePaid({
-          db,
-          householdId,
+        await settlePendiente({
           pendienteId: created.id,
-          memberId,
-          authorDisplayName,
           finalAmount: fields.expectedAmount ?? 0,
           paymentDate: parsedPaymentDate ?? new Date(),
         })
@@ -534,6 +599,10 @@ function PendienteFormBody({
       if (markPaid && fields.expectedAmount === null) {
         throw new Error('Ingresá un monto para marcarlo como pagado')
       }
+      // Before mutate: a rejected payment must not leave a new category.
+      if (markPaid && paysWithCredit) {
+        parseCuotas(Number(payCuotas), fields.expectedAmount ?? 0)
+      }
       const parsedPaymentDate = markPaid
         ? parsePaymentDateInput(paymentDate)
         : null
@@ -573,17 +642,14 @@ function PendienteFormBody({
       {/* Only this part scrolls -- the action buttons below stay pinned at
           the bottom of the sheet regardless of how tall the field list
           gets, so Guardar/Agregar never requires scrolling to reach. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-x-hidden overflow-y-auto overscroll-contain">
-        {/* The Sheet's own title is visually hidden (it exists only for the
-            dialog's accessible name), which left this opening onto a bare
-            "Nombre" field with nothing saying what screen it was. */}
-        <h2 className="text-title font-semibold">
-          {isEditing
-            ? isPaidPendiente
-              ? 'Servicio pagado'
-              : 'Editar servicio'
-            : 'Agregar Servicio'}
-        </h2>
+      <SheetScrollArea>
+        {/* The Sheet draws a real header row carrying this form's title,
+            so there is no heading here -- except the one thing that header
+            cannot know: that this one is already paid, and therefore
+            frozen. */}
+        {isPaidPendiente ? (
+          <h2 className="text-title font-semibold">Servicio pagado</h2>
+        ) : null}
 
         {/* Frozen once paid -- a paid Pendiente's fields are frozen at the
             rules level too (isValidPendienteUpdate requires status ==
@@ -614,22 +680,39 @@ function PendienteFormBody({
               left a large empty box at the top of an empty form. */}
           <div className="flex w-full flex-col gap-2">
             <Label htmlFor="pendiente-expected-amount">Monto esperado</Label>
-            <div className="relative">
-              <span
-                aria-hidden="true"
-                className="text-muted-foreground pointer-events-none absolute top-1/2 left-4 -translate-y-1/2"
+            {/* A bill can be in dollars -- a subscription, something
+                billed abroad. The currency sits with the amount because
+                that is what it qualifies, same as on a gasto. Per direct
+                feedback. */}
+            <div className="flex w-full items-center gap-2">
+              <Select
+                aria-label="Moneda"
+                value={currency}
+                disabled={isPaidPendiente}
+                onChange={(event) => {
+                  setCurrency(event.target.value === 'USD' ? 'USD' : 'ARS')
+                }}
+                className="w-auto shrink-0 text-sm"
               >
-                $
-              </span>
-              <FormattedAmountInput
-                id="pendiente-expected-amount"
-                name="pendiente-expected-amount"
-                className="pl-8"
-                value={expectedAmount}
-                onChange={setExpectedAmount}
-                autoComplete="off"
-              />
+                <option value="ARS">$</option>
+                <option value="USD">US$</option>
+              </Select>
+              <div className="relative min-w-0 flex-1">
+                <FormattedAmountInput
+                  id="pendiente-expected-amount"
+                  name="pendiente-expected-amount"
+                  value={expectedAmount}
+                  onChange={setExpectedAmount}
+                  autoComplete="off"
+                />
+              </div>
             </div>
+            {currency === 'USD' ? (
+              <p className="text-muted-foreground text-xs">
+                Las cuentas en dólares se registran pero no se descuentan del
+                presupuesto del mes.
+              </p>
+            ) : null}
           </div>
 
           <div className="flex w-full flex-col gap-2">
@@ -666,7 +749,7 @@ function PendienteFormBody({
               the bank takes it on the due date, so it settles itself rather
               than waiting for someone to press Pagar. */}
           <div className="flex w-full flex-col gap-4">
-            <div className="flex w-full items-center gap-3">
+            <div className="flex min-h-[46px] w-full items-center gap-3 lg:min-h-0">
               <Switch
                 id="pendiente-recurring"
                 checked={recurring}
@@ -674,7 +757,7 @@ function PendienteFormBody({
               />
               <Label htmlFor="pendiente-recurring">Recurrente</Label>
             </div>
-            <div className="flex w-full items-center gap-3">
+            <div className="flex min-h-[46px] w-full items-center gap-3 lg:min-h-0">
               <Switch
                 id="pendiente-auto-debit"
                 checked={autoDebit}
@@ -695,7 +778,7 @@ function PendienteFormBody({
             payment (per direct feedback -- there was no way back from a
             mistaken "Ya lo pagué"). */}
         <div className="flex w-full flex-col gap-2">
-          <div className="flex w-full items-center gap-3">
+          <div className="flex min-h-[46px] w-full items-center gap-3 lg:min-h-0">
             <Switch
               id="pendiente-mark-paid"
               checked={markPaid}
@@ -710,18 +793,70 @@ function PendienteFormBody({
                 : 'Se va a deshacer el pago y se va a borrar el gasto que generó.'}
             </p>
           ) : markPaid ? (
-            <div className="flex w-full flex-col gap-2">
-              <Label htmlFor="pendiente-payment-date">Fecha de pago</Label>
-              <Input
-                id="pendiente-payment-date"
-                name="pendiente-payment-date"
-                type="date"
-                value={paymentDate}
-                max={today}
-                onChange={(event) => {
-                  setPaymentDate(event.target.value)
-                }}
-              />
+            /* Its own group, at the field spacing the rest of the form
+               uses: at the toggle's tighter gap these three read as
+               footnotes to the switch rather than as fields. */
+            <div className="flex w-full flex-col gap-4 pt-2">
+              {/* With what. Credit is the one that changes what paying
+                  means: the bill goes onto the card and leaves the
+                  household when that card's resumen is paid, not today.
+                  Per direct feedback -- pagar la Luz con la Visa. */}
+              <div className="flex w-full flex-col gap-2">
+                <Label htmlFor="pendiente-paid-with">Pagado con</Label>
+                <Select
+                  id="pendiente-paid-with"
+                  name="pendiente-paid-with"
+                  value={payMethodId}
+                  onChange={(event) => {
+                    setPayMethodId(event.target.value)
+                  }}
+                >
+                  <option value="">Efectivo</option>
+                  {payMethods.map((card) => (
+                    <option key={card.id} value={card.id}>
+                      {card.name}
+                    </option>
+                  ))}
+                </Select>
+                <p className="text-muted-foreground text-xs">
+                  {paysWithCredit
+                    ? `No sale de este mes: va al resumen de ${payMethod?.name ?? ''} del mes que viene.`
+                    : 'Sale este mes, como cualquier gasto.'}
+                </p>
+              </div>
+
+              {paysWithCredit ? (
+                <div className="flex w-full flex-col gap-2">
+                  <Label htmlFor="pendiente-pay-cuotas">Cuotas</Label>
+                  <Input
+                    id="pendiente-pay-cuotas"
+                    name="pendiente-pay-cuotas"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={MAX_CUOTAS}
+                    step={1}
+                    value={payCuotas}
+                    onChange={(event) => {
+                      setPayCuotas(event.target.value)
+                    }}
+                  />
+                </div>
+              ) : null}
+
+              <div className="flex w-full flex-col gap-2">
+                <Label htmlFor="pendiente-payment-date">Fecha de pago</Label>
+                <Input
+                  id="pendiente-payment-date"
+                  name="pendiente-payment-date"
+                  type="date"
+                  value={paymentDate}
+                  max={today}
+                  onChange={(event) => {
+                    setPaymentDate(event.target.value)
+                  }}
+                />
+              </div>
             </div>
           ) : null}
         </div>
@@ -729,9 +864,9 @@ function PendienteFormBody({
         {alertMessage !== null ? (
           <AlertMessage>{alertMessage}</AlertMessage>
         ) : null}
-      </div>
+      </SheetScrollArea>
 
-      <div className="shrink-0 pt-6">
+      <SheetFooter>
         {confirmingDelete ? (
           <div
             role="alertdialog"
@@ -792,18 +927,9 @@ function PendienteFormBody({
             </Button>
             {isEditing ? (
               <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={mutation.isPending}
-                  className="w-full"
-                  onClick={() => {
-                    setError(null)
-                    onEditFinished?.()
-                  }}
-                >
-                  Cancelar edición
-                </Button>
+                {/* No "Cancelar edición": the sheet's own header has a
+                    close control, and a second way out of the same screen
+                    only made the footer longer. Per direct feedback. */}
                 {/* Deleting a paid Pendiente isn't offered -- both the
                     domain layer and firestore.rules reject it (see
                     deletePendiente), and "Deshacer pago" above is the way
@@ -826,7 +952,7 @@ function PendienteFormBody({
             ) : null}
           </div>
         )}
-      </div>
+      </SheetFooter>
     </form>
   )
 }

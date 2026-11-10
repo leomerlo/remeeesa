@@ -1,0 +1,218 @@
+import { describe, expect, it } from 'vitest'
+import {
+  budgetableMonths,
+  monthKey,
+  monthlyBudgetFor,
+  withMonthlyBudgetFor,
+} from './monthlyBudget'
+import type { Household } from './types'
+
+function household(
+  monthlyBudgets: Readonly<Record<string, number>>,
+  monthlyBudget = 900000,
+): Household {
+  return {
+    id: 'h1',
+    name: 'Casa Verde',
+    monthlyBudget,
+    monthlyBudgets,
+    createdAt: new Date(2026, 8, 1),
+  }
+}
+
+const SEPTEMBER = new Date(2026, 8, 15)
+const OCTOBER = new Date(2026, 9, 15)
+const NOVEMBER = new Date(2026, 10, 15)
+const AUGUST = new Date(2026, 7, 15)
+
+describe('monthKey', () => {
+  it('pads the month so the keys sort in calendar order', () => {
+    expect(monthKey(new Date(2026, 8, 15))).toBe('2026-09')
+    expect(monthKey(new Date(2026, 11, 1))).toBe('2026-12')
+    expect(['2026-09', '2026-10', '2026-12'].sort()).toEqual([
+      '2026-09',
+      '2026-10',
+      '2026-12',
+    ])
+  })
+})
+
+describe('monthlyBudgetFor', () => {
+  it('gives a month the figure set for that month', () => {
+    const casa = household({ '2026-09': 5355000, '2026-10': 900000 })
+
+    expect(monthlyBudgetFor(casa, SEPTEMBER)).toBe(5355000)
+    expect(monthlyBudgetFor(casa, OCTOBER)).toBe(900000)
+  })
+
+  // The point of the whole thing: raising it in October must not rewrite
+  // what September was measured against.
+  it('leaves a past month on the figure it was run on', () => {
+    const before = household({ '2026-09': 5355000 })
+    const after = household(
+      withMonthlyBudgetFor({
+        household: before,
+        month: OCTOBER,
+        monthlyBudget: 900000,
+      }),
+    )
+
+    expect(monthlyBudgetFor(after, SEPTEMBER)).toBe(5355000)
+    expect(monthlyBudgetFor(after, OCTOBER)).toBe(900000)
+  })
+
+  // Leaving the budget alone is the common case, and means "same as before".
+  // A month already over is read at the figure it was lived against, even
+  // if it never set one of its own: rewriting it to nothing would make a
+  // month the household already reconciled look as if it never had a
+  // budget.
+  it('carries the last figure into a month that is already over', () => {
+    const casa = household({ '2026-09': 5355000, '2026-10': 900000 })
+
+    expect(monthlyBudgetFor(casa, NOVEMBER, new Date(2026, 11, 4))).toBe(900000)
+  })
+
+  // ...but nothing is inherited into the month the household is standing
+  // in. What October could afford is not a decision anyone has made about
+  // November, and the card that reads a zero here asks for one. Per direct
+  // feedback: que esté en cero y diga todavía no cargaste nada este mes.
+  it('gives the current month nothing until it sets its own', () => {
+    const casa = household({ '2026-09': 5355000, '2026-10': 900000 })
+
+    expect(monthlyBudgetFor(casa, NOVEMBER, new Date(2026, 10, 6))).toBe(0)
+  })
+
+  it('gives a future month nothing either', () => {
+    const casa = household({ '2026-09': 5355000, '2026-10': 900000 })
+
+    expect(
+      monthlyBudgetFor(casa, new Date(2026, 11, 5), new Date(2026, 10, 6)),
+    ).toBe(0)
+  })
+
+  it('reads the current month at its own figure once it is set', () => {
+    const casa = household({ '2026-10': 900000, '2026-11': 1200000 })
+
+    expect(monthlyBudgetFor(casa, NOVEMBER, new Date(2026, 10, 6))).toBe(
+      1200000,
+    )
+  })
+
+  // Not today's figure: that one moves every time the budget is edited,
+  // which would quietly rewrite a month nobody touched.
+  it('gives a month older than every snapshot the earliest one', () => {
+    const casa = household({ '2026-09': 5355000, '2026-10': 900000 })
+
+    expect(monthlyBudgetFor(casa, AUGUST)).toBe(5355000)
+  })
+
+  it('falls back to the plain field for a household with no snapshots at all', () => {
+    const legacy = household({}, 750000)
+
+    expect(monthlyBudgetFor(legacy, SEPTEMBER)).toBe(750000)
+    expect(monthlyBudgetFor(legacy, OCTOBER)).toBe(750000)
+  })
+
+  it('reads zero as a real figure, not as a missing one', () => {
+    const casa = household({ '2026-09': 0 }, 900000)
+
+    expect(monthlyBudgetFor(casa, SEPTEMBER)).toBe(0)
+  })
+
+  it('crosses a year boundary in the right direction', () => {
+    const casa = household({ '2026-12': 100, '2027-01': 200 })
+
+    const later = new Date(2027, 8, 1)
+    expect(monthlyBudgetFor(casa, new Date(2026, 11, 5), later)).toBe(100)
+    expect(monthlyBudgetFor(casa, new Date(2027, 0, 5), later)).toBe(200)
+    expect(monthlyBudgetFor(casa, new Date(2027, 5, 5), later)).toBe(200)
+  })
+})
+
+describe('withMonthlyBudgetFor', () => {
+  it('writes only the month being edited', () => {
+    const casa = household({ '2026-09': 5355000 })
+
+    expect(
+      withMonthlyBudgetFor({
+        household: casa,
+        month: OCTOBER,
+        monthlyBudget: 900000,
+      }),
+    ).toEqual({ '2026-09': 5355000, '2026-10': 900000 })
+  })
+
+  it('replaces the figure when the same month is edited again', () => {
+    const casa = household({ '2026-09': 5355000 })
+
+    expect(
+      withMonthlyBudgetFor({
+        household: casa,
+        month: SEPTEMBER,
+        monthlyBudget: 6000000,
+      }),
+    ).toEqual({ '2026-09': 6000000 })
+  })
+})
+
+describe('budgetableMonths', () => {
+  function since(createdAt: Date, snapshots = {}): Household {
+    return { ...household(snapshots), createdAt }
+  }
+
+  it('runs from the month the household was created to the one after now', () => {
+    const months = budgetableMonths({
+      household: since(new Date(2026, 8, 12)),
+      now: new Date(2026, 9, 2),
+    })
+
+    expect(months.map(monthKey)).toEqual(['2026-11', '2026-10', '2026-09'])
+  })
+
+  // Newest first: the month you are most likely to be setting is the one
+  // the list opens on.
+  it('puts the most recent month first', () => {
+    const [first] = budgetableMonths({
+      household: since(new Date(2026, 8, 12)),
+      now: new Date(2026, 9, 2),
+    })
+
+    expect(first === undefined ? null : monthKey(first)).toBe('2026-11')
+  })
+
+  // Next month is offered so a household that plans can set the budget
+  // before the month starts.
+  it('always reaches one month past now', () => {
+    const months = budgetableMonths({
+      household: since(new Date(2026, 9, 1)),
+      now: new Date(2026, 9, 2),
+    })
+
+    expect(months.map(monthKey)).toEqual(['2026-11', '2026-10'])
+  })
+
+  // A snapshot older than the household itself is still a month someone
+  // deliberately set, so it has to stay reachable.
+  it('reaches back to a snapshot older than the household', () => {
+    const months = budgetableMonths({
+      household: since(new Date(2026, 9, 1), { '2026-08': 500 }),
+      now: new Date(2026, 9, 2),
+    })
+
+    expect(months.map(monthKey)).toEqual([
+      '2026-11',
+      '2026-10',
+      '2026-09',
+      '2026-08',
+    ])
+  })
+
+  it('crosses a year boundary', () => {
+    const months = budgetableMonths({
+      household: since(new Date(2026, 11, 3)),
+      now: new Date(2027, 0, 5),
+    })
+
+    expect(months.map(monthKey)).toEqual(['2027-02', '2027-01', '2026-12'])
+  })
+})

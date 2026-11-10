@@ -17,7 +17,7 @@ export function parseHouseholdDocument(input: {
     throw new Error('Household document must be an object')
   }
 
-  const { name, monthly_budget, created_at } = input.data
+  const { name, monthly_budget, monthly_budgets, created_at } = input.data
   if (typeof name !== 'string') {
     throw new Error('Household name must be a string')
   }
@@ -29,8 +29,34 @@ export function parseHouseholdDocument(input: {
     id: input.id,
     name: parseHouseholdName(name),
     monthlyBudget: parseMonthlyBudget(monthly_budget),
+    monthlyBudgets: parseMonthlyBudgets(monthly_budgets),
     createdAt: parseTimestamp(created_at, 'created_at'),
   }
+}
+
+// Absent on every household written before per-month budgets existed, which
+// reads as "no snapshots" rather than as a broken document. An entry whose
+// key is not a month, or whose value is not a usable budget, is dropped
+// rather than failing the whole read: one bad key must not make the
+// household unopenable.
+const MONTH_KEY = /^\d{4}-(0[1-9]|1[0-2])$/
+
+function parseMonthlyBudgets(value: unknown): Readonly<Record<string, number>> {
+  if (!isRecord(value)) {
+    return {}
+  }
+  const parsed: Record<string, number> = {}
+  for (const [key, amount] of Object.entries(value)) {
+    if (
+      MONTH_KEY.test(key) &&
+      typeof amount === 'number' &&
+      Number.isFinite(amount) &&
+      amount >= 0
+    ) {
+      parsed[key] = amount
+    }
+  }
+  return parsed
 }
 
 // Falls back to a generic label rather than throwing: a membership doc
@@ -85,15 +111,18 @@ export function parseHouseholdInviteDocument(input: {
 export function householdToDocument(input: {
   readonly name: string
   readonly monthlyBudget: number
+  readonly monthlyBudgets: Readonly<Record<string, number>>
   readonly createdAt: Date
 }): {
   readonly name: string
   readonly monthly_budget: number
+  readonly monthly_budgets: Readonly<Record<string, number>>
   readonly created_at: Date
 } {
   return {
     name: input.name,
     monthly_budget: input.monthlyBudget,
+    monthly_budgets: input.monthlyBudgets,
     created_at: input.createdAt,
   }
 }

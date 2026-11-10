@@ -20,6 +20,16 @@ A household budgeting app. Each expense shows how much budget is left after it, 
 <!-- Fill in per project. Every project must define at least: -->
 
 - `npm test` — run all unit tests
+- `npm run test:rules` — run `firestore.rules` against a live Firestore
+  emulator. Everything in `npm test` uses the in-memory adapter, which has
+  no rules at all, so a rule that forbids what the app really writes passes
+  every one of those and fails only in production. Needs a JDK (the
+  emulator is a Java process); on a Mac, `brew install openjdk` and the
+  script finds it. CI runs it on every push.
+- `npm run test:e2e` — the app in a real browser against the Firestore and
+  Auth emulators (Playwright). The only place the screens, the Firestore
+  adapter and the rules run together; same JDK requirement as above. CI
+  runs it on every push.
 - `npm run typecheck` — static type checking
 - `npm run lint` — linting across the repo
 

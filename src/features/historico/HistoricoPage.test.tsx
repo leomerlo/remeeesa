@@ -1,9 +1,10 @@
-import { fireEvent, screen, within } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import {
   createExpense,
+  findOrCreateCategory,
   formatCurrency,
   listCategories,
   updateExpense,
@@ -13,13 +14,20 @@ import {
   updateMemberDisplayName,
 } from '@/lib/households'
 import type { HouseholdsDb } from '@/lib/households'
-import { createPendiente, markPendientePaid } from '@/lib/pendientes'
+import {
+  createPendiente,
+  listPendientes,
+  markPendientePaid,
+} from '@/lib/pendientes'
+import { createCard, createCardPurchase, markResumenPaid } from '@/lib/cards'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { HistoricoPage } from './HistoricoPage'
 
-function renderPage(ui: ReactElement) {
-  return renderWithProviders(<MemoryRouter>{ui}</MemoryRouter>)
+function renderPage(ui: ReactElement, url = '/') {
+  return renderWithProviders(
+    <MemoryRouter initialEntries={[url]}>{ui}</MemoryRouter>,
+  )
 }
 
 async function seedHousehold() {
@@ -209,22 +217,17 @@ describe('HistoricoPage', () => {
     expect(screen.queryByText('Gasto viejo')).not.toBeInTheDocument()
   })
 
-  // Per direct feedback: this is the screen you are on when you notice a
-  // gasto is missing, so it gets the same title-row action Servicios has.
-  it('offers an add-expense button that opens the shared sheet', async () => {
-    const { db, householdId, categoryId } = await seedHousehold()
-    await seed({
-      db,
-      householdId,
-      categoryId,
-      name: 'Gasto',
-      date: new Date(),
-    })
+  // The page's title-row button is gone -- the app header carries the one
+  // add action at every width -- so what this screen offers on its own is
+  // its empty month's call to action, which opens the very same sheet.
+  it('opens the shared sheet from an empty month', async () => {
+    const { db } = await seedHousehold()
 
     renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
 
-    await screen.findByText('Gasto')
-    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Cargar un gasto' }),
+    )
 
     expect(await screen.findByLabelText('Nombre')).toBeInTheDocument()
     expect(screen.getByLabelText('Precio')).toBeInTheDocument()
@@ -635,5 +638,461 @@ describe('HistoricoPage', () => {
         screen.getByRole('button', { name: 'Mes anterior' }),
       ).toBeInTheDocument()
     })
+  })
+
+  it('opens on the month and category given in the URL', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    const other = (await listCategories({ db, householdId }))[1]
+    if (other === undefined) {
+      throw new Error('expected a second seeded category')
+    }
+    await seed({
+      db,
+      householdId,
+      categoryId,
+      name: 'Alquiler',
+      date: new Date(2026, 7, 3),
+    })
+    await seed({
+      db,
+      householdId,
+      categoryId: other.id,
+      name: 'Cine',
+      date: new Date(2026, 7, 4),
+    })
+    await seed({
+      db,
+      householdId,
+      categoryId,
+      name: 'Otro mes',
+      date: new Date(2026, 6, 4),
+    })
+
+    renderPage(
+      <HistoricoPage currentUserId="user-1" householdsDb={db} />,
+      `/historico?month=2026-08&category=${categoryId}`,
+    )
+
+    expect(await screen.findByText('Alquiler')).toBeInTheDocument()
+    expect(screen.queryByText('Cine')).not.toBeInTheDocument()
+    expect(screen.queryByText('Otro mes')).not.toBeInTheDocument()
+  })
+
+  // The case above happens to use a single-word category, whose id carries
+  // no percent-escapes. A category's id is its name run through
+  // encodeURIComponent, so "Herramientas digitales" has a literal %20 in
+  // it, and a link that drops that into a query string raw comes back
+  // decoded -- an id that matches nothing. Per direct feedback.
+  it('opens on a category whose id carries percent-escapes', async () => {
+    const { db, householdId, categoryId } = await seedHousehold()
+    const digitales = await findOrCreateCategory({
+      db,
+      householdId,
+      name: 'Herramientas digitales',
+    })
+    await seed({
+      db,
+      householdId,
+      categoryId: digitales.id,
+      name: 'Canva',
+      date: new Date(2026, 7, 3),
+    })
+    await seed({
+      db,
+      householdId,
+      categoryId,
+      name: 'Alquiler',
+      date: new Date(2026, 7, 4),
+    })
+
+    renderPage(
+      <HistoricoPage currentUserId="user-1" householdsDb={db} />,
+      `/historico?${new URLSearchParams({
+        month: '2026-08',
+        category: digitales.id,
+      }).toString()}`,
+    )
+
+    // The chip names the category rather than falling back to the bare
+    // word, which is what a filter on a non-existent id looked like.
+    expect(
+      await screen.findByRole('button', { name: /^Herramientas digitales/ }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Canva')).toBeInTheDocument()
+    expect(screen.queryByText('Alquiler')).not.toBeInTheDocument()
+  })
+})
+
+describe('HistoricoPage card purchases', () => {
+  it('lists a card purchase in its month, marked, without adding it to the total', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 20, 12))
+    try {
+      const { db, householdId, categoryId } = await seedHousehold()
+      await seed({
+        db,
+        householdId,
+        categoryId,
+        name: 'Pan',
+        date: new Date(2026, 8, 3),
+        price: 25,
+      })
+      const visa = await createCard({ db, householdId, name: 'Visa' })
+      await createCardPurchase({
+        db,
+        householdId,
+        cardId: visa.id,
+        categoryId,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        name: 'Zapatillas',
+        total: 300,
+        cuotas: 3,
+        purchaseDate: new Date(2026, 8, 5),
+        comments: '',
+      })
+
+      renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+
+      const list = await screen.findByRole('list', {
+        name: 'Movimientos del mes',
+      })
+      expect(within(list).getByText('Zapatillas')).toBeInTheDocument()
+      expect(
+        within(list).getByText('Visa · 3 cuotas · no suma este mes'),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByRole('heading', { name: 'Total del mes' }).parentElement,
+      ).toHaveTextContent('$25')
+
+      // Gastos keeps it; Servicios does not.
+      fireEvent.click(screen.getByRole('tab', { name: 'Gastos' }))
+      expect(screen.getByText('Zapatillas')).toBeInTheDocument()
+      expect(
+        screen.getByRole('heading', { name: 'Total en gastos' }).parentElement,
+      ).toHaveTextContent('$25')
+      fireEvent.click(screen.getByRole('tab', { name: 'Servicios' }))
+      expect(screen.queryByText('Zapatillas')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  async function seedPurchase() {
+    const { db, householdId, categoryId } = await seedHousehold()
+    const visa = await createCard({ db, householdId, name: 'Visa' })
+    const master = await createCard({ db, householdId, name: 'Master' })
+    await createCardPurchase({
+      db,
+      householdId,
+      cardId: visa.id,
+      categoryId,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Zapatillas',
+      total: 300,
+      cuotas: 3,
+      purchaseDate: new Date(2026, 8, 5),
+      comments: '',
+    })
+    return { db, householdId, visa, master }
+  }
+
+  it('shows a purchase with a cuota in a paid Resumen as locked, with no pencil', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 9, 15, 12))
+    try {
+      const { db, householdId, visa } = await seedPurchase()
+      await markResumenPaid({
+        db,
+        householdId,
+        resumenId: `${visa.id}_2026-10`,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        amountPaid: 100,
+        paymentDate: new Date(2026, 9, 15),
+      })
+      renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+      await goBackMonths(1)
+
+      expect(await screen.findByText('Resumen pagado')).toBeInTheDocument()
+      expect(
+        screen.getByRole('img', {
+          name: 'Tiene cuotas en un resumen ya pagado: no se puede editar ni borrar.',
+        }),
+      ).toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: 'Editar Zapatillas' }),
+      ).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('opens a card purchase in the add-gasto form, pre-filled, and saves any field', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 20, 12))
+    try {
+      const { db, householdId, master } = await seedPurchase()
+      renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Editar Zapatillas' }),
+      )
+
+      const dialog = await screen.findByRole('dialog', {
+        name: 'Editar compra',
+      })
+      expect(within(dialog).getByLabelText('Nombre')).toHaveValue('Zapatillas')
+      expect(within(dialog).getByLabelText('Fecha')).toHaveValue('2026-09-05')
+      expect(
+        within(dialog).getByLabelText('Método de pago'),
+      ).toHaveDisplayValue('Visa')
+      expect(within(dialog).getByLabelText('Cuotas')).toHaveValue(3)
+      // It stays a card purchase.
+      expect(
+        within(dialog).queryByRole('option', { name: 'Efectivo' }),
+      ).not.toBeInTheDocument()
+
+      fireEvent.change(within(dialog).getByLabelText('Método de pago'), {
+        target: { value: master.id },
+      })
+      fireEvent.change(within(dialog).getByLabelText('Cuotas'), {
+        target: { value: '1' },
+      })
+      fireEvent.change(within(dialog).getByLabelText('Nombre'), {
+        target: { value: 'Botines' },
+      })
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: 'Guardar cambios' }),
+      )
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      })
+      expect(
+        await screen.findByText('Master · 1 cuota · no suma este mes'),
+      ).toBeInTheDocument()
+      expect(screen.getByText('Botines')).toBeInTheDocument()
+      const resumenes = await listPendientes({ db, householdId })
+      expect(
+        // The estimate: editing a purchase moves what the household has
+        // logged, never the bill, which only the statement sets.
+        resumenes.map((r) => [r.name, r.dueDate, r.estimatedAmount]),
+      ).toEqual([['Master', new Date(2026, 9, 10), 300]])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('deletes a card purchase after confirming, removing its Resúmenes', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 20, 12))
+    try {
+      const { db, householdId } = await seedPurchase()
+      renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Editar Zapatillas' }),
+      )
+      const dialog = await screen.findByRole('dialog')
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: 'Eliminar compra' }),
+      )
+      const confirm = within(dialog).getByRole('alertdialog')
+      fireEvent.click(
+        within(confirm).getByRole('button', { name: 'Eliminar compra' }),
+      )
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      })
+      await waitFor(() => {
+        expect(screen.queryByText('Zapatillas')).not.toBeInTheDocument()
+      })
+      expect(await listPendientes({ db, householdId })).toEqual([])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps the purchase when the delete confirmation is cancelled', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 20, 12))
+    try {
+      const { db, householdId } = await seedPurchase()
+      const before = await listPendientes({ db, householdId })
+      renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Editar Zapatillas' }),
+      )
+      const dialog = await screen.findByRole('dialog')
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: 'Eliminar compra' }),
+      )
+      fireEvent.click(
+        within(within(dialog).getByRole('alertdialog')).getByRole('button', {
+          name: 'Cancelar',
+        }),
+      )
+
+      expect(within(dialog).queryByRole('alertdialog')).not.toBeInTheDocument()
+      expect(
+        within(dialog).getByRole('button', { name: 'Guardar cambios' }),
+      ).toBeInTheDocument()
+      expect(await listPendientes({ db, householdId })).toEqual(before)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('shows why a delete was refused and keeps the sheet open', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 20, 12))
+    try {
+      const { db, householdId } = await seedPurchase()
+      const [october] = await listPendientes({ db, householdId })
+      if (october === undefined) {
+        throw new Error('expected the October Resumen')
+      }
+      await markPendientePaid({
+        db,
+        householdId,
+        pendienteId: october.id,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        finalAmount: 100,
+        paymentDate: new Date(),
+      })
+      renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Editar Zapatillas' }),
+      )
+      const dialog = await screen.findByRole('dialog')
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: 'Eliminar compra' }),
+      )
+      fireEvent.click(
+        within(within(dialog).getByRole('alertdialog')).getByRole('button', {
+          name: 'Eliminar compra',
+        }),
+      )
+
+      expect(
+        await within(dialog).findByText(
+          'El resumen de Visa de octubre de 2026 ya está pagado.',
+        ),
+      ).toBeInTheDocument()
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+      expect(within(dialog).queryByRole('alertdialog')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('shows why an edit was refused and keeps the sheet open', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 20, 12))
+    try {
+      const { db } = await seedPurchase()
+      renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+
+      fireEvent.click(
+        await screen.findByRole('button', { name: 'Editar Zapatillas' }),
+      )
+      const dialog = await screen.findByRole('dialog')
+      fireEvent.change(within(dialog).getByLabelText('Cuotas'), {
+        target: { value: '30' },
+      })
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: 'Guardar cambios' }),
+      )
+
+      expect(
+        await within(dialog).findByText(
+          'Las cuotas deben ser un número entero entre 1 y 24',
+        ),
+      ).toBeInTheDocument()
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('shows a month with only card purchases instead of the empty state', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 20, 12))
+    try {
+      const { db, householdId, categoryId } = await seedHousehold()
+      const visa = await createCard({ db, householdId, name: 'Visa' })
+      await createCardPurchase({
+        db,
+        householdId,
+        cardId: visa.id,
+        categoryId,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        name: 'Cena',
+        total: 40,
+        cuotas: 1,
+        purchaseDate: new Date(2026, 8, 5),
+        comments: '',
+      })
+
+      renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+
+      expect(
+        await screen.findByText('Visa · 1 cuota · no suma este mes'),
+      ).toBeInTheDocument()
+      expect(screen.queryByText('Mes sin movimientos')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('leaves card purchases out of a search, which covers expenses only', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date(2026, 8, 20, 12))
+    try {
+      const { db, householdId, categoryId } = await seedHousehold()
+      await seed({
+        db,
+        householdId,
+        categoryId,
+        name: 'Zapatos',
+        date: new Date(2026, 8, 3),
+      })
+      const visa = await createCard({ db, householdId, name: 'Visa' })
+      await createCardPurchase({
+        db,
+        householdId,
+        cardId: visa.id,
+        categoryId,
+        memberId: 'user-1',
+        authorDisplayName: 'Ada',
+        name: 'Zapatillas',
+        total: 300,
+        cuotas: 3,
+        purchaseDate: new Date(2026, 8, 5),
+        comments: '',
+      })
+
+      renderPage(<HistoricoPage currentUserId="user-1" householdsDb={db} />)
+      await screen.findByText('Zapatillas')
+
+      fireEvent.change(screen.getByLabelText('Buscar movimientos'), {
+        target: { value: 'Zapat' },
+      })
+
+      const results = await screen.findByRole('list', {
+        name: 'Resultados de la búsqueda',
+      })
+      expect(within(results).getByText('Zapatos')).toBeInTheDocument()
+      expect(within(results).queryByText('Zapatillas')).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

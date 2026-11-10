@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { useState } from 'react'
 import type { ComponentProps, ReactElement } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { createPendiente } from '@/lib/pendientes'
+import { createPendiente, markPendientePaid } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import { listCategories } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
@@ -12,7 +12,74 @@ import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { AddPendienteSheet } from './AddPendienteSheet'
 import type { AddPendienteSheetProps } from './AddPendienteSheet'
+import { createCard, createCardPurchase } from '@/lib/cards'
 import { PendientesList } from './PendientesList'
+
+// A card purchase dated the 1st of this month (never in the future) lands
+// its single cuota in next month's Resumen.
+async function seedResumen(
+  db: HouseholdsDb,
+  householdId: string,
+  categoryId: string,
+) {
+  const now = new Date()
+  const card = await createCard({ db, householdId, name: 'Visa' })
+  await createCardPurchase({
+    db,
+    householdId,
+    cardId: card.id,
+    categoryId,
+    memberId: 'user-1',
+    authorDisplayName: 'Ada',
+    name: 'Zapatillas',
+    total: 120,
+    cuotas: 1,
+    purchaseDate: new Date(now.getFullYear(), now.getMonth(), 1),
+    comments: '',
+  })
+  return {
+    monthStart: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+    monthEnd: new Date(
+      now.getFullYear(),
+      now.getMonth() + 2,
+      0,
+      23,
+      59,
+      59,
+      999,
+    ),
+  }
+}
+
+// Next month's Resumen then holds cuota 1/1 of Zapatillas (seedResumen) and
+// cuota 2/3 of a Heladera bought on the 1st of last month.
+async function seedTwoCuotaResumen(
+  db: HouseholdsDb,
+  householdId: string,
+  categoryId: string,
+) {
+  const month = await seedResumen(db, householdId, categoryId)
+  const [card] = await db.listCards({ householdId })
+  if (card === undefined) {
+    throw new Error('expected the seeded card')
+  }
+  const now = new Date()
+  const heladeraDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  await createCardPurchase({
+    db,
+    householdId,
+    cardId: card.id,
+    categoryId,
+    memberId: 'user-1',
+    authorDisplayName: 'Ada',
+    name: 'Heladera',
+    total: 300,
+    cuotas: 3,
+    purchaseDate: heladeraDate,
+    comments: '',
+  })
+  return { month, heladeraDate }
+}
 
 function formatPendienteDueDate(date: Date): string {
   // "06/09/2026". Written long-hand here on purpose: asserting with the
@@ -52,13 +119,116 @@ async function findCategoryId(input: {
 const MONTH_START = new Date(2026, 8, 1)
 const MONTH_END = new Date(2026, 8, 30, 23, 59, 59, 999)
 
-function List(props: ComponentProps<typeof PendientesList>): ReactElement {
+function List(
+  props: Omit<
+    ComponentProps<typeof PendientesList>,
+    'memberId' | 'authorDisplayName'
+  >,
+): ReactElement {
   return (
-    <PendientesList monthStart={MONTH_START} monthEnd={MONTH_END} {...props} />
+    <PendientesList
+      memberId="user-1"
+      authorDisplayName="Ada"
+      monthStart={MONTH_START}
+      monthEnd={MONTH_END}
+      {...props}
+    />
   )
 }
 
 describe('PendientesList', () => {
+  // The bug this guards: paying a recurring bill used to spawn next month's
+  // cycle, and settling that one early filed it under the month it was *paid*. So
+  // September listed the seguro twice -- both rows stamped with a September
+  // payment date, while opening the second showed an October due date -- and
+  // October, where it actually belonged, showed nothing at all.
+  it('files a settled servicio under the month it was due, not the month it was paid', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100000,
+    })
+    const categoryId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Servicios',
+    })
+    const octoberBill = await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId,
+      name: 'Seguro vivienda',
+      dueDate: new Date(2026, 9, 10),
+      expectedAmount: 50000,
+      recurring: true,
+    })
+    await markPendientePaid({
+      db,
+      householdId: household.id,
+      pendienteId: octoberBill.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 50000,
+      // Settled in September, a month before it falls due.
+      paymentDate: new Date(2026, 8, 20),
+    })
+
+    renderWithProviders(<List db={db} householdId={household.id} />)
+
+    expect(
+      await screen.findByText('Ningún servicio este mes'),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Seguro vivienda')).not.toBeInTheDocument()
+  })
+
+  it('shows that servicio in its own month', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100000,
+    })
+    const categoryId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Servicios',
+    })
+    const octoberBill = await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId,
+      name: 'Seguro vivienda',
+      dueDate: new Date(2026, 9, 10),
+      expectedAmount: 50000,
+      recurring: true,
+    })
+    await markPendientePaid({
+      db,
+      householdId: household.id,
+      pendienteId: octoberBill.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 50000,
+      paymentDate: new Date(2026, 8, 20),
+    })
+
+    renderWithProviders(
+      <PendientesList
+        memberId="user-1"
+        authorDisplayName="Ada"
+        monthStart={new Date(2026, 9, 1)}
+        monthEnd={new Date(2026, 9, 31, 23, 59, 59, 999)}
+        db={db}
+        householdId={household.id}
+      />,
+    )
+
+    expect(await screen.findByText('Seguro vivienda')).toBeInTheDocument()
+  })
+
   it('shows an empty state when the household has no pending pendientes', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
@@ -75,6 +245,140 @@ describe('PendientesList', () => {
       'status',
     )
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
+  })
+
+  // A month starts with nothing in it, and the way to fill it -- last
+  // month's bills -- was an icon in the toolbar. The empty state now says
+  // how many are waiting and offers the same action in words. Per direct
+  // feedback: todas las acciones que el usuario tiene que hacer tienen que
+  // estar expuestas.
+  it("offers last month's bills from the empty state, counted", async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100000,
+    })
+    const categoryId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Servicios',
+    })
+    for (const name of ['Internet', 'Expensas']) {
+      await createPendiente({
+        db,
+        householdId: household.id,
+        categoryId,
+        name,
+        dueDate: new Date(2026, 7, 10),
+        expectedAmount: 50000,
+        recurring: true,
+      })
+    }
+    const onCarryFromLastMonth = vi.fn()
+
+    renderWithProviders(
+      <List
+        db={db}
+        householdId={household.id}
+        onCarryFromLastMonth={onCarryFromLastMonth}
+      />,
+    )
+
+    expect(
+      await screen.findByText(/Agosto de 2026 cargaste 2 cuentas/),
+    ).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Traer del mes pasado' }),
+    )
+    expect(onCarryFromLastMonth).toHaveBeenCalled()
+  })
+
+  // The case the empty state misses: next month's card estimate lands in
+  // the month on its own, so the screen is not empty even though nobody has
+  // put a single servicio in it.
+  it("offers last month's bills in a month that holds only card estimates", async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100000,
+    })
+    const categoryId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Servicios',
+    })
+    const { monthStart, monthEnd } = await seedResumen(
+      db,
+      household.id,
+      categoryId,
+    )
+    // Due in the month before the one on screen, so it is there to bring.
+    await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId,
+      name: 'Internet',
+      dueDate: new Date(2026, 8, 10),
+      expectedAmount: 50000,
+      recurring: true,
+    })
+    const onCarryFromLastMonth = vi.fn()
+
+    renderWithProviders(
+      <List
+        db={db}
+        householdId={household.id}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
+        onCarryFromLastMonth={onCarryFromLastMonth}
+      />,
+    )
+
+    const prompt = await screen.findByRole('region', {
+      name: 'Traer servicios del mes pasado',
+    })
+    expect(
+      within(prompt).getByText(
+        'Todavía no cargaste servicios de Octubre de 2026',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      within(prompt).getByText(/Septiembre de 2026 cargaste 1 cuenta/),
+    ).toBeInTheDocument()
+    fireEvent.click(
+      within(prompt).getByRole('button', { name: 'Traer del mes pasado' }),
+    )
+    expect(onCarryFromLastMonth).toHaveBeenCalled()
+  })
+
+  it('keeps the empty state plain when last month has nothing to bring', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100000,
+    })
+    const onCarryFromLastMonth = vi.fn()
+
+    renderWithProviders(
+      <List
+        db={db}
+        householdId={household.id}
+        onCarryFromLastMonth={onCarryFromLastMonth}
+      />,
+    )
+
+    expect(
+      await screen.findByText(/lo que vuelve todos los meses va acá/),
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Traer del mes pasado' }),
+    ).not.toBeInTheDocument()
   })
 
   it('lists pending pendientes with name, category, due date, and amount, soonest due first', async () => {
@@ -418,7 +722,7 @@ describe('PendientesList', () => {
   // Per direct feedback: Pagar stays a spelled-out button because it is what
   // this screen exists for; Editar is a pencil against the right edge, the
   // same target Histórico and Categorías use.
-  it('offers Pagar as a labelled button and Editar as a pencil', async () => {
+  it('offers Pagar as the filled action and Editar beside it', async () => {
     const db = createMemoryHouseholdsDb().asUser('user-1')
     const household = await createHouseholdWithMembership({
       db,
@@ -454,9 +758,10 @@ describe('PendientesList', () => {
     })
     const editar = screen.getByRole('button', { name: 'Editar Alquiler' })
     expect(pagar).toHaveTextContent('Pagar')
-    // The pencil carries no label of its own -- its accessible name is the
-    // aria-label found above, and an icon is all it shows.
-    expect(editar).toHaveTextContent('')
+    // Both are labelled now: a row's footer is a row of actions, and an
+    // unlabelled pencil among written buttons read as a different kind of
+    // thing. The pencil is still there beside the word.
+    expect(editar).toHaveTextContent('Editar')
     expect(editar.querySelector('svg')).not.toBeNull()
     // The hierarchy itself: only Pagar is filled with the action colour.
     expect(pagar).toHaveClass('bg-primary')
@@ -658,5 +963,56 @@ describe('PendientesList', () => {
     await screen.findByText('Luz')
     const icon = screen.getByTestId('category-icon')
     expect(icon.querySelector('svg')).not.toBeNull()
+  })
+
+  // A statement that has not arrived is not a bill: it used to sit among
+  // the ones to pay as its own row, labelled ESTIMADO, with a due date the
+  // app invented. It is now one block of its own -- the same one Home
+  // uses -- that opens into the consumos behind it. Per direct feedback:
+  // que siga la misma lógica de lo de la home.
+  it('gathers the card statements still waiting into their own block', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100000,
+    })
+    const categoryId = await findCategoryId({
+      db,
+      householdId: household.id,
+      name: 'Comida',
+    })
+    const { month } = await seedTwoCuotaResumen(db, household.id, categoryId)
+
+    renderWithProviders(
+      <List
+        db={db}
+        householdId={household.id}
+        onMarkPaid={vi.fn()}
+        onEditPendiente={vi.fn()}
+        {...month}
+      />,
+    )
+
+    expect(
+      await screen.findByRole('heading', { name: 'Resumen de tarjetas' }),
+    ).toBeInTheDocument()
+    // Not among the bills to pay, and with no invented due date on it.
+    expect(
+      screen.queryByRole('list', { name: 'Servicios por pagar' }),
+    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/^Vence el/)).not.toBeInTheDocument()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Lo que van a pedir las tarjetas' }),
+    )
+
+    const consumos = await screen.findByRole('list', {
+      name: 'Consumos de Visa',
+    })
+    expect(within(consumos).getByText('Heladera')).toBeInTheDocument()
+    expect(within(consumos).getByText('cuota 2/3')).toBeInTheDocument()
+    expect(within(consumos).getByText('Zapatillas')).toBeInTheDocument()
   })
 })

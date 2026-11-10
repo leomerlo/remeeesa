@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import type { ReactElement } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
@@ -6,6 +6,7 @@ import { HouseholdDraftProvider } from '@/features/onboarding'
 import { createPendiente, listPendientes } from '@/lib/pendientes'
 import { listCategories, listExpensesInMonth } from '@/lib/expenses'
 import { createHouseholdWithMembership } from '@/lib/households'
+import { createCard, createCardPurchase } from '@/lib/cards'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import type { SignupAuth } from '@/features/onboarding/signupAuth'
@@ -56,7 +57,7 @@ describe('HomePage', () => {
 
     expect(screen.getByLabelText('Nombre del hogar')).toBeInTheDocument()
     expect(
-      screen.queryByRole('status', { name: /presupuesto restante/i }),
+      screen.queryByRole('status', { name: /^Te quedan/ }),
     ).not.toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Agregar gasto' }),
@@ -70,7 +71,7 @@ describe('HomePage', () => {
 
     expect(await screen.findByLabelText('Nombre del hogar')).toBeInTheDocument()
     expect(
-      screen.queryByRole('status', { name: /presupuesto restante/i }),
+      screen.queryByRole('status', { name: /^Te quedan/ }),
     ).not.toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: 'Agregar gasto' }),
@@ -95,15 +96,15 @@ describe('HomePage', () => {
     // AppHeader.test.tsx. What says the household loaded here is its budget.
     expect(
       await screen.findByRole('status', {
-        name: /presupuesto restante \$100/i,
+        name: /^Te quedan \$100\./,
       }),
     ).toHaveTextContent('$100')
     // The two cards read from the same month's expenses, from opposite
-    // ends: Gastado counts up from zero, Presupuesto restante counts down
-    // from the budget.
-    expect(
-      screen.getByRole('status', { name: 'Gastos de este mes $0' }),
-    ).toHaveTextContent('$0')
+    // ends: En uso counts up from zero, Te quedan counts down from the
+    // budget.
+    expect(screen.getByRole('status', { name: 'En uso $0' })).toHaveTextContent(
+      '$0',
+    )
     expect(
       await screen.findByText('Todavía no anotaron nada'),
     ).toBeInTheDocument()
@@ -111,11 +112,16 @@ describe('HomePage', () => {
       screen.getByRole('progressbar', { name: '% usado' }),
     ).toHaveAttribute('aria-valuenow', '0')
     expect(screen.queryByLabelText('Nombre del hogar')).not.toBeInTheDocument()
+    // A household of one with nothing logged is asked, right here, whether
+    // somebody else lives there -- it is the one thing Home cannot say
+    // through a month's figures.
     expect(
-      screen.queryByRole('button', { name: 'Generar link de invitación' }),
-    ).not.toBeInTheDocument()
+      screen.getByRole('button', { name: 'Generar link de invitación' }),
+    ).toBeInTheDocument()
+    // The page's own way in: the shell carries the header button and the
+    // bar's round one, so Home itself offers the empty state's CTA.
     expect(
-      screen.getByRole('button', { name: 'Agregar gasto' }),
+      screen.getByRole('button', { name: 'Cargar el primero' }),
     ).toBeInTheDocument()
     // Neither mini-summary renders anything on an empty month: each would
     // otherwise be its own card repeating "Todavía no anotaron nada"
@@ -133,7 +139,7 @@ describe('HomePage', () => {
       screen.queryByRole('button', { name: 'Cerrar sesión' }),
     ).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Agregar gasto' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cargar el primero' }))
 
     expect(await screen.findByLabelText('Precio')).toBeInTheDocument()
     expect(screen.getByLabelText('Categoría')).toBeInTheDocument()
@@ -153,7 +159,7 @@ describe('HomePage', () => {
     renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
 
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Agregar gasto' }),
+      await screen.findByRole('button', { name: 'Cargar el primero' }),
     )
 
     expect(await screen.findByLabelText('Nombre')).toBeInTheDocument()
@@ -184,8 +190,10 @@ describe('HomePage', () => {
     await waitFor(() => {
       expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
+    // The page's own way in: the shell carries the header button and the
+    // bar's round one, so Home itself offers the empty state's CTA.
     expect(
-      screen.getByRole('button', { name: 'Agregar gasto' }),
+      screen.getByRole('button', { name: 'Cargar el primero' }),
     ).toBeInTheDocument()
 
     const pending = await listPendientes({ db, householdId: household.id })
@@ -230,11 +238,13 @@ describe('HomePage', () => {
     // AppHeader.test.tsx. What says the household loaded here is its budget.
     expect(
       await screen.findByRole('status', {
-        name: /presupuesto restante \$100/i,
+        name: /^Te quedan \$100\./,
       }),
     ).toHaveTextContent('$100')
+    // The page's own way in: the shell carries the header button and the
+    // bar's round one, so Home itself offers the empty state's CTA.
     expect(
-      screen.getByRole('button', { name: 'Agregar gasto' }),
+      screen.getByRole('button', { name: 'Cargar el primero' }),
     ).toBeInTheDocument()
     await waitFor(() => {
       expect(signupAuth.signUpWithEmail).toHaveBeenCalled()
@@ -259,7 +269,7 @@ describe('HomePage', () => {
     )
 
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Agregar gasto' }),
+      await screen.findByRole('button', { name: 'Cargar el primero' }),
     )
     fireEvent.change(await screen.findByLabelText('Nombre'), {
       target: { value: 'Pizza' },
@@ -307,7 +317,7 @@ describe('HomePage', () => {
 
     expect(
       await screen.findByRole('status', {
-        name: /presupuesto restante \$100/i,
+        name: /^Te quedan \$100\./,
       }),
     ).toHaveTextContent('$100')
     expect(
@@ -315,7 +325,7 @@ describe('HomePage', () => {
     ).toBeInTheDocument()
 
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Agregar gasto' }),
+      await screen.findByRole('button', { name: 'Cargar el primero' }),
     )
     fireEvent.change(await screen.findByLabelText('Nombre'), {
       target: { value: 'Pizza' },
@@ -333,12 +343,13 @@ describe('HomePage', () => {
     await waitFor(() => {
       expect(screen.queryByLabelText('Nombre')).not.toBeInTheDocument()
     })
+    // And the empty state is gone with it -- there is a gasto now.
     expect(
-      screen.getByRole('button', { name: 'Agregar gasto' }),
-    ).toBeInTheDocument()
+      screen.queryByRole('button', { name: 'Cargar el primero' }),
+    ).not.toBeInTheDocument()
     expect(await screen.findByText('Pizza')).toBeInTheDocument()
     expect(
-      await screen.findByRole('status', { name: /presupuesto restante \$90/i }),
+      await screen.findByRole('status', { name: /^Te quedan \$90\./ }),
     ).toHaveTextContent('$90')
     await waitFor(() => {
       expect(
@@ -362,7 +373,7 @@ describe('HomePage', () => {
     renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
 
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Agregar gasto' }),
+      await screen.findByRole('button', { name: 'Cargar el primero' }),
     )
     fireEvent.change(await screen.findByLabelText('Nombre'), {
       target: { value: 'Pizza' },
@@ -409,7 +420,7 @@ describe('HomePage', () => {
     renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
 
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Agregar gasto' }),
+      await screen.findByRole('button', { name: 'Cargar el primero' }),
     )
     fireEvent.change(await screen.findByLabelText('Nombre'), {
       target: { value: 'Pizza' },
@@ -482,5 +493,183 @@ describe('HomePage', () => {
         [],
       )
     })
+  })
+
+  it('pages one month ahead to plan it, hiding the always-empty recent gastos', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+
+    renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
+    expect(
+      await screen.findByText('Todavía no anotaron nada'),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mes siguiente' }))
+
+    expect(screen.getByRole('button', { name: 'Mes siguiente' })).toBeDisabled()
+    expect(
+      screen.queryByRole('heading', { name: 'Últimos gastos del mes' }),
+    ).not.toBeInTheDocument()
+    // That the sheet then opens as a bill due in the viewed month is
+    // AddGastoSheet's own behaviour, tested there against defaultDueDate --
+    // it cannot be driven from here any more, because the list that carried
+    // Home's only trigger is precisely what this month hides.
+  })
+
+  // It used to be pinned to the real calendar month, so paging Home left
+  // the same number on screen whatever month you were looking at. Per
+  // direct feedback: tiene que mostrar la data del mes que corresponde.
+  it('moves "Tarjetas el mes que viene" with the month being viewed', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const [category] = await listCategories({ db, householdId: household.id })
+    if (category === undefined) {
+      throw new Error('expected a seeded category')
+    }
+    const visa = await createCard({
+      db,
+      householdId: household.id,
+      name: 'Visa',
+    })
+    const now = new Date()
+    await createCardPurchase({
+      db,
+      householdId: household.id,
+      cardId: visa.id,
+      categoryId: category.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Zapatillas',
+      total: 80,
+      cuotas: 1,
+      purchaseDate: new Date(now.getFullYear(), now.getMonth(), 1),
+      comments: '',
+    })
+
+    renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
+
+    expect(
+      await screen.findByRole('button', { name: /Tarjetas el mes que viene/ }),
+    ).toHaveTextContent('$80')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mes anterior' }))
+
+    // Seen from last month, "next month" is this one -- and the cuota does
+    // not land until the one after, so there is nothing to show.
+    await waitFor(() => {
+      expect(
+        screen.queryByRole('button', { name: /Tarjetas el mes que viene/ }),
+      ).not.toBeInTheDocument()
+    })
+  })
+  it('refreshes the recent list and "Tarjetas el mes que viene" after logging a card purchase', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    await createCard({ db, householdId: household.id, name: 'Visa' })
+
+    renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Cargar el primero' }),
+    )
+    expect(
+      screen.queryByRole('button', { name: /Tarjetas el mes que viene/ }),
+    ).not.toBeInTheDocument()
+    fireEvent.change(await screen.findByLabelText('Nombre'), {
+      target: { value: 'Zapatillas' },
+    })
+    fireEvent.change(screen.getByRole('combobox', { name: 'Categoría' }), {
+      target: { value: 'Ropa' },
+    })
+    fireEvent.change(screen.getByLabelText('Precio'), {
+      target: { value: '80' },
+    })
+    const paidWith = screen.getByLabelText('Método de pago')
+    const visa = await within(paidWith).findByRole('option', { name: 'Visa' })
+    fireEvent.change(paidWith, {
+      target: { value: visa.getAttribute('value') },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Agregar compra' }))
+
+    const list = await screen.findByRole('list', {
+      name: 'Últimos gastos del mes',
+    })
+    expect(
+      await within(list).findByText('Visa · 1 cuota · no suma este mes'),
+    ).toBeInTheDocument()
+    expect(
+      await screen.findByRole('button', { name: /Tarjetas el mes que viene/ }),
+    ).toHaveTextContent('$80')
+  })
+
+  it('edits a card purchase tapped in the recent list, updating "Tarjetas el mes que viene"', async () => {
+    const db = createMemoryHouseholdsDb().asUser('user-1')
+    const household = await createHouseholdWithMembership({
+      db,
+      userId: 'user-1',
+      name: 'Casa Verde',
+      monthlyBudget: 100,
+    })
+    const [category] = await listCategories({ db, householdId: household.id })
+    if (category === undefined) {
+      throw new Error('expected a seeded category')
+    }
+    const visa = await createCard({
+      db,
+      householdId: household.id,
+      name: 'Visa',
+    })
+    const now = new Date()
+    await createCardPurchase({
+      db,
+      householdId: household.id,
+      cardId: visa.id,
+      categoryId: category.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      name: 'Zapatillas',
+      total: 80,
+      cuotas: 1,
+      purchaseDate: new Date(now.getFullYear(), now.getMonth(), 1),
+      comments: '',
+    })
+
+    renderHome(<HomePage currentUserId="user-1" householdsDb={db} />)
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Editar Zapatillas' }),
+    )
+    const dialog = await screen.findByRole('dialog', { name: 'Editar compra' })
+    expect(within(dialog).getByLabelText('Precio')).toHaveValue('80')
+    fireEvent.change(within(dialog).getByLabelText('Precio'), {
+      target: { value: '120' },
+    })
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Guardar cambios' }),
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Tarjetas el mes que viene/ }),
+      ).toHaveTextContent('$120')
+    })
+    expect(
+      screen.queryByRole('dialog', { name: 'Editar compra' }),
+    ).not.toBeInTheDocument()
   })
 })
