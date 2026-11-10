@@ -1674,7 +1674,9 @@ body {
   display: grid;
   justify-items: center;
 }
-.donut svg {
+/* The ring itself, not every svg in the card -- the line about what the
+   ring counts is an alert now, and it carries an icon. */
+.donut-top svg {
   width: 188px;
   height: 188px;
   display: block;
@@ -1753,6 +1755,8 @@ body {
 }
 /* Ring on the left, the list beside it. */
 @media (min-width: 760px) {
+  /* Title, then the line that says what the ring counts, then the ring
+     beside its list. Both of the first two run the width of the card. */
   .donut {
     grid-template-columns: auto minmax(0, 1fr);
     align-items: start;
@@ -1761,26 +1765,20 @@ body {
   .donut .lead {
     grid-column: 1 / -1;
   }
+  .donut .alert {
+    grid-column: 1 / -1;
+  }
   .donut-top {
     grid-column: 1;
+    grid-row: 3;
   }
-  .donut svg {
+  .donut-top svg {
     width: 208px;
     height: 208px;
   }
-  /* Under the ring, in the ring's own column. Left to place itself it
-       landed in the second column beside the ring, floating in the gap
-       above the list -- a sentence about the ring, sitting next to it
-       with nothing under it. The list spans both rows instead, so the
-       ring and its line stay together at the top of the first column. */
-  .donut .donutsay {
-    grid-column: 1;
-    grid-row: 3;
-    max-width: 26ch;
-  }
   .dlist {
     grid-column: 2;
-    grid-row: 2 / span 2;
+    grid-row: 3;
   }
 }
 /* The second column only once the card is wide enough to hold a long
@@ -2187,19 +2185,6 @@ body {
   display: grid;
   place-items: center;
   font: inherit;
-}
-
-/* What the ring counts, under the ring. Regular, like every other
-     explanation in the app. */
-.donutsay {
-  margin: 0;
-  font-size: var(--t-sm);
-  font-weight: 400;
-  line-height: 1.4;
-  color: var(--ink-2);
-  text-align: center;
-  max-width: 44ch;
-  justify-self: center;
 }
 
 .link-row {

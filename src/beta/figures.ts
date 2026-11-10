@@ -1,4 +1,5 @@
 import { cardsDueNextMonthTotals, RESUMEN_CATEGORY_NAME } from '@/lib/cards'
+import { cuotasOf } from '@/lib/cards/cuotas'
 import type {
   Card as PaymentMethod,
   CardPurchase,
@@ -115,8 +116,10 @@ export type HomeFigures = {
 export type HomeInput = {
   readonly household: Household
   readonly expenses: readonly Expense[]
-  // Bought on a credit card this month: not money out yet, and still what
-  // the month spent on what it bought.
+  // Every purchase with a cuota that could land in this month -- the ones
+  // bought in it, and the ones bought up to two years ago that are still
+  // being paid off. See monthByCategory: a purchase counts here one cuota
+  // at a time.
   readonly purchases: readonly CardPurchase[]
   readonly allExpenses: readonly Expense[]
   readonly pendientes: readonly Pendiente[]
@@ -292,8 +295,37 @@ export function cardCategoryIds(input: {
 // went on a card. And one thing left out -- paying a card's Resumen. Those
 // gastos are last month's shopping arriving, already counted back when it
 // was bought, and counting them again would put the card in twice.
+// What a purchase puts into one month: its cuota, not its total.
+//
+// A peluquería of $609.100 in three cuotas is not $609.100 of October --
+// it is $203.033 in October, in November and in December, which is what
+// paying in cuotas is for and what a monthly cap is measured against.
+// Counting the whole of it in the month it was bought made a category
+// blow past its cap on a purchase the household had deliberately spread
+// so that it would not. Per direct feedback.
+//
+// cuotasOf dates each cuota by the Resumen it lands in, which is a month
+// later than the one that consumed it -- cuota 1 of an October purchase
+// is paid in November. So the cuota belonging to month M is the one
+// landing in M + 1.
+export function cuotaInMonth(purchase: CardPurchase, monthStart: Date): number {
+  const landing = new Date(
+    monthStart.getFullYear(),
+    monthStart.getMonth() + 1,
+    1,
+  ).getTime()
+  return (
+    cuotasOf(purchase).find((cuota) => cuota.monthStart.getTime() === landing)
+      ?.amount ?? 0
+  )
+}
+
 export function monthByCategory(input: {
   readonly expenses: readonly Expense[]
+  // Every purchase that could have a cuota landing in this month, which
+  // is not the same as the ones bought in it: a purchase in twelve
+  // cuotas goes on counting for a year. The caller reads a window back
+  // and this keeps the cuota that belongs here.
   readonly purchases: readonly CardPurchase[]
   readonly pendientes: readonly Pendiente[]
   readonly categories: readonly Category[]
@@ -322,7 +354,20 @@ export function monthByCategory(input: {
         // here on the day the bank takes it, as the consumo it becomes.
         pendiente.cardId === undefined && !onCreditCard(pendiente, credit),
     ),
-    purchases: input.purchases,
+    purchases: input.purchases.flatMap((purchase) => {
+      const amount = cuotaInMonth(purchase, input.monthStart)
+      return amount === 0
+        ? []
+        : [
+            {
+              categoryId: purchase.categoryId,
+              total: amount,
+              ...(purchase.currency === undefined
+                ? {}
+                : { currency: purchase.currency }),
+            },
+          ]
+    }),
   })
 }
 
@@ -351,6 +396,7 @@ export type CategoryRow = {
 
 export function categoriasFigures(input: {
   readonly expenses: readonly Expense[]
+  // As monthByCategory asks for them: a window back, not just this month.
   readonly purchases: readonly CardPurchase[]
   readonly pendientes: readonly Pendiente[]
   readonly categories: readonly Category[]

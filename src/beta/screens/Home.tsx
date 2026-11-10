@@ -70,6 +70,7 @@ export function Home({
         pendientes,
         allExpenses,
         purchases,
+        cuotas,
         categories,
         members,
         methods,
@@ -87,6 +88,19 @@ export function Home({
           monthStart,
           monthEnd,
         }),
+        // And everything bought in the two years before it, because a
+        // purchase in cuotas goes on counting in the months that pay it
+        // off -- see monthByCategory. Twenty-four months is the longest
+        // run of cuotas there is, so nothing older can still land here.
+        session.db.listCardPurchasesInMonth({
+          householdId: id,
+          monthStart: new Date(
+            monthStart.getFullYear(),
+            monthStart.getMonth() - 24,
+            1,
+          ),
+          monthEnd,
+        }),
         session.db.listCategories(id),
         session.db.listMembers(id),
         // Only so a movement can be opened from here: the form needs the
@@ -101,6 +115,7 @@ export function Home({
         pendientes,
         allExpenses,
         purchases,
+        cuotas,
         categories,
         members,
         methods,
@@ -146,6 +161,7 @@ export function Home({
     pendientes,
     allExpenses,
     purchases,
+    cuotas,
     categories,
     members,
     methods,
@@ -154,7 +170,9 @@ export function Home({
   const figures = homeFigures({
     household,
     expenses,
-    purchases,
+    // The window, not the month: the ring counts a purchase one cuota at
+    // a time. The month's own purchases are the list of movements below.
+    purchases: cuotas,
     allExpenses,
     pendientes,
     categories,

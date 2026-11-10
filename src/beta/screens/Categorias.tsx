@@ -51,11 +51,17 @@ export function Categorias({
           // category is going to take out of the month, and the luz does
           // that whether or not anybody has paid it yet.
           session.db.listPendientes({ householdId: id }),
-          // And what went on a card this month: bought now, paid next
-          // month, and spent on this month's groceries either way.
+          // And what the cards put into this month. Not only what was
+          // bought in it: a purchase in cuotas counts one cuota per
+          // month, so the ones from the two years before it are still
+          // landing here. See monthByCategory.
           session.db.listCardPurchasesInMonth({
             householdId: id,
-            monthStart,
+            monthStart: new Date(
+              monthStart.getFullYear(),
+              monthStart.getMonth() - 24,
+              1,
+            ),
             monthEnd,
           }),
           // And how the household pays: a bill the bank takes from a

@@ -11,6 +11,7 @@ import type { DemoScenario } from '@/demo/seed'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import {
   cardCategoryIds,
+  cuotaInMonth,
   categoriasFigures,
   serviciosFigures,
   gastosFigures,
@@ -97,7 +98,17 @@ async function snapshot(
     db.listExpensesInMonth({ householdId, monthStart, monthEnd }),
     db.listExpensesInMonth({ householdId, ...previousRange }),
     db.listAllExpenses({ householdId }),
-    db.listCardPurchasesInMonth({ householdId, monthStart, monthEnd }),
+    // The window the figures read, not the month: a purchase in cuotas
+    // goes on counting in the months that pay it off.
+    db.listCardPurchasesInMonth({
+      householdId,
+      monthStart: new Date(
+        monthStart.getFullYear(),
+        monthStart.getMonth() - 24,
+        1,
+      ),
+      monthEnd,
+    }),
     db.listPaidPendientesDueInMonth({ householdId, monthStart, monthEnd }),
     db.listPendientes({ householdId }),
     db.getProjection({ householdId, monthStart }),
@@ -491,10 +502,12 @@ describe('the beta says the same month on every screen', () => {
         'ARS',
       ),
     )
+    // One cuota each, not the whole purchase: the month consumed the
+    // part of it that it is paying for.
     const bought = cents(
       sumIn(
         snap.purchases.map((purchase) => ({
-          price: purchase.total,
+          price: cuotaInMonth(purchase, snap.monthStart),
           currency: purchase.currency,
         })),
         'ARS',
@@ -518,15 +531,82 @@ describe('the beta says the same month on every screen', () => {
     expect(found.length).toBeGreaterThan(0)
 
     for (const { snap, purchase } of found) {
+      const cuota = cuotaInMonth(purchase, snap.monthStart)
+      // A purchase whose cuotas all land in other months puts nothing
+      // into this one.
+      if (cuota === 0) continue
       const slice = homeFigures(snap).byCategory.find(
         (row) => row.categoryId === purchase.categoryId,
       )
       // Its own category, not the card's.
       expect(cardCategoryIds(snap).has(purchase.categoryId)).toBe(false)
-      expect(cents(slice?.total ?? 0)).toBeGreaterThanOrEqual(
-        cents(purchase.total),
-      )
+      expect(cents(slice?.total ?? 0)).toBeGreaterThanOrEqual(cents(cuota))
     }
+  })
+
+  // Her own case, and the reason this rule changed: a peluquería of
+  // $609.100 paid in three cuotas was counting whole in the month it was
+  // bought, so the category blew past a cap the household had spread the
+  // purchase precisely in order to respect. One cuota per month, three
+  // months running.
+  it('spreads a purchase in cuotas over the months that pay it', () => {
+    const base = snapshots.get('completa·este mes')
+    if (base === undefined) throw new Error('missing snapshot')
+    const [model] = base.purchases.filter(
+      (purchase) => (purchase.currency ?? 'ARS') === 'ARS',
+    )
+    if (model === undefined) throw new Error('no peso purchase to model on')
+
+    const bought = new Date(
+      base.monthStart.getFullYear(),
+      base.monthStart.getMonth(),
+      9,
+    )
+    const peluqueria: CardPurchase = {
+      ...model,
+      id: `${model.id}-peluqueria`,
+      name: 'Peluquería',
+      total: 609_100,
+      cuotas: 3,
+      purchaseDate: bought,
+      currency: 'ARS',
+    }
+    const slice = (snap: Snapshot): number =>
+      cents(
+        homeFigures({ ...snap, purchases: [peluqueria] }).byCategory.find(
+          (row) => row.categoryId === peluqueria.categoryId,
+        )?.total ?? 0,
+      )
+    const expensesOut = (snap: Snapshot): Snapshot => ({
+      ...snap,
+      expenses: [],
+      pendientes: [],
+    })
+
+    const thisMonth = expensesOut(base)
+    const next = expensesOut({
+      ...base,
+      monthStart: new Date(
+        base.monthStart.getFullYear(),
+        base.monthStart.getMonth() + 1,
+        1,
+      ),
+    })
+    const third = expensesOut({
+      ...base,
+      monthStart: new Date(
+        base.monthStart.getFullYear(),
+        base.monthStart.getMonth() + 3,
+        1,
+      ),
+    })
+
+    // A third in the month it was bought, a third in the next -- not the
+    // whole of it in either.
+    expect(slice(thisMonth)).toBe(20_303_333)
+    expect(slice(next)).toBe(20_303_333)
+    // And nothing at all once the cuotas have run out.
+    expect(slice(third)).toBe(0)
   })
 
   // Shares of a whole, so they come to a whole -- allowing for the one

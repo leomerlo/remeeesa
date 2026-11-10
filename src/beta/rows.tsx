@@ -1,4 +1,10 @@
-import { Check, ChevronRight, LineChart, TriangleAlert } from 'lucide-react'
+import {
+  Check,
+  ChevronRight,
+  Info,
+  LineChart,
+  TriangleAlert,
+} from 'lucide-react'
 import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
 import { cssVars } from '@/lib/cssVars'
@@ -359,6 +365,16 @@ export function Donut({
   return (
     <div className="card donut">
       <div className="lead">En qué está gastando el hogar</div>
+      {/* What this ring counts, which is not what the card above it
+          counts: the café was drunk this month whoever pays the Visa next
+          month. Across the whole card and in the app's own alert, under
+          the title -- as a line under the ring it was a caption to the
+          drawing rather than the key to every figure on the card. */}
+      <AlertCard kind="info" icon={<Info />}>
+        <b>Lo que ya pagaron</b>, <b>lo que les falta pagar</b> y{' '}
+        <b>lo que compraron con tarjeta</b> y van a pagar el mes que viene. Una
+        compra en cuotas cuenta <b>una cuota por mes</b>.
+      </AlertCard>
       <div className="donut-top">
         <svg
           viewBox="0 0 140 140"
@@ -392,13 +408,6 @@ export function Donut({
           desktop layout can fill the first column top to bottom before
           starting the second -- the list is sorted biggest first, and
           filling it by rows turned that order into a zigzag. */}
-      {/* What this ring counts, which is not what the card above it
-          counts: the café was drunk this month whoever pays the Visa next
-          month. Said once, under the figure it belongs to. */}
-      <p className="donutsay">
-        Lo que ya pagaron, lo que les falta pagar y lo que compraron con tarjeta
-        y van a pagar el mes que viene.
-      </p>
       <div
         className="dlist"
         style={cssVars({ '--rows': String(Math.ceil(spent.length / 2)) })}
