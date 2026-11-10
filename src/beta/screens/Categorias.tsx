@@ -2,8 +2,10 @@ import { useQuery } from '@tanstack/react-query'
 import { Plus } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
-import { formatCurrency, summarizeByCategory } from '@/lib/expenses'
+import { formatCurrency } from '@/lib/expenses'
 import type { Category, Expense } from '@/lib/expenses'
+import type { Pendiente } from '@/lib/pendientes'
+import { categoriasFigures } from '../figures'
 import { ListSkeleton, NameSkel } from '../Skeleton'
 import { useMonth } from '../MonthContext'
 import { CategoryTile } from '../Tile'
@@ -35,7 +37,7 @@ export function Categorias({
     enabled: householdId !== null,
     queryFn: async () => {
       const id = householdId as string
-      const [expenses, categories, household] = await Promise.all([
+      const [expenses, categories, household, pendientes] = await Promise.all([
         session.db.listExpensesInMonth({
           householdId: id,
           monthStart,
@@ -43,8 +45,13 @@ export function Categorias({
         }),
         session.db.listCategories(id),
         session.db.getHousehold(id),
+        // The month's bills, still owed: a cap is about what the category
+        // is going to take out of the month, and the luz does that
+        // whether or not anybody has paid it yet. Inicio's ring counts
+        // them, and these bars have to say the same thing.
+        session.db.listPendientes({ householdId: id }),
       ])
-      return { expenses, categories, household }
+      return { expenses, categories, household, pendientes }
     },
   })
 
@@ -65,7 +72,7 @@ export function Categorias({
     )
   }
 
-  const { expenses, categories, household } = data.data
+  const { expenses, categories, household, pendientes } = data.data
 
   return (
     <>
@@ -92,6 +99,9 @@ export function Categorias({
       <CategoryBars
         session={session}
         expenses={expenses}
+        pendientes={pendientes}
+        monthStart={monthStart}
+        monthEnd={monthEnd}
         categories={categories}
         editing={editing}
         onEditing={setEditing}
@@ -106,12 +116,20 @@ export function Categorias({
 function CategoryBars({
   session,
   expenses,
+  pendientes,
+  monthStart,
+  monthEnd,
   categories,
   editing,
   onEditing,
 }: {
   readonly session: BetaSession
   readonly expenses: readonly Expense[]
+  // Every bill the household has: the month's own are counted into their
+  // category, the same way Inicio's ring counts them.
+  readonly pendientes: readonly Pendiente[]
+  readonly monthStart: Date
+  readonly monthEnd: Date
   readonly categories: readonly Category[]
   readonly editing: Category | 'nueva' | null
   readonly onEditing: (next: Category | 'nueva' | null) => void
@@ -124,19 +142,13 @@ function CategoryBars({
   //
   // Most spent first, and then the untouched ones by name, so the month
   // still reads top to bottom.
-  const summary = summarizeByCategory({ expenses, categories })
-  const found = (categoryId: string) =>
-    summary.find((row) => row.categoryId === categoryId)
-  const rows = categories
-    .map((category) => ({
-      categoryId: category.id,
-      name: category.name,
-      color: category.color,
-      cap: category.monthlyBudget,
-      total: found(category.id)?.total ?? 0,
-      share: found(category.id)?.share ?? 0,
-    }))
-    .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'es'))
+  const rows = categoriasFigures({
+    expenses,
+    pendientes,
+    categories,
+    monthStart,
+    monthEnd,
+  })
   const max = rows[0]?.total ?? 0
 
   return (
@@ -144,7 +156,7 @@ function CategoryBars({
       <div className="sec">
         {rows.map((row) => {
           const cap = row.cap
-          const over = cap > 0 && row.total > cap
+          const over = row.over
           const width =
             cap > 0
               ? Math.min(100, Math.round((row.total / cap) * 100))

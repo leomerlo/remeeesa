@@ -92,9 +92,12 @@ export function homeFigures(input: HomeInput): HomeFigures {
   const now = input.now
 
   const paid = computeSpentThisMonth(expenses)
-  const owed = computePendingCommitted(
-    pendientesDueInMonth(pendientes, monthStart, monthEnd),
-  )
+  // The month's own bills, still owed. One list, read twice: once as the
+  // figure beside "Pagado", and once as part of the breakdown under it --
+  // the two were reading different lists, so the ring under the hero
+  // divided up a smaller month than the hero itself counted.
+  const dueThisMonth = pendientesDueInMonth(pendientes, monthStart, monthEnd)
+  const owed = computePendingCommitted(dueThisMonth)
   const cards = cardsDueNextMonthTotals(pendientes, monthStart)
   const budget = monthlyBudgetFor(household, monthStart, now)
 
@@ -140,9 +143,14 @@ export function homeFigures(input: HomeInput): HomeFigures {
         : 0,
     bills,
     late,
+    // Bills included, as the v1 has it: the hero above counts them, the
+    // budget they are measured against counts them, and a breakdown of a
+    // month that leaves out what the month owes is a breakdown of a
+    // different month.
     byCategory: summarizeByCategory({
       expenses,
       categories: input.categories,
+      pendientes: dueThisMonth,
     }),
   }
 }
@@ -194,6 +202,61 @@ export function gastosFigures(input: {
     totalUsd: sumIn(input.expenses, 'USD'),
     byCategory: summarizeByCategory(input),
   }
+}
+
+// Categorías: every category the household has, with what the month put
+// in it and the cap it set, if it set one.
+//
+// Here rather than in the screen for the reason the whole file exists:
+// these are the bars Flor reads a category off, and the month they divide
+// up has to be the same month Inicio's ring divides up -- the two were
+// counting different things, because only one of them counted the bills.
+export type CategoryRow = {
+  readonly categoryId: string
+  readonly name: string
+  readonly color: string
+  // 0 when the category has no cap, which is most of them.
+  readonly cap: number
+  readonly total: number
+  readonly share: number
+  readonly over: boolean
+}
+
+export function categoriasFigures(input: {
+  readonly expenses: readonly Expense[]
+  readonly pendientes: readonly Pendiente[]
+  readonly categories: readonly Category[]
+  readonly monthStart: Date
+  readonly monthEnd: Date
+}): readonly CategoryRow[] {
+  const summary = summarizeByCategory({
+    expenses: input.expenses,
+    categories: input.categories,
+    pendientes: pendientesDueInMonth(
+      input.pendientes,
+      input.monthStart,
+      input.monthEnd,
+    ),
+  })
+  const found = new Map(summary.map((row) => [row.categoryId, row]))
+  return (
+    input.categories
+      .map((category) => {
+        const total = found.get(category.id)?.total ?? 0
+        return {
+          categoryId: category.id,
+          name: category.name,
+          color: category.color,
+          cap: category.monthlyBudget,
+          total,
+          share: found.get(category.id)?.share ?? 0,
+          over: category.monthlyBudget > 0 && total > category.monthlyBudget,
+        }
+      })
+      // Most spent first, and then the untouched ones by name, so the
+      // month still reads top to bottom.
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'es'))
+  )
 }
 
 export type ServiciosFigures = {

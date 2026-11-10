@@ -12,6 +12,7 @@ import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import {
   billsOnCard,
   billsOnCardTotal,
+  categoriasFigures,
   serviciosFigures,
   gastosFigures,
   homeFigures,
@@ -394,12 +395,16 @@ describe('the beta says the same month on every screen', () => {
     )
   })
 
-  // The ring is a breakdown of that same figure, so its slices have to add
-  // back up to it.
-  each('the category ring adds up to the month total', (snap, key) => {
+  // The ring is a breakdown of what the month commits -- what already
+  // went, plus what it still owes -- which is the figure the hero above
+  // it counts against the budget. It used to divide up the paid half
+  // alone, so on a month with $362.300 of bills open the ring said the
+  // household had spent $778.100 while the card above it was measuring
+  // $1.140.400.
+  each('the category ring adds up to what the month commits', (snap, key) => {
     const home = homeFigures(snap)
     const ring = home.byCategory.reduce((sum, row) => sum + cents(row.total), 0)
-    expect(ring, key).toBe(cents(home.paid))
+    expect(ring, key).toBe(cents(home.paid) + cents(home.owed))
   })
 
   // Shares of a whole, so they come to a whole -- allowing for the one
@@ -520,6 +525,68 @@ describe('the beta says the same month on every screen', () => {
     expect(home.pctSpent + home.pctOwed, key).toBeLessThanOrEqual(100)
     expect(home.pctSpent, key).toBeGreaterThanOrEqual(0)
     expect(home.pctOwed, key).toBeGreaterThanOrEqual(0)
+  })
+
+  // Categorías divides up a month into bars; Inicio divides up the same
+  // month into a ring. Category by category, they have to be the same
+  // month: the bars counted only what had been paid, so a category whose
+  // bill was still open read as far under its cap until the day somebody
+  // paid it.
+  each('Categorías and Inicio agree category by category', (snap, key) => {
+    const home = homeFigures(snap)
+    const bars = categoriasFigures(snap)
+    const byId = new Map(bars.map((row) => [row.categoryId, row]))
+    for (const slice of home.byCategory) {
+      const bar = byId.get(slice.categoryId)
+      if (bar === undefined) continue
+      expect(cents(bar.total), `${key} · ${slice.name}`).toBe(
+        cents(slice.total),
+      )
+    }
+    // And a category over its cap is over it by the same arithmetic.
+    for (const bar of bars) {
+      if (bar.cap <= 0) continue
+      expect(bar.over, `${key} · ${bar.name}`).toBe(
+        cents(bar.total) > cents(bar.cap),
+      )
+    }
+  })
+
+  // The daily allowance is what is left divided by the days left, so
+  // spending it every remaining day must never come to more than there
+  // is. A figure that rounded up would promise a day the month cannot pay
+  // for.
+  each('the daily allowance fits in what is left', (snap, key) => {
+    const home = homeFigures(snap)
+    expect(home.perDay * home.daysLeft, key).toBeLessThanOrEqual(
+      Math.max(0, home.left),
+    )
+  })
+
+  // Two different months of card money, and no Resumen may be in both:
+  // "con la tarjeta" is what the cards will ask next month, and what they
+  // asked this month is already inside what the month owes.
+  each('next month’s cards are not inside this month', (snap, key) => {
+    const home = homeFigures(snap)
+    const nextMonth = new Date(
+      snap.monthStart.getFullYear(),
+      snap.monthStart.getMonth() + 1,
+      1,
+    )
+    const counted = snap.pendientes.filter(
+      (pendiente) =>
+        pendiente.status === 'pending' &&
+        pendiente.dueDate >= snap.monthStart &&
+        pendiente.dueDate <= snap.monthEnd,
+    )
+    for (const bill of counted) {
+      expect(bill.dueDate.getTime(), key).toBeLessThan(nextMonth.getTime())
+    }
+    // And the figure itself is only ever about Resúmenes.
+    expect(
+      home.cards.every((total) => total.total !== 0),
+      key,
+    ).toBe(true)
   })
 
   // A month that has ended has no days left to spread anything over, and

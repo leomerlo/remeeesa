@@ -24,6 +24,10 @@ export type CategorySummary = {
 
 const UNKNOWN_CATEGORY_NAME = 'Categoría desconocida'
 
+function round2(amount: number): number {
+  return Math.round(amount * 100) / 100
+}
+
 // Groups expenses by categoryId and sums their price. An expense whose
 // categoryId has no matching entry in `categories` (e.g. the category was
 // deleted after the expense was recorded) falls back to the same
@@ -72,10 +76,13 @@ export function summarizeByCategory(input: {
       total: 0,
       totalUsd: 0,
     }
+    // In cents, like every other sum in the app: these totals are
+    // compared against figures added up that way, and two sums of the same
+    // money must not each carry their own floating-point drift.
     if (currency === DEFAULT_CURRENCY) {
-      existing.total += amount
+      existing.total = round2(existing.total + amount)
     } else {
-      existing.totalUsd += amount
+      existing.totalUsd = round2(existing.totalUsd + amount)
     }
     totals.set(categoryId, existing)
   }
@@ -98,7 +105,7 @@ export function summarizeByCategory(input: {
   // geometry, where it would silently render nothing.
   let grandTotal = 0
   for (const entry of totals.values()) {
-    grandTotal += entry.total
+    grandTotal = round2(grandTotal + entry.total)
   }
 
   return (
