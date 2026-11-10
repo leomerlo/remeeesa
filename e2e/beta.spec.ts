@@ -73,7 +73,9 @@ async function signUpBeta(
   ).toBeVisible({ timeout: 20000 })
 }
 
-// Agregar un servicio, from the screen that owns it.
+// A servicio is born in "anotar un gasto" with "todos los meses" on,
+// the way the v1 does it -- Servicios has no add button of its own any
+// more, by her decision.
 async function addServicio(
   page: Page,
   servicio: {
@@ -84,20 +86,24 @@ async function addServicio(
     readonly method?: string
   },
 ): Promise<void> {
-  await page.getByRole('button', { name: 'Agregar un servicio' }).click()
-  const sheet = page.getByRole('dialog', { name: 'Agregar un servicio' })
-  await sheet.getByLabel('¿Qué servicio es?').fill(servicio.name)
+  await page.getByRole('button', { name: 'Anotar un gasto' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Anotar un gasto' })
+  await sheet.getByLabel('¿Qué fue?').fill(servicio.name)
   if (servicio.method !== undefined) {
     // The method is a listbox that opens into the form rather than over
     // it: the sheet's body is what scrolls, and anything floating inside
     // a scrolling box gets cut off by it.
-    await sheet.getByRole('button', { name: /¿Con qué se paga\?/ }).click()
+    await sheet.getByRole('button', { name: /¿Con qué lo pagaron\?/ }).click()
     await sheet
       .getByRole('option', { name: new RegExp(`^${servicio.method}`) })
       .click()
   }
   await sheet.getByLabel('Cuánto').fill(servicio.amount)
-  await sheet.getByRole('button', { name: 'Agregar' }).click()
+  // What makes it a servicio rather than a one-off: it comes back every
+  // month, and it has not been paid yet.
+  await sheet.getByRole('switch', { name: /Ya lo pagué/ }).click()
+  await sheet.getByRole('switch', { name: /Todos los meses/ }).click()
+  await sheet.getByRole('button', { name: 'Anotar' }).click()
   await expect(sheet).toBeHidden({ timeout: 20000 })
 }
 
@@ -111,7 +117,7 @@ test('a new household signs up, sets a budget and anota su primer gasto', async 
   await expect(page.getByText('Le queda al hogar este mes')).toBeVisible()
   // .first(): with nothing spent yet, what is left and the budget itself
   // are the same figure, and the hero prints both.
-  await expect(page.getByText('$1.000.000').first()).toBeVisible({
+  await expect(page.getByText('$ 1.000.000').first()).toBeVisible({
     timeout: 20000,
   })
 
@@ -128,7 +134,7 @@ test('a new household signs up, sets a budget and anota su primer gasto', async 
   await expect(page.getByText('Verdulería')).toBeVisible()
   // And the month is smaller by exactly what was spent, which is the whole
   // point of the screen.
-  await expect(page.getByText('$987.500')).toBeVisible({ timeout: 20000 })
+  await expect(page.getByText('$ 987.500')).toBeVisible({ timeout: 20000 })
 })
 
 test('a servicio is created, paid, and arrives among the month gastos', async ({
@@ -148,7 +154,7 @@ test('a servicio is created, paid, and arrives among the month gastos', async ({
   // Owed, and counted as owed.
   await expect(page.getByText('Falta pagar')).toBeVisible({ timeout: 20000 })
   await expect(page.getByText('1 servicio sin pagar')).toBeVisible()
-  await expect(page.getByText('$36.800').first()).toBeVisible()
+  await expect(page.getByText('$ 36.800').first()).toBeVisible()
 
   await page.getByRole('button', { name: 'Ya lo pagué' }).click()
   const paying = page.getByRole('dialog', { name: 'Pagar Luz' })
@@ -189,11 +195,18 @@ test('a servicio a credit card pays lands on Con tarjeta, not on the month', asy
     .getByRole('link', { name: 'Servicios' })
     .click()
 
-  await addServicio(page, {
-    name: 'Edenor',
-    amount: '42000',
-    method: 'Visa Galicia',
-  })
+  // In two steps, because that is the only way there is: "anotar un
+  // gasto" with a credit card chosen writes a consumo, not a servicio --
+  // the form stops asking about months the moment the card is picked. So
+  // the servicio is born without a method and told afterwards what pays
+  // it, which is exactly the path the household walks.
+  await addServicio(page, { name: 'Edenor', amount: '42000' })
+  await page.getByRole('button', { name: 'Editar Edenor' }).click()
+  const edit = page.getByRole('dialog', { name: 'Editar el servicio' })
+  await edit.getByRole('button', { name: /¿Con qué se paga\?/ }).click()
+  await edit.getByRole('option', { name: /^Visa Galicia/ }).click()
+  await edit.getByRole('button', { name: 'Guardar' }).click()
+  await expect(edit).toBeHidden({ timeout: 20000 })
 
   // Not on the month: not in its list, and not in its figure. The month
   // has nothing in it at all, which is what the empty state says.
@@ -207,7 +220,8 @@ test('a servicio a credit card pays lands on Con tarjeta, not on the month', asy
   await page.getByRole('button', { name: 'Con tarjeta' }).click()
 
   await expect(page.getByText('Edenor')).toBeVisible({ timeout: 20000 })
-  await expect(page.getByText(/que paga la tarjeta$/)).toBeVisible()
-  // Twice over: the tab's own figure, and the row's.
-  await expect(page.getByText('$42.000')).toHaveCount(2)
+  // The card's own figure, on the panel over both tabs.
+  await expect(page.getByText(/^Con tarjeta en /)).toBeVisible()
+  // Twice over: that figure, and the row's.
+  await expect(page.getByText('$ 42.000')).toHaveCount(2)
 })
