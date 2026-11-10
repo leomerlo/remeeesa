@@ -2,11 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Info, LineChart, RotateCcw } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
-import {
-  currentMonthRange,
-  formatCurrency,
-  summarizeByCategory,
-} from '@/lib/expenses'
+import { currentMonthRange, summarizeByCategory } from '@/lib/expenses'
 import type { Category } from '@/lib/expenses'
 import { cssVars } from '@/lib/cssVars'
 import { parseStoredAmount } from '@/lib/money'
@@ -17,7 +13,7 @@ import { ListSkeleton, NameSkel } from '../Skeleton'
 import { Figure } from '../Figure'
 import { MonthPager } from '../MonthPager'
 import { CategoryTile } from '../Tile'
-import { monthName } from '../format'
+import { formatCurrency, monthName } from '../format'
 import type { BetaSession } from '../data'
 import { AlertCard } from '../rows'
 import { LoadFailed, Title } from './Gastos'

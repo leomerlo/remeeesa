@@ -2,11 +2,6 @@ import { Check, ChevronRight, LineChart, TriangleAlert } from 'lucide-react'
 import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
 import { cssVars } from '@/lib/cssVars'
-import {
-  formatAmount,
-  formatCompactCurrency,
-  formatCurrency,
-} from '@/lib/expenses'
 import type { Category, Expense } from '@/lib/expenses'
 import type { Pendiente } from '@/lib/pendientes'
 import type { CardPurchase } from '@/lib/cards'
@@ -14,7 +9,13 @@ import { billState } from './figures'
 export { billState, sortBills } from './figures'
 import { DEFAULT_CURRENCY } from '@/lib/money'
 import { CategoryTile } from './Tile'
-import { categoryMark, monthName } from './format'
+import {
+  categoryMark,
+  formatAmount,
+  formatCompactCurrency,
+  formatCurrency,
+  monthName,
+} from './format'
 
 export function Section({
   title,

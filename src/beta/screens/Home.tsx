@@ -5,14 +5,12 @@ import {
   ChevronRight,
   Lightbulb,
   Target,
-  TrendingDown,
-  TrendingUp,
   TriangleAlert,
 } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { formatCurrency } from '@/lib/expenses'
+
 import type { Expense } from '@/lib/expenses'
 import type { CardPurchase } from '@/lib/cards'
 import type { Pendiente } from '@/lib/pendientes'
@@ -30,7 +28,7 @@ import {
   ProjectionLink,
   PurchaseRow,
 } from '../rows'
-import { monthName } from '../format'
+import { formatCurrency, monthName } from '../format'
 import type { BetaSession } from '../data'
 import { GastoSheet } from '../sheets/GastoSheet'
 import { ServicioSheet } from '../sheets/ServicioSheet'
@@ -165,8 +163,7 @@ export function Home({
     monthEnd,
     now,
   })
-  const { budget, paid, owed, cards, bills, late, byCategory, toDate, spent } =
-    figures
+  const { budget, paid, owed, cards, bills, late, byCategory } = figures
   // Both columns the same height: a list of three beside a list of four
   // read as two unrelated things, and the eye goes to the longer one.
   // Movements are one list -- a consumo and a gasto are both "what we
@@ -215,15 +212,14 @@ export function Home({
         <div className="band">
           {budget > 0 ? (
             <BudgetHero figures={figures} onBudget={() => setBudgeting(true)} />
-          ) : (
-            <PlainHero
-              spent={spent}
-              toDate={toDate}
-              onBudget={() => setBudgeting(true)}
-            />
-          )}
+          ) : null}
 
-          <div className="trio">
+          {/* With a budget, three cards across the foot of the panel. With
+              none, the two that say what the month did stay side by side
+              and the card's own figure takes the full width under them --
+              the shape reads faster, and it is the whole of the panel, so
+              there is nothing above it to shrink them against. */}
+          <div className={budget > 0 ? 'trio' : 'trio pairplus'}>
             <div className="card out">
               <span className="cap">
                 <span className="dot dot-paid" />
@@ -231,6 +227,18 @@ export function Home({
               </span>
               <Figure className="amt" amount={paid} />
               <span className="foot">Ya salió de la cuenta.</span>
+              {/* The one thing this panel can offer when there is no
+                  budget, on the card somebody is already reading. */}
+              {budget > 0 ? null : (
+                <button
+                  className="btn btn-secondary"
+                  type="button"
+                  onClick={() => setBudgeting(true)}
+                >
+                  <Target />
+                  Poner un presupuesto
+                </button>
+              )}
             </div>
             <div className="card wait">
               <span className="cap">
@@ -396,45 +404,6 @@ export function Home({
   )
 }
 
-function PlainHero({
-  spent,
-  toDate,
-  onBudget,
-}: {
-  readonly spent: number
-  readonly toDate: HomeFigures['toDate']
-  readonly onBudget: () => void
-}): ReactElement {
-  const up = toDate.difference >= 0
-  return (
-    <div className="card hero hero-split">
-      <div className="h-main">
-        <div className="label">El hogar lleva gastado este mes</div>
-        <div className="figure">
-          <Figure amount={spent} />
-        </div>
-        {toDate.lastMonth > 0 ? (
-          <span className={up ? 'chip' : 'chip good'}>
-            {up ? <TrendingUp /> : <TrendingDown />}
-            {formatCurrency(Math.abs(toDate.difference))} {up ? 'más' : 'menos'}{' '}
-            que el mes pasado
-          </span>
-        ) : (
-          <span className="chip neutral">
-            Sin un mes anterior para comparar
-          </span>
-        )}
-      </div>
-      <div className="h-side">
-        <button className="btn btn-secondary" type="button" onClick={onBudget}>
-          <Target />
-          Poner un presupuesto
-        </button>
-      </div>
-    </div>
-  )
-}
-
 function BudgetHero({
   figures,
   onBudget,
@@ -479,23 +448,29 @@ function BudgetHero({
           Presupuesto <b>{formatCurrency(budget)}</b>
         </span>
       </div>
-      <button className="skip" type="button" onClick={onBudget}>
+      {/* The same control as "poner un presupuesto" on the month that
+          has none: it is the same errand, and as a text link it read as
+          a footnote to the legend above it. */}
+      <button className="btn btn-secondary" type="button" onClick={onBudget}>
+        <Target />
         Cambiar el presupuesto
       </button>
-      <div className="perday">
-        <span className="ic" aria-hidden="true">
-          {over ? <TriangleAlert /> : <CalendarDays />}
-        </span>
-        <span>
-          {closed
-            ? over
-              ? `El mes cerró pasado por ${formatCurrency(-left)}.`
-              : `El mes cerró con ${formatCurrency(left)} sin usar.`
-            : over
+      {/* Only while the month is running. On a month that has ended it
+          said "el mes cerró con X sin usar", which is the figure right
+          above it said twice, in an alert, about something nobody can do
+          anything about any more. */}
+      {closed ? null : (
+        <div className="perday">
+          <span className="ic" aria-hidden="true">
+            {over ? <TriangleAlert /> : <CalendarDays />}
+          </span>
+          <span>
+            {over
               ? `Quedan ${String(daysLeft)} días y ya se pasaron por ${formatCurrency(-left)}.`
               : `Quedan ${String(daysLeft)} días. Pueden gastar ${formatCurrency(perDay)} por día.`}
-        </span>
-      </div>
+          </span>
+        </div>
+      )}
     </div>
   )
 }

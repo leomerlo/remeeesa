@@ -76,7 +76,7 @@ describe('looking for a servicio', () => {
 
     // Both are there, and the month owes what the two come to.
     expect(await screen.findByText('Luz')).toBeInTheDocument()
-    expect(screen.getByText('$124.800')).toBeInTheDocument()
+    expect(screen.getByText('$ 124.800')).toBeInTheDocument()
 
     fireEvent.change(screen.getByLabelText('Buscar un servicio'), {
       target: { value: 'expensas' },
@@ -88,7 +88,7 @@ describe('looking for a servicio', () => {
     // that still said the whole month would be the one number here
     // nobody could check.
     // Twice over: the hero's figure, and the row's own.
-    expect(screen.getAllByText('$88.000')).toHaveLength(2)
+    expect(screen.getAllByText('$ 88.000')).toHaveLength(2)
   })
 
   it('finds a bill by its category', async () => {
@@ -157,7 +157,7 @@ describe('a servicio a credit card pays', () => {
     // The two bills nobody put on a card are here, and the figure is
     // theirs alone.
     expect(await screen.findByText('Luz')).toBeInTheDocument()
-    expect(screen.getByText('$124.800')).toBeInTheDocument()
+    expect(screen.getByText('$ 124.800')).toBeInTheDocument()
     expect(screen.queryByText('Edenor')).toBeNull()
   })
 
@@ -169,7 +169,7 @@ describe('a servicio a credit card pays', () => {
 
     expect(await screen.findByText('Edenor')).toBeInTheDocument()
     // Twice over: the tab's own figure, and the row's.
-    expect(screen.getAllByText('$42.000')).toHaveLength(2)
+    expect(screen.getAllByText('$ 42.000')).toHaveLength(2)
     expect(screen.queryByText('Luz')).toBeNull()
   })
 })

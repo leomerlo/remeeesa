@@ -7,14 +7,14 @@ import {
   listResumenCuotas,
 } from '@/lib/cards'
 import type { ResumenCuota } from '@/lib/cards'
-import { formatAmount } from '@/lib/expenses'
+
 import type { Pendiente } from '@/lib/pendientes'
 import { DEFAULT_CURRENCY } from '@/lib/money'
 import { CardBrandMark } from '../CardBrandMark'
 import { ListSkeleton, NameSkel } from '../Skeleton'
 import { Figure } from '../Figure'
 import { useMonth } from '../MonthContext'
-import { monthName } from '../format'
+import { formatAmount, monthName } from '../format'
 import type { BetaSession } from '../data'
 import { LoadFailed, Title } from './Gastos'
 

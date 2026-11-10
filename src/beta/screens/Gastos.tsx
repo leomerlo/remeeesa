@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { CreditCard, Plus, ReceiptText } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement, ReactNode } from 'react'
-import { computeSpentThisMonth, formatAmount } from '@/lib/expenses'
+import { computeSpentThisMonth } from '@/lib/expenses'
 import type { Expense } from '@/lib/expenses'
 import type { CardPurchase } from '@/lib/cards'
 import type { Currency } from '@/lib/money'
@@ -12,7 +12,7 @@ import { Figure } from '../Figure'
 import { MonthPager } from '../MonthPager'
 import { useMonth } from '../MonthContext'
 import { ExpenseRow, PurchaseRow } from '../rows'
-import { monthName } from '../format'
+import { formatAmount, monthName } from '../format'
 import type { BetaSession } from '../data'
 import { GastoSheet } from '../sheets/GastoSheet'
 
@@ -216,7 +216,7 @@ export function Gastos({
           {shownUsd > 0 ? (
             <p className="usdline">
               <b>{formatAmount(shownUsd, 'USD')}</b>
-              <span>en dólares, que no entran en el total en pesos</span>
+              <span>no entran en el total en pesos</span>
             </p>
           ) : null}
         </div>

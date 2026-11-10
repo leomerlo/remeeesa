@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react'
-import { formatAmount, formatCurrency } from '@/lib/expenses'
 import type { Currency } from '@/lib/money'
+import { formatAmount, formatCurrency } from './format'
 
 // How much narrower a figure has to get before it fits the box it is in.
 // Argentine amounts run long -- "$2.476.253,89" is fourteen characters and

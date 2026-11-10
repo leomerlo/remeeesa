@@ -2,15 +2,17 @@ import { useQuery } from '@tanstack/react-query'
 import {
   ArrowRight,
   CalendarClock,
+  Check,
   CreditCard,
   Plus,
   Search,
+  TriangleAlert,
   X,
 } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { formatAmount } from '@/lib/expenses'
+
 import { matchesSearch } from '@/lib/search/fuzzyMatch'
 import type { Pendiente } from '@/lib/pendientes'
 import { serviciosFigures } from '../figures'
@@ -19,7 +21,7 @@ import { ListSkeleton, NameSkel, SearchSkel } from '../Skeleton'
 import { Figure } from '../Figure'
 import { useMonth } from '../MonthContext'
 import { BillRow } from '../rows'
-import { monthName } from '../format'
+import { formatAmount, monthName } from '../format'
 import type { BetaSession } from '../data'
 import { PagarSheet, ServicioSheet } from '../sheets/ServicioSheet'
 import { LoadFailed, Title } from './Gastos'
@@ -347,17 +349,27 @@ export function Servicios({
               {owedUsd > 0 ? (
                 <p className="usdline">
                   <b>{formatAmount(owedUsd, 'USD')}</b>
-                  <span>en dólares</span>
                 </p>
               ) : null}
-              <div className="legend">
-                <span>
-                  {unpaid.length === 0
-                    ? `${String(paid.length)} ${paid.length === 1 ? 'servicio' : 'servicios'} pagados`
-                    : `${String(unpaid.length)} ${unpaid.length === 1 ? 'servicio' : 'servicios'} sin pagar`}
-                </span>
+              {/* The same badges the rows wear, for the same reason: how
+                  many are still owed is the one thing on this card you
+                  have to do something about, and in the legend's grey it
+                  read like a caption. */}
+              <div className="herotags">
+                {unpaid.length === 0 ? (
+                  <span className="tag ok">
+                    <Check />
+                    {`${String(paid.length)} ${paid.length === 1 ? 'servicio pagado' : 'servicios pagados'}`}
+                  </span>
+                ) : (
+                  <span className="tag due">
+                    <TriangleAlert />
+                    {`${String(unpaid.length)} ${unpaid.length === 1 ? 'servicio sin pagar' : 'servicios sin pagar'}`}
+                  </span>
+                )}
                 {late.length > 0 ? (
-                  <span>
+                  <span className="tag late">
+                    <TriangleAlert />
                     {late.length === 1
                       ? 'Uno viene de un mes anterior'
                       : `${String(late.length)} vienen de meses anteriores`}

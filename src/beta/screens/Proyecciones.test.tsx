@@ -119,7 +119,7 @@ describe('the card is counted once', () => {
       '60.000',
     )
     expect(screen.queryByText('Tarjeta de crédito')).toBeNull()
-    expect(screen.getByText('$60.000')).toBeInTheDocument()
+    expect(screen.getByText('$ 60.000')).toBeInTheDocument()
   })
 })
 
@@ -151,7 +151,7 @@ describe('the categories with nothing in them', () => {
       target: { value: '25000' },
     })
 
-    expect(screen.getByText('$85.000')).toBeInTheDocument()
+    expect(screen.getByText('$ 85.000')).toBeInTheDocument()
   })
 })
 
@@ -181,7 +181,7 @@ describe('typing over what the card is going to be', () => {
       target: { value: '150000' },
     })
 
-    expect(screen.getByText('$150.000')).toBeInTheDocument()
+    expect(screen.getByText('$ 150.000')).toBeInTheDocument()
     // The badge says where a line's figure comes from, so once it comes
     // from the household it stops claiming to be the cuotas.
     expect(screen.getByText('Puesto a mano')).toBeInTheDocument()
@@ -195,7 +195,9 @@ describe('typing over what the card is going to be', () => {
       target: { value: '150000' },
     })
     fireEvent.click(
-      screen.getByRole('button', { name: 'Volver al estimado ($60.000)' }),
+      // A regex, not the literal: the figure carries a non-breaking space
+      // between its sign and its digits, which an accessible name keeps.
+      screen.getByRole('button', { name: /Volver al estimado \(\$.60\.000\)/ }),
     )
 
     await waitFor(() => {
