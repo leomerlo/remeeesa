@@ -5,7 +5,7 @@ import type { ReactElement } from 'react'
 import { formatCurrency } from '@/lib/expenses'
 import type { Category, Expense } from '@/lib/expenses'
 import type { Pendiente } from '@/lib/pendientes'
-import type { CardPurchase } from '@/lib/cards'
+import type { Card as PaymentMethod, CardPurchase } from '@/lib/cards'
 import { categoriasFigures } from '../figures'
 import { ListSkeleton, NameSkel } from '../Skeleton'
 import { useMonth } from '../MonthContext'
@@ -38,7 +38,7 @@ export function Categorias({
     enabled: householdId !== null,
     queryFn: async () => {
       const id = householdId as string
-      const [expenses, categories, household, pendientes, purchases] =
+      const [expenses, categories, household, pendientes, purchases, methods] =
         await Promise.all([
           session.db.listExpensesInMonth({
             householdId: id,
@@ -58,8 +58,13 @@ export function Categorias({
             monthStart,
             monthEnd,
           }),
+          // And how the household pays: a bill the bank takes from a
+          // credit card is not this month's spending in its category --
+          // it becomes a consumo on the day it is taken, and gets counted
+          // then, like any other card purchase.
+          session.db.listCards({ householdId: id }),
         ])
-      return { expenses, categories, household, pendientes, purchases }
+      return { expenses, categories, household, pendientes, purchases, methods }
     },
   })
 
@@ -80,7 +85,8 @@ export function Categorias({
     )
   }
 
-  const { expenses, categories, household, pendientes, purchases } = data.data
+  const { expenses, categories, household, pendientes, purchases, methods } =
+    data.data
 
   return (
     <>
@@ -109,6 +115,7 @@ export function Categorias({
         expenses={expenses}
         purchases={purchases}
         pendientes={pendientes}
+        methods={methods}
         monthStart={monthStart}
         monthEnd={monthEnd}
         categories={categories}
@@ -127,6 +134,7 @@ function CategoryBars({
   expenses,
   purchases,
   pendientes,
+  methods,
   monthStart,
   monthEnd,
   categories,
@@ -139,6 +147,7 @@ function CategoryBars({
   // monthByCategory for which of them a month counts.
   readonly purchases: readonly CardPurchase[]
   readonly pendientes: readonly Pendiente[]
+  readonly methods: readonly PaymentMethod[]
   readonly monthStart: Date
   readonly monthEnd: Date
   readonly categories: readonly Category[]
@@ -158,6 +167,7 @@ function CategoryBars({
     purchases,
     pendientes,
     categories,
+    methods,
     monthStart,
     monthEnd,
   })

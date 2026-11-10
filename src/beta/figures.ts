@@ -1,5 +1,9 @@
 import { cardsDueNextMonthTotals, RESUMEN_CATEGORY_NAME } from '@/lib/cards'
-import type { CardPurchase, CardsDueTotal } from '@/lib/cards'
+import type {
+  Card as PaymentMethod,
+  CardPurchase,
+  CardsDueTotal,
+} from '@/lib/cards'
 import {
   buildProjection,
   computePendingCommitted,
@@ -40,6 +44,36 @@ export function sumIn(items: readonly Money[], currency: Currency): number {
     .filter((item) => item.currency === currency)
     .reduce((sum, item) => sum + Math.round(item.price * 100), 0)
   return cents / 100
+}
+
+// The household's credit cards, by id. A bill the bank takes from one of
+// these is not money leaving the month: it goes onto the card and arrives
+// in that card's Resumen, next month.
+export function creditMethodIds(
+  methods: readonly PaymentMethod[],
+): ReadonlySet<string> {
+  return new Set(
+    methods
+      .filter((method) => method.kind === 'credito')
+      .map((method) => method.id),
+  )
+}
+
+// A bill that lands on a credit card rather than on the month.
+//
+// Two ways of knowing, and the second is the newer one: it was settled
+// with a card, which wrote a consumo; or it says so itself, because
+// somebody put a credit card in its "¿con qué se paga?". The second is
+// what makes a débito automático on the Visa read as a card expense from
+// the moment it is set up, instead of only once the bank has taken it --
+// which is a month of it sitting among what this month has to pay out of
+// the budget, which it never will.
+export function onCreditCard(
+  bill: Pendiente,
+  credit: ReadonlySet<string>,
+): boolean {
+  if ((bill.paidPurchaseId ?? null) !== null) return true
+  return bill.paymentMethodId != null && credit.has(bill.paymentMethodId)
 }
 
 export type HomeFigures = {
@@ -83,6 +117,9 @@ export type HomeInput = {
   readonly allExpenses: readonly Expense[]
   readonly pendientes: readonly Pendiente[]
   readonly categories: readonly Category[]
+  // Every way the household pays, which is what says whether a bill comes
+  // out of this month or goes onto a card.
+  readonly methods: readonly PaymentMethod[]
   readonly monthStart: Date
   readonly monthEnd: Date
   readonly now: Date
@@ -98,13 +135,25 @@ export function homeFigures(input: HomeInput): HomeFigures {
   // figure beside "Pagado", and once as part of the breakdown under it --
   // the two were reading different lists, so the ring under the hero
   // divided up a smaller month than the hero itself counted.
-  const dueThisMonth = pendientesDueInMonth(pendientes, monthStart, monthEnd)
+  //
+  // Minus whatever the bank takes from a credit card: that money does not
+  // leave this month, it becomes a consumo in that card's Resumen. Those
+  // bills live beside the cards, on Servicios' "Con tarjeta" side.
+  const credit = creditMethodIds(input.methods)
+  const dueThisMonth = pendientesDueInMonth(
+    pendientes,
+    monthStart,
+    monthEnd,
+  ).filter((bill) => !onCreditCard(bill, credit))
   const owed = computePendingCommitted(dueThisMonth)
   const cards = cardsDueNextMonthTotals(pendientes, monthStart)
   const budget = monthlyBudgetFor(household, monthStart, now)
 
   const unpaid = pendientes.filter(
-    (pendiente) => pendiente.status === 'pending' && isBillToPay(pendiente),
+    (pendiente) =>
+      pendiente.status === 'pending' &&
+      isBillToPay(pendiente) &&
+      !onCreditCard(pendiente, credit),
   )
   const bills = sortBills(unpaid, monthStart, now)
   const late = bills.filter((bill) => bill.dueDate < monthStart)
@@ -152,6 +201,7 @@ export function homeFigures(input: HomeInput): HomeFigures {
       purchases: input.purchases,
       pendientes,
       categories: input.categories,
+      methods: input.methods,
       monthStart,
       monthEnd,
     }),
@@ -243,10 +293,12 @@ export function monthByCategory(input: {
   readonly purchases: readonly CardPurchase[]
   readonly pendientes: readonly Pendiente[]
   readonly categories: readonly Category[]
+  readonly methods: readonly PaymentMethod[]
   readonly monthStart: Date
   readonly monthEnd: Date
 }): ReturnType<typeof summarizeByCategory> {
   const cards = cardCategoryIds(input)
+  const credit = creditMethodIds(input.methods)
   return summarizeByCategory({
     expenses: input.expenses.filter(
       (expense) => !cards.has(expense.categoryId),
@@ -259,7 +311,13 @@ export function monthByCategory(input: {
       input.pendientes,
       input.monthStart,
       input.monthEnd,
-    ).filter((pendiente) => pendiente.cardId === undefined),
+    ).filter(
+      (pendiente) =>
+        // A Resumen, and a bill the bank takes from a credit card: both
+        // speak through the card's consumos instead. The second counts
+        // here on the day the bank takes it, as the consumo it becomes.
+        pendiente.cardId === undefined && !onCreditCard(pendiente, credit),
+    ),
     purchases: input.purchases,
   })
 }
@@ -292,6 +350,7 @@ export function categoriasFigures(input: {
   readonly purchases: readonly CardPurchase[]
   readonly pendientes: readonly Pendiente[]
   readonly categories: readonly Category[]
+  readonly methods: readonly PaymentMethod[]
   readonly monthStart: Date
   readonly monthEnd: Date
 }): readonly CategoryRow[] {
@@ -334,6 +393,14 @@ export type ServiciosFigures = {
   // forward, but it does not travel backwards into a month that had
   // already closed without it.
   readonly late: readonly Pendiente[]
+  // The month's bills that go on a credit card rather than coming out of
+  // the month -- the ones the bank already put there, and the ones that
+  // say a credit card is what pays them. These are the whole of the "Con
+  // tarjeta" side of the screen, and they are in none of the lists above:
+  // a bill cannot both come out of this month and arrive in next month's
+  // Resumen.
+  readonly onCard: readonly Pendiente[]
+  readonly onCardTotal: number
 }
 
 export function serviciosFigures(input: {
@@ -342,6 +409,9 @@ export function serviciosFigures(input: {
   // The month's bills that have already been paid. Firestore keeps these
   // out of listPendientes' own result, so they are fetched separately.
   readonly settled: readonly Pendiente[]
+  // Every way the household pays, which is what tells a bill that comes
+  // out of this month from one that goes onto a card.
+  readonly methods: readonly PaymentMethod[]
   readonly monthStart: Date
   readonly monthEnd: Date
   readonly now: Date
@@ -349,6 +419,11 @@ export function serviciosFigures(input: {
   const bill = (pendiente: Pendiente): boolean => isBillToPay(pendiente)
   const inMonth = (pendiente: Pendiente): boolean =>
     pendiente.dueDate >= input.monthStart && pendiente.dueDate <= input.monthEnd
+  // What the card pays comes out of every list on the month's side and
+  // goes into its own, whether or not the bank has taken it yet.
+  const credit = creditMethodIds(input.methods)
+  const card = (pendiente: Pendiente): boolean =>
+    onCreditCard(pendiente, credit)
 
   // The month on screen is the month that is running when today falls
   // inside it. Only then does anything get carried forward.
@@ -358,18 +433,45 @@ export function serviciosFigures(input: {
         (pendiente) =>
           bill(pendiente) &&
           pendiente.status === 'pending' &&
-          pendiente.dueDate < input.monthStart,
+          pendiente.dueDate < input.monthStart &&
+          !card(pendiente),
       )
     : []
 
   const unpaidThisMonth = input.pendientes.filter(
     (pendiente) =>
-      bill(pendiente) && pendiente.status === 'pending' && inMonth(pendiente),
+      bill(pendiente) &&
+      pendiente.status === 'pending' &&
+      inMonth(pendiente) &&
+      !card(pendiente),
   )
   const paid = input.settled
-    .filter((pendiente) => bill(pendiente) && inMonth(pendiente))
+    .filter(
+      (pendiente) => bill(pendiente) && inMonth(pendiente) && !card(pendiente),
+    )
     .slice()
     .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
+
+  // Both sides of the same month: the ones the bank has already charged,
+  // and the ones it is going to. Pending first, because those are the
+  // ones still worth looking at.
+  const onCardPending = input.pendientes.filter(
+    (pendiente) =>
+      bill(pendiente) &&
+      pendiente.status === 'pending' &&
+      (inMonth(pendiente) ||
+        (current && pendiente.dueDate < input.monthStart)) &&
+      card(pendiente),
+  )
+  const onCardPaid = input.settled.filter(
+    (pendiente) => bill(pendiente) && inMonth(pendiente) && card(pendiente),
+  )
+  const onCard = [
+    ...sortBills(onCardPending, input.monthStart, input.now),
+    ...[...onCardPaid].sort(
+      (a, b) => a.dueDate.getTime() - b.dueDate.getTime(),
+    ),
+  ]
 
   // What is already late leads, then what has fallen due, then what has
   // not yet -- and everything settled goes under all of it, because it
@@ -390,34 +492,15 @@ export function serviciosFigures(input: {
     owed: sumIn(amounts, DEFAULT_CURRENCY),
     owedUsd: sumIn(amounts, 'USD'),
     late,
+    onCard,
+    onCardTotal: sumIn(
+      onCard.map((one) => ({
+        price: one.expectedAmount ?? 0,
+        currency: one.currency ?? DEFAULT_CURRENCY,
+      })),
+      DEFAULT_CURRENCY,
+    ),
   }
-}
-
-// The bills of a month that were settled with a credit card. The money
-// did not leave the household: it went onto the card and arrives in that
-// card's Resumen, so it belongs beside the cards and not among what is
-// still owed.
-//
-// This is the only link the database holds between a bill and a card.
-// There is no field saying a bill *will* be charged to one, so it can only
-// be known after it has been marked paid that way -- which is why this
-// takes the month's already-paid bills rather than its pending ones.
-export function billsOnCard(
-  settled: readonly Pendiente[],
-): readonly Pendiente[] {
-  return settled.filter((bill) => (bill.paidPurchaseId ?? null) !== null)
-}
-
-// What those bills come to in pesos. Dollars are left out, like every
-// other peso figure.
-export function billsOnCardTotal(settled: readonly Pendiente[]): number {
-  return sumIn(
-    billsOnCard(settled).map((bill) => ({
-      price: bill.expectedAmount ?? 0,
-      currency: bill.currency ?? DEFAULT_CURRENCY,
-    })),
-    DEFAULT_CURRENCY,
-  )
 }
 
 export type ProjectionKind =

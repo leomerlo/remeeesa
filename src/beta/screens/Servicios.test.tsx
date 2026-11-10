@@ -115,3 +115,61 @@ describe('looking for a servicio', () => {
     expect(screen.queryByText(/No hubo servicios/)).toBeNull()
   })
 })
+
+// Her own case: Edenor on débito automático with the Visa. The bank is
+// never going to take that money out of this month -- it puts it on the
+// card and it arrives in the card's resumen -- so the month's side of the
+// screen has no business listing it. It did, until the bill was actually
+// charged, which is a whole month of it sitting among what the household
+// still has to pay.
+describe('a servicio a credit card pays', () => {
+  async function houseWithEdenorOnTheVisa(): Promise<BetaSession> {
+    const session = await house()
+    const householdId = session.householdId ?? ''
+    const visa = await session.db.createCard({
+      householdId,
+      name: 'Visa',
+      kind: 'credito',
+      currency: 'ARS',
+      brand: 'visa',
+    })
+    const servicios = await session.db.findOrCreateCategory({
+      householdId,
+      name: 'Servicios',
+    })
+    await session.db.createPendiente({
+      householdId,
+      categoryId: servicios.id,
+      name: 'Edenor',
+      dueDate: DUE(18),
+      expectedAmount: 42_000,
+      recurring: true,
+      autoDebit: true,
+      paymentMethodId: visa.id,
+      currency: 'ARS',
+    })
+    return session
+  }
+
+  it('is not on the month, and the month does not count it', async () => {
+    render(await houseWithEdenorOnTheVisa())
+
+    // The two bills nobody put on a card are here, and the figure is
+    // theirs alone.
+    expect(await screen.findByText('Luz')).toBeInTheDocument()
+    expect(screen.getByText('$124.800')).toBeInTheDocument()
+    expect(screen.queryByText('Edenor')).toBeNull()
+  })
+
+  it('is on Con tarjeta, before the bank has taken it', async () => {
+    render(await houseWithEdenorOnTheVisa())
+    await screen.findByText('Luz')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Con tarjeta' }))
+
+    expect(await screen.findByText('Edenor')).toBeInTheDocument()
+    // Twice over: the tab's own figure, and the row's.
+    expect(screen.getAllByText('$42.000')).toHaveLength(2)
+    expect(screen.queryByText('Luz')).toBeNull()
+  })
+})

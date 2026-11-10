@@ -160,6 +160,7 @@ export function Home({
     allExpenses,
     pendientes,
     categories,
+    methods,
     monthStart,
     monthEnd,
     now,

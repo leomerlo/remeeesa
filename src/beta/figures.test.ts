@@ -10,8 +10,6 @@ import { DEMO_SCENARIOS, DEMO_USER_ID, seedDemoHousehold } from '@/demo/seed'
 import type { DemoScenario } from '@/demo/seed'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import {
-  billsOnCard,
-  billsOnCardTotal,
   cardCategoryIds,
   categoriasFigures,
   serviciosFigures,
@@ -39,6 +37,10 @@ type Snapshot = {
   readonly household: Household
   readonly categories: readonly Category[]
   readonly cards: readonly Card[]
+  // The same list under the name the figures ask for it by: there they
+  // are not "the cards" but every way the household pays, which is what
+  // says whether a bill comes out of the month or goes onto a card.
+  readonly methods: readonly Card[]
   readonly expenses: readonly Expense[]
   // The same list under the name projectionFigures asks for it by.
   readonly current: readonly Expense[]
@@ -125,6 +127,7 @@ async function snapshot(
     household,
     categories,
     cards,
+    methods: cards,
     expenses,
     current: expenses,
     previous,
@@ -315,14 +318,70 @@ describe('the beta says the same month on every screen', () => {
     expect(cents(home.owed)).toBe(cents(before.owed))
     expect(home.bills.map((bill) => bill.id)).not.toContain(onCard.id)
 
-    // It is on the card, and counted there.
-    expect(billsOnCard([onCard]).map((bill) => bill.id)).toEqual([onCard.id])
-    expect(cents(billsOnCardTotal([onCard]))).toBe(
-      cents(onCard.expectedAmount ?? 0),
-    )
+    // It is on the card, and counted there. Servicios reads it off the
+    // month's settled bills, which is where a paid one lives.
+    const servicios = serviciosFigures({ ...snap, settled: [onCard] })
+    expect(servicios.onCard.map((bill) => bill.id)).toEqual([onCard.id])
+    expect(cents(servicios.onCardTotal)).toBe(cents(onCard.expectedAmount ?? 0))
+    expect(servicios.bills.map((bill) => bill.id)).not.toContain(onCard.id)
 
     // A bill paid the ordinary way is not on a card.
-    expect(billsOnCard([{ ...onCard, paidPurchaseId: null }])).toEqual([])
+    expect(
+      serviciosFigures({
+        ...snap,
+        settled: [{ ...onCard, paidPurchaseId: null, paidExpenseId: 'gasto' }],
+      }).onCard,
+    ).toEqual([])
+  })
+
+  // The same thing before the bank has taken it. Edenor on débito
+  // automático with the Visa is a card expense from the moment it is set
+  // up: the money is never going to leave this month, so it has no
+  // business sitting among what this month still has to pay. It was, and
+  // it only moved across once the bank charged it -- a month late.
+  it('puts a bill a credit card pays on the card from the start', () => {
+    const base = snapshots.get('completa·este mes')
+    if (base === undefined) throw new Error('missing snapshot')
+    const visa = base.cards.find((card) => card.kind === 'credito')
+    if (visa === undefined) throw new Error('the seed has no credit card')
+    const [model] = base.pendientes.filter(
+      (pendiente) =>
+        pendiente.cardId === undefined &&
+        pendiente.status === 'pending' &&
+        (pendiente.currency ?? 'ARS') === 'ARS' &&
+        pendiente.expectedAmount !== null &&
+        pendiente.dueDate >= base.monthStart &&
+        pendiente.dueDate <= base.monthEnd,
+    )
+    if (model === undefined) throw new Error('no pending peso bill this month')
+
+    const debited: Pendiente = {
+      ...model,
+      id: `${model.id}-por-la-visa`,
+      name: 'Edenor por la Visa',
+      paymentMethodId: visa.id,
+    }
+    const snap: Snapshot = {
+      ...base,
+      pendientes: [...base.pendientes, debited],
+    }
+    const servicios = serviciosFigures(snap)
+    const home = homeFigures(snap)
+
+    // It is on the card's side, and nowhere on the month's.
+    expect(servicios.onCard.map((bill) => bill.id)).toContain(debited.id)
+    expect(servicios.unpaid.map((bill) => bill.id)).not.toContain(debited.id)
+    expect(home.bills.map((bill) => bill.id)).not.toContain(debited.id)
+
+    // And in no figure the month pays out of its own budget, on either
+    // screen -- the two have to agree, or Inicio and Servicios are
+    // describing different months.
+    const before = serviciosFigures(base)
+    expect(cents(servicios.owed)).toBe(cents(before.owed))
+    expect(cents(home.owed)).toBe(cents(homeFigures(base).owed))
+    expect(cents(servicios.onCardTotal)).toBe(
+      cents(before.onCardTotal) + cents(debited.expectedAmount ?? 0),
+    )
   })
 
   // Paging back used to show the same list whatever month was open: the

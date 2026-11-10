@@ -13,7 +13,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { formatAmount } from '@/lib/expenses'
 import { matchesSearch } from '@/lib/search/fuzzyMatch'
 import type { Pendiente } from '@/lib/pendientes'
-import { billsOnCard, billsOnCardTotal, serviciosFigures } from '../figures'
+import { serviciosFigures } from '../figures'
 
 import { ListSkeleton, NameSkel, SearchSkel } from '../Skeleton'
 import { Figure } from '../Figure'
@@ -226,17 +226,17 @@ export function Servicios({
   const shownPendientes = pendientes.filter(matches)
   const shownSettled = settled.filter(matches)
 
-  // Bills of this month settled with a credit card -- see figures.ts for
-  // why this reads the paid ones. Where they end up is Tarjetas.
-  const onCard = billsOnCard(shownSettled)
-
-  const { unpaid, paid, owed, owedUsd, late } = serviciosFigures({
-    pendientes: shownPendientes,
-    settled: shownSettled,
-    monthStart,
-    monthEnd,
-    now,
-  })
+  // The month's two sides: what it pays itself, and what its cards pay
+  // for it. A bill is on exactly one of them -- see figures.ts.
+  const { unpaid, paid, owed, owedUsd, late, onCard, onCardTotal } =
+    serviciosFigures({
+      pendientes: shownPendientes,
+      settled: shownSettled,
+      methods,
+      monthStart,
+      monthEnd,
+      now,
+    })
 
   const header = (
     <Title
@@ -247,7 +247,6 @@ export function Servicios({
   )
 
   if (view === 'tarjetas') {
-    const total = billsOnCardTotal(shownSettled)
     return (
       <>
         {header}
@@ -260,11 +259,11 @@ export function Servicios({
             <span className="orb" aria-hidden="true">
               <CreditCard />
             </span>
-            <h3>Ningún servicio se pagó con tarjeta</h3>
+            <h3>Ningún servicio lo paga una tarjeta</h3>
             <p>
-              Cuando marquen un servicio como pagado con una tarjeta de crédito
-              va a aparecer acá: esa plata no sale este mes, llega en el
-              resumen.
+              Un servicio que se paga con una tarjeta de crédito aparece acá:
+              esa plata no sale este mes, llega en el resumen de la tarjeta. Se
+              elige con el «¿con qué se paga?» del servicio.
             </p>
           </div>
         ) : (
@@ -272,14 +271,14 @@ export function Servicios({
             <div className="hood solo">
               <div className="card hero">
                 <div className="label">
-                  Servicios de {monthName(monthStart)} que pagaron con tarjeta
+                  Servicios de {monthName(monthStart)} que paga la tarjeta
                 </div>
                 <div className="figure">
-                  <Figure amount={total} />
+                  <Figure amount={onCardTotal} />
                 </div>
                 <div className="legend">
                   <span>
-                    Esta plata no salió este mes: va al resumen de{' '}
+                    Esta plata no sale este mes: va al resumen de{' '}
                     {monthName(nextMonthOf(monthStart))}.
                   </span>
                 </div>
