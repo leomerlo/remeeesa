@@ -372,8 +372,7 @@ export function Donut({
           drawing rather than the key to every figure on the card. */}
       <AlertCard kind="info" icon={<Info />}>
         <b>Lo que ya pagaron</b>, <b>lo que les falta pagar</b> y{' '}
-        <b>lo que compraron con tarjeta</b> y van a pagar el mes que viene. Una
-        compra en cuotas cuenta <b>una cuota por mes</b>.
+        <b>lo que compraron con tarjeta</b> y van a pagar el mes que viene.
       </AlertCard>
       <div className="donut-top">
         <svg
