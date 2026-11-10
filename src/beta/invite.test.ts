@@ -16,9 +16,7 @@ describe('reading the code out of whatever was pasted', () => {
   })
 
   it('takes it out of the link the beta hands out', () => {
-    expect(
-      tokenFromPaste(`https://remeeesa.app/beta.html#/unirme/${TOKEN}`),
-    ).toBe(TOKEN)
+    expect(tokenFromPaste(`https://remeeesa.app/#/unirme/${TOKEN}`)).toBe(TOKEN)
   })
 
   it('takes it out of the v1’s link too, which is what people still have', () => {
@@ -37,7 +35,7 @@ describe('reading the code out of whatever was pasted', () => {
 
   it('writes the link the way the entry point reads it back', () => {
     const link = inviteLink({ origin: 'https://remeeesa.app', token: TOKEN })
-    expect(link).toBe(`https://remeeesa.app/beta.html#/unirme/${TOKEN}`)
+    expect(link).toBe(`https://remeeesa.app/#/unirme/${TOKEN}`)
     expect(tokenFromPaste(link)).toBe(TOKEN)
   })
 })
@@ -58,7 +56,7 @@ describe('holding the code until there is somebody to join as', () => {
   it('takes a code out of the address and puts it away before anything renders', () => {
     const kept = claimInviteFromAddress({
       hash: `#/unirme/${TOKEN}`,
-      pathname: '/beta.html',
+      pathname: '/',
     })
 
     expect(kept).toBe(TOKEN)
@@ -69,7 +67,7 @@ describe('holding the code until there is somebody to join as', () => {
 
   it('leaves an ordinary address alone', () => {
     expect(
-      claimInviteFromAddress({ hash: '#/gastos', pathname: '/beta.html' }),
+      claimInviteFromAddress({ hash: '#/gastos', pathname: '/' }),
     ).toBeNull()
     expect(heldInvite()).toBeNull()
   })

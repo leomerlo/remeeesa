@@ -4,8 +4,8 @@ Cerrado con Flor el 30–31 Oct 2026. La decisión estructural (mismo repo, dos
 entradas, una rama) está en
 [ADR 0007](adr/0007-beta-is-the-next-version-two-entries-one-branch.md).
 
-**Para quién es** (corregido el 7 Nov 2026, palabras de Flor: *«no lo va a ver
-mi suegro, esto es la actualizacion de la v1 en una v2 para mi»*). La beta es
+**Para quién es** (corregido el 7 Nov 2026, palabras de Flor: _«no lo va a ver
+mi suegro, esto es la actualizacion de la v1 en una v2 para mi»_). La beta es
 la **v2 de la app de Flor y Leo**, no una app para afuera. El suegro no la va a
 ver. Lo que no cambia es por qué existe: la interfaz de la v1 es la forma
 acumulada de un año de arreglos, y la v2 la rediseña. Las reglas de claridad
@@ -42,7 +42,7 @@ hecho. Los métodos sí van al principio porque sin ellos el selector de método
 muestra solo «Efectivo», y ese selector es el centro de la carga.
 
 **Foto de ticket y audio: afuera de esta versión.** Decidido por Flor el 7 de
-noviembre de 2026: *«no hay ticket ni audio en esta version, esperaremos»*. La
+noviembre de 2026: _«no hay ticket ni audio en esta version, esperaremos»_. La
 carga es por teclado, y nada en la app los insinúa — ni un botón apagado ni un
 «pronto». La forma sigue acordada para cuando se retome: capturan, llenan el
 formulario, la persona confirma y se descartan; nada de Firebase Storage, nada
@@ -94,14 +94,14 @@ no se copia de ningún lado, hay que inventarlo.
 
 ### El sistema
 
-| | |
-|---|---|
-| Verde | `#3baba9` (turquesa, elegido por Flor). `#19c7bd` para puntos y acentos, `#0f7a76` para texto chico. |
-| Semánticos | **Alegres, no apagados.** Rojo `#f4512f`, tintes saturados. Un gris apagado se lee como app vieja. |
-| Superficie | **Sombra o borde, nunca los dos**, y siempre sutil. Acá: sombra, cero bordes. |
-| Tipografía | Urbanist. Piso de 16px, cifra principal 42–56px. |
-| Radio | 22px en tarjetas, 15px en los tiles de ícono. |
-| Íconos | Emoji sobre tile de color tenue, uno por categoría. Sin ilustraciones ni mascotas. |
+|            |                                                                                                      |
+| ---------- | ---------------------------------------------------------------------------------------------------- |
+| Verde      | `#3baba9` (turquesa, elegido por Flor). `#19c7bd` para puntos y acentos, `#0f7a76` para texto chico. |
+| Semánticos | **Alegres, no apagados.** Rojo `#f4512f`, tintes saturados. Un gris apagado se lee como app vieja.   |
+| Superficie | **Sombra o borde, nunca los dos**, y siempre sutil. Acá: sombra, cero bordes.                        |
+| Tipografía | Urbanist. Piso de 16px, cifra principal 42–56px.                                                     |
+| Radio      | 22px en tarjetas, 15px en los tiles de ícono.                                                        |
+| Íconos     | Emoji sobre tile de color tenue, uno por categoría. Sin ilustraciones ni mascotas.                   |
 
 **Responsive de verdad, en tres pasos.** Mobile-first pero tiene que servir en
 tablet y en computadora: < 760px barra abajo y una columna; ≥ 760px la barra
@@ -115,9 +115,9 @@ lo único que rompe la línea.
 
 Claras pero **nunca informales**. «Ya salió» está prohibido.
 
-| En vez de | Va |
-|---|---|
-| Ya salió | **Pagado** |
+| En vez de       | Va                                               |
+| --------------- | ------------------------------------------------ |
+| Ya salió        | **Pagado**                                       |
 | Va a la tarjeta | **Con la tarjeta** + «Lo pagás el mes que viene» |
 
 El saludo lleva nombre y una línea de bienvenida debajo. **Sin avatar** — no
@@ -141,24 +141,12 @@ consecuencia.
 Maqueta viva (las dos versiones, con un interruptor):
 <https://claude.ai/artifact/SZsi8G6qvrqQ4kXN5RNso7>
 
-## Pendiente de Flor — crear el proyecto de Vercel
+## Dónde se publica — ya no hace falta un segundo proyecto
 
-El código ya publica; falta la cuenta. En vercel.com → *Add New · Project* →
-**el mismo repo** `leomerlo/remeeesa` (Vercel admite varios proyectos sobre
-un repo), cambiando tres valores por defecto:
-
-| | |
-|---|---|
-| Build Command | `npm run build:beta` |
-| Output Directory | `dist` |
-| Production Branch | `dev` |
-
-Y en *Settings → Environment Variables*, las mismas cuatro del proyecto
-actual: `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`,
-`VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID`. Son idénticas a
-propósito — la beta comparte el proyecto de Firebase (ADR 0007).
-
-El nombre del proyecto es la URL.
+Esto decía cómo crear un proyecto de Vercel aparte para la beta. No hizo
+falta: el rediseño **pasó a ser la app** (ADR 0008), así que lo publica el
+proyecto que ya existe, con el `npm run build` de siempre. La app vieja
+sigue construyéndose y se sirve en `/v1/`, que es el camino de vuelta.
 
 ## Reglas visuales que puso Flor
 
@@ -229,10 +217,10 @@ difieren.
 
 Difieren, y mucho:
 
-| | Qué era cada fila | De qué mes |
-|---|---|---|
+|                                      | Qué era cada fila                       | De qué mes                                             |
+| ------------------------------------ | --------------------------------------- | ------------------------------------------------------ |
 | **El resumen** (arriba, por tarjeta) | **una cuota** — un pedazo de una compra | lo que se cobra el mes que viene, venga de donde venga |
-| **La lista** (abajo) | **una compra entera** | lo que se compró en el mes en pantalla |
+| **La lista** (abajo)                 | **una compra entera**                   | lo que se compró en el mes en pantalla                 |
 
 El problema era que para una compra en **un solo pago las dos cifras son
 idénticas**, y esas son la mayoría: «Comida michis $69.287,07» aparecía

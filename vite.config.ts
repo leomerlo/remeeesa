@@ -3,25 +3,28 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
-// Which HTML file this build produces. Vite builds index.html by default,
-// which is what keeps src/demo/ -- and now src/beta/ -- out of the
-// production bundle: neither is ever an input. `BUILD_TARGET=beta` swaps the
-// input for beta.html so the beta's own Vercel project can publish it from
-// this same branch, with no second repo and no long-lived branch to merge.
-// See docs/adr/0007.
-const BETA_BUILD = process.env.BUILD_TARGET === 'beta'
-
+// What this build produces: the app at index.html, and the old one at
+// v1/index.html, which is served at /v1/.
+//
+// Those two were the other way round until the redesign shipped -- see
+// docs/adr/0008. The old entry is still built on purpose: it is the way
+// back if
+// something in the new app turns out to be wrong, and it reads and writes
+// the same household. Nothing else in the repo is ever an input, which is
+// what keeps src/demo/ and src/beta/demo/ out of every bundle.
+// src/demo/productionIsolation.test.ts holds that -- which it does by
+// reading the file names out of this very block, so they stay written out
+// in full here rather than coming from a helper.
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  ...(BETA_BUILD
-    ? {
-        build: {
-          rollupOptions: {
-            input: fileURLToPath(new URL('./beta.html', import.meta.url)),
-          },
-        },
-      }
-    : {}),
+  build: {
+    rollupOptions: {
+      input: {
+        app: fileURLToPath(new URL('./index.html', import.meta.url)),
+        v1: fileURLToPath(new URL('./v1/index.html', import.meta.url)),
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

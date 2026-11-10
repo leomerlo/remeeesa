@@ -76,14 +76,13 @@ describe('production isolation', () => {
 
     // This used to ban `rollupOptions` outright, as a proxy for the same
     // thing -- there was nothing else an input map could have been for.
-    // The beta entry (docs/adr/0007) is now exactly that something else, so
-    // the ban narrowed to what it always meant: whatever HTML the config
-    // names as an input, demo.html is not among it.
-    const inputs = [...config.matchAll(/new URL\('\.\/([\w.-]+\.html)'/g)].map(
+    // Two entries (docs/adr/0008) are now exactly that something else, so
+    // the ban narrowed to what it always meant: these two files are what
+    // gets built, and neither demo is among them.
+    const inputs = [...config.matchAll(/new URL\('\.\/([\w./-]+\.html)'/g)].map(
       (match) => match[1],
     )
-    expect(inputs).not.toContain('demo.html')
-    expect(inputs).not.toContain('beta-demo.html')
+    expect(inputs).toEqual(['index.html', 'v1/index.html'])
   })
 
   // The beta's demo mounts the real beta tree over the seeded in-memory

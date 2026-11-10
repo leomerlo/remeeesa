@@ -1,37 +1,38 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <!-- The tab icon is the app icon itself (the dino), cropped in from
-         icon-512.png so it reads at 16px. It used to point at a favicon.svg
-         left over from the template -- a generic violet bolt that had
-         nothing to do with this app. -->
-    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <!-- viewport-fit=cover is what makes env(safe-area-inset-*) report real
-         numbers on a notched iPhone. Without it they are all zero, and in
-         the installed app -- which covers the whole screen -- the bottom nav
-         ends up sitting inside the home-indicator strip, where a tap on it
-         is read as the system's swipe-up gesture instead. Every fixed edge
-         below pads itself by its own inset. -->
+    <!-- The app's icon: no more dinosaur. The mark is the three e's of the
+         logo, and the files come out of scripts/beta-icons.mjs. The
+         "beta-" in their names is where they were born, in the months
+         this was a second entry alongside the old app; they are the
+         app's icons now. The v1's dino files stay for v1.html. -->
+    <link rel="icon" type="image/png" sizes="48x48" href="/beta-icon-48.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/beta-icon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/beta-icon-16.png" />
+    <!-- iOS ignores the manifest and wants exactly this one. -->
+    <link rel="apple-touch-icon" href="/beta-icon-180.png" />
+    <link rel="manifest" href="/beta.webmanifest" />
+    <meta name="theme-color" content="#4d1f8d" />
+    <!-- Without viewport-fit=cover every env(safe-area-inset-*) reads zero
+         on a notched iPhone, and in the installed app -- which covers the
+         whole screen -- the bottom nav ends up inside the home-indicator
+         strip, where a tap on it is read as the system's swipe-up
+         gesture. Every fixed edge pads itself by its own inset. -->
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#7b5cfa" />
-    <!-- Lets "Agregar a inicio" on iOS open full-screen (no Safari chrome)
-         instead of just bookmarking the page, and names the home-screen
-         icon "reméeesa" instead of the page's <title>. -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="reméeesa" />
+    <!-- One household's money. There is nothing here for a search engine
+         to find and no reason to be found. -->
+    <meta name="robots" content="noindex" />
     <title>remeeesa</title>
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="/src/beta/main.tsx"></script>
   </body>
 </html>

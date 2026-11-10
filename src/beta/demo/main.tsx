@@ -13,10 +13,9 @@ import { BetaDbProvider } from '../data'
 import { BetaRoutes } from '../BetaApp'
 import '../theme.css'
 
-// The beta's own demo page -- the same thing demo.html is for the v1, and
-// dev-only for the same reason: Vite builds one HTML file at a time, and
-// neither `npm run build` (index.html) nor `npm run build:beta` (beta.html)
-// ever names this one, so nothing under here reaches a user.
+// The app's demo page -- the same thing demo.html is for the old one, and
+// dev-only for the same reason: `npm run build` names index.html and
+// v1.html and nothing else, so nothing under here reaches a user.
 // src/demo/productionIsolation.test.ts holds that.
 //
 // It exists so a screen can be looked at without opening the real

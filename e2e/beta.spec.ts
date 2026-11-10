@@ -2,12 +2,10 @@ import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 import { freshEmail } from './helpers'
 
-// The beta, end to end: a real browser, the real Firestore adapter and the
-// real rules. The other specs in here drive the v1 through `/`; the beta is
-// a second entry point on the same branch (ADR 0007) and had no
-// browser-level coverage at all, so the only thing standing between a
-// broken journey and the household was somebody opening the app and
-// noticing.
+// The app, end to end: a real browser, the real Firestore adapter and the
+// real rules. These three journeys walk the screens people actually use;
+// the other specs in here drive the old app, which is still built at
+// /v1/ as the way back (ADR 0008).
 //
 // That matters more here than the count of tests suggests. The arithmetic
 // is audited in src/beta/figures.test.ts, but an audit of figures.ts proves
@@ -33,7 +31,7 @@ async function signUpBeta(
     readonly creditCard?: string
   } = {},
 ): Promise<void> {
-  await page.goto('/beta.html')
+  await page.goto('/')
 
   await page.getByRole('button', { name: 'Crear cuenta' }).click()
   await page.getByLabel('Correo').fill(freshEmail())

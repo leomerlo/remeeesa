@@ -43,9 +43,11 @@ export function tokenFromPaste(paste: string): string {
   const trimmed = paste.trim()
   if (trimmed === '') return ''
   const withoutQuery = trimmed.split('?')[0] ?? ''
-  // The beta's own link carries the code after the hash
-  // (…/beta.html#/unirme/<code>), so the fragment is where to look when
-  // there is one.
+  // The link carries the code after the hash (…/#/unirme/<code>), so the
+  // fragment is where to look when there is one. Links sent while this
+  // was a second entry (…/beta.html#/unirme/<code>) read the same way,
+  // and still open the app: the rewrite in vercel.json sends a path with
+  // no file behind it to index.html.
   const at = withoutQuery.indexOf('#')
   const fragment = at === -1 ? '' : withoutQuery.slice(at + 1)
   const path = fragment.trim() === '' ? withoutQuery : fragment
@@ -55,14 +57,13 @@ export function tokenFromPaste(paste: string): string {
   return pieces[pieces.length - 1] ?? ''
 }
 
-// The link an inviter sends. The beta is a second entry and routes on the
-// hash, so this is the shape that opens the beta and carries the code into
-// it -- no server rewrite to remember.
+// The link an inviter sends. The app routes on the hash, so this is the
+// shape that carries the code into it with no server rewrite to remember.
 export function inviteLink(input: {
   readonly origin: string
   readonly token: string
 }): string {
-  return `${input.origin}/beta.html#/unirme/${input.token}`
+  return `${input.origin}/#/unirme/${input.token}`
 }
 
 // A link somebody opened, read and put away before React starts.

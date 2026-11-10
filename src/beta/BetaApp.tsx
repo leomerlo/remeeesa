@@ -23,12 +23,13 @@ import { Perfil } from './screens/Perfil'
 import { Tarjetas } from './screens/Tarjetas'
 import { Proyecciones } from './screens/Proyecciones'
 
-// Hash routing, not paths: beta.html is a second static entry, and a path
-// like /beta/gastos would 404 on Vercel without a rewrite rule nobody will
-// remember to add. The hash keeps the back button working with no server
-// involved.
-// Exported so the beta's demo page can mount the same tree over the
-// seeded in-memory household. It reads the session like any screen does,
+// Hash routing, not paths. It began as what a second static entry needed
+// -- a path like /beta/gastos would have 404'd without a rewrite rule
+// nobody would remember -- and it stays that way now that this is the app:
+// the old tree still answers on real paths at v1.html, and two apps on one
+// domain cannot both own /gastos.
+// Exported so the demo page can mount the same tree over the seeded
+// in-memory household. It reads the session like any screen does,
 // so the demo goes through the real sign-in check and the real read-only
 // guard rather than around them.
 export function BetaRoutes(): ReactElement {
