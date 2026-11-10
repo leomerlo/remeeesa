@@ -5,6 +5,7 @@ import type { ReactElement } from 'react'
 import { formatCurrency } from '@/lib/expenses'
 import type { Category, Expense } from '@/lib/expenses'
 import type { Pendiente } from '@/lib/pendientes'
+import type { CardPurchase } from '@/lib/cards'
 import { categoriasFigures } from '../figures'
 import { ListSkeleton, NameSkel } from '../Skeleton'
 import { useMonth } from '../MonthContext'
@@ -37,21 +38,28 @@ export function Categorias({
     enabled: householdId !== null,
     queryFn: async () => {
       const id = householdId as string
-      const [expenses, categories, household, pendientes] = await Promise.all([
-        session.db.listExpensesInMonth({
-          householdId: id,
-          monthStart,
-          monthEnd,
-        }),
-        session.db.listCategories(id),
-        session.db.getHousehold(id),
-        // The month's bills, still owed: a cap is about what the category
-        // is going to take out of the month, and the luz does that
-        // whether or not anybody has paid it yet. Inicio's ring counts
-        // them, and these bars have to say the same thing.
-        session.db.listPendientes({ householdId: id }),
-      ])
-      return { expenses, categories, household, pendientes }
+      const [expenses, categories, household, pendientes, purchases] =
+        await Promise.all([
+          session.db.listExpensesInMonth({
+            householdId: id,
+            monthStart,
+            monthEnd,
+          }),
+          session.db.listCategories(id),
+          session.db.getHousehold(id),
+          // The month's bills, still owed: a cap is about what the
+          // category is going to take out of the month, and the luz does
+          // that whether or not anybody has paid it yet.
+          session.db.listPendientes({ householdId: id }),
+          // And what went on a card this month: bought now, paid next
+          // month, and spent on this month's groceries either way.
+          session.db.listCardPurchasesInMonth({
+            householdId: id,
+            monthStart,
+            monthEnd,
+          }),
+        ])
+      return { expenses, categories, household, pendientes, purchases }
     },
   })
 
@@ -72,13 +80,13 @@ export function Categorias({
     )
   }
 
-  const { expenses, categories, household, pendientes } = data.data
+  const { expenses, categories, household, pendientes, purchases } = data.data
 
   return (
     <>
       <Title
         text="Categorías"
-        sub={`En qué se fue la plata de ${household.name} en ${monthName(monthStart)}, sin importar cómo se pagó. Están todas, también las que no usaron.`}
+        sub={`En qué está gastando ${household.name} en ${monthName(monthStart)}: lo que ya pagaron, lo que les falta pagar y lo que compraron con tarjeta y van a pagar el mes que viene. Están todas las categorías, también las que no usaron.`}
         pager
       />
       {/* Above the first category, not under the last one: it is how a
@@ -99,6 +107,7 @@ export function Categorias({
       <CategoryBars
         session={session}
         expenses={expenses}
+        purchases={purchases}
         pendientes={pendientes}
         monthStart={monthStart}
         monthEnd={monthEnd}
@@ -116,6 +125,7 @@ export function Categorias({
 function CategoryBars({
   session,
   expenses,
+  purchases,
   pendientes,
   monthStart,
   monthEnd,
@@ -125,8 +135,9 @@ function CategoryBars({
 }: {
   readonly session: BetaSession
   readonly expenses: readonly Expense[]
-  // Every bill the household has: the month's own are counted into their
-  // category, the same way Inicio's ring counts them.
+  // This month's card purchases, and every bill the household has: see
+  // monthByCategory for which of them a month counts.
+  readonly purchases: readonly CardPurchase[]
   readonly pendientes: readonly Pendiente[]
   readonly monthStart: Date
   readonly monthEnd: Date
@@ -144,6 +155,7 @@ function CategoryBars({
   // still reads top to bottom.
   const rows = categoriasFigures({
     expenses,
+    purchases,
     pendientes,
     categories,
     monthStart,
@@ -189,15 +201,17 @@ function CategoryBars({
                 />
               </span>
               <span className={over ? 'sub over' : 'sub'}>
-                {row.total === 0
-                  ? cap > 0
-                    ? `Todavía nada. El tope es ${formatCurrency(cap)}.`
-                    : 'Todavía no gastaron nada acá.'
-                  : cap > 0
-                    ? over
-                      ? `Se pasaron ${formatCurrency(row.total - cap)} del tope de ${formatCurrency(cap)}`
-                      : `${formatCurrency(cap - row.total)} por debajo del tope de ${formatCurrency(cap)}`
-                    : `${String(Math.round(row.share * 100))}% de lo que gastaron`}
+                {row.isCard
+                  ? 'Cada consumo se cuenta en su categoría, el mes que lo compraron.'
+                  : row.total === 0
+                    ? cap > 0
+                      ? `Todavía nada. El tope es ${formatCurrency(cap)}.`
+                      : 'Todavía no gastaron nada acá.'
+                    : cap > 0
+                      ? over
+                        ? `Se pasaron ${formatCurrency(row.total - cap)} del tope de ${formatCurrency(cap)}`
+                        : `${formatCurrency(cap - row.total)} por debajo del tope de ${formatCurrency(cap)}`
+                      : `${String(Math.round(row.share * 100))}% de lo que gastaron`}
               </span>
             </button>
           )

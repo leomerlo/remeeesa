@@ -357,7 +357,7 @@ export function Donut({
 
   return (
     <div className="card donut">
-      <div className="lead">Distribuidos por categoría</div>
+      <div className="lead">En qué está gastando el hogar</div>
       <div className="donut-top">
         <svg
           viewBox="0 0 140 140"
@@ -391,6 +391,13 @@ export function Donut({
           desktop layout can fill the first column top to bottom before
           starting the second -- the list is sorted biggest first, and
           filling it by rows turned that order into a zigzag. */}
+      {/* What this ring counts, which is not what the card above it
+          counts: the café was drunk this month whoever pays the Visa next
+          month. Said once, under the figure it belongs to. */}
+      <p className="donutsay">
+        Lo que ya pagaron, lo que les falta pagar y lo que compraron con tarjeta
+        y van a pagar el mes que viene.
+      </p>
       <div
         className="dlist"
         style={cssVars({ '--rows': String(Math.ceil(spent.length / 2)) })}

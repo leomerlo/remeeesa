@@ -57,6 +57,16 @@ export function summarizeByCategory(input: {
     // breakdown, like every other dollar amount.
     readonly currency?: Currency
   }[]
+  // What was bought on a credit card in the period. Counted where it was
+  // bought rather than where it will be paid: the café was drunk this
+  // month whoever settles the card next month. The caller decides whether
+  // its breakdown is about money leaving or about what the month
+  // consumed -- see figures.ts.
+  readonly purchases?: readonly {
+    readonly categoryId: string
+    readonly total: number
+    readonly currency?: Currency
+  }[]
 }): readonly CategorySummary[] {
   const categoryById = new Map(
     input.categories.map((category) => [category.id, category]),
@@ -98,6 +108,13 @@ export function summarizeByCategory(input: {
         pendiente.currency ?? DEFAULT_CURRENCY,
       )
     }
+  }
+  for (const purchase of input.purchases ?? []) {
+    add(
+      purchase.categoryId,
+      purchase.total,
+      purchase.currency ?? DEFAULT_CURRENCY,
+    )
   }
 
   // Guard the divide: a period with no expenses (or, defensively, one whose

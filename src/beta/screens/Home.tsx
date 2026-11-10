@@ -156,6 +156,7 @@ export function Home({
   const figures = homeFigures({
     household,
     expenses,
+    purchases,
     allExpenses,
     pendientes,
     categories,

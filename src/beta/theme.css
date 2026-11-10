@@ -834,6 +834,12 @@
                  width: 36px; height: 36px; border-radius: 50%; color: var(--ink);
                  display: grid; place-items: center; font: inherit; }
 
+  /* What the ring counts, under the ring. Regular, like every other
+     explanation in the app. */
+  .donutsay { margin: 0; font-size: var(--t-sm); font-weight: 400;
+              line-height: 1.4; color: var(--ink-2); text-align: center;
+              max-width: 44ch; justify-self: center; }
+
   .link-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px;
               align-items: center; }
   .link-row code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;

@@ -12,6 +12,7 @@ import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import {
   billsOnCard,
   billsOnCardTotal,
+  cardCategoryIds,
   categoriasFigures,
   serviciosFigures,
   gastosFigures,
@@ -395,16 +396,78 @@ describe('the beta says the same month on every screen', () => {
     )
   })
 
-  // The ring is a breakdown of what the month commits -- what already
-  // went, plus what it still owes -- which is the figure the hero above
-  // it counts against the budget. It used to divide up the paid half
-  // alone, so on a month with $362.300 of bills open the ring said the
-  // household had spent $778.100 while the card above it was measuring
-  // $1.140.400.
-  each('the category ring adds up to what the month commits', (snap, key) => {
+  // The ring answers a different question from the card above it, and
+  // this is the question, as an equation: what the month *consumed*. What
+  // was paid, plus what it still owes, plus what went on a card -- and
+  // minus the card's own Resumen being settled, which is last month's
+  // shopping arriving and was already counted when it was bought.
+  //
+  // The café was drunk this month whoever pays the Visa next month. Per
+  // direct feedback.
+  each('the category ring is what the month consumed', (snap, key) => {
     const home = homeFigures(snap)
+    const cards = cardCategoryIds(snap)
     const ring = home.byCategory.reduce((sum, row) => sum + cents(row.total), 0)
-    expect(ring, key).toBe(cents(home.paid) + cents(home.owed))
+
+    const onTheCard = cents(
+      sumIn(
+        snap.expenses.filter((expense) => cards.has(expense.categoryId)),
+        'ARS',
+      ),
+    )
+    const resumenesDue = cents(
+      sumIn(
+        snap.pendientes
+          .filter(
+            (bill) =>
+              bill.status === 'pending' &&
+              bill.cardId !== undefined &&
+              bill.dueDate >= snap.monthStart &&
+              bill.dueDate <= snap.monthEnd,
+          )
+          .map((bill) => ({
+            price: bill.expectedAmount ?? 0,
+            currency: bill.currency ?? 'ARS',
+          })),
+        'ARS',
+      ),
+    )
+    const bought = cents(
+      sumIn(
+        snap.purchases.map((purchase) => ({
+          price: purchase.total,
+          currency: purchase.currency,
+        })),
+        'ARS',
+      ),
+    )
+
+    expect(ring, key).toBe(
+      cents(home.paid) - onTheCard + cents(home.owed) - resumenesDue + bought,
+    )
+  })
+
+  // And a month where something really was bought on a card, so the
+  // equation above is not three zeroes agreeing with each other.
+  it('counts what went on a card where it was bought', () => {
+    const found = [...snapshots.values()].flatMap((snap) =>
+      snap.purchases
+        .filter((purchase) => purchase.currency === 'ARS' && purchase.total > 0)
+        .map((purchase) => ({ snap, purchase })),
+    )
+    // Not a vacuous pass: some seeded month really did buy on a card.
+    expect(found.length).toBeGreaterThan(0)
+
+    for (const { snap, purchase } of found) {
+      const slice = homeFigures(snap).byCategory.find(
+        (row) => row.categoryId === purchase.categoryId,
+      )
+      // Its own category, not the card's.
+      expect(cardCategoryIds(snap).has(purchase.categoryId)).toBe(false)
+      expect(cents(slice?.total ?? 0)).toBeGreaterThanOrEqual(
+        cents(purchase.total),
+      )
+    }
   })
 
   // Shares of a whole, so they come to a whole -- allowing for the one

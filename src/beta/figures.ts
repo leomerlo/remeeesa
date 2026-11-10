@@ -1,5 +1,5 @@
 import { cardsDueNextMonthTotals, RESUMEN_CATEGORY_NAME } from '@/lib/cards'
-import type { CardsDueTotal } from '@/lib/cards'
+import type { CardPurchase, CardsDueTotal } from '@/lib/cards'
 import {
   buildProjection,
   computePendingCommitted,
@@ -77,6 +77,9 @@ export type HomeFigures = {
 export type HomeInput = {
   readonly household: Household
   readonly expenses: readonly Expense[]
+  // Bought on a credit card this month: not money out yet, and still what
+  // the month spent on what it bought.
+  readonly purchases: readonly CardPurchase[]
   readonly allExpenses: readonly Expense[]
   readonly pendientes: readonly Pendiente[]
   readonly categories: readonly Category[]
@@ -142,14 +145,15 @@ export function homeFigures(input: HomeInput): HomeFigures {
         : 0,
     bills,
     late,
-    // Bills included, as the v1 has it: the hero above counts them, the
-    // budget they are measured against counts them, and a breakdown of a
-    // month that leaves out what the month owes is a breakdown of a
-    // different month.
-    byCategory: summarizeByCategory({
+    // What the month consumed, which is not the same list the hero adds
+    // up -- see monthByCategory.
+    byCategory: monthByCategory({
       expenses,
+      purchases: input.purchases,
+      pendientes,
       categories: input.categories,
-      pendientes: dueThisMonth,
+      monthStart,
+      monthEnd,
     }),
   }
 }
@@ -203,6 +207,63 @@ export function gastosFigures(input: {
   }
 }
 
+// The categories a Resumen lives in -- the card's own, whatever it is
+// called. Read off the bills themselves rather than looked up by name:
+// the category is created as "Tarjeta", but a household can rename it and
+// a rename changes nothing but the name. The name is kept as a second way
+// in, for a household that has the category but no card bill pending.
+export function cardCategoryIds(input: {
+  readonly pendientes: readonly Pendiente[]
+  readonly categories: readonly Category[]
+}): ReadonlySet<string> {
+  const ids = new Set(
+    input.pendientes
+      .filter((pendiente) => pendiente.cardId !== undefined)
+      .map((pendiente) => pendiente.categoryId),
+  )
+  const named = input.categories.find(
+    (category) => category.name === RESUMEN_CATEGORY_NAME,
+  )
+  if (named !== undefined) ids.add(named.id)
+  return ids
+}
+
+// What the month consumed, by category -- which is a different question
+// from what left the household, and the one a breakdown by category is
+// asked. The café was drunk this month whoever settles the card next
+// month, so a consumo counts where it was bought and in the month it was
+// bought.
+//
+// Three things, then: what was paid, what the month still owes, and what
+// went on a card. And one thing left out -- paying a card's Resumen. Those
+// gastos are last month's shopping arriving, already counted back when it
+// was bought, and counting them again would put the card in twice.
+export function monthByCategory(input: {
+  readonly expenses: readonly Expense[]
+  readonly purchases: readonly CardPurchase[]
+  readonly pendientes: readonly Pendiente[]
+  readonly categories: readonly Category[]
+  readonly monthStart: Date
+  readonly monthEnd: Date
+}): ReturnType<typeof summarizeByCategory> {
+  const cards = cardCategoryIds(input)
+  return summarizeByCategory({
+    expenses: input.expenses.filter(
+      (expense) => !cards.has(expense.categoryId),
+    ),
+    categories: input.categories,
+    // A Resumen is a card bill, and the card speaks through its consumos
+    // here. Every other bill of the month counts: the luz is this month's
+    // light whether or not anybody has paid it yet.
+    pendientes: pendientesDueInMonth(
+      input.pendientes,
+      input.monthStart,
+      input.monthEnd,
+    ).filter((pendiente) => pendiente.cardId === undefined),
+    purchases: input.purchases,
+  })
+}
+
 // Categorías: every category the household has, with what the month put
 // in it and the cap it set, if it set one.
 //
@@ -219,24 +280,23 @@ export type CategoryRow = {
   readonly total: number
   readonly share: number
   readonly over: boolean
+  // The card's own category. Its figure is always zero here on purpose:
+  // what went on the card is counted in the category it was bought for,
+  // and paying the Resumen is that same shopping arriving. The row stays
+  // so the category can still be opened and edited.
+  readonly isCard: boolean
 }
 
 export function categoriasFigures(input: {
   readonly expenses: readonly Expense[]
+  readonly purchases: readonly CardPurchase[]
   readonly pendientes: readonly Pendiente[]
   readonly categories: readonly Category[]
   readonly monthStart: Date
   readonly monthEnd: Date
 }): readonly CategoryRow[] {
-  const summary = summarizeByCategory({
-    expenses: input.expenses,
-    categories: input.categories,
-    pendientes: pendientesDueInMonth(
-      input.pendientes,
-      input.monthStart,
-      input.monthEnd,
-    ),
-  })
+  const summary = monthByCategory(input)
+  const cards = cardCategoryIds(input)
   const found = new Map(summary.map((row) => [row.categoryId, row]))
   return (
     input.categories
@@ -250,6 +310,7 @@ export function categoriasFigures(input: {
           total,
           share: found.get(category.id)?.share ?? 0,
           over: category.monthlyBudget > 0 && total > category.monthlyBudget,
+          isCard: cards.has(category.id),
         }
       })
       // Most spent first, and then the untouched ones by name, so the
