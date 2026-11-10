@@ -374,15 +374,6 @@ export function Donut({
   return (
     <div className="card donut">
       <div className="lead">En qué está gastando el hogar</div>
-      {/* What this ring counts, which is not what the card above it
-          counts: the café was drunk this month whoever pays the Visa next
-          month. Across the whole card and in the app's own alert, under
-          the title -- as a line under the ring it was a caption to the
-          drawing rather than the key to every figure on the card. */}
-      <AlertCard kind="info" icon={<Info />}>
-        <b>Lo que ya pagaron</b>, <b>lo que les falta pagar</b> y{' '}
-        <b>lo que compraron con tarjeta</b> y van a pagar el mes que viene.
-      </AlertCard>
       <div className="donut-top">
         <svg
           viewBox="0 0 140 140"
@@ -445,14 +436,14 @@ export function Donut({
           )
         })}
       </div>
-      {/* The card, under the ring and not in it. It is the one figure of
-          the month that is not a thing the household spent money on: it
-          is last month's spending arriving, and last month's spending
-          already had its slices. Said here so it is not lost -- it is the
-          biggest cheque of the month -- and said in both currencies,
-          which a peso ring could never do. */}
+      {/* The card, after the chart and not inside it. It is the one
+          figure of the month that is not a thing the household spent
+          money on: it is last month's spending arriving, and last
+          month's spending already had its slices. Said here so it is not
+          lost -- it is the biggest cheque of the month -- and said in
+          both currencies, which a peso ring could never do. */}
       {cardBills.length === 0 ? null : (
-        <p className="cardnote">
+        <AlertCard kind="info" icon={<Info />}>
           Además, este mes hay que pagar{' '}
           {cardBills.map(({ currency, total }, index) => (
             <span key={currency}>
@@ -460,10 +451,16 @@ export function Donut({
               <b>{formatAmount(total, currency)}</b>
             </span>
           ))}{' '}
-          de tarjeta. Eso no entra en el reparto: son los consumos del mes
-          pasado, que ya se contaron cuando los hicieron.
-        </p>
+          de tarjeta. No entra en el gráfico: son los consumos del mes pasado,
+          que ya se contaron cuando los hicieron.
+        </AlertCard>
       )}
+      {/* What the chart counts, at the foot and in grey: it is the small
+          print of the drawing above it, not an announcement. */}
+      <p className="donutsay">
+        Este gráfico incluye lo que ya pagaron, lo que les falta pagar y lo que
+        compraron con tarjeta.
+      </p>
     </div>
   )
 }

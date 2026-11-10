@@ -1773,7 +1773,7 @@ body {
   }
   .donut-top {
     grid-column: 1;
-    grid-row: 3;
+    grid-row: 2;
   }
   .donut-top svg {
     width: 208px;
@@ -1781,9 +1781,9 @@ body {
   }
   .dlist {
     grid-column: 2;
-    grid-row: 3;
+    grid-row: 2;
   }
-  .donut .cardnote {
+  .donut .donutsay {
     grid-column: 1 / -1;
   }
 }
@@ -2193,21 +2193,14 @@ body {
   font: inherit;
 }
 
-/* What the cards ask for, under the ring. A sentence, so .donutsay's
-   shape rather than a figure's -- but the amounts themselves carry, one
-   step up, because they are the biggest cheque of the month. */
-.cardnote {
+/* The small print at the foot of the chart: what it counts. Grey and
+   regular, because it is a note about the drawing and not a figure. */
+.donutsay {
   margin: 0;
   font-size: var(--t-sm);
   font-weight: 400;
   line-height: 1.45;
   color: var(--ink-2);
-}
-.cardnote b {
-  font-size: var(--t-md);
-  font-weight: 800;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
 }
 
 .link-row {
