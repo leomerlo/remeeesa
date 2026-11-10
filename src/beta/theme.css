@@ -1675,10 +1675,13 @@ body {
   justify-items: center;
 }
 /* The ring itself, not every svg in the card -- the line about what the
-   ring counts is an alert now, and it carries an icon. */
+   ring counts is an alert now, and it carries an icon.
+   On a phone it takes the width it is given: it is the drawing the card
+   is built around, and at 188px in a 375px screen it read as a vignette
+   with a lot of white around it. */
 .donut-top svg {
-  width: 188px;
-  height: 188px;
+  width: min(280px, 78vw);
+  height: min(280px, 78vw);
   display: block;
 }
 .donut .hole {
@@ -1779,6 +1782,9 @@ body {
   .dlist {
     grid-column: 2;
     grid-row: 3;
+  }
+  .donut .cardnote {
+    grid-column: 1 / -1;
   }
 }
 /* The second column only once the card is wide enough to hold a long
@@ -2185,6 +2191,23 @@ body {
   display: grid;
   place-items: center;
   font: inherit;
+}
+
+/* What the cards ask for, under the ring. A sentence, so .donutsay's
+   shape rather than a figure's -- but the amounts themselves carry, one
+   step up, because they are the biggest cheque of the month. */
+.cardnote {
+  margin: 0;
+  font-size: var(--t-sm);
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--ink-2);
+}
+.cardnote b {
+  font-size: var(--t-md);
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 
 .link-row {

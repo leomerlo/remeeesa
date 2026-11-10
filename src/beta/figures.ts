@@ -111,6 +111,9 @@ export type HomeFigures = {
   readonly bills: readonly Pendiente[]
   readonly late: readonly Pendiente[]
   readonly byCategory: ReturnType<typeof summarizeByCategory>
+  // What the cards ask for this month, said under the ring rather than
+  // drawn as a slice of it. See cardBillTotals.
+  readonly cardBills: readonly CardsDueTotal[]
 }
 
 export type HomeInput = {
@@ -203,6 +206,12 @@ export function homeFigures(input: HomeInput): HomeFigures {
     late,
     // What the month consumed, which is not the same list the hero adds
     // up -- see monthByCategory.
+    cardBills: cardBillTotals({
+      pendientes,
+      categories: input.categories,
+      monthStart,
+      monthEnd,
+    }),
     byCategory: monthByCategory({
       expenses,
       purchases: input.purchases,
@@ -320,6 +329,50 @@ export function cuotaInMonth(purchase: CardPurchase, monthStart: Date): number {
   )
 }
 
+// What the household owes on its cards this month: the statement bills,
+// one figure per currency.
+//
+// These leave the ring and are said beside it instead. The reason is the
+// one nobody can argue with once it is said out loud: paying the card is
+// not a thing the household spent money *on*. Last month's café is inside
+// that figure, and last month's café already had its slice, in the month
+// it was drunk. Put the two in one circle of 100% and the same coffee is
+// counted twice -- a month apart, but twice.
+//
+// So the ring answers "en qué gastamos", where a café is a café whoever
+// pays for it, and the card is stated under it as what it is: a bill.
+//
+// Every bill of the month filed in a card's category counts, whether it
+// is a Resumen the app built or one the household wrote by hand. A
+// Resumen with no statement loaded yet contributes nothing, because
+// nothing is owed until the statement arrives.
+export function cardBillTotals(input: {
+  readonly pendientes: readonly Pendiente[]
+  readonly categories: readonly Category[]
+  readonly monthStart: Date
+  readonly monthEnd: Date
+}): readonly CardsDueTotal[] {
+  const cards = cardCategoryIds(input)
+  const bills = pendientesDueInMonth(
+    input.pendientes,
+    input.monthStart,
+    input.monthEnd,
+  )
+    .filter((bill) => cards.has(bill.categoryId))
+    // What is owed, never the estimate: a Resumen with no statement
+    // loaded yet owes nothing, which is the same rule the rest of the
+    // month's figures follow. A statement written by hand carries its
+    // own amount and counts in full.
+    .map((bill) => ({
+      price: bill.expectedAmount ?? 0,
+      currency: bill.currency ?? DEFAULT_CURRENCY,
+    }))
+  return (['ARS', 'USD'] as const).flatMap((currency) => {
+    const total = sumIn(bills, currency)
+    return total === 0 ? [] : [{ currency, total }]
+  })
+}
+
 export function monthByCategory(input: {
   readonly expenses: readonly Expense[]
   // Every purchase that could have a cuota landing in this month, which
@@ -349,10 +402,14 @@ export function monthByCategory(input: {
       input.monthEnd,
     ).filter(
       (pendiente) =>
-        // A Resumen, and a bill the bank takes from a credit card: both
-        // speak through the card's consumos instead. The second counts
-        // here on the day the bank takes it, as the consumo it becomes.
-        pendiente.cardId === undefined && !onCreditCard(pendiente, credit),
+        // A Resumen, a bill the bank takes from a credit card, and a
+        // card's statement written by hand: none of the three is a thing
+        // the month spent money on. The second counts here on the day the
+        // bank takes it, as the consumo it becomes; the other two are
+        // said under the ring -- see cardBillTotals.
+        pendiente.cardId === undefined &&
+        !onCreditCard(pendiente, credit) &&
+        !cards.has(pendiente.categoryId),
     ),
     purchases: input.purchases.flatMap((purchase) => {
       const amount = cuotaInMonth(purchase, input.monthStart)

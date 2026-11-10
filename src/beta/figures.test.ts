@@ -609,6 +609,60 @@ describe('the beta says the same month on every screen', () => {
     expect(slice(third)).toBe(0)
   })
 
+  // Paying the card is not a thing the month spent money on: last
+  // month's café is inside that figure, and last month's café already had
+  // its slice, in the month it was drunk. So the bill leaves the ring and
+  // is said under it -- in both currencies, which a peso ring could never
+  // do. Her own case: she writes the statement by hand as a bill in the
+  // card's category, and it was taking 43% of the month.
+  it('says the card bill under the ring instead of drawing it in', () => {
+    const base = snapshots.get('completa·este mes')
+    if (base === undefined) throw new Error('missing snapshot')
+    const card = [...cardCategoryIds(base)][0]
+    if (card === undefined) throw new Error('no card category')
+    const [model] = base.pendientes.filter((bill) => bill.cardId === undefined)
+    if (model === undefined) throw new Error('no plain bill to model on')
+
+    const written: Pendiente = {
+      ...model,
+      id: `${model.id}-resumen-a-mano`,
+      name: 'Tarjeta de crédito octubre',
+      categoryId: card,
+      cardId: undefined,
+      status: 'pending',
+      expectedAmount: 2_584_074.64,
+      currency: 'ARS',
+      dueDate: new Date(
+        base.monthStart.getFullYear(),
+        base.monthStart.getMonth(),
+        11,
+      ),
+    }
+    const snap: Snapshot = {
+      ...base,
+      pendientes: [...base.pendientes, written],
+    }
+    const home = homeFigures(snap)
+    const before = homeFigures(base)
+
+    // Not a slice, and not a peso of the ring.
+    const ring = (figures: typeof home): number =>
+      figures.byCategory.reduce((sum, row) => sum + cents(row.total), 0)
+    expect(ring(home)).toBe(ring(before))
+    expect(
+      home.byCategory.find((row) => row.categoryId === card)?.total ?? 0,
+    ).toBe(0)
+
+    // Said beside it instead, in its own currency.
+    const pesos = home.cardBills.find((one) => one.currency === 'ARS')
+    expect(cents(pesos?.total ?? 0)).toBe(
+      cents(
+        (before.cardBills.find((one) => one.currency === 'ARS')?.total ?? 0) +
+          2_584_074.64,
+      ),
+    )
+  })
+
   // Shares of a whole, so they come to a whole -- allowing for the one
   // cent that rounding thirteen categories can cost.
   each('the ring shares come to one', (snap, key) => {

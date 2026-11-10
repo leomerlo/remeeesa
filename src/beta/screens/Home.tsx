@@ -181,7 +181,8 @@ export function Home({
     monthEnd,
     now,
   })
-  const { budget, paid, owed, cards, bills, late, byCategory } = figures
+  const { budget, paid, owed, cards, bills, late, byCategory, cardBills } =
+    figures
   // Both columns the same height: a list of three beside a list of four
   // read as two unrelated things, and the eye goes to the longer one.
   // Movements are one list -- a consumo and a gasto are both "what we
@@ -362,7 +363,7 @@ export function Home({
       </div>
 
       <div className="band">
-        <Donut rows={byCategory} />
+        <Donut rows={byCategory} cardBills={cardBills} />
         {top !== undefined ? (
           <AlertCard kind="warn" icon={<Lightbulb />}>
             Donde más se va la plata es <b>{top.name}</b>:{' '}

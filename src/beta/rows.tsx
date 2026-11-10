@@ -14,6 +14,7 @@ import type { CardPurchase } from '@/lib/cards'
 import { billState } from './figures'
 export { billState, sortBills } from './figures'
 import { DEFAULT_CURRENCY } from '@/lib/money'
+import type { Currency } from '@/lib/money'
 import { CategoryTile } from './Tile'
 import {
   categoryMark,
@@ -336,6 +337,7 @@ export function ProjectionLink({
 
 export function Donut({
   rows,
+  cardBills,
 }: {
   readonly rows: readonly {
     readonly categoryId: string
@@ -343,6 +345,13 @@ export function Donut({
     readonly color: string
     readonly total: number
     readonly share: number
+  }[]
+  // What the cards ask for this month. Said under the ring instead of
+  // drawn in it -- paying the card is not something the month spent money
+  // on, and last month's café is inside that figure. See cardBillTotals.
+  readonly cardBills: readonly {
+    readonly currency: Currency
+    readonly total: number
   }[]
 }): ReactElement | null {
   // A category with nothing in it is not a slice and not a line: it was
@@ -436,6 +445,25 @@ export function Donut({
           )
         })}
       </div>
+      {/* The card, under the ring and not in it. It is the one figure of
+          the month that is not a thing the household spent money on: it
+          is last month's spending arriving, and last month's spending
+          already had its slices. Said here so it is not lost -- it is the
+          biggest cheque of the month -- and said in both currencies,
+          which a peso ring could never do. */}
+      {cardBills.length === 0 ? null : (
+        <p className="cardnote">
+          Además, este mes hay que pagar{' '}
+          {cardBills.map(({ currency, total }, index) => (
+            <span key={currency}>
+              {index === 0 ? null : ' y '}
+              <b>{formatAmount(total, currency)}</b>
+            </span>
+          ))}{' '}
+          de tarjeta. Eso no entra en el reparto: son los consumos del mes
+          pasado, que ya se contaron cuando los hicieron.
+        </p>
+      )}
     </div>
   )
 }

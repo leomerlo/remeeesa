@@ -4,7 +4,6 @@ import {
   CalendarClock,
   Check,
   CreditCard,
-  Plus,
   Search,
   TriangleAlert,
   X,
@@ -39,8 +38,10 @@ export function Servicios({
   const setView = (next: 'pagar' | 'tarjetas'): void => {
     setParams(next === 'tarjetas' ? { ver: 'tarjetas' } : {}, { replace: true })
   }
-  // Null is shut, 'nuevo' is creating one, a bill is editing that one.
-  const [editing, setEditing] = useState<Pendiente | 'nuevo' | null>(null)
+  // Null is shut, a bill is the one being edited. Nothing creates one
+  // from here any more: a servicio is born in "anotar un gasto", with
+  // "todos los meses" on, which is where the v1 puts it too.
+  const [editing, setEditing] = useState<Pendiente | null>(null)
   const [paying, setPaying] = useState<Pendiente | null>(null)
   // One box over both tabs: looking for the luz, you do not first want to
   // know whether you paid it with a card.
@@ -419,24 +420,16 @@ export function Servicios({
           ) : null}
         </>
       )}
-      <button
-        className="btn btn-secondary btn-wide"
-        type="button"
-        onClick={() => setEditing('nuevo')}
-      >
-        <Plus />
-        Agregar un servicio
-      </button>
       {editing === null ? null : (
         <ServicioSheet
           open
           onClose={() => setEditing(null)}
           session={session}
-          bill={editing === 'nuevo' ? null : editing}
+          bill={editing}
           categories={categories}
           methods={methods}
           today={now}
-          paidWith={editing === 'nuevo' ? null : paidWithOf(editing)}
+          paidWith={paidWithOf(editing)}
         />
       )}
       {paying === null ? null : (
