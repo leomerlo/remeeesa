@@ -519,6 +519,68 @@ describe('the beta says the same month on every screen', () => {
     ).toBeGreaterThanOrEqual(cents(home.owed))
   })
 
+  // Inicio's "Pendiente" and Servicios' "Falta pagar" are not the same
+  // figure, and the difference is exactly two things: Inicio counts a card
+  // statement that arrived and falls due this month (Servicios leaves
+  // every Resumen to Tarjetas), and Servicios counts what was carried in
+  // from an earlier month (Inicio charges each month only its own).
+  //
+  // No seeded household has either, so both are built here. Written as an
+  // equation so that if either screen ever starts counting something
+  // else, this fails rather than the two quietly drifting apart.
+  it('the two “owed” figures differ by exactly what they say', () => {
+    const base = snapshots.get('completa·este mes')
+    if (base === undefined) throw new Error('missing snapshot')
+    const [model] = base.pendientes.filter(
+      (pendiente) =>
+        pendiente.status === 'pending' &&
+        pendiente.cardId === undefined &&
+        (pendiente.currency ?? 'ARS') === 'ARS' &&
+        pendiente.expectedAmount !== null,
+    )
+    if (model === undefined) throw new Error('no peso bill to model on')
+
+    // A statement that arrived: a Resumen with a figure on it, due this
+    // month, unpaid.
+    const statement: Pendiente = {
+      ...model,
+      id: `${model.id}-resumen`,
+      name: 'Visa',
+      cardId: 'card-visa',
+      expectedAmount: 91_000,
+      dueDate: new Date(
+        base.monthStart.getFullYear(),
+        base.monthStart.getMonth(),
+        12,
+      ),
+    }
+    // And a bill nobody paid two months ago, still owed.
+    const stale: Pendiente = {
+      ...model,
+      id: `${model.id}-vieja`,
+      name: 'Gas de septiembre',
+      expectedAmount: 17_500,
+      dueDate: new Date(
+        base.monthStart.getFullYear(),
+        base.monthStart.getMonth() - 2,
+        8,
+      ),
+    }
+    const snap: Snapshot = {
+      ...base,
+      pendientes: [...base.pendientes, statement, stale],
+    }
+    const home = homeFigures(snap)
+    const servicios = serviciosFigures(snap)
+
+    expect(cents(home.owed)).toBe(
+      cents(servicios.owed) + cents(91_000) - cents(17_500),
+    )
+    // Each screen's own list says the same thing the figures do.
+    expect(servicios.unpaid.map((bill) => bill.id)).not.toContain(statement.id)
+    expect(servicios.late.map((bill) => bill.id)).toContain(stale.id)
+  })
+
   // The bar can fill the card but never more than it.
   each('the two bar segments never exceed the bar', (snap, key) => {
     const home = homeFigures(snap)
