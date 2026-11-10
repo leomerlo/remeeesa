@@ -286,7 +286,7 @@ export function Home({
             <Link className="card cardtot" to="/tarjetas">
               <span className="cap">
                 <span className="dot dot-card" />
-                Con la tarjeta
+                Gastos hechos con la tarjeta
               </span>
               <span className="amt">
                 {cards.length === 0 ? (
@@ -316,7 +316,7 @@ export function Home({
       <div className="cols">
         <div className="col">
           <section className="sec">
-            <h2>Últimos movimientos</h2>
+            <h2>Últimos gastos</h2>
             {moves.map((move) =>
               move.expense === undefined ? (
                 <PurchaseRow

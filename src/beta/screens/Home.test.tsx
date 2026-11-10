@@ -72,7 +72,7 @@ function render(session: BetaSession): void {
 // on one screen and nothing on another is two cards, and nobody can tell
 // which one they are looking at.
 describe('the two lists on Inicio', () => {
-  it('opens a movement from Últimos movimientos', async () => {
+  it('opens a movement from Últimos gastos', async () => {
     render(await house())
 
     fireEvent.click(
