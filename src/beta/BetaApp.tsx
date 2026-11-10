@@ -109,7 +109,18 @@ export function BetaRoutes(): ReactElement {
 
 export function BetaApp(): ReactElement {
   const client = useMemo(
-    () => createFirebaseClient(readFirebaseEnv(import.meta.env)),
+    () =>
+      createFirebaseClient(readFirebaseEnv(import.meta.env), {
+        // The same line index.html's entry has, and for the same reason:
+        // the end-to-end suite points the app at the local emulators
+        // through a build-time variable. The literal `'1'` comparison is
+        // what keeps it out of production -- Vite inlines the value, so a
+        // bundle built without it carries `useEmulators: false` and the
+        // emulator branch is dropped entirely. Without it the beta could
+        // only ever be driven against the real project, which is why it
+        // had no end-to-end coverage.
+        useEmulators: import.meta.env.VITE_FIREBASE_EMULATORS === '1',
+      }),
     [],
   )
   const queryClient = useMemo(() => new QueryClient(), [])
