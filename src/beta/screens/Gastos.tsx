@@ -169,7 +169,8 @@ export function Gastos({
             </p>
           ) : null}
           <p className="herosay">
-            No sale este mes: llega repartido en los resúmenes.
+            Lo pagaron con tarjeta de crédito y se paga con el resumen del mes
+            que viene.
           </p>
         </div>
       </div>

@@ -174,6 +174,12 @@ export function GastoSheet({
   const needsAmount = draft.paid || onCredit
   const priced = moneyIsValid(draft.amount, { required: needsAmount })
   const blocked = !named || !priced || draft.categoryId === ''
+  // What is missing, said only once they have started filling it in. A
+  // form that opens already complaining is telling somebody off for not
+  // having typed yet -- the empty form is its own explanation, and the
+  // save button is held shut anyway. The category does not count: it
+  // comes already chosen, so it would make every form start out guilty.
+  const started = named || draft.amount.trim() !== ''
   const householdId = session.householdId ?? ''
   const memberId = session.userId ?? ''
   const author = session.displayName ?? 'Alguien'
@@ -454,7 +460,7 @@ export function GastoSheet({
           />
         </>
       ) : null}
-      {blocked ? (
+      {blocked && started ? (
         <p className="fproblem" role="alert">
           {!named
             ? 'Falta decir qué fue.'
