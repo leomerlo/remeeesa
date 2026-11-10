@@ -1,13 +1,21 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, CalendarClock, CreditCard, Plus } from 'lucide-react'
+import {
+  ArrowRight,
+  CalendarClock,
+  CreditCard,
+  Plus,
+  Search,
+  X,
+} from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { formatAmount } from '@/lib/expenses'
+import { matchesSearch } from '@/lib/search/fuzzyMatch'
 import type { Pendiente } from '@/lib/pendientes'
 import { billsOnCard, billsOnCardTotal, serviciosFigures } from '../figures'
 
-import { ListSkeleton, NameSkel } from '../Skeleton'
+import { ListSkeleton, NameSkel, SearchSkel } from '../Skeleton'
 import { Figure } from '../Figure'
 import { useMonth } from '../MonthContext'
 import { BillRow } from '../rows'
@@ -32,6 +40,9 @@ export function Servicios({
   // Null is shut, 'nuevo' is creating one, a bill is editing that one.
   const [editing, setEditing] = useState<Pendiente | 'nuevo' | null>(null)
   const [paying, setPaying] = useState<Pendiente | null>(null)
+  // One box over both tabs: looking for the luz, you do not first want to
+  // know whether you paid it with a card.
+  const [query, setQuery] = useState('')
   const householdId = session.householdId ?? null
   const now = new Date()
   const { monthStart, monthEnd } = useMonth()
@@ -94,6 +105,31 @@ export function Servicios({
     },
   })
 
+  const finder = (
+    <div className="search">
+      <span className="mag" aria-hidden="true">
+        <Search />
+      </span>
+      <input
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder="Buscar un servicio"
+        aria-label="Buscar un servicio"
+        autoComplete="off"
+      />
+      {query === '' ? null : (
+        <button
+          className="clr"
+          type="button"
+          onClick={() => setQuery('')}
+          aria-label="Borrar la búsqueda"
+        >
+          <X />
+        </button>
+      )}
+    </div>
+  )
+
   const segment = (
     <div className="segment">
       <button
@@ -117,6 +153,7 @@ export function Servicios({
     return (
       <>
         <Title text="Servicios" sub={<NameSkel />} pager />
+        <SearchSkel />
         {segment}
         <ListSkeleton label="Cargando los servicios" rows={4} />
       </>
@@ -174,13 +211,28 @@ export function Servicios({
       : (cardName.get(expense.paymentMethodId) ?? null)
   }
 
+  // The search narrows the bills themselves, before anything is counted,
+  // so every figure on the screen is the figure of what is on it: the
+  // total over a filtered list that still said the whole month would be
+  // the one number here nobody could check.
+  // Its name and its category, because "casa" is a fair way to look for
+  // the expensas.
+  const categoryNameOf = new Map(
+    categories.map((category) => [category.id, category.name]),
+  )
+  const asked = query.trim() !== ''
+  const matches = (bill: Pendiente): boolean =>
+    matchesSearch(query, [bill.name, categoryNameOf.get(bill.categoryId)])
+  const shownPendientes = pendientes.filter(matches)
+  const shownSettled = settled.filter(matches)
+
   // Bills of this month settled with a credit card -- see figures.ts for
   // why this reads the paid ones. Where they end up is Tarjetas.
-  const onCard = billsOnCard(settled)
+  const onCard = billsOnCard(shownSettled)
 
   const { unpaid, paid, owed, owedUsd, late } = serviciosFigures({
-    pendientes,
-    settled,
+    pendientes: shownPendientes,
+    settled: shownSettled,
     monthStart,
     monthEnd,
     now,
@@ -195,12 +247,15 @@ export function Servicios({
   )
 
   if (view === 'tarjetas') {
-    const total = billsOnCardTotal(settled)
+    const total = billsOnCardTotal(shownSettled)
     return (
       <>
         {header}
+        {finder}
         {segment}
-        {onCard.length === 0 ? (
+        {onCard.length === 0 && asked ? (
+          <NoMatch query={query} onClear={() => setQuery('')} />
+        ) : onCard.length === 0 ? (
           <div className="card empty">
             <span className="orb" aria-hidden="true">
               <CreditCard />
@@ -257,18 +312,23 @@ export function Servicios({
   return (
     <>
       {header}
+      {finder}
       {segment}
       {unpaid.length === 0 && paid.length === 0 ? (
-        <div className="card empty">
-          <span className="orb" aria-hidden="true">
-            <CalendarClock />
-          </span>
-          <h3>No hubo servicios en {monthName(monthStart)}</h3>
-          <p>
-            Cuando carguen un servicio -- la luz, el gas, las expensas -- lo van
-            a ver acá hasta que lo marquen como pagado.
-          </p>
-        </div>
+        asked ? (
+          <NoMatch query={query} onClear={() => setQuery('')} />
+        ) : (
+          <div className="card empty">
+            <span className="orb" aria-hidden="true">
+              <CalendarClock />
+            </span>
+            <h3>No hubo servicios en {monthName(monthStart)}</h3>
+            <p>
+              Cuando carguen un servicio -- la luz, el gas, las expensas -- lo
+              van a ver acá hasta que lo marquen como pagado.
+            </p>
+          </div>
+        )
       ) : (
         <>
           <div className="hood solo">
@@ -373,6 +433,30 @@ export function Servicios({
         />
       )}
     </>
+  )
+}
+
+// A search that matched nothing is not an empty month, and saying "no
+// hubo servicios" there is the screen answering a question nobody asked.
+function NoMatch({
+  query,
+  onClear,
+}: {
+  readonly query: string
+  readonly onClear: () => void
+}): ReactElement {
+  return (
+    <div className="card empty">
+      <span className="orb" aria-hidden="true">
+        <Search />
+      </span>
+      <h3>Nada que coincida con «{query.trim()}»</h3>
+      <p>Probá con menos letras, o con el nombre de la categoría.</p>
+      <button className="btn btn-secondary" type="button" onClick={onClear}>
+        <X />
+        Borrar la búsqueda
+      </button>
+    </div>
   )
 }
 

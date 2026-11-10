@@ -94,13 +94,13 @@ describe('the two lists on Inicio', () => {
     ).toBeInTheDocument()
   })
 
-  it('marks a bill paid from Servicios por pagar, without going there first', async () => {
+  // The one thing a bill does not do here. That footer is a row taller
+  // than a movement, so with it the two columns stopped matching -- and
+  // paying is what the Servicios screen is for.
+  it('does not offer to pay from here', async () => {
     render(await house())
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Ya lo pagué' }))
-
-    expect(
-      await screen.findByRole('heading', { name: 'Pagar Luz' }),
-    ).toBeInTheDocument()
+    await screen.findByRole('button', { name: 'Editar Luz' })
+    expect(screen.queryByRole('button', { name: 'Ya lo pagué' })).toBeNull()
   })
 })

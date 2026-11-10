@@ -33,7 +33,7 @@ import {
 import { monthName } from '../format'
 import type { BetaSession } from '../data'
 import { GastoSheet } from '../sheets/GastoSheet'
-import { PagarSheet, ServicioSheet } from '../sheets/ServicioSheet'
+import { ServicioSheet } from '../sheets/ServicioSheet'
 import { PresupuestoSheet } from '../sheets/PresupuestoSheet'
 import { LoadFailed } from './Gastos'
 
@@ -51,12 +51,12 @@ export function Home({
   const [editingPurchase, setEditingPurchase] = useState<CardPurchase | null>(
     null,
   )
-  // Inicio shows the same two lists the other screens show, so it answers
-  // them the same way: a row opens its own form, and a bill can be marked
-  // paid without going anywhere first. A card that does something on one
-  // screen and nothing on another is two cards.
+  // Inicio shows the same two lists the other screens show, and a row on
+  // it opens the same form. The one thing it does not carry is "Ya lo
+  // pagué": that footer is a row taller than a movement, so the two
+  // columns stopped matching. Paying is what the Servicios screen is
+  // for, and it is one tap away.
   const [editingBill, setEditingBill] = useState<Pendiente | null>(null)
-  const [paying, setPaying] = useState<Pendiente | null>(null)
   const householdId = session.householdId ?? null
   const now = new Date()
   const { monthStart, monthEnd } = useMonth()
@@ -315,7 +315,6 @@ export function Home({
                   now={now}
                   several={several}
                   onEdit={() => setEditingBill(bill)}
-                  onPay={() => setPaying(bill)}
                 />
               ))}
               <Link className="btn btn-secondary btn-wide" to="/servicios">
@@ -380,16 +379,6 @@ export function Home({
           session={session}
           bill={editingBill}
           categories={categories}
-          today={new Date()}
-        />
-      )}
-      {paying === null ? null : (
-        <PagarSheet
-          open
-          onClose={() => setPaying(null)}
-          session={session}
-          bill={paying}
-          methods={methods}
           today={new Date()}
         />
       )}
