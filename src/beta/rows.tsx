@@ -342,7 +342,10 @@ export function Donut({
   // listed at 0% of a total it took nothing out of.
   const spent = rows.filter((row) => row.total > 0)
   if (spent.length === 0) return null
-  const total = spent.reduce((sum, row) => sum + row.total, 0)
+  // In cents: this is the figure in the hole, and it has to be what the
+  // lines under it come to.
+  const total =
+    spent.reduce((cents, row) => cents + Math.round(row.total * 100), 0) / 100
   const circumference = 2 * Math.PI * 52
   const arcs = spent.map((row, index) => ({
     row,

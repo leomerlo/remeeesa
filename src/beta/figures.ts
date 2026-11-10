@@ -1,4 +1,4 @@
-import { cardsDueNextMonthTotals } from '@/lib/cards'
+import { cardsDueNextMonthTotals, RESUMEN_CATEGORY_NAME } from '@/lib/cards'
 import type { CardsDueTotal } from '@/lib/cards'
 import {
   buildProjection,
@@ -15,7 +15,6 @@ import { countedByBudget, DEFAULT_CURRENCY } from '@/lib/money'
 import type { Currency } from '@/lib/money'
 import { isBillToPay, pendientesDueInMonth } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
-import type { Projection } from '@/lib/proyecciones'
 
 // Every figure the beta puts on screen, worked out here and nowhere else.
 //
@@ -360,31 +359,53 @@ export function billsOnCardTotal(settled: readonly Pendiente[]): number {
   )
 }
 
-export type ProjectionKind = 'cargado' | 'anterior' | 'servicio'
+export type ProjectionKind =
+  'cargado' | 'anterior' | 'servicio' | 'tarjeta' | 'vacio'
 
 export type ProjectionLine = {
   readonly key: string
   readonly label: string
   readonly kind: ProjectionKind
   readonly categoryId: string
+  readonly color: string
   readonly price: number
   // What the line counts as once the household's own edits are applied:
   // the typed-over amount, or 0 when the row is switched off.
   readonly amount: number
   readonly excluded: boolean
+  // Typed over by hand, as opposed to read off the two months.
+  readonly pinned: boolean
 }
 
 export type ProjectionFigures = {
   readonly rows: readonly ProjectionLine[]
   readonly total: number
   readonly edited: boolean
+  // Nothing in either month and no bills: a column of zeroes would be a
+  // list of everything the household could spend on and nothing it does.
+  readonly empty: boolean
 }
 
+// The month ahead, as the screen draws it.
+//
+// All of it here rather than half here and half in the screen: it was
+// both, and they had drifted -- this one still listed a card bill at $0
+// and still carried the card's own category over on top of it, which is
+// the double count the screen had already been fixed for. The audit was
+// checking arithmetic nobody was looking at.
 export function projectionFigures(input: {
   readonly current: readonly Expense[]
   readonly previous: readonly Expense[]
   readonly pendientes: readonly Pendiente[]
-  readonly projection: Projection | null
+  readonly categories: readonly Category[]
+  // Whatever edits are in force: what the household has saved, or what
+  // it has typed since the screen loaded and not saved yet. Structural
+  // rather than a Projection, so the screen can hand it the half of one
+  // it is holding.
+  readonly projection: {
+    readonly excluded: readonly string[]
+    readonly overrides: Readonly<Record<string, string>>
+  } | null
   readonly monthStart: Date
   readonly monthEnd: Date
 }): ProjectionFigures {
@@ -401,6 +422,97 @@ export function projectionFigures(input: {
       currency: pendiente.currency ?? DEFAULT_CURRENCY,
     })),
   )
+
+  // Paying a card bill writes its gastos into the card's own category, so
+  // carrying that category over from last month is a second guess at the
+  // same money the card lines already carry -- the bill counted twice.
+  //
+  // Read off the bills themselves rather than looked up by name: the
+  // category is created as "Tarjeta", but a household can rename it and a
+  // rename changes nothing but the name. The name is kept as a second way
+  // in, for a household that has the category but no card bill pending.
+  const cardCategories = new Set(
+    input.pendientes
+      .filter((pendiente) => pendiente.cardId !== undefined)
+      .map((pendiente) => pendiente.categoryId),
+  )
+  const named = input.categories.find(
+    (category) => category.name === RESUMEN_CATEGORY_NAME,
+  )
+  if (named !== undefined) cardCategories.add(named.id)
+
+  const byId = new Map(
+    input.categories.map((category) => [category.id, category]),
+  )
+  const nameOf = (categoryId: string): string =>
+    byId.get(categoryId)?.name ?? 'Sin categoría'
+  const colorOf = (categoryId: string): string =>
+    byId.get(categoryId)?.color ?? '#9aa0a6'
+
+  type Seed = {
+    readonly key: string
+    readonly label: string
+    readonly kind: ProjectionKind
+    readonly categoryId: string
+    readonly color: string
+    readonly price: number
+  }
+
+  // What the two months say: a category spent in this one, or last one's
+  // figure where this one has nothing yet.
+  const carried: readonly Seed[] = buildProjection(
+    input.previous,
+    input.current,
+    servicios.map((servicio) => servicio.name),
+  )
+    .filter((row) => !cardCategories.has(row.categoryId))
+    .map((row) => ({
+      key: row.categoryId,
+      label: nameOf(row.categoryId),
+      kind:
+        row.source === 'actual' ? ('cargado' as const) : ('anterior' as const),
+      categoryId: row.categoryId,
+      color: colorOf(row.categoryId),
+      price: row.price,
+    }))
+
+  // A card bill is the one line the app can fill in before it arrives: the
+  // cuotas already bought that land in this month add up to a figure it
+  // has been keeping all along. Still only an estimate -- next month's own
+  // purchases are not in it -- so it is the line most worth typing over.
+  const billed: readonly Seed[] = servicios.map((pendiente) => ({
+    key: `servicio-${pendiente.id}`,
+    label: pendiente.name,
+    kind:
+      pendiente.cardId === undefined
+        ? ('servicio' as const)
+        : ('tarjeta' as const),
+    categoryId: pendiente.categoryId,
+    color: colorOf(pendiente.categoryId),
+    price:
+      pendiente.expectedAmount ??
+      (pendiente.cardId === undefined ? 0 : (pendiente.estimatedAmount ?? 0)),
+  }))
+
+  // And every other category the household has, at zero. Reading the two
+  // months only ever yields the categories that had something in them,
+  // and a projection is exactly where somebody wants to say "este mes sí
+  // vamos a gastar en esto".
+  const spoken = new Set(carried.map((row) => row.key))
+  const quiet: readonly Seed[] = input.categories
+    .filter(
+      (category) =>
+        !cardCategories.has(category.id) && !spoken.has(category.id),
+    )
+    .map((category) => ({
+      key: category.id,
+      label: category.name,
+      kind: 'vacio' as const,
+      categoryId: category.id,
+      color: category.color,
+      price: 0,
+    }))
+
   const monthKey = (key: string): string =>
     `${String(input.monthStart.getTime())}-${key}`
   const excluded = new Set(input.projection?.excluded ?? [])
@@ -412,43 +524,29 @@ export function projectionFigures(input: {
     return Number.isFinite(parsed) ? parsed : 0
   }
 
-  const rows = [
-    ...buildProjection(
-      input.previous,
-      input.current,
-      servicios.map((servicio) => servicio.name),
-    ).map((row) => ({
-      key: row.categoryId,
-      label: '',
-      kind:
-        row.source === 'actual' ? ('cargado' as const) : ('anterior' as const),
-      categoryId: row.categoryId,
-      price: row.price,
-    })),
-    ...servicios.map((pendiente) => ({
-      key: `servicio-${pendiente.id}`,
-      label: pendiente.name,
-      kind: 'servicio' as const,
-      categoryId: pendiente.categoryId,
-      price: pendiente.expectedAmount ?? 0,
-    })),
-  ]
+  const rows: readonly ProjectionLine[] = [...carried, ...billed, ...quiet]
     .map((row) => ({
       ...row,
       excluded: excluded.has(monthKey(row.key)),
+      pinned: overrides[monthKey(row.key)] !== undefined,
       amount: excluded.has(monthKey(row.key))
         ? 0
         : amountOf(row.key, row.price),
     }))
-    // Biggest first, like every other list of amounts in this app.
-    .sort((a, b) => b.amount - a.amount || b.price - a.price)
+    // By the figure the month suggests rather than by the one on screen:
+    // sorting on what is typed would move a line out from under the
+    // cursor halfway through typing it. The empty ones fall to the bottom
+    // by themselves, and sort among each other by name.
+    .slice()
+    .sort((a, b) => b.price - a.price || a.label.localeCompare(b.label, 'es'))
 
   return {
     rows,
-    total: round2(rows.reduce((sum, row) => sum + row.amount, 0)),
-    edited: rows.some(
-      (row) => row.excluded || overrides[monthKey(row.key)] !== undefined,
-    ),
+    total:
+      rows.reduce((cents, row) => cents + Math.round(row.amount * 100), 0) /
+      100,
+    edited: rows.some((row) => row.excluded || row.pinned),
+    empty: carried.length === 0 && billed.length === 0,
   }
 }
 

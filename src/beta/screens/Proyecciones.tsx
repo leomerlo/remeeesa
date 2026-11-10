@@ -3,16 +3,14 @@ import { Info, LineChart, RotateCcw } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import {
-  buildProjection,
   currentMonthRange,
   formatCurrency,
   summarizeByCategory,
 } from '@/lib/expenses'
 import type { Category } from '@/lib/expenses'
-import { RESUMEN_CATEGORY_NAME } from '@/lib/cards'
-import { countedByBudget, DEFAULT_CURRENCY } from '@/lib/money'
-import { pendientesDueInMonth } from '@/lib/pendientes'
 import { cssVars } from '@/lib/cssVars'
+import { projectionFigures } from '../figures'
+import type { ProjectionKind } from '../figures'
 import { ListSkeleton, NameSkel } from '../Skeleton'
 import { Figure } from '../Figure'
 import { MonthPager } from '../MonthPager'
@@ -37,10 +35,9 @@ type Edits = {
 const SAVE_DEBOUNCE_MS = 700
 
 // Where a line's figure comes from, which is the one thing worth knowing
-// about it. The v1's three, plus the card -- see the comment on the rows.
-type Kind = 'cargado' | 'anterior' | 'servicio' | 'tarjeta' | 'vacio'
-
-const BADGE: Readonly<Record<Kind, string>> = {
+// about it. The v1's three, plus the card and the ones no month has
+// touched -- see figures.ts, which decides which is which.
+const BADGE: Readonly<Record<ProjectionKind, string>> = {
   cargado: 'Ya cargado',
   anterior: 'Del mes anterior',
   servicio: 'Servicio sin pagar',
@@ -190,120 +187,30 @@ export function Proyecciones({
     />
   )
 
-  // Bills still owed in this month. Through countedByBudget like every
-  // other peso figure: a card billed in dollars is due this month too, and
-  // adding it in would make the total a number of nothing.
-  const servicios = countedByBudget(
-    pendientesDueInMonth(pendientes, monthStart, monthEnd).map((pendiente) => ({
-      ...pendiente,
-      currency: pendiente.currency ?? DEFAULT_CURRENCY,
-    })),
-  )
+  // The household's own edits to this month, read exactly as the v1 saves
+  // them: rows switched off and amounts typed over the suggested ones.
+  // Whatever has been typed since the screen loaded wins over what is
+  // saved, so the figure moves while somebody is still deciding.
+  const monthKey = (key: string): string =>
+    `${String(monthStart.getTime())}-${key}`
+  const mine = edits?.monthTime === monthStart.getTime() ? edits : null
+  const excluded = new Set(mine?.excluded ?? projection?.excluded ?? [])
+  const overrides = mine?.overrides ?? projection?.overrides ?? {}
 
-  // Paying a card bill writes its gastos into a category called Tarjeta,
-  // so carrying that category over from last month is a second guess at
-  // the same money the card lines above already carry -- the bill counted
-  // twice. The card has a bill of its own in this month; that is the line
-  // that speaks for it.
-  //
-  // Read off the bills themselves rather than looked up by name: the
-  // category is created as "Tarjeta", but a household can rename it and a
-  // rename changes nothing but the name -- so matching on the name alone
-  // stops finding the very category whose money is being counted twice.
-  // The name is kept as a second way in, for a household that has the
-  // category but no card bill pending right now.
-  const cardCategories = new Set(
-    pendientes
-      .filter((pendiente) => pendiente.cardId !== undefined)
-      .map((pendiente) => pendiente.categoryId),
-  )
-  const named = categories.find(
-    (category) => category.name === RESUMEN_CATEGORY_NAME,
-  )
-  if (named !== undefined) cardCategories.add(named.id)
-  const byId = new Map(categories.map((category) => [category.id, category]))
-  const nameOf = (categoryId: string): string =>
-    byId.get(categoryId)?.name ?? 'Sin categoría'
-  const colorOf = (categoryId: string): string =>
-    byId.get(categoryId)?.color ?? '#9aa0a6'
-
-  type Row = {
-    key: string
-    label: string
-    kind: Kind
-    color: string
-    price: number
-  }
-
-  // What the two months say, which is what the screen is built on: a
-  // category spent in this one, or last one's figure where this one has
-  // nothing yet.
-  const carried: readonly Row[] = buildProjection(
-    previous,
+  // Every row and the total, worked out in figures.ts rather than here:
+  // this is the arithmetic the audit checks, and it can only check what
+  // it can reach.
+  const { rows, total, empty } = projectionFigures({
     current,
-    servicios.map((servicio) => servicio.name),
-  )
-    .filter((row) => !cardCategories.has(row.categoryId))
-    .map((row) => ({
-      key: row.categoryId,
-      label: nameOf(row.categoryId),
-      kind:
-        row.source === 'actual' ? ('cargado' as const) : ('anterior' as const),
-      color: colorOf(row.categoryId),
-      price: row.price,
-    }))
+    previous,
+    pendientes,
+    categories,
+    projection: { excluded: [...excluded], overrides },
+    monthStart,
+    monthEnd,
+  })
 
-  // A card bill is the one line the app can fill in before it arrives:
-  // the cuotas already bought that land in this month add up to a figure
-  // it has been keeping all along (estimatedAmount). It was listed at $0
-  // -- correct for a bill nobody has seen, and useless in a projection,
-  // which is a guess by definition. Still only an estimate: next month's
-  // own purchases are not in it, so this line is the one most worth
-  // typing over.
-  const billed: readonly Row[] = servicios.map((pendiente) => ({
-    key: `servicio-${pendiente.id}`,
-    label: pendiente.name,
-    kind:
-      pendiente.cardId === undefined
-        ? ('servicio' as const)
-        : ('tarjeta' as const),
-    color: colorOf(pendiente.categoryId),
-    price:
-      pendiente.expectedAmount ??
-      (pendiente.cardId === undefined ? 0 : (pendiente.estimatedAmount ?? 0)),
-  }))
-
-  // And every other category the household has, at zero.
-  //
-  // Reading the two months only ever yields the categories that had
-  // something in them, so a category nobody spent in last month was not
-  // on the screen at all -- and a projection is exactly where somebody
-  // wants to say "este mes sí vamos a gastar en esto". A line at $0 adds
-  // nothing to the total until it is typed over, which is the point.
-  const spoken = new Set(carried.map((row) => row.key))
-  const quiet: readonly Row[] = categories
-    .filter(
-      (category) =>
-        !cardCategories.has(category.id) && !spoken.has(category.id),
-    )
-    .map((category) => ({
-      key: category.id,
-      label: category.name,
-      kind: 'vacio' as const,
-      color: category.color,
-      price: 0,
-    }))
-
-  // Biggest first, like every other list of amounts in this app: the line
-  // worth arguing about is the one at the top, and the empty ones fall to
-  // the bottom by themselves.
-  const rows: readonly Row[] = [...carried, ...billed, ...quiet]
-    .slice()
-    .sort((a, b) => b.price - a.price)
-
-  // Nothing in either month and no bills: a column of zeroes would be a
-  // list of everything the household could spend on and nothing it does.
-  if (carried.length === 0 && billed.length === 0) {
+  if (empty) {
     return (
       <>
         {header}
@@ -320,28 +227,6 @@ export function Proyecciones({
     )
   }
 
-  // The household's own edits to this month, read exactly as the v1 saves
-  // them: rows switched off and amounts typed over the suggested ones. The
-  // keys carry the month, so one month's scenario never bleeds into
-  // another's.
-  const monthKey = (key: string): string =>
-    `${String(monthStart.getTime())}-${key}`
-  const mine = edits?.monthTime === monthStart.getTime() ? edits : null
-  const excluded = new Set(mine?.excluded ?? projection?.excluded ?? [])
-  const overrides = mine?.overrides ?? projection?.overrides ?? {}
-  const amountOf = (key: string, price: number): number => {
-    const raw = overrides[monthKey(key)]
-    if (raw === undefined) return price
-    const parsed = Number(raw)
-    return Number.isFinite(parsed) ? parsed : 0
-  }
-  const total = rows.reduce(
-    (sum, row) =>
-      excluded.has(monthKey(row.key))
-        ? sum
-        : sum + amountOf(row.key, row.price),
-    0,
-  )
   const apply = (
     nextExcluded: ReadonlySet<string>,
     nextOverrides: Readonly<Record<string, string>>,
@@ -504,7 +389,8 @@ function Compare({
   readonly categories: readonly Category[]
 }): ReactElement | null {
   const rows = summarizeByCategory({ expenses: current, categories })
-  const spent = rows.reduce((sum, row) => sum + row.total, 0)
+  const spent =
+    rows.reduce((cents, row) => cents + Math.round(row.total * 100), 0) / 100
   if (spent === 0) return null
   return (
     <div className="card quiet static">

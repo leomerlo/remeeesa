@@ -6,6 +6,7 @@ import { computeSpentThisMonth, formatAmount } from '@/lib/expenses'
 import type { Expense } from '@/lib/expenses'
 import type { CardPurchase } from '@/lib/cards'
 import type { Currency } from '@/lib/money'
+import { sumIn } from '../figures'
 import { ListSkeleton, NameSkel } from '../Skeleton'
 import { Figure } from '../Figure'
 import { MonthPager } from '../MonthPager'
@@ -283,18 +284,6 @@ type Movement = {
   readonly currency: Currency
   readonly expense?: Expense
   readonly purchase?: CardPurchase
-}
-
-// What a set of expenses comes to in one currency. Kept out of
-// computeSpentThisMonth on purpose: that one answers "what did this cost
-// the peso budget", and is right to drop everything else.
-function sumIn(
-  items: readonly { readonly price: number; readonly currency: Currency }[],
-  currency: Currency,
-): number {
-  return items
-    .filter((item) => item.currency === currency)
-    .reduce((sum, item) => sum + item.price, 0)
 }
 
 // The same header the Home has: a name and a line under it on the left,
