@@ -15,7 +15,11 @@ import type { Category, Expense } from '@/lib/expenses'
 import type { SpendToDate } from '@/lib/expenses'
 import { monthlyBudgetFor } from '@/lib/households'
 import type { Household } from '@/lib/households'
-import { countedByBudget, DEFAULT_CURRENCY } from '@/lib/money'
+import {
+  countedByBudget,
+  DEFAULT_CURRENCY,
+  parseStoredAmount,
+} from '@/lib/money'
 import type { Currency } from '@/lib/money'
 import { isBillToPay, pendientesDueInMonth } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
@@ -664,8 +668,9 @@ export function projectionFigures(input: {
   const amountOf = (key: string, price: number): number => {
     const raw = overrides[monthKey(key)]
     if (raw === undefined) return price
-    const parsed = Number(raw)
-    return Number.isFinite(parsed) ? parsed : 0
+    // Plain as the field hands it over, or written as it was typed before
+    // the field knew how to format itself -- parseStoredAmount takes both.
+    return parseStoredAmount(raw)
   }
 
   const rows: readonly ProjectionLine[] = [...carried, ...billed, ...quiet]

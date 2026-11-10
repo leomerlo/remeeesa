@@ -50,14 +50,6 @@ export function digitsOf(text: string): number {
   return Number(text.replace(/[^0-9]/gu, ''))
 }
 
-// An amount somebody typed, read the way they meant it: here a comma is
-// the decimal point and a dot separates thousands, so "1.500,50" is one
-// thousand five hundred and a half, not one and a half.
-export function parseTyped(text: string): number {
-  const parsed = Number(text.replace(/[.]/gu, '').replace(/[,]/gu, '.'))
-  return Number.isFinite(parsed) ? parsed : 0
-}
-
 export { iconForCategoryName }
 
 // What a payment method is, in one word, for the line under its name.

@@ -216,3 +216,77 @@ describe('anotar un gasto', () => {
     expect(screen.getByLabelText('En cuántas cuotas')).toBeInTheDocument()
   })
 })
+
+// An amount is written here with a dot between the thousands and a comma
+// before the decimals, and a phone's number pad types "." for that comma.
+// The field used to take whatever was in it and strip the separators, so
+// "1.234,56" went in as one thousand two hundred and thirty-four fifty-six
+// -- right -- and "1234.56" went in as a hundred and twenty-three
+// thousand. Both now mean the same thing, which they do everywhere else in
+// the app too. Her own case.
+describe('an amount written the way it is written here', () => {
+  it('reads a dot as thousands and a comma as the decimals', async () => {
+    const it_ = await house()
+    open(it_)
+    fill('Super', '36.800')
+    // And shows it back separated, the way every figure on screen is.
+    expect(screen.getByLabelText('Cuánto')).toHaveValue('36.800')
+    fireEvent.click(screen.getByRole('button', { name: /Anotar/ }))
+
+    await waitFor(async () => {
+      expect((await movements(it_)).expenses).toHaveLength(1)
+    })
+    expect((await movements(it_)).expenses[0]?.price).toBe(36_800)
+  })
+
+  it('reads a typed dot as the decimal point when that is all it can be', async () => {
+    const it_ = await house()
+    open(it_)
+    fill('Café', '1234.56')
+    expect(screen.getByLabelText('Cuánto')).toHaveValue('1.234,56')
+    fireEvent.click(screen.getByRole('button', { name: /Anotar/ }))
+
+    await waitFor(async () => {
+      expect((await movements(it_)).expenses).toHaveLength(1)
+    })
+    expect((await movements(it_)).expenses[0]?.price).toBe(1234.56)
+  })
+
+  it('keeps a gasto with decimals the same when it is opened and saved', async () => {
+    const it_ = await house()
+    const [comida] = it_.categories
+    if (comida === undefined) throw new Error('no category')
+    const expense = await it_.db.createExpense({
+      householdId: it_.householdId,
+      categoryId: comida.id,
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      name: 'Verdulería',
+      price: 1234.56,
+      comments: '',
+      expenseDate: TODAY,
+      currency: 'ARS',
+      paymentMethodId: null,
+    })
+    renderWithProviders(
+      <GastoSheet
+        open
+        onClose={vi.fn()}
+        session={it_.session}
+        expense={expense}
+        categories={it_.categories}
+        methods={it_.methods}
+        today={TODAY}
+      />,
+    )
+
+    // Opened on the stored figure, written the way it is read.
+    expect(screen.getByLabelText('Cuánto')).toHaveValue('1.234,56')
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    await waitFor(async () => {
+      const after = await movements(it_)
+      expect(after.expenses[0]?.price).toBe(1234.56)
+    })
+  })
+})

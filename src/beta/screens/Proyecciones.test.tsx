@@ -114,7 +114,9 @@ describe('the card is counted once', () => {
     // The card's own line, and nothing else for the card: not the
     // $500.000 of last month's bill, and not a row for the category.
     expect(await screen.findByLabelText('Cuánto va a ser Visa')).toHaveValue(
-      '60000',
+      // Grouped, like every other figure on screen: the field formats as
+      // it is typed. What it stores is the plain 60000.
+      '60.000',
     )
     expect(screen.queryByText('Tarjeta de crédito')).toBeNull()
     expect(screen.getByText('$60.000')).toBeInTheDocument()
@@ -130,7 +132,9 @@ describe('the categories with nothing in them', () => {
     render(await houseWithACardBill())
 
     expect(await screen.findByLabelText('Cuánto va a ser Visa')).toHaveValue(
-      '60000',
+      // Grouped, like every other figure on screen: the field formats as
+      // it is typed. What it stores is the plain 60000.
+      '60.000',
     )
     // Ropa is the category the purchase was filed under, and nothing was
     // ever spent in it: a card purchase is not a gasto of any month.
@@ -160,7 +164,9 @@ describe('typing over what the card is going to be', () => {
     render(await houseWithACardBill())
 
     expect(await screen.findByLabelText('Cuánto va a ser Visa')).toHaveValue(
-      '60000',
+      // Grouped, like every other figure on screen: the field formats as
+      // it is typed. What it stores is the plain 60000.
+      '60.000',
     )
     expect(screen.getByText('Cuotas ya compradas')).toBeInTheDocument()
     expect(
@@ -193,7 +199,9 @@ describe('typing over what the card is going to be', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Cuánto va a ser Visa')).toHaveValue('60000')
+      expect(screen.getByLabelText('Cuánto va a ser Visa')).toHaveValue(
+        '60.000',
+      )
     })
     expect(screen.getByText('Cuotas ya compradas')).toBeInTheDocument()
   })

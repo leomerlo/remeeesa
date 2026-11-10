@@ -9,6 +9,8 @@ import {
 } from '@/lib/expenses'
 import type { Category } from '@/lib/expenses'
 import { cssVars } from '@/lib/cssVars'
+import { parseStoredAmount } from '@/lib/money'
+import { AmountInput } from '../fields'
 import { projectionFigures } from '../figures'
 import type { ProjectionKind } from '../figures'
 import { ListSkeleton, NameSkel } from '../Skeleton'
@@ -195,7 +197,19 @@ export function Proyecciones({
     `${String(monthStart.getTime())}-${key}`
   const mine = edits?.monthTime === monthStart.getTime() ? edits : null
   const excluded = new Set(mine?.excluded ?? projection?.excluded ?? [])
-  const overrides = mine?.overrides ?? projection?.overrides ?? {}
+  // A figure saved before the field knew how to format itself was stored
+  // as it was typed, separators and all. Read once into the plain shape
+  // everything speaks now, so it shows as the amount it meant rather than
+  // as "150,000". What is being typed right now is left alone: mid-figure
+  // it is "1234." and rounding that would eat the decimal point.
+  const overrides =
+    mine?.overrides ??
+    Object.fromEntries(
+      Object.entries(projection?.overrides ?? {}).map(([key, saved]) => [
+        key,
+        String(parseStoredAmount(saved)),
+      ]),
+    )
 
   // Every row and the total, worked out in figures.ts rather than here:
   // this is the arithmetic the audit checks, and it can only check what
@@ -250,7 +264,7 @@ export function Proyecciones({
     // An amount typed back to the suggested one stops being an override:
     // left behind it would pin the line to a figure the next reading is
     // meant to move.
-    if (raw.trim() === '' || Number(raw) === price)
+    if (raw.trim() === '' || parseStoredAmount(raw) === price)
       delete nextOverrides[monthKey(key)]
     else nextOverrides[monthKey(key)] = raw
     apply(excluded, nextOverrides)
@@ -353,19 +367,14 @@ export function Proyecciones({
                   <span className="pre" aria-hidden="true">
                     $
                   </span>
-                  <input
-                    aria-label={`Cuánto va a ser ${row.label}`}
+                  <AmountInput
+                    label={`Cuánto va a ser ${row.label}`}
                     // A zero is left as the placeholder rather than typed
                     // into the field: tapping a field that already says 0
                     // and typing lands "025000" in it.
                     value={typed ?? (row.price === 0 ? '' : String(row.price))}
-                    inputMode="decimal"
-                    autoComplete="off"
-                    placeholder="0"
                     disabled={!on}
-                    onChange={(event) =>
-                      type(row.key, event.target.value, row.price)
-                    }
+                    onChange={(raw) => type(row.key, raw, row.price)}
                   />
                 </div>
               </div>

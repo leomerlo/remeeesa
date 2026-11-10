@@ -27,6 +27,7 @@ import {
   Toggle,
   moneyIsValid,
   moneyValue,
+  pesos,
 } from '../fields'
 import { kindOf, monthName } from '../format'
 
@@ -385,7 +386,7 @@ export function PagarSheet({
         {...(bill.expectedAmount === null
           ? {}
           : {
-              hint: `Lo esperado era $${String(bill.expectedAmount)}. Si vino distinto, poné lo que pagaste de verdad.`,
+              hint: `Lo esperado era ${pesos(bill.expectedAmount)}. Si vino distinto, poné lo que pagaste de verdad.`,
             })}
       />
       <DateField label="Cuándo" value={paidOn} onChange={setPaidOn} />

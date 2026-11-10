@@ -8,7 +8,9 @@ import {
   readDolarBlueOverride,
   writeDolarBlueOverride,
 } from '@/lib/dolarBlueOverride'
-import { digitsOf, formatPesos, parseTyped } from './format'
+import { parseStoredAmount } from '@/lib/money'
+import { AmountInput } from './fields'
+import { digitsOf, formatPesos } from './format'
 
 // Carried over from the v1, where it also lives in the navigation: it is a
 // tool you reach for, not part of any one screen. The rate is fetched and
@@ -108,12 +110,9 @@ export function Dolar(): ReactElement {
         </div>
       )}
       <div className="pair">
-        <input
-          value={usd}
-          inputMode="decimal"
-          aria-label="Dólares"
-          onChange={(event) => setUsd(event.target.value)}
-        />
+        {/* The same amount field the forms use: a figure typed here is
+            read the way one typed anywhere else is. */}
+        <AmountInput label="Dólares" value={usd} onChange={setUsd} />
         <span className="swap" aria-hidden="true">
           <ArrowLeftRight />
         </span>
@@ -121,7 +120,7 @@ export function Dolar(): ReactElement {
           value={
             rate === null
               ? ''
-              : formatPesos(Math.round(usdToArs(parseTyped(usd), rate)))
+              : formatPesos(Math.round(usdToArs(parseStoredAmount(usd), rate)))
           }
           inputMode="numeric"
           aria-label="Pesos"

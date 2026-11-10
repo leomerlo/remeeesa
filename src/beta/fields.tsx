@@ -1,7 +1,12 @@
 import { ChevronDown } from 'lucide-react'
 import type { ReactElement, ReactNode } from 'react'
-import { useId, useState } from 'react'
-import { formatPesos, parseTyped } from './format'
+import { useId, useLayoutEffect, useRef, useState } from 'react'
+import {
+  amountKeystroke,
+  formatAmountForDisplay,
+  parseStoredAmount,
+} from '@/lib/money'
+import { formatPesos } from './format'
 
 // The form controls every sheet is built from. They exist so a field is
 // written once rather than once per form, and so the rules that are easy
@@ -55,6 +60,84 @@ export function TextField({
   )
 }
 
+// Where an amount is typed. Every one of them in the beta is this, so a
+// figure means the same thing wherever it is written.
+//
+// It separates the thousands as it is typed -- "250000" reads "250.000"
+// while you are still typing it, like every other figure on screen -- and
+// it reads a comma as the decimal point, the way this country writes one.
+// A dot is a thousands separator, except when it is the decimal key a
+// phone's number pad produced, which @/lib/money/amountText works out and
+// explains at length; it had to be worked out, because getting it wrong
+// means an amount silently off by a factor of ten or a hundred, which is
+// exactly what "1.234,56" turning into 123.456 was.
+//
+// What it hands back is never the text on screen: it is the plain value
+// ("1234.56"), so whatever stores or validates it just calls Number().
+export function AmountInput({
+  id,
+  value,
+  onChange,
+  label,
+  className,
+  placeholder = '0',
+  disabled = false,
+}: {
+  readonly id?: string
+  // Plain and Number()-parseable, not the text on screen.
+  readonly value: string
+  readonly onChange: (raw: string) => void
+  readonly label?: string
+  readonly className?: string
+  readonly placeholder?: string
+  readonly disabled?: boolean
+}): ReactElement {
+  const ref = useRef<HTMLInputElement>(null)
+  // Re-formatting on every keystroke moves the text under the cursor, and
+  // a browser left to itself answers that by dropping the cursor at the
+  // end of the field -- so typing into the middle of an amount throws you
+  // out of it. This puts it back where the next keystroke belongs.
+  const caret = useRef<number | null>(null)
+  // Whether the comma on screen came from a "." typed by hand, which
+  // the next keystroke may yet show to have been a thousands separator.
+  const pendingDot = useRef(false)
+  const display = formatAmountForDisplay(value)
+
+  useLayoutEffect(() => {
+    const at = caret.current
+    if (at !== null && ref.current !== null) {
+      ref.current.setSelectionRange(at, at)
+      caret.current = null
+    }
+  }, [display])
+
+  return (
+    <input
+      ref={ref}
+      {...(id === undefined ? {} : { id })}
+      {...(label === undefined ? {} : { 'aria-label': label })}
+      {...(className === undefined ? {} : { className })}
+      type="text"
+      inputMode="decimal"
+      autoComplete="off"
+      placeholder={placeholder}
+      disabled={disabled}
+      value={display}
+      onChange={(event) => {
+        const next = amountKeystroke({
+          typed: event.target.value,
+          caret: event.target.selectionStart ?? event.target.value.length,
+          previousDisplay: display,
+          pendingDot: pendingDot.current,
+        })
+        caret.current = next.caret
+        pendingDot.current = next.pendingDot
+        onChange(next.raw)
+      }}
+    />
+  )
+}
+
 // An amount in one currency, which is most of them: the sign is fixed and
 // the figure is the big thing on the form. The shape below is the same
 // field with the currency chosen instead of fixed.
@@ -78,14 +161,7 @@ export function MoneyField({
           <span className="pre" aria-hidden="true">
             {prefix}
           </span>
-          <input
-            id={id}
-            value={value}
-            inputMode="decimal"
-            autoComplete="off"
-            placeholder="0"
-            onChange={(event) => onChange(event.target.value)}
-          />
+          <AmountInput id={id} value={value} onChange={onChange} />
         </div>
       )}
     </Field>
@@ -132,23 +208,19 @@ export function MoneyRow({
               </option>
             ))}
           </select>
-          <input
-            id={id}
-            value={amount}
-            inputMode="decimal"
-            autoComplete="off"
-            placeholder="0"
-            onChange={(event) => onAmount(event.target.value)}
-          />
+          <AmountInput id={id} value={amount} onChange={onAmount} />
         </div>
       )}
     </Field>
   )
 }
 
-// What a money field is worth.
+// What a money field is worth. The field hands back a plain value, and
+// this still reads a written one ("1.234,56") -- see parseStoredAmount: a
+// figure saved before the field knew how to format itself is still out
+// there, in a month's projection.
 export function moneyValue(text: string): number {
-  return parseTyped(text)
+  return parseStoredAmount(text)
 }
 
 // Blank is allowed only where the amount is genuinely not known yet -- a
@@ -157,7 +229,7 @@ export function moneyValue(text: string): number {
 export function moneyIsValid(text: string, { required = true } = {}): boolean {
   const trimmed = text.trim()
   if (trimmed === '') return !required
-  const parsed = parseTyped(trimmed)
+  const parsed = parseStoredAmount(trimmed)
   return Number.isFinite(parsed) && parsed > 0
 }
 
