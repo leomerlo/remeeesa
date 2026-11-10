@@ -3,7 +3,6 @@ import {
   ArrowRight,
   CalendarDays,
   ChevronRight,
-  Lightbulb,
   Target,
   TriangleAlert,
 } from 'lucide-react'
@@ -207,7 +206,6 @@ export function Home({
   const soonest = [...bills]
     .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
     .slice(0, HOME_ROWS)
-  const top = byCategory[0]
   const several = members.length > 1
   const others = members
     .map((member) => member.displayName)
@@ -364,12 +362,6 @@ export function Home({
 
       <div className="band">
         <Donut rows={byCategory} cardBills={cardBills} />
-        {top !== undefined ? (
-          <AlertCard kind="warn" icon={<Lightbulb />}>
-            Donde más se va la plata es <b>{top.name}</b>:{' '}
-            {formatCurrency(top.total)} en el mes.
-          </AlertCard>
-        ) : null}
         <Link className="btn btn-secondary btn-wide" to="/categorias">
           <ArrowRight />
           Ver por categoría

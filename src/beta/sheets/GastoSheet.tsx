@@ -200,7 +200,7 @@ export function GastoSheet({
   )
   const methodOptions = [
     ...(purchase === null
-      ? [{ value: '', k: 'Efectivo', mark: <Banknote /> }]
+      ? [{ value: '', k: 'Efectivo o transferencia', mark: <Banknote /> }]
       : []),
     ...offered.map((candidate) => ({
       value: candidate.id,

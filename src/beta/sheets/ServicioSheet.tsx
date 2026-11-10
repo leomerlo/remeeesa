@@ -168,7 +168,7 @@ export function ServicioSheet({
         value={methodId}
         onChange={setMethodId}
         options={[
-          { value: '', k: 'Efectivo', mark: <Banknote /> },
+          { value: '', k: 'Efectivo o transferencia', mark: <Banknote /> },
           ...methods.map((candidate) => ({
             value: candidate.id,
             k: candidate.name,
@@ -400,7 +400,7 @@ export function PagarSheet({
         value={methodId}
         onChange={setMethodId}
         options={[
-          { value: '', k: 'Efectivo', mark: <Banknote /> },
+          { value: '', k: 'Efectivo o transferencia', mark: <Banknote /> },
           ...methods.map((candidate) => ({
             value: candidate.id,
             k: candidate.name,
