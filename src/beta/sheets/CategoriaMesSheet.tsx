@@ -16,6 +16,7 @@ const WHAT: Readonly<Record<Movement['kind'], string>> = {
   cuenta: 'Por pagar',
   // Still unpaid, but nobody is going to pay it: the bank takes it from
   // the card on the day. "Por pagar" reads as a chore that is yours.
+  // The row says which card, so this is only the fallback.
   tarjeta: 'La paga la tarjeta',
   consumo: 'Con tarjeta',
 }
@@ -76,7 +77,7 @@ export function CategoriaMesSheet({
                       : 'tag next'
                 }
               >
-                {WHAT[move.kind]}
+                {move.paidBy ?? WHAT[move.kind]}
               </span>
             </div>
           ))

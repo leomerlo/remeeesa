@@ -505,6 +505,9 @@ export type Movement = {
   readonly currency: Currency
   // On a cuota, which one of how many -- "3 de 6".
   readonly cuota?: string
+  // On a bill the card pays, what pays it and whether the bank takes it
+  // by itself: "Débito automático con Visa Crédito Leo".
+  readonly paidBy?: string
 }
 
 // "3 de 6": which cuota of this purchase the month on screen is paying.
@@ -527,6 +530,7 @@ export function categoryMovements(
 ): readonly Movement[] {
   const pieces = monthPieces(input)
   const credit = creditMethodIds(input.methods)
+  const named = new Map(input.methods.map((one) => [one.id, one.name]))
   const mine = <T extends { readonly categoryId: string }>(
     items: readonly T[],
   ): readonly T[] => items.filter((one) => one.categoryId === input.categoryId)
@@ -547,6 +551,16 @@ export function categoryMovements(
       // feedback, on Edenor.
       kind: (onCreditCard(bill, credit) ? 'tarjeta' : 'cuenta') as
         'cuenta' | 'tarjeta',
+      // Which card, and whether the bank takes it by itself: "Débito
+      // automático con Visa Crédito Leo" says both, and "la paga la
+      // tarjeta" said neither.
+      ...(onCreditCard(bill, credit)
+        ? {
+            paidBy: `${bill.autoDebit ? 'Débito automático con' : 'Con'} ${
+              named.get(bill.paymentMethodId ?? '') ?? 'la tarjeta'
+            }`,
+          }
+        : {}),
       name: bill.name,
       date: bill.dueDate,
       amount: bill.expectedAmount ?? 0,
