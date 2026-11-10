@@ -132,9 +132,22 @@ export function AppRoutes({
   )
 }
 
+// Where this tree is being served from. It routes on real paths, and
+// since the redesign became the app (ADR 0008) it answers at /v1/ instead
+// of at the root -- without this, react-router matches "/v1/" against the
+// routes below, finds nothing, and renders an empty page. Served from the
+// root it behaves exactly as it always did.
+function base(): string {
+  try {
+    return window.location.pathname.startsWith('/v1/') ? '/v1' : '/'
+  } catch {
+    return '/'
+  }
+}
+
 export function App(props: AppProps): ReactElement {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={base()}>
       <AppRoutes {...props} />
     </BrowserRouter>
   )

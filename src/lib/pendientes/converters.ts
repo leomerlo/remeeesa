@@ -73,6 +73,7 @@ export function parsePendienteDocument(input: {
     paid_purchase_id,
     estimated_amount,
     currency,
+    payment_method_id,
   } = input.data
   if (typeof name !== 'string') {
     throw new Error('Pendiente name must be a string')
@@ -114,6 +115,18 @@ export function parsePendienteDocument(input: {
     autoDebit:
       auto_debit === undefined ? false : parseBoolean(auto_debit, 'auto_debit'),
     status: parsePendienteStatus(status),
+    // What the bill is normally paid with. Absent on everything written
+    // before the field existed, and on every bill nobody has said it
+    // about -- left off rather than written as null, like
+    // paid_purchase_id above.
+    ...(payment_method_id === undefined
+      ? {}
+      : {
+          paymentMethodId: parseNullableString(
+            payment_method_id,
+            'payment_method_id',
+          ),
+        }),
     // Any Pendiente may carry one, not just a Resumen: a bill can be in
     // dollars (a subscription, a service billed abroad). Absent means
     // pesos, which is what every bill written before this was. It used to
@@ -179,6 +192,7 @@ export function pendienteToDocument(input: {
   readonly expectedAmount: number | null
   readonly recurring: boolean
   readonly autoDebit: boolean
+  readonly paymentMethodId: string | null
   readonly status: PendienteStatus
   readonly paidExpenseId: string | null
   readonly paidAt: Date | null
@@ -192,6 +206,7 @@ export function pendienteToDocument(input: {
   readonly expected_amount: number | null
   readonly recurring: boolean
   readonly auto_debit: boolean
+  readonly payment_method_id: string | null
   readonly status: PendienteStatus
   readonly paid_expense_id: string | null
   readonly paid_at: Date | null
@@ -206,6 +221,7 @@ export function pendienteToDocument(input: {
     expected_amount: input.expectedAmount,
     recurring: input.recurring,
     auto_debit: input.autoDebit,
+    payment_method_id: input.paymentMethodId,
     status: input.status,
     currency: input.currency,
     paid_expense_id: input.paidExpenseId,

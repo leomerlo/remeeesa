@@ -92,11 +92,15 @@ export function formatBudgetAmount(amount: number): string {
 export function computeSpentThisMonth(
   expenses: readonly { price: number; currency: Currency }[],
 ): number {
-  let sum = 0
+  // Summed in cents, like computeMonthTotalIn and spendToDate: this
+  // figure is subtracted from the budget and compared against the same
+  // month added up elsewhere, and two sums of one month must not each
+  // carry their own floating-point drift.
+  let cents = 0
   for (const expense of countedByBudget(expenses)) {
-    sum += expense.price
+    cents += Math.round(expense.price * 100)
   }
-  return sum
+  return cents / 100
 }
 
 // Every currently-pending Pendiente's own expected amount, summed -- money
@@ -125,13 +129,13 @@ export function computePendingCommitted(
       currency: pendiente.currency ?? DEFAULT_CURRENCY,
     })),
   )
-  let sum = 0
+  let cents = 0
   for (const pendiente of counted) {
     if (pendiente.expectedAmount !== null) {
-      sum += pendiente.expectedAmount
+      cents += Math.round(pendiente.expectedAmount * 100)
     }
   }
-  return sum
+  return cents / 100
 }
 
 // The month's total in one named currency: expenses plus the bills due in

@@ -1,8 +1,12 @@
 ---
-status: accepted
+status: superseded by 0008
 ---
 
 # The beta is the next version of remeeesa, shipped as a second entry point on the same branch
+
+> Superseded by [0008](0008-the-redesign-becomes-the-app.md): in November 2026 the second
+> entry became the app and the old one moved to `/v1/`. Everything below is why it was built
+> this way, which is still why the code looks like it does.
 
 Remeeesa grew as a run of fixes for one household — Flor and Leo — and the functionality is
 right, but the interface is the accumulated shape of those fixes rather than something designed
@@ -36,7 +40,20 @@ their data is already there — there is no migration to write.
 
 The repo already has the shape this needs: `demo.html` plus `src/demo/` is a second entry today,
 kept out of the production build and guarded by `src/demo/productionIsolation.test.ts`. The beta
-differs in that it *is* built and published, to its own project.
+differs in that it _is_ built and published, to its own project.
+
+## Update, 7 November 2026
+
+The premise in the first paragraph turned out to be wrong, and this is recorded rather than
+edited away. **The father-in-law is not going to use it.** Flor's words: _"no lo va a ver mi
+suegro, esto es la actualizacion de la v1 en una v2 para mi"_. The beta is the v2 of this
+household's app.
+
+The decision below is unaffected. Every reason for it — the domain is the expensive, correct
+part; forking it means fixing each bug twice; one branch keeps the two entries honest about
+sharing that code — was about the code, not about who was going to open the URL. What loses
+its justification is narrower and noted where it lives: invite-only sign-up was partly about
+API spend (`docs/beta-design.md`), and there is no API now.
 
 What this does **not** inherit is the visual layer. The beta's interface is designed from zero —
 the control sizing, the palette, the type scale and the modal bands recorded for v1 are history,

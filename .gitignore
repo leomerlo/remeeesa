@@ -47,3 +47,7 @@ coverage/
 # Playwright's per-failure traces and screenshots.
 test-results/
 playwright-report/
+
+# Scratch page the dev server renders while a beta screen is being designed:
+# regeneratable, never part of the build.
+_beta-preview.html

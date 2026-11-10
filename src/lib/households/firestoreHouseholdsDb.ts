@@ -260,6 +260,9 @@ function newResumenDocument(input: {
       // arrives and somebody loads what it says. Per direct feedback.
       expectedAmount: null,
       recurring: false,
+      // A Resumen is paid with whatever pays it that month; it carries no
+      // method of its own, the way a servicio on débito automático does.
+      paymentMethodId: null,
       autoDebit: false,
       status: 'pending',
       paidExpenseId: null,
@@ -1095,6 +1098,7 @@ export function createFirestoreHouseholdsDb(
               expectedAmount: input.expectedAmount,
               recurring,
               autoDebit: input.autoDebit ?? false,
+              paymentMethodId: input.paymentMethodId ?? null,
               status: 'pending',
               paidExpenseId: null,
               paidAt: null,
@@ -1113,6 +1117,7 @@ export function createFirestoreHouseholdsDb(
             expectedAmount: input.expectedAmount,
             recurring,
             autoDebit: input.autoDebit ?? false,
+            paymentMethodId: input.paymentMethodId ?? null,
             status: 'pending',
             paidExpenseId: null,
             paidAt: null,
@@ -1211,6 +1216,7 @@ export function createFirestoreHouseholdsDb(
             expected_amount: input.expectedAmount,
             recurring: input.recurring,
             auto_debit: input.autoDebit,
+            payment_method_id: input.paymentMethodId,
             currency: input.currency,
           })
           return {
@@ -1221,6 +1227,7 @@ export function createFirestoreHouseholdsDb(
             expectedAmount: input.expectedAmount,
             recurring: input.recurring,
             autoDebit: input.autoDebit,
+            paymentMethodId: input.paymentMethodId,
             currency: input.currency,
           }
         },

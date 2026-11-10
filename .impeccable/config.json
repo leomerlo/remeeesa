@@ -12,6 +12,15 @@
         ],
         "createdAt": "2026-09-02T18:43:00.874Z",
         "reason": "user confirmed: asked for a distinctive visual treatment for the household name title; reuses the existing from-primary/--surface-action-gradient-end pair already sanctioned for the budget hero and auth cards, not a novel decorative flourish"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "src/beta/theme.css"
+        ],
+        "createdAt": "2026-11-07T23:16:16.016Z",
+        "reason": "the alert's 4px bar is the beta's one sanctioned exception to shadow-or-border, documented at the rule itself; a value-scoped ignore cannot match because side-tab extracts no value"
       }
     ]
   }

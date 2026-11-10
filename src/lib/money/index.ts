@@ -1,4 +1,10 @@
 export {
+  amountKeystroke,
+  formatAmountForDisplay,
+  parseStoredAmount,
+  rawFromTypedAmount,
+} from './amountText'
+export {
   cardAccepts,
   countedByBudget,
   countsTowardBudget,

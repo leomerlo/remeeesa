@@ -95,6 +95,16 @@ service cloud.firestore {
         && data.overrides is map;
     }
 
+    // A month nobody has touched has no projection document, and reading
+    // one that is not there still has to be allowed: resource is null, so
+    // the ordinary read rule -- which asks the document whose household it
+    // belongs to -- throws instead of answering. The id carries the
+    // household, so it can answer on its own.
+    function isOwnProjectionId(projectionId) {
+      return projectionId.matches('^.+_[0-9]{4}-[0-9]{2}$')
+        && isMemberOf(projectionId[0:projectionId.size() - 8]);
+    }
+
     function isValidCard(data) {
       return data.keys().hasOnly(['household_id', 'name', 'kind', 'currency', 'brand', 'created_at'])
         && data.household_id is string
@@ -270,7 +280,7 @@ service cloud.firestore {
     // from creating a Pendiente that is already marked paid. Editing, deleting,
     // and marking a pendiente paid are handled by later tickets in this feature.
     function isValidPendiente(data) {
-      return data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'estimated_amount', 'recurring', 'auto_debit', 'status', 'paid_expense_id', 'paid_at', 'created_at', 'card_id', 'currency', 'purchase_ids'])
+      return data.keys().hasOnly(['household_id', 'category_id', 'name', 'due_date', 'expected_amount', 'estimated_amount', 'recurring', 'auto_debit', 'payment_method_id', 'status', 'paid_expense_id', 'paid_at', 'created_at', 'card_id', 'currency', 'purchase_ids'])
         && data.household_id is string
         && data.household_id.size() > 0
         && data.category_id is string
@@ -288,6 +298,12 @@ service cloud.firestore {
         // direct dot-access on a missing key fails closed, hence the
         // membership check first.
         && (!('auto_debit' in data) || data.auto_debit is bool)
+        // What the bill is normally paid with -- the card the bank debits
+        // it from, above all. Null for cash, absent on everything written
+        // before the field existed.
+        && (!('payment_method_id' in data)
+            || data.payment_method_id == null
+            || data.payment_method_id is string)
         // Only a Resumen carries one, and only since a card could hold two
         // currencies; absent everywhere else.
         && (!('currency' in data) || data.currency in ['ARS', 'USD'])
@@ -363,10 +379,20 @@ service cloud.firestore {
 
     // Renaming a card renames its Resúmenes in the same batch, paid ones too:
     // name only, and only to the card's name as the batch leaves it.
+    // A card's bills carry the card's name, so renaming the card renames
+    // them. The dollar bill of a card billed in both currencies is called
+    // "<card> US$" -- that is how the two bills of one card in one month
+    // are told apart wherever they are listed (resumenNameFor). This rule
+    // compared every bill to the bare card name, so the dollar one was
+    // refused, and with it the whole commit: Flor could not rename a card
+    // at all. The currency on the bill decides which of the two names is
+    // the right one; a bill written before currencies existed has none and
+    // reads as pesos.
     function isResumenRename() {
+      let cardName = getAfter(/databases/$(database)/documents/cards/$(resource.data.card_id)).data.name;
       return ('card_id' in resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
-        && request.resource.data.name == getAfter(/databases/$(database)/documents/cards/$(resource.data.card_id)).data.name;
+        && request.resource.data.name == (resource.data.get('currency', 'ARS') == 'ARS' ? cardName : cardName + ' US$');
     }
 
     // Editing is only allowed while the pendiente is still pending -- once paid,
@@ -409,7 +435,7 @@ service cloud.firestore {
       return resource.data.status == 'pending'
         && !('card_id' in resource.data)
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'category_id', 'due_date', 'expected_amount', 'recurring', 'auto_debit', 'currency'])
+          .hasOnly(['name', 'category_id', 'due_date', 'expected_amount', 'recurring', 'auto_debit', 'payment_method_id', 'currency'])
         && !request.resource.data.diff(resource.data).affectedKeys()
           .hasAny(['household_id', 'status', 'paid_expense_id', 'paid_purchase_id', 'paid_at', 'created_at'])
         && request.resource.data.household_id == resource.data.household_id
@@ -422,6 +448,9 @@ service cloud.firestore {
         && request.resource.data.recurring is bool
         && (!('auto_debit' in request.resource.data)
             || request.resource.data.auto_debit is bool)
+        && (!('payment_method_id' in request.resource.data)
+            || request.resource.data.payment_method_id == null
+            || request.resource.data.payment_method_id is string)
         // A bill can be in dollars, and the currency is correctable the
         // same way a gasto's is -- it is picked when the bill is written
         // down, which is when it is easiest to get wrong.
@@ -656,8 +685,22 @@ service cloud.firestore {
         && (('card_id' in request.resource.data)
           ? isValidResumen(pendienteId, request.resource.data)
           : !isResumenId(pendienteId));
+      // The order of this OR is load-bearing, not taste. Firestore spends at
+      // most 1000 expressions on a whole request, and a batch is one
+      // request -- so a write touching several bills pays for every
+      // alternative that is tried before the one that matches, on every
+      // document. Renaming a card writes one bill per month it has, and
+      // with the full validators ahead of it the budget ran out at the
+      // second bill: PERMISSION_DENIED, on a write the rules were written
+      // to allow. Found on a real card, reproduced in
+      // firestoreRules.rules-test.ts.
+      //
+      // So the two that arrive in batches of many documents go first and
+      // short-circuit: renaming a card's bills, and repointing them when a
+      // category is renamed or merged. The rest only ever touch one bill
+      // at a time, where 1000 is plenty.
       allow update: if isMemberOf(resource.data.household_id)
-        && (isValidPendienteUpdate() || isValidPendienteMarkPaid() || isValidPendienteMarkPaidWithCard() || isPendienteCategoryRepoint() || isPendienteRecurrenceEdit() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenMarkPaid() || isResumenRename());
+        && (isResumenRename() || isPendienteCategoryRepoint() || isValidPendienteUpdate() || isValidPendienteMarkPaid() || isValidPendienteMarkPaidWithCard() || isPendienteRecurrenceEdit() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenMarkPaid());
       allow delete: if isMemberOf(resource.data.household_id)
         && resource.data.status == 'pending';
     }
@@ -759,6 +802,12 @@ service cloud.firestore {
     // No delete: a card's Resúmenes and purchases point at it.
     match /projections/{projectionId} {
       allow read: if isMemberOf(resource.data.household_id);
+      // The screen opens on a month that has nothing saved for it every
+      // time somebody looks ahead. Without this it was PERMISSION_DENIED
+      // and the whole screen failed to load.
+      allow get: if isSignedIn()
+        && resource == null
+        && isOwnProjectionId(projectionId);
       // One document the household overwrites, rather than a create and a
       // separate narrow update: the whole set of edits is replaced on every
       // save, which is what "last one wins" means for a scratchpad two

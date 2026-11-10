@@ -14,7 +14,7 @@ export async function signUpWithHousehold(
   page: Page,
   options: { readonly name?: string; readonly budget?: string } = {},
 ): Promise<void> {
-  await page.goto('/')
+  await page.goto('/v1/')
   // The household comes first and the account second: you say what you are
   // setting up before you are asked who you are.
   await page.getByLabel('Nombre del hogar').fill(options.name ?? 'Casa E2E')

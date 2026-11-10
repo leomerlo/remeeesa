@@ -8,6 +8,7 @@ import type { RulesTestEnvironment } from '@firebase/rules-unit-testing'
 import {
   deleteDoc,
   doc,
+  getDoc,
   setDoc,
   updateDoc,
   writeBatch,
@@ -349,6 +350,85 @@ describe('a bill in dollars', () => {
     await assertFails(
       updateDoc(doc(asMember(), 'pendientes', PENDIENTE), {
         currency: 'EUR',
+      }),
+    )
+  })
+})
+
+// What a bill is normally paid with -- the card the bank debits it from,
+// above all. A servicio on débito automático has an answer to this that
+// nobody is there to give at the moment it is taken, which is the whole
+// reason the field exists.
+describe('the method a bill is paid with', () => {
+  const PENDIENTE = 'pendiente-edenor'
+
+  async function seedBill(paymentMethodId?: string | null): Promise<void> {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'pendientes', PENDIENTE), {
+        household_id: HOUSEHOLD,
+        category_id: 'cat-1',
+        name: 'Edenor',
+        due_date: Timestamp.fromDate(new Date(2026, 9, 10)),
+        expected_amount: 36_800,
+        recurring: true,
+        auto_debit: true,
+        status: 'pending',
+        paid_expense_id: null,
+        paid_at: null,
+        created_at: Timestamp.now(),
+        ...(paymentMethodId === undefined
+          ? {}
+          : { payment_method_id: paymentMethodId }),
+      })
+    })
+  }
+
+  it('is written when the bill is created', async () => {
+    await assertSucceeds(
+      setDoc(doc(asMember(), 'pendientes', PENDIENTE), {
+        household_id: HOUSEHOLD,
+        category_id: 'cat-1',
+        name: 'Edenor',
+        due_date: Timestamp.fromDate(new Date(2026, 9, 10)),
+        expected_amount: 36_800,
+        recurring: true,
+        auto_debit: true,
+        payment_method_id: 'card-1',
+        status: 'pending',
+        paid_expense_id: null,
+        paid_at: null,
+        created_at: Timestamp.now(),
+      }),
+    )
+  })
+
+  it('can be changed on a bill that is still pending', async () => {
+    await seedBill(null)
+
+    await assertSucceeds(
+      updateDoc(doc(asMember(), 'pendientes', PENDIENTE), {
+        payment_method_id: 'card-1',
+      }),
+    )
+  })
+
+  // Back to cash, which is what null means here.
+  it('can be cleared', async () => {
+    await seedBill('card-1')
+
+    await assertSucceeds(
+      updateDoc(doc(asMember(), 'pendientes', PENDIENTE), {
+        payment_method_id: null,
+      }),
+    )
+  })
+
+  it('refuses anything that is not a card id', async () => {
+    await seedBill(null)
+
+    await assertFails(
+      updateDoc(doc(asMember(), 'pendientes', PENDIENTE), {
+        payment_method_id: 7,
       }),
     )
   })
@@ -755,5 +835,220 @@ describe('households', () => {
 describe('the emulator is enforcing rules at all', () => {
   it('refuses a write to a collection the app does not have', async () => {
     await assertFails(setDoc(doc(asMember(), 'something_else', 'x'), { a: 1 }))
+  })
+})
+
+// Renaming a card, exactly as the adapter writes it: one batch carrying the
+// card's own four fields and the name of every Resumen of it, so a renamed
+// card never leaves bills behind under the old name.
+//
+// Flor hit `updateCard/permission-denied` on a real card. The in-memory
+// adapter has no rules, so every ordinary test of this passed.
+describe('renaming a card', () => {
+  const CARD = 'card-1'
+
+  async function seed(
+    resumenes: readonly { id: string; name: string; currency: string }[],
+  ): Promise<void> {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore()
+      await setDoc(
+        doc(db, 'cards', CARD),
+        cardDocument({ name: 'Visa Santander Leo' }),
+      )
+      for (const resumen of resumenes) {
+        await setDoc(doc(db, 'pendientes', resumen.id), {
+          household_id: HOUSEHOLD,
+          category_id: 'cat-tarjeta',
+          name: resumen.name,
+          due_date: Timestamp.fromDate(new Date(2026, 10, 10)),
+          expected_amount: null,
+          estimated_amount: 5000,
+          recurring: false,
+          auto_debit: false,
+          status: 'pending',
+          paid_expense_id: null,
+          paid_at: null,
+          created_at: Timestamp.now(),
+          card_id: CARD,
+          currency: resumen.currency,
+          purchase_ids: ['purchase-1'],
+        })
+      }
+    })
+  }
+
+  function rename(
+    db: Firestore,
+    to: string,
+    resumenes: readonly { id: string; name: string }[],
+  ) {
+    const batch = writeBatch(db)
+    batch.update(doc(db, 'cards', CARD), {
+      name: to,
+      kind: 'credito',
+      currency: 'ARS',
+      brand: 'visa',
+    })
+    for (const resumen of resumenes) {
+      batch.update(doc(db, 'pendientes', resumen.id), { name: resumen.name })
+    }
+    return batch.commit()
+  }
+
+  it('renames the card and its peso Resumen in one commit', async () => {
+    await seed([
+      { id: `${CARD}_2026-11`, name: 'Visa Santander Leo', currency: 'ARS' },
+    ])
+
+    await assertSucceeds(
+      rename(asMember(), 'Visa Santander', [
+        { id: `${CARD}_2026-11`, name: 'Visa Santander' },
+      ]),
+    )
+  })
+
+  // The dollar Resumen of the same card is called "<card> US$", so it can
+  // be told apart from the peso one in every list. The rule compares the
+  // new bill name to the card's new name and nothing else.
+  it('renames the dollar Resumen too', async () => {
+    await seed([
+      { id: `${CARD}_2026-11`, name: 'Visa Santander Leo', currency: 'ARS' },
+      {
+        id: `${CARD}_2026-11_USD`,
+        name: 'Visa Santander Leo US$',
+        currency: 'USD',
+      },
+    ])
+
+    await assertSucceeds(
+      rename(asMember(), 'Visa Santander', [
+        { id: `${CARD}_2026-11`, name: 'Visa Santander' },
+        { id: `${CARD}_2026-11_USD`, name: 'Visa Santander US$' },
+      ]),
+    )
+  })
+
+  // A paid Resumen is frozen for figures, but its name is still the card's
+  // name: leaving it behind is two names for one thing.
+  it('renames a Resumen that was already paid', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore()
+      await setDoc(
+        doc(db, 'cards', CARD),
+        cardDocument({ name: 'Visa Santander Leo' }),
+      )
+      await setDoc(doc(db, 'pendientes', `${CARD}_2026-10`), {
+        household_id: HOUSEHOLD,
+        category_id: 'cat-tarjeta',
+        name: 'Visa Santander Leo',
+        due_date: Timestamp.fromDate(new Date(2026, 9, 10)),
+        expected_amount: 7400,
+        estimated_amount: 5000,
+        recurring: false,
+        auto_debit: false,
+        status: 'paid',
+        paid_expense_id: 'expense-1',
+        paid_at: Timestamp.now(),
+        created_at: Timestamp.now(),
+        card_id: CARD,
+        currency: 'ARS',
+        purchase_ids: ['purchase-1'],
+      })
+    })
+
+    await assertSucceeds(
+      rename(asMember(), 'Visa Santander', [
+        { id: `${CARD}_2026-10`, name: 'Visa Santander' },
+      ]),
+    )
+  })
+
+  // The real shape of the bug: one bill per month the card has lived. A
+  // card opened a year ago renames thirteen bills in one commit, and the
+  // rules have to afford all of them.
+  it('renames a year of bills in one commit', async () => {
+    const months = Array.from({ length: 13 }, (_, index) => {
+      const month = new Date(2025, 10 + index, 1)
+      const stamp = `${String(month.getFullYear())}-${String(month.getMonth() + 1).padStart(2, '0')}`
+      return {
+        id: `${CARD}_${stamp}`,
+        name: 'Visa Santander Leo',
+        currency: 'ARS',
+      }
+    })
+    await seed(months)
+
+    await assertSucceeds(
+      rename(
+        asMember(),
+        'Visa Santander',
+        months.map((month) => ({ id: month.id, name: 'Visa Santander' })),
+      ),
+    )
+  })
+
+  it('refuses an outsider renaming it', async () => {
+    await seed([
+      { id: `${CARD}_2026-11`, name: 'Visa Santander Leo', currency: 'ARS' },
+    ])
+
+    await assertFails(
+      rename(
+        testEnv
+          .authenticatedContext(OUTSIDER)
+          .firestore() as unknown as Firestore,
+        'Mía',
+        [{ id: `${CARD}_2026-11`, name: 'Mía' }],
+      ),
+    )
+  })
+})
+
+// Looking ahead at a month nobody has touched.
+//
+// The projection screen opens on the month ahead, which by definition has
+// nothing saved for it yet. Reading a document that is not there is a real
+// read: resource is null, and a rule that asks the document which
+// household it belongs to throws rather than refuses, so the screen failed
+// to load at all. Flor: "la pantalla de proyección me da error".
+describe('reading a projection', () => {
+  const MINE = `${HOUSEHOLD}_2026-12`
+
+  it('lets a member read a month that has nothing saved yet', async () => {
+    await assertSucceeds(getDoc(doc(asMember(), 'projections', MINE)))
+  })
+
+  it('lets a member read one that does exist', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'projections', MINE), {
+        household_id: HOUSEHOLD,
+        month_start: Timestamp.fromDate(new Date(2026, 11, 1)),
+        excluded: [],
+        overrides: {},
+      })
+    })
+
+    await assertSucceeds(getDoc(doc(asMember(), 'projections', MINE)))
+  })
+
+  // The id is the only thing that can answer who an absent document would
+  // belong to, so it has to be checked: otherwise anybody signed in could
+  // probe any household's months.
+  it("refuses an absent month of somebody else's household", async () => {
+    await assertFails(
+      getDoc(doc(asMember(), 'projections', 'household-otra_2026-12')),
+    )
+  })
+
+  it('still saves the month it is told to save', async () => {
+    await assertSucceeds(
+      setDoc(doc(asMember(), 'projections', MINE), {
+        household_id: HOUSEHOLD,
+        month_start: Timestamp.fromDate(new Date(2026, 11, 1)),
+        excluded: [`${String(new Date(2026, 11, 1).getTime())}-cat-1`],
+        overrides: { otra: '1000' },
+      }),
+    )
   })
 })

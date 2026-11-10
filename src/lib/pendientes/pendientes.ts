@@ -37,6 +37,7 @@ export async function createPendiente(input: {
   readonly expectedAmount: number | null
   readonly recurring?: boolean
   readonly autoDebit?: boolean
+  readonly paymentMethodId?: string | null
   readonly currency?: Currency
 }): Promise<Pendiente> {
   return input.db.createPendiente({
@@ -47,6 +48,7 @@ export async function createPendiente(input: {
     expectedAmount: parseExpectedAmount(input.expectedAmount),
     recurring: input.recurring,
     autoDebit: input.autoDebit,
+    paymentMethodId: input.paymentMethodId ?? null,
     currency: input.currency,
   })
 }
@@ -130,6 +132,7 @@ export async function updatePendiente(input: {
   readonly expectedAmount?: number | null
   readonly recurring?: boolean
   readonly autoDebit?: boolean
+  readonly paymentMethodId?: string | null
   readonly currency?: Currency
 }): Promise<Pendiente> {
   const existing = await getPendienteOrThrow({
@@ -151,6 +154,10 @@ export async function updatePendiente(input: {
       : existing.expectedAmount
   const recurring = input.recurring ?? existing.recurring
   const autoDebit = input.autoDebit ?? existing.autoDebit
+  const paymentMethodId =
+    input.paymentMethodId !== undefined
+      ? input.paymentMethodId
+      : (existing.paymentMethodId ?? null)
   const currency = input.currency ?? existing.currency ?? DEFAULT_CURRENCY
 
   return input.db.updatePendiente({
@@ -161,6 +168,7 @@ export async function updatePendiente(input: {
     dueDate,
     expectedAmount,
     recurring,
+    paymentMethodId,
     autoDebit,
     currency,
   })

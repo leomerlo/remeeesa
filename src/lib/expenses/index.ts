@@ -44,6 +44,8 @@ export {
 export type { BudgetTone } from './budgetHeat'
 export { lastNMonthRanges, MONTHLY_TOTALS_MONTH_COUNT } from './monthlyTotals'
 export type { MonthRange } from './monthlyTotals'
+export { computeSpendToDate } from './spendToDate'
+export type { SpendToDate } from './spendToDate'
 export { summarizeByCategory, summarizeTarjeta } from './summaries'
 export {
   categoryBudgetRows,
