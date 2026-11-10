@@ -14,7 +14,7 @@ import type { Expense } from '@/lib/expenses'
 import type { CardPurchase } from '@/lib/cards'
 import type { Pendiente } from '@/lib/pendientes'
 import { Figure } from '../Figure'
-import { homeFigures } from '../figures'
+import { categoryMovements, homeFigures } from '../figures'
 import type { HomeFigures } from '../figures'
 import { HomeSkeleton, Skel } from '../Skeleton'
 import { MonthPager } from '../MonthPager'
@@ -31,6 +31,7 @@ import { formatCurrency, monthName } from '../format'
 import type { BetaSession } from '../data'
 import { GastoSheet } from '../sheets/GastoSheet'
 import { ServicioSheet } from '../sheets/ServicioSheet'
+import { CategoriaMesSheet } from '../sheets/CategoriaMesSheet'
 import { PresupuestoSheet } from '../sheets/PresupuestoSheet'
 import { LoadFailed } from './Gastos'
 
@@ -54,6 +55,9 @@ export function Home({
   // columns stopped matching. Paying is what the Servicios screen is
   // for, and it is one tap away.
   const [editingBill, setEditingBill] = useState<Pendiente | null>(null)
+  // The category whose month is open: tapping a slice of the ring shows
+  // what it is made of.
+  const [openCategory, setOpenCategory] = useState<string | null>(null)
   const householdId = session.householdId ?? null
   const now = new Date()
   const { monthStart, monthEnd } = useMonth()
@@ -361,7 +365,11 @@ export function Home({
       </div>
 
       <div className="band">
-        <Donut rows={byCategory} cardBills={cardBills} />
+        <Donut
+          rows={byCategory}
+          cardBills={cardBills}
+          onPick={setOpenCategory}
+        />
         <Link className="btn btn-secondary btn-wide" to="/categorias">
           <ArrowRight />
           Ver por categoría
@@ -411,6 +419,34 @@ export function Home({
         household={household}
         monthStart={monthStart}
       />
+      {/* What a slice is made of. Built from categoryMovements, which
+          reads the same three lists the slice itself is made of, so the
+          rows here always add up to the figure there. */}
+      {openCategory === null ? null : (
+        <CategoriaMesSheet
+          open
+          onClose={() => setOpenCategory(null)}
+          name={
+            categories.find((one) => one.id === openCategory)?.name ??
+            'Sin categoría'
+          }
+          color={
+            categories.find((one) => one.id === openCategory)?.color ??
+            '#6b7280'
+          }
+          monthStart={monthStart}
+          movements={categoryMovements({
+            categoryId: openCategory,
+            expenses,
+            purchases: cuotas,
+            pendientes,
+            categories,
+            methods,
+            monthStart,
+            monthEnd,
+          })}
+        />
+      )}
     </>
   )
 }

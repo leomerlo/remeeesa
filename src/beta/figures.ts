@@ -373,7 +373,7 @@ export function cardBillTotals(input: {
   })
 }
 
-export function monthByCategory(input: {
+export type MonthInput = {
   readonly expenses: readonly Expense[]
   // Every purchase that could have a cuota landing in this month, which
   // is not the same as the ones bought in it: a purchase in twelve
@@ -385,17 +385,26 @@ export function monthByCategory(input: {
   readonly methods: readonly PaymentMethod[]
   readonly monthStart: Date
   readonly monthEnd: Date
-}): ReturnType<typeof summarizeByCategory> {
+}
+
+// The three lists the month's breakdown is made of, after everything
+// that does not belong has been taken out. Pulled out so the figures and
+// the movements behind them can never be made from different lists --
+// tapping a slice has to open exactly what that slice is.
+function monthPieces(input: MonthInput): {
+  readonly expenses: readonly Expense[]
+  readonly pendientes: readonly Pendiente[]
+  readonly purchases: readonly {
+    readonly purchase: CardPurchase
+    readonly amount: number
+  }[]
+} {
   const cards = cardCategoryIds(input)
   const credit = creditMethodIds(input.methods)
-  return summarizeByCategory({
+  return {
     expenses: input.expenses.filter(
       (expense) => !cards.has(expense.categoryId),
     ),
-    categories: input.categories,
-    // A Resumen is a card bill, and the card speaks through its consumos
-    // here. Every other bill of the month counts: the luz is this month's
-    // light whether or not anybody has paid it yet.
     pendientes: pendientesDueInMonth(
       input.pendientes,
       input.monthStart,
@@ -413,18 +422,98 @@ export function monthByCategory(input: {
     ),
     purchases: input.purchases.flatMap((purchase) => {
       const amount = cuotaInMonth(purchase, input.monthStart)
-      return amount === 0
-        ? []
-        : [
-            {
-              categoryId: purchase.categoryId,
-              total: amount,
-              ...(purchase.currency === undefined
-                ? {}
-                : { currency: purchase.currency }),
-            },
-          ]
+      return amount === 0 ? [] : [{ purchase, amount }]
     }),
+  }
+}
+
+// What a month spent in one category, movement by movement: the rows
+// behind a slice of the ring. The same three lists the slice is made of,
+// so the figures on it add up to the figure on the slice.
+export type Movement = {
+  readonly id: string
+  // A gasto already paid, a bill of the month still owed, or a cuota of
+  // something bought on a card.
+  readonly kind: 'gasto' | 'cuenta' | 'consumo'
+  readonly name: string
+  readonly date: Date
+  readonly amount: number
+  readonly currency: Currency
+  // On a cuota, which one of how many -- "3 de 6".
+  readonly cuota?: string
+}
+
+// "3 de 6": which cuota of this purchase the month on screen is paying.
+// The same landing rule cuotaInMonth uses -- the cuota of month M is the
+// one that lands in M + 1.
+function cuotaLabel(purchase: CardPurchase, monthStart: Date): string {
+  const landing = new Date(
+    monthStart.getFullYear(),
+    monthStart.getMonth() + 1,
+    1,
+  ).getTime()
+  const number =
+    cuotasOf(purchase).find((cuota) => cuota.monthStart.getTime() === landing)
+      ?.number ?? 1
+  return `${String(number)} de ${String(purchase.cuotas)}`
+}
+
+export function categoryMovements(
+  input: MonthInput & { readonly categoryId: string },
+): readonly Movement[] {
+  const pieces = monthPieces(input)
+  const mine = <T extends { readonly categoryId: string }>(
+    items: readonly T[],
+  ): readonly T[] => items.filter((one) => one.categoryId === input.categoryId)
+
+  return [
+    ...mine(pieces.expenses).map((expense) => ({
+      id: expense.id,
+      kind: 'gasto' as const,
+      name: expense.name,
+      date: expense.expenseDate,
+      amount: expense.price,
+      currency: expense.currency ?? DEFAULT_CURRENCY,
+    })),
+    ...mine(pieces.pendientes).map((bill) => ({
+      id: bill.id,
+      kind: 'cuenta' as const,
+      name: bill.name,
+      date: bill.dueDate,
+      amount: bill.expectedAmount ?? 0,
+      currency: bill.currency ?? DEFAULT_CURRENCY,
+    })),
+    ...pieces.purchases
+      .filter(({ purchase }) => purchase.categoryId === input.categoryId)
+      .map(({ purchase, amount }) => ({
+        id: purchase.id,
+        kind: 'consumo' as const,
+        name: purchase.name,
+        date: purchase.purchaseDate,
+        amount,
+        currency: purchase.currency ?? DEFAULT_CURRENCY,
+        ...(purchase.cuotas > 1
+          ? { cuota: cuotaLabel(purchase, input.monthStart) }
+          : {}),
+      })),
+  ].sort((a, b) => b.date.getTime() - a.date.getTime())
+}
+
+export function monthByCategory(
+  input: MonthInput,
+): ReturnType<typeof summarizeByCategory> {
+  const pieces = monthPieces(input)
+  return summarizeByCategory({
+    expenses: pieces.expenses,
+    categories: input.categories,
+    pendientes: pieces.pendientes,
+    purchases: pieces.purchases.map(({ purchase, amount }) => ({
+      categoryId: purchase.categoryId,
+      total: amount,
+      ...(purchase.currency === undefined
+        ? {}
+        : { currency: purchase.currency }),
+    })),
   })
 }
 

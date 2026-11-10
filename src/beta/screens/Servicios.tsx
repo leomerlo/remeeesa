@@ -287,6 +287,10 @@ export function Servicios({
                 </div>
               </div>
             </div>
+            {/* Openable, like every other row: a servicio the card pays
+                is still a servicio, and not being able to tap it is how
+                one ends up with the wrong method on it in the first
+                place. */}
             <div className="sec">
               {onCard.map((bill) => (
                 <BillRow
@@ -298,6 +302,7 @@ export function Servicios({
                   several={several}
                   paidBy={paidByOf(bill)}
                   paidWith={paidWithOf(bill)}
+                  onEdit={() => setEditing(bill)}
                 />
               ))}
             </div>

@@ -338,6 +338,7 @@ export function ProjectionLink({
 export function Donut({
   rows,
   cardBills,
+  onPick,
 }: {
   readonly rows: readonly {
     readonly categoryId: string
@@ -353,6 +354,9 @@ export function Donut({
     readonly currency: Currency
     readonly total: number
   }[]
+  // Opens that category's month: the movements behind the figure, so it
+  // can be checked rather than believed.
+  readonly onPick: (categoryId: string) => void
 }): ReactElement | null {
   // A category with nothing in it is not a slice and not a line: it was
   // listed at 0% of a total it took nothing out of.
@@ -414,13 +418,16 @@ export function Donut({
         {spent.map((row, index) => {
           const percent = Math.round(row.share * 100)
           return (
-            <div
+            <button
+              type="button"
               className={
                 index === Math.ceil(spent.length / 2)
                   ? 'dline col-top'
                   : 'dline'
               }
               key={row.categoryId}
+              aria-label={`Ver los movimientos de ${row.name}`}
+              onClick={() => onPick(row.categoryId)}
             >
               <i style={{ background: row.color }} />
               <span className="nm">{row.name}</span>
@@ -432,7 +439,7 @@ export function Donut({
               <span className="pc" style={cssVars({ '--pc': row.color })}>
                 {percent === 0 ? '<1%' : `${String(percent)}%`}
               </span>
-            </div>
+            </button>
           )
         })}
       </div>

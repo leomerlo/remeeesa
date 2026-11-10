@@ -1703,7 +1703,18 @@ body {
      share *of* the figure and reads as noise in front of it. Everything on
      this list is one size: it is a list of twenty equal things, and three
      sizes made it look like a ranking of importance it is not. */
+/* A row of the breakdown, and a button: it opens that category's month.
+   Styled as the line it already was -- no border, no background, the
+   card's own text -- because the list is read first and pressed second. */
 .dline {
+  appearance: none;
+  border: 0;
+  background: none;
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto;
   gap: 10px;
