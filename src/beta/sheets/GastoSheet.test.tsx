@@ -380,3 +380,135 @@ describe('choosing or naming a category', () => {
     expect(gasto?.categoryId).toBe(comida?.id)
   })
 })
+
+// The same three questions when editing as when anotando: what a record
+// is, is exactly what somebody comes back to change. The redesign hid
+// them on edit, so a servicio anotado como gasto had no way back; the v1
+// had the conversion all along. Per direct feedback: "si yo me confundí
+// y anoté un servicio como gasto, tengo que poder editarlo y hacerlo
+// servicio".
+describe('editing a gasto into a servicio', () => {
+  async function loggedGasto(it_: House): Promise<Expense> {
+    const gasto = await it_.db.createExpense({
+      householdId: it_.householdId,
+      categoryId: it_.categories[0]?.id ?? '',
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      name: 'Gimnasio',
+      price: 30_000,
+      comments: '',
+      expenseDate: TODAY,
+      currency: 'ARS',
+      paymentMethodId: null,
+      isService: false,
+      subcategory: null,
+      pendienteId: null,
+    })
+    return gasto
+  }
+
+
+  // A servicio the conversion already settled is paid, and a paid bill is
+  // not in listPendientes -- the same way Firestore keeps them out. So it
+  // is read where Servicios reads it.
+  async function settled(it_: House): Promise<readonly { name: string; recurring: boolean }[]> {
+    return it_.db.listPaidPendientesDueInMonth({
+      householdId: it_.householdId,
+      ...currentMonthRange(TODAY),
+    })
+  }
+
+  function edit(it_: House, expense: Expense): void {
+    renderWithProviders(
+      <GastoSheet
+        open
+        onClose={vi.fn()}
+        session={it_.session}
+        expense={expense}
+        categories={it_.categories}
+        methods={it_.methods}
+        today={TODAY}
+      />,
+    )
+  }
+
+  it('asks the same questions it asked when anotando', async () => {
+    const it_ = await house()
+    edit(it_, await loggedGasto(it_))
+
+    expect(
+      screen.getByRole('switch', { name: /Ya lo pagué/ }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('switch', { name: /Todos los meses/ }),
+    ).toBeInTheDocument()
+  })
+
+  it('turns it into a servicio that comes back every month', async () => {
+    const it_ = await house()
+    edit(it_, await loggedGasto(it_))
+
+    fireEvent.click(screen.getByRole('switch', { name: /Todos los meses/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    await waitFor(async () => {
+      expect(await settled(it_)).toHaveLength(1)
+    })
+    const bills = await settled(it_)
+    expect(bills[0]?.name).toBe('Gimnasio')
+    expect(bills[0]?.recurring).toBe(true)
+    // Still paid, and still one record: the gasto the conversion rebuilt
+    // is the only one left, and it now says it is a servicio -- which is
+    // what keeps it off Gastos and on Servicios.
+    const after = await movements(it_)
+    expect(after.expenses).toHaveLength(1)
+    expect(after.expenses[0]?.price).toBe(30_000)
+    expect(after.expenses[0]?.isService).toBe(true)
+  })
+
+  it('carries the edits made in the same save onto the servicio', async () => {
+    const it_ = await house()
+    edit(it_, await loggedGasto(it_))
+
+    fireEvent.change(screen.getByLabelText('¿Qué fue?'), {
+      target: { value: 'Gimnasio Flor' },
+    })
+    fireEvent.click(screen.getByRole('switch', { name: /Todos los meses/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    await waitFor(async () => {
+      expect(await settled(it_)).toHaveLength(1)
+    })
+    expect((await settled(it_))[0]?.name).toBe('Gimnasio Flor')
+  })
+
+  it('turns it into a bill still owed when Ya lo pagué goes off', async () => {
+    const it_ = await house()
+    edit(it_, await loggedGasto(it_))
+
+    fireEvent.click(screen.getByRole('switch', { name: /Ya lo pagué/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    await waitFor(async () => {
+      expect((await movements(it_)).pendientes).toHaveLength(1)
+    })
+    const after = await movements(it_)
+    // Owed, so no money left the month at all.
+    expect(after.expenses).toHaveLength(0)
+  })
+
+  it('leaves an ordinary edit an ordinary gasto', async () => {
+    const it_ = await house()
+    edit(it_, await loggedGasto(it_))
+
+    fireEvent.change(screen.getByLabelText('Cuánto'), {
+      target: { value: '35000' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    await waitFor(async () => {
+      expect((await movements(it_)).expenses[0]?.price).toBe(35_000)
+    })
+    expect((await movements(it_)).pendientes).toHaveLength(0)
+  })
+})

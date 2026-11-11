@@ -14,6 +14,10 @@ import {
   findOrCreateCategory,
   updateExpense,
 } from '@/lib/expenses'
+import {
+  convertExpenseToPendiente,
+  setPendienteRecurrence,
+} from '@/lib/pendientes'
 import { createPendiente, markPendientePaid } from '@/lib/pendientes'
 import type { Currency } from '@/lib/money'
 import { CardBrandMark } from '../CardBrandMark'
@@ -109,7 +113,11 @@ export function draftFromExpense(
     methodId: expense.paymentMethodId ?? '',
     cuotas: '1',
     comments: expense.comments,
-    recurring: false,
+    // What it already is, so the same three questions can be re-answered
+    // rather than asked again from scratch. A gasto that reaches this
+    // form is money that has left and does not come back every month --
+    // a recurring one is a servicio and is edited as one.
+    recurring: expense.isService,
     autoDebit: false,
     paid: true,
   }
@@ -290,7 +298,7 @@ export function GastoSheet({
         })
       }
       if (expense !== null) {
-        return updateExpense({
+        const edited = await updateExpense({
           db: session.db,
           householdId,
           expenseId: expense.id,
@@ -299,12 +307,44 @@ export function GastoSheet({
           categoryId,
           comments: draft.comments,
           expenseDate: date,
-          // Left exactly as it was found. It is the v1's old flag, which
-          // nothing writes true any more; editing a gasto is no reason to
-          // change what it already says.
+          // Left exactly as it was found here: whether this is a servicio
+          // is answered below, by the two switches, and a conversion
+          // writes it on the record it builds.
           isService: expense.isService,
           currency: draft.currency,
           paymentMethodId: draft.methodId === '' ? null : draft.methodId,
+        })
+        // The same two answers the alta is built on, asked again. Saying
+        // yes to either is asking for something an Expense cannot be --
+        // only a bill comes back every month, and only a bill can be
+        // *owed* rather than spent -- so the record is rebuilt as the
+        // bill the alta would have made from these answers. The edits
+        // above go in first, so the bill carries them.
+        //
+        // Per direct feedback: "si yo me confundí y anoté un servicio
+        // como gasto, tengo que poder editarlo y hacerlo servicio".
+        const wantsBill = draft.recurring || !draft.paid
+        if (!wantsBill) return edited
+        // One that already has a bill behind it is not converted: the
+        // bill is where recurrence lives, so this just answers it there.
+        if (expense.pendienteId !== null) {
+          return setPendienteRecurrence({
+            db: session.db,
+            householdId,
+            pendienteId: expense.pendienteId,
+            recurring: draft.recurring,
+            autoDebit: draft.autoDebit,
+          })
+        }
+        return convertExpenseToPendiente({
+          db: session.db,
+          householdId,
+          expenseId: expense.id,
+          recurring: draft.recurring,
+          autoDebit: draft.autoDebit,
+          markPaid: draft.paid,
+          memberId,
+          authorDisplayName: author,
         })
       }
       if (onCredit && method !== undefined) {
@@ -449,14 +489,17 @@ export function GastoSheet({
         value={draft.date}
         onChange={(next) => set('date', next)}
       />
-      {/* The three questions that decide what this becomes, and only when
-          anotando algo nuevo: an existing record already is one thing or
-          the other, and turning a saved gasto into a servicio is a
-          conversion rather than an edit.
+      {/* The three questions that decide what this becomes -- asked when
+          anotando algo nuevo and asked again when editing it, because
+          the answer is exactly what somebody comes back to change: a
+          servicio anotado como gasto is fixed here, by saying yes.
+          Turning one into the other is a conversion rather than an edit,
+          and the save does it; the form has no business hiding the
+          question over it.
 
           None of them on a credit card: a consumo already happened, it
           does not come every month, and the bank does not debit it. */}
-      {expense === null && purchase === null && !onCredit ? (
+      {purchase === null && !onCredit ? (
         <>
           <Toggle
             k="Ya lo pagué"
