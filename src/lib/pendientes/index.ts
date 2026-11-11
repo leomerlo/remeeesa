@@ -3,6 +3,7 @@ export type { RecurrenteToCarry } from './pendientes'
 export { DUE_SOON_WINDOW_DAYS, isBillToPay, pendientesDueSoon } from './dueSoon'
 export { pendientesDueInMonth } from './pendingForMonth'
 export { autoDebitsToSettle } from './autoDebit'
+export { amountLeft, isPartlyPaid, paidSoFar } from './amountLeft'
 export {
   carryRecurrentes,
   createPendiente,
@@ -15,6 +16,12 @@ export {
   listPendientesForMonth,
   listRecurrentesToCarry,
   markPendientePaid,
+  payPendientePartially,
+  undoLastPartialPayment,
+  PendienteAmountUnknownError,
+  PendienteNotPartlyPaidError,
+  PartialPaymentCoversBillError,
+  ResumenCannotBePartlyPaidError,
   setPendienteRecurrence,
   unmarkPendientePaid,
   updatePendiente,

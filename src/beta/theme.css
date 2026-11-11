@@ -480,6 +480,24 @@ body {
 .trio > :nth-child(3) {
   grid-column: 1 / -1;
 }
+/* Four figures instead of three: two and two, at every width. "Pagado"
+   used to be one card for two different things -- what the month paid of
+   its bills, and what it spent on its own -- and only one of those ever
+   stops growing. Splitting the word meant splitting the card. */
+.trio.four > :nth-child(3) {
+  grid-column: auto;
+}
+.hood .trio.four > :nth-child(2),
+.hood .trio.four > :nth-child(4) {
+  border-left: 1px solid var(--hood-line);
+}
+.hood .trio.four > :nth-child(3),
+.hood .trio.four > :nth-child(4) {
+  border-top: 1px solid var(--hood-line);
+}
+.hood .trio.four > :nth-child(3) {
+  border-left: 0;
+}
 .trio .card {
   padding: 16px;
   display: grid;
@@ -1106,6 +1124,13 @@ body {
 .tag.soft {
   background: #ebe6f4;
   color: var(--ink-2);
+}
+/* Part of the bill is in. Not a warning and not a settlement: it is
+     progress, so it borrows the green of a paid bill at full strength --
+     the figure beside it is the one that still has to be found. */
+.tag.part {
+  background: var(--green-700);
+  color: #fff;
 }
 /* The category, wearing the category's own colour -- the same colour as
      its tile on the left of the row and its slice on the ring. A tint of
@@ -2382,6 +2407,49 @@ body {
   color: var(--side-ink);
   font-variant-numeric: tabular-nums;
 }
+/* Which way the change is going, which is what picks the rate. Two
+     halves of one control, so it reads as one question with two answers
+     rather than as two things you could both press. The labels wrap at
+     this width, which is better than abbreviating them into "Vendo" and
+     "Compro" -- on their own those do not say what. */
+.dolar .sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-top: 10px;
+}
+.dolar .sides button {
+  font: inherit;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--side-ink-2);
+  background: transparent;
+  border: 2px solid var(--side-line, rgba(255, 255, 255, 0.18));
+  border-radius: 12px;
+  padding: 8px 6px;
+  min-height: 46px;
+  cursor: pointer;
+}
+.dolar .sides button.on {
+  background: var(--side-ink);
+  border-color: var(--side-ink);
+  color: var(--side-active);
+}
+.dolar .sides button:focus-visible {
+  outline: 2px solid var(--side-ink);
+  outline-offset: 2px;
+}
+/* What the chosen side actually means at today's rate, in the words
+     somebody standing at the counter would use. The whole point of the
+     pair above: the figure alone never said which way it ran. */
+.dolar .sidesay {
+  margin-top: 8px;
+  font-size: var(--t-xs);
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--side-ink-2);
+}
 .dolar .pair {
   display: grid;
   gap: 4px;
@@ -3039,6 +3107,49 @@ body {
   display: grid;
   gap: 8px;
 }
+/* The box at the top of the category list. It is the whole control:
+   it narrows what the household already has, and when nothing matches,
+   it is where the new name was typed. Full height like every other
+   control, because a search box you have to aim at is a search box
+   nobody uses on a phone. */
+.pickfind {
+  width: 100%;
+  min-height: 46px;
+  padding: 11px 16px;
+  border: 2px solid #e0d8ee;
+  border-radius: 16px;
+  background: #fff;
+  font-family: inherit;
+  font-size: var(--t-md);
+  font-weight: 600;
+  color: var(--ink);
+}
+.pickfind::placeholder {
+  font-weight: 400;
+  color: var(--ink-2);
+}
+.pickfind:focus-visible {
+  outline: 2px solid var(--grape-600);
+  outline-offset: 1px;
+}
+/* Making a category rather than choosing one: the grape of every other
+   action in the app, so it reads as the thing that adds something. */
+.pickopt.make {
+  border-color: var(--grape-600);
+}
+.pickopt.make .k {
+  color: var(--grape-700);
+}
+.pickopt.make .mk svg {
+  width: 22px;
+  height: 22px;
+  color: var(--grape-700);
+}
+.pickempty {
+  color: var(--ink-2);
+  font-size: var(--t-sm);
+  padding: 4px 2px;
+}
 .pickopt {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -3568,6 +3679,15 @@ body {
   .trio > :nth-child(3) {
     grid-column: auto;
   }
+  /* Four across would leave each figure a quarter of the panel, and
+     these are figures in the hundreds of thousands. Two and two. */
+  .trio.four {
+    grid-template-columns: 1fr 1fr;
+  }
+  .hood .trio.four > :nth-child(3) {
+    border-top: 1px solid var(--hood-line);
+    border-left: 0;
+  }
   /* All three share one row here, so all three lines are vertical. */
   .hood .trio > :nth-child(3) {
     border-top: 0;
@@ -3824,6 +3944,23 @@ a.card {
   grid-template-columns: 1fr 1fr;
   gap: 0;
 }
+/* The same band holding three figures instead of two. Its own class
+   rather than the `.trio` the panel on Inicio has used since long before
+   this one: that one is a different shape (two across, the third under
+   both) and bending it to this would have bent Inicio with it. */
+.duo.three {
+  grid-template-columns: 1fr;
+}
+@media (min-width: 860px) {
+  .duo.three {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  /* A third of the width each, so the figure cannot go on taking its
+     size from the viewport. */
+  .duo.three .figure {
+    font-size: clamp(24px, 2.6vw, 34px);
+  }
+}
 .hood .duo > * + * {
   border-left: 1px solid var(--hood-line);
 }
@@ -3848,6 +3985,13 @@ a.card {
 }
 .duo .herosay {
   color: var(--hood-ink-2);
+}
+/* Stacked: the dividing line goes from between them to above each. */
+@media (max-width: 859px) {
+  .hood .duo.three > * + * {
+    border-left: 0;
+    border-top: 1px solid var(--hood-line);
+  }
 }
 @media (max-width: 559px) {
   .duo {

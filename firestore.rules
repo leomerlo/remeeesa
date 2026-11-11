@@ -490,6 +490,63 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/expenses/$(request.resource.data.paid_expense_id)).data.household_id == resource.data.household_id;
     }
 
+    // Handing over part of what a bill asks for: the household went to pay
+    // the Luz, did not take the whole figure, and put down what it had.
+    // The bill stays pending -- only the running total of what has been
+    // handed over moves, plus the list of Gastos that handed it over.
+    //
+    // getAfter ties the two together exactly: the Gasto that appears in
+    // this same commit has to be worth precisely what the running total
+    // went up by, so the figure on the bill can never drift from the
+    // money in the month. Compared with a cent of slack because these are
+    // floats and a bill can be in dollars.
+    //
+    // Not for a Resumen (a card bill is an estimate, and what is actually
+    // paid is written down as a servicio of its own), and not for a bill
+    // whose figure has not arrived -- there is nothing to take a part off.
+    function isValidPendientePartialPayment() {
+      let added = request.resource.data.partial_expense_ids[request.resource.data.partial_expense_ids.size() - 1];
+      let handed = request.resource.data.paid_so_far - resource.data.get('paid_so_far', 0);
+      return resource.data.status == 'pending'
+        && !('card_id' in resource.data)
+        && resource.data.expected_amount != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paid_so_far', 'partial_expense_ids'])
+        && request.resource.data.status == 'pending'
+        && request.resource.data.paid_so_far is number
+        && handed > 0
+        // Handing over everything still owed is paying the bill, which
+        // goes through isValidPendienteMarkPaid and settles it.
+        && request.resource.data.paid_so_far < resource.data.expected_amount
+        && request.resource.data.partial_expense_ids is list
+        && request.resource.data.partial_expense_ids.size() == resource.data.get('partial_expense_ids', []).size() + 1
+        && request.resource.data.partial_expense_ids.hasAll(resource.data.get('partial_expense_ids', []))
+        && existsAfter(/databases/$(database)/documents/expenses/$(added))
+        && getAfter(/databases/$(database)/documents/expenses/$(added)).data.household_id == resource.data.household_id
+        && getAfter(/databases/$(database)/documents/expenses/$(added)).data.price - handed < 0.01
+        && handed - getAfter(/databases/$(database)/documents/expenses/$(added)).data.price < 0.01;
+    }
+
+    // Reverse of isValidPendientePartialPayment -- undoes the last
+    // part-payment. The same shape isValidPendienteUnmarkPaid has: only the
+    // two keys that payment touched move back, and existsAfter confirms the
+    // Gasto it wrote was actually deleted in this same commit rather than
+    // left behind as an orphan with nothing owing it.
+    function isValidPendienteUndoPartialPayment() {
+      let removed = resource.data.partial_expense_ids[resource.data.partial_expense_ids.size() - 1];
+      return resource.data.status == 'pending'
+        && !('card_id' in resource.data)
+        && resource.data.get('partial_expense_ids', []).size() > 0
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['paid_so_far', 'partial_expense_ids'])
+        && request.resource.data.status == 'pending'
+        && request.resource.data.paid_so_far is number
+        && request.resource.data.paid_so_far >= 0
+        && request.resource.data.paid_so_far <= resource.data.get('paid_so_far', 0)
+        && request.resource.data.partial_expense_ids is list
+        && request.resource.data.partial_expense_ids.size() == resource.data.partial_expense_ids.size() - 1
+        && resource.data.partial_expense_ids.hasAll(request.resource.data.partial_expense_ids)
+        && !existsAfter(/databases/$(database)/documents/expenses/$(removed));
+    }
+
     // Paying a bill with a credit card. Nothing leaves the household today,
     // so there is no Expense to point at: what the payment created is a
     // CardPurchase, sitting in that card's Resumen, and that is what this
@@ -700,7 +757,7 @@ service cloud.firestore {
       // category is renamed or merged. The rest only ever touch one bill
       // at a time, where 1000 is plenty.
       allow update: if isMemberOf(resource.data.household_id)
-        && (isResumenRename() || isPendienteCategoryRepoint() || isValidPendienteUpdate() || isValidPendienteMarkPaid() || isValidPendienteMarkPaidWithCard() || isPendienteRecurrenceEdit() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenMarkPaid());
+        && (isResumenRename() || isPendienteCategoryRepoint() || isValidPendienteUpdate() || isValidPendienteMarkPaid() || isValidPendienteMarkPaidWithCard() || isPendienteRecurrenceEdit() || isValidPendienteUnmarkPaid() || isValidResumenUpdate() || isValidResumenMarkPaid() || isValidPendientePartialPayment() || isValidPendienteUndoPartialPayment());
       allow delete: if isMemberOf(resource.data.household_id)
         && resource.data.status == 'pending';
     }

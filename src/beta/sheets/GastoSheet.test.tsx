@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { Card as PaymentMethod } from '@/lib/cards'
 import { currentMonthRange } from '@/lib/expenses'
-import type { Category } from '@/lib/expenses'
+import type { Category, Expense } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
@@ -94,7 +94,7 @@ function fill(name: string, amount: string): void {
 }
 
 async function movements(it: House): Promise<{
-  readonly expenses: readonly { name: string; price: number }[]
+  readonly expenses: readonly Expense[]
   readonly pendientes: readonly { name: string; recurring: boolean }[]
   readonly purchases: readonly { name: string; cuotas: number }[]
 }> {
@@ -288,5 +288,224 @@ describe('an amount written the way it is written here', () => {
       const after = await movements(it_)
       expect(after.expenses[0]?.price).toBe(1234.56)
     })
+  })
+})
+
+// The category box. A dropdown of what the household already has cannot
+// name one it does not, and naming one is the half that matters:
+// anotando la panadería, nobody should have to leave the form, make a
+// category and come back. Per direct feedback: "habíamos dicho que era
+// un autocomplete".
+describe('choosing or naming a category', () => {
+  function openList(): void {
+    fireEvent.click(screen.getByRole('button', { name: /Categoría/ }))
+  }
+
+  function type(text: string): void {
+    fireEvent.change(
+      screen.getByLabelText('Buscar o escribir una categoría'),
+      { target: { value: text } },
+    )
+  }
+
+  it('narrows what the household already has', async () => {
+    const it_ = await house()
+    open(it_)
+    openList()
+
+    type('com')
+    expect(screen.getByRole('option', { name: 'Comida' })).toBeInTheDocument()
+    type('zzz')
+    expect(screen.queryByRole('option', { name: 'Comida' })).toBeNull()
+  })
+
+  it('makes the category when a name nobody has is saved', async () => {
+    const it_ = await house()
+    open(it_)
+    fill('Facturas', '4500')
+    openList()
+    type('Panadería')
+    fireEvent.click(screen.getByRole('option', { name: /Crear «Panadería»/ }))
+
+    // Nothing is written while the form is open: the name is carried as
+    // a name, and the category is made by the save.
+    expect(
+      (await it_.db.listCategories(it_.householdId)).map(
+        (category) => category.name,
+      ),
+    ).not.toContain('Panadería')
+
+    fireEvent.click(screen.getByRole('button', { name: /Anotar/ }))
+
+    await waitFor(async () => {
+      expect((await movements(it_)).expenses).toHaveLength(1)
+    })
+    const categories = await it_.db.listCategories(it_.householdId)
+    const made = categories.find((category) => category.name === 'Panadería')
+    expect(made).toBeDefined()
+    const [gasto] = await it_.db.listExpensesInMonth({
+      householdId: it_.householdId,
+      ...currentMonthRange(TODAY),
+    })
+    expect(gasto?.categoryId).toBe(made?.id)
+  })
+
+  it('offers no new category for a name that is already one', async () => {
+    const it_ = await house()
+    open(it_)
+    openList()
+    type('Comida')
+
+    expect(screen.queryByRole('option', { name: /Crear/ })).toBeNull()
+    expect(screen.getByRole('option', { name: 'Comida' })).toBeInTheDocument()
+  })
+
+  it('still files a gasto under a category that already exists', async () => {
+    const it_ = await house()
+    open(it_)
+    fill('Super', '12000')
+    openList()
+    fireEvent.click(screen.getByRole('option', { name: 'Comida' }))
+    fireEvent.click(screen.getByRole('button', { name: /Anotar/ }))
+
+    await waitFor(async () => {
+      expect((await movements(it_)).expenses).toHaveLength(1)
+    })
+    const categories = await it_.db.listCategories(it_.householdId)
+    const comida = categories.find((category) => category.name === 'Comida')
+    const [gasto] = await it_.db.listExpensesInMonth({
+      householdId: it_.householdId,
+      ...currentMonthRange(TODAY),
+    })
+    expect(gasto?.categoryId).toBe(comida?.id)
+  })
+})
+
+// The same three questions when editing as when anotando: what a record
+// is, is exactly what somebody comes back to change. The redesign hid
+// them on edit, so a servicio anotado como gasto had no way back; the v1
+// had the conversion all along. Per direct feedback: "si yo me confundí
+// y anoté un servicio como gasto, tengo que poder editarlo y hacerlo
+// servicio".
+describe('editing a gasto into a servicio', () => {
+  async function loggedGasto(it_: House): Promise<Expense> {
+    const gasto = await it_.db.createExpense({
+      householdId: it_.householdId,
+      categoryId: it_.categories[0]?.id ?? '',
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      name: 'Gimnasio',
+      price: 30_000,
+      comments: '',
+      expenseDate: TODAY,
+      currency: 'ARS',
+      paymentMethodId: null,
+    })
+    return gasto
+  }
+
+
+  // A servicio the conversion already settled is paid, and a paid bill is
+  // not in listPendientes -- the same way Firestore keeps them out. So it
+  // is read where Servicios reads it.
+  async function settled(it_: House): Promise<readonly { name: string; recurring: boolean }[]> {
+    return it_.db.listPaidPendientesDueInMonth({
+      householdId: it_.householdId,
+      ...currentMonthRange(TODAY),
+    })
+  }
+
+  function edit(it_: House, expense: Expense): void {
+    renderWithProviders(
+      <GastoSheet
+        open
+        onClose={vi.fn()}
+        session={it_.session}
+        expense={expense}
+        categories={it_.categories}
+        methods={it_.methods}
+        today={TODAY}
+      />,
+    )
+  }
+
+  it('asks the same questions it asked when anotando', async () => {
+    const it_ = await house()
+    edit(it_, await loggedGasto(it_))
+
+    expect(
+      screen.getByRole('switch', { name: /Ya lo pagué/ }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('switch', { name: /Todos los meses/ }),
+    ).toBeInTheDocument()
+  })
+
+  it('turns it into a servicio that comes back every month', async () => {
+    const it_ = await house()
+    edit(it_, await loggedGasto(it_))
+
+    fireEvent.click(screen.getByRole('switch', { name: /Todos los meses/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    await waitFor(async () => {
+      expect(await settled(it_)).toHaveLength(1)
+    })
+    const bills = await settled(it_)
+    expect(bills[0]?.name).toBe('Gimnasio')
+    expect(bills[0]?.recurring).toBe(true)
+    // Still paid, and still one record: the gasto the conversion rebuilt
+    // is the only one left, and it now says it is a servicio -- which is
+    // what keeps it off Gastos and on Servicios.
+    const after = await movements(it_)
+    expect(after.expenses).toHaveLength(1)
+    expect(after.expenses[0]?.price).toBe(30_000)
+    expect(after.expenses[0]?.isService).toBe(true)
+  })
+
+  it('carries the edits made in the same save onto the servicio', async () => {
+    const it_ = await house()
+    edit(it_, await loggedGasto(it_))
+
+    fireEvent.change(screen.getByLabelText('¿Qué fue?'), {
+      target: { value: 'Gimnasio Flor' },
+    })
+    fireEvent.click(screen.getByRole('switch', { name: /Todos los meses/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    await waitFor(async () => {
+      expect(await settled(it_)).toHaveLength(1)
+    })
+    expect((await settled(it_))[0]?.name).toBe('Gimnasio Flor')
+  })
+
+  it('turns it into a bill still owed when Ya lo pagué goes off', async () => {
+    const it_ = await house()
+    edit(it_, await loggedGasto(it_))
+
+    fireEvent.click(screen.getByRole('switch', { name: /Ya lo pagué/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    await waitFor(async () => {
+      expect((await movements(it_)).pendientes).toHaveLength(1)
+    })
+    const after = await movements(it_)
+    // Owed, so no money left the month at all.
+    expect(after.expenses).toHaveLength(0)
+  })
+
+  it('leaves an ordinary edit an ordinary gasto', async () => {
+    const it_ = await house()
+    edit(it_, await loggedGasto(it_))
+
+    fireEvent.change(screen.getByLabelText('Cuánto'), {
+      target: { value: '35000' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    await waitFor(async () => {
+      expect((await movements(it_)).expenses[0]?.price).toBe(35_000)
+    })
+    expect((await movements(it_)).pendientes).toHaveLength(0)
   })
 })

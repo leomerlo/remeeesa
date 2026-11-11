@@ -2,7 +2,11 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
 import { markPendientePaidWithCard } from '@/lib/cards'
 import type { Card as PaymentMethod } from '@/lib/cards'
-import { autoDebitsToSettle, markPendientePaid } from '@/lib/pendientes'
+import {
+  amountLeft,
+  autoDebitsToSettle,
+  markPendientePaid,
+} from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import type { BetaSession } from './data'
 
@@ -96,7 +100,7 @@ export function useAutoDebits(session: BetaSession): void {
               // Non-null by construction: autoDebitsToSettle drops the
               // ones with no amount, precisely because there is nothing
               // to record.
-              finalAmount: bill.expectedAmount ?? 0,
+              finalAmount: amountLeft(bill) ?? 0,
               // A bill is one payment, never in cuotas: the bank takes it
               // whole on the day.
               cuotas: 1,
@@ -110,7 +114,9 @@ export function useAutoDebits(session: BetaSession): void {
               pendienteId: bill.id,
               memberId,
               authorDisplayName: author ?? 'Alguien',
-              finalAmount: bill.expectedAmount ?? 0,
+              // What is left on it, which is the whole figure on all but
+              // a bill somebody had already part-paid by hand.
+              finalAmount: amountLeft(bill) ?? 0,
               paymentDate: bill.dueDate,
               paymentMethodId: bill.paymentMethodId ?? null,
             })

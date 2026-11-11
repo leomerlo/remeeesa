@@ -1,4 +1,16 @@
+import type { DolarSide } from './dolarBlue'
+
+// One stored rate per side of the counter: somebody is quoted a number
+// for the operation they are actually doing, and that number says nothing
+// about the other direction. The "venta" side keeps the original key, so
+// a rate typed before the two sides were told apart is still there -- the
+// converter only ever used venta, which is what that number was.
 const STORAGE_KEY = 'remeeesa.dolar_blue_override'
+const COMPRA_KEY = 'remeeesa.dolar_blue_override.compra'
+
+function keyFor(side: DolarSide): string {
+  return side === 'compra' ? COMPRA_KEY : STORAGE_KEY
+}
 
 // The rate the household actually got, when it is not the one the market
 // publishes. The converter fetches dolarapi's "venta", which is a quote --
@@ -24,12 +36,14 @@ function canUseLocalStorage(): boolean {
 
 // null when nothing has been set, or when what is stored is not a usable
 // rate -- a zero or a negative would divide the converter into nonsense.
-export function readDolarBlueOverride(): number | null {
+export function readDolarBlueOverride(
+  side: DolarSide = 'venta',
+): number | null {
   if (!canUseLocalStorage()) {
     return null
   }
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(keyFor(side))
     if (raw === null) {
       return null
     }
@@ -40,23 +54,26 @@ export function readDolarBlueOverride(): number | null {
   }
 }
 
-export function writeDolarBlueOverride(rate: number): void {
+export function writeDolarBlueOverride(
+  rate: number,
+  side: DolarSide = 'venta',
+): void {
   if (!canUseLocalStorage() || !Number.isFinite(rate) || rate <= 0) {
     return
   }
   try {
-    localStorage.setItem(STORAGE_KEY, String(rate))
+    localStorage.setItem(keyFor(side), String(rate))
   } catch {
     // A full or blocked store is not worth interrupting anyone over.
   }
 }
 
-export function clearDolarBlueOverride(): void {
+export function clearDolarBlueOverride(side: DolarSide = 'venta'): void {
   if (!canUseLocalStorage()) {
     return
   }
   try {
-    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(keyFor(side))
   } catch {
     // Same.
   }

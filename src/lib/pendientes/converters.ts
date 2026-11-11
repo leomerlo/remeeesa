@@ -20,6 +20,13 @@ function parseNullableNumber(value: unknown, field: string): number | null {
   return value
 }
 
+function parsePositiveNumber(value: unknown, field: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    throw new Error(`${field} must be a number of zero or more`)
+  }
+  return value
+}
+
 function parseBoolean(value: unknown, field: string): boolean {
   if (typeof value !== 'boolean') {
     throw new Error(`${field} must be a boolean`)
@@ -74,6 +81,8 @@ export function parsePendienteDocument(input: {
     estimated_amount,
     currency,
     payment_method_id,
+    paid_so_far,
+    partial_expense_ids,
   } = input.data
   if (typeof name !== 'string') {
     throw new Error('Pendiente name must be a string')
@@ -142,6 +151,21 @@ export function parsePendienteDocument(input: {
           paidPurchaseId: parseNullableString(
             paid_purchase_id,
             'paid_purchase_id',
+          ),
+        }),
+    // What has already been handed over on a bill still waiting for the
+    // rest, and the Gastos that handed it over (newest last). Absent on
+    // every bill nobody has part-paid -- left off rather than written as
+    // zero, like paid_purchase_id above.
+    ...(paid_so_far === undefined
+      ? {}
+      : { paidSoFar: parsePositiveNumber(paid_so_far, 'paid_so_far') }),
+    ...(partial_expense_ids === undefined
+      ? {}
+      : {
+          partialExpenseIds: parseStringList(
+            partial_expense_ids,
+            'partial_expense_ids',
           ),
         }),
     // Missing (not just null) on any Pendiente doc written before this field

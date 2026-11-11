@@ -43,6 +43,19 @@ export type Pendiente = {
   // which is almost all of them. Per direct feedback: pagar la Luz con la
   // Visa no es plata que salió hoy.
   readonly paidPurchaseId?: string | null
+  // What has already been handed over on a bill that is still pending:
+  // the household went to pay the Luz, did not take the whole figure, and
+  // put down part of it. Absent on every bill nobody has done that to,
+  // which is almost all of them. Each of those payments is a real Gasto
+  // of its own (partialExpenseIds, newest last) -- the money left, so the
+  // month counts it like any other -- and what the bill still owes is
+  // expectedAmount minus this. See lib/pendientes/amountLeft.
+  //
+  // Never on a Resumen: a card's bill is an estimate until it is paid,
+  // and what Flor actually pays she writes down as a servicio of its own.
+  // Per direct feedback: "el resumen de la tarjeta, olvidate".
+  readonly paidSoFar?: number
+  readonly partialExpenseIds?: readonly string[]
   // Set to the payment date when markPendientePaid runs, otherwise null.
   // Lets a paid Pendiente be found by *when it was paid* (e.g. "paid this
   // month") without having to look up its linked Expense.

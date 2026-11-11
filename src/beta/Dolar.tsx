@@ -2,7 +2,8 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowUpDown, Pencil } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
-import { arsToUsd, fetchDolarBlueRate, usdToArs } from '@/lib/dolarBlue'
+import { arsToUsd, fetchDolarBlue, usdToArs } from '@/lib/dolarBlue'
+import type { DolarSide } from '@/lib/dolarBlue'
 import {
   clearDolarBlueOverride,
   readDolarBlueOverride,
@@ -18,9 +19,24 @@ import { digitsOf, formatPesos } from './format'
 // are actually buying at. That override is a browser preference, not
 // household data -- it never goes near Firestore.
 export function Dolar(): ReactElement {
-  const [override, setOverride] = useState<number | null>(() =>
-    readDolarBlueOverride(),
-  )
+  // Which side of the counter this is. The spread on the blue is not
+  // small, so quoting one rate for both questions is wrong by it: the
+  // cueva pays the lower figure for the dollars you hand over, and
+  // charges the higher one for the dollars you take away. Per direct
+  // feedback.
+  //
+  // Handing dollars over is the default, because that is the household's
+  // usual direction: it holds dollars and changes them when it needs
+  // pesos.
+  const [side, setSide] = useState<DolarSide>('compra')
+  const [overrides, setOverrides] = useState<{
+    readonly compra: number | null
+    readonly venta: number | null
+  }>(() => ({
+    compra: readDolarBlueOverride('compra'),
+    venta: readDolarBlueOverride('venta'),
+  }))
+  const override = overrides[side]
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   // One side holds what was typed and the other is worked out from it, so
@@ -33,10 +49,10 @@ export function Dolar(): ReactElement {
 
   const fetched = useQuery({
     queryKey: ['beta', 'dolar'],
-    queryFn: fetchDolarBlueRate,
+    queryFn: fetchDolarBlue,
     staleTime: 900_000,
   })
-  const rate = override ?? fetched.data ?? null
+  const rate = override ?? fetched.data?.[side] ?? null
 
   if (editing) {
     return (
@@ -61,8 +77,8 @@ export function Dolar(): ReactElement {
             onClick={() => {
               const parsed = digitsOf(draft)
               if (parsed > 0) {
-                writeDolarBlueOverride(parsed)
-                setOverride(parsed)
+                writeDolarBlueOverride(parsed, side)
+                setOverrides((current) => ({ ...current, [side]: parsed }))
               }
               setEditing(false)
             }}
@@ -109,8 +125,8 @@ export function Dolar(): ReactElement {
             type="button"
             className="mine-reset"
             onClick={() => {
-              clearDolarBlueOverride()
-              setOverride(null)
+              clearDolarBlueOverride(side)
+              setOverrides((current) => ({ ...current, [side]: null }))
             }}
           >
             volver a la de hoy
@@ -128,6 +144,36 @@ export function Dolar(): ReactElement {
           One over the other, not side by side: the rail is 200px wide,
           and a box holding "US$" and "155.500" at once cut the figure
           off halfway through. */}
+      {/* What the household is doing, which is what decides the rate.
+          Said as the operation rather than as "compra" and "venta",
+          because those are the cueva's words for its own side of the
+          counter and read backwards from here: the cueva's compra is the
+          household selling. */}
+      <div className="sides" role="group" aria-label="Qué vas a hacer">
+        <button
+          type="button"
+          className={side === 'compra' ? 'on' : ''}
+          aria-pressed={side === 'compra'}
+          onClick={() => setSide('compra')}
+        >
+          Vendo dólares
+        </button>
+        <button
+          type="button"
+          className={side === 'venta' ? 'on' : ''}
+          aria-pressed={side === 'venta'}
+          onClick={() => setSide('venta')}
+        >
+          Compro dólares
+        </button>
+      </div>
+      <p className="sidesay">
+        {rate === null
+          ? 'Todavía no tenemos la cotización de hoy.'
+          : side === 'compra'
+            ? `Te pagan $${formatPesos(rate)} por cada dólar que entregues.`
+            : `Te cobran $${formatPesos(rate)} por cada dólar que te lleves.`}
+      </p>
       <div className="pair">
         <label className="side">
           <span className="cur">US$</span>

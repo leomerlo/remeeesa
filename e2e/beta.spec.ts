@@ -124,8 +124,14 @@ test('a new household signs up, sets a budget and anota su primer gasto', async 
   await sheet.getByLabel('¿Qué fue?').fill('Verdulería')
   await sheet.getByLabel('Cuánto').fill('12500')
   // Every household starts with the same six categories, seeded when it is
-  // created -- so this is a choice, not a new category.
-  await sheet.getByLabel('Categoría').selectOption({ label: 'Comida' })
+  // created -- so this is a choice, not a new category. The field is a
+  // list with a box over it: the box narrows what the household has, and
+  // when nothing matches it is where a new name is typed.
+  await sheet.getByRole('button', { name: /Categoría/ }).click()
+  await sheet
+    .getByLabel('Buscar o escribir una categoría')
+    .fill('Comida')
+  await sheet.getByRole('option', { name: 'Comida' }).click()
   await sheet.getByRole('button', { name: 'Anotar' }).click()
   await expect(sheet).toBeHidden({ timeout: 20000 })
 
@@ -177,6 +183,61 @@ test('a servicio is created, paid, and arrives among the month gastos', async ({
   await expect(page.getByText('Luz')).toBeVisible({ timeout: 20000 })
 })
 
+// Going to pay a bill without the whole figure in hand. Three layers have
+// to agree for this to work at all -- the form, the transaction that
+// writes the gasto and moves the bill's running total, and the rule that
+// ties the two together with getAfter -- and this is the only place they
+// run at once. The rules are published by hand, so a rule that forbids
+// what the app writes passes every other suite in the repo.
+test('a servicio is part-paid, and the month only counts what is left', async ({
+  page,
+}) => {
+  await signUpBeta(page, { budget: '1000000' })
+  await page
+    .getByRole('navigation', { name: 'Navegación principal' })
+    .getByRole('link', { name: 'Servicios' })
+    .click()
+  await addServicio(page, { name: 'Expensas', amount: '88000' })
+
+  await expect(page.getByText('Servicios que faltan pagar')).toBeVisible({
+    timeout: 20000,
+  })
+  await expect(page.getByText('$ 88.000').first()).toBeVisible()
+
+  // Pay $50.000 of it, saying out loud that it is only a part.
+  await page.getByRole('button', { name: 'Ya lo pagué' }).click()
+  const paying = page.getByRole('dialog', { name: 'Pagar Expensas' })
+  await paying.getByLabel('Cuánto pagaron').fill('50000')
+  await paying.getByRole('switch', { name: /Pagué solo una parte/ }).click()
+  await paying.getByRole('button', { name: 'Guardar lo que pagué' }).click()
+  await expect(paying).toBeHidden({ timeout: 20000 })
+
+  // Still open, now asking for the rest and saying how much of how much
+  // is in.
+  await expect(page.getByText('Ya van $ 50.000 de $ 88.000')).toBeVisible({
+    timeout: 20000,
+  })
+  await expect(page.getByText('$ 38.000').first()).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'Pagar lo que falta' }),
+  ).toBeVisible()
+
+  // The money that left is a gasto of its own...
+  await page
+    .getByRole('navigation', { name: 'Navegación principal' })
+    .getByRole('link', { name: 'Gastos' })
+    .click()
+  await expect(page.getByText('Expensas')).toBeVisible({ timeout: 20000 })
+
+  // ...and the month counts it once: $50.000 gone and $38.000 still owed
+  // out of a million, not $88.000 owed on top of the $50.000 spent.
+  await page
+    .getByRole('navigation', { name: 'Navegación principal' })
+    .getByRole('link', { name: 'Inicio' })
+    .click()
+  await expect(page.getByText('$ 912.000')).toBeVisible({ timeout: 20000 })
+})
+
 // Her own case: Edenor on débito automático with the Visa. The money is
 // never going to leave this month -- the bank puts it on the card and it
 // arrives in the card's resumen -- so the month's side of Servicios has no
@@ -226,4 +287,39 @@ test('a servicio a credit card pays lands on Con tarjeta, not on the month', asy
   ).toBeVisible()
   // Twice over: that figure, and the row's.
   await expect(page.getByText('$ 42.000')).toHaveCount(2)
+})
+
+// Naming a category that does not exist yet, from the form that needed
+// it. The v1 did this with a native datalist and the redesign dropped
+// it, so this is the journey that says it is back -- and the only place
+// the new control runs against the real rules, which have to admit a
+// category created in the same breath as the gasto filed under it.
+test('a category nobody has yet is named while anotando a gasto', async ({
+  page,
+}) => {
+  await signUpBeta(page, { budget: '1000000' })
+
+  await page.getByRole('button', { name: 'Anotar un gasto' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Anotar un gasto' })
+  await sheet.getByLabel('¿Qué fue?').fill('Facturas')
+  await sheet.getByLabel('Cuánto').fill('6800')
+  await sheet.getByRole('button', { name: /Categoría/ }).click()
+  await sheet
+    .getByLabel('Buscar o escribir una categoría')
+    .fill('Panadería')
+  await sheet.getByRole('option', { name: /Crear «Panadería»/ }).click()
+  await sheet.getByRole('button', { name: 'Anotar' }).click()
+  await expect(sheet).toBeHidden({ timeout: 20000 })
+
+  // The gasto is filed under a category that did not exist a moment ago.
+  await expect(page.getByText('Facturas')).toBeVisible({ timeout: 20000 })
+  await page
+    .getByRole('navigation', { name: 'Navegación principal' })
+    .getByRole('link', { name: 'Categorías' })
+    .click()
+  // .first(): the category is on the screen twice, as its own row and as
+  // the badge on the gasto filed under it.
+  await expect(page.getByText('Panadería').first()).toBeVisible({
+    timeout: 20000,
+  })
 })

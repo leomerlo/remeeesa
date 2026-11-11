@@ -1,3 +1,4 @@
+import { billOwed } from './billOwed'
 import { countedByBudget, DEFAULT_CURRENCY } from '@/lib/money'
 import type { Currency } from '@/lib/money'
 import { colorForCategoryName } from './categoryColor'
@@ -52,6 +53,10 @@ export function summarizeByCategory(input: {
   readonly pendientes?: readonly {
     readonly categoryId: string
     readonly expectedAmount: number | null
+    // On a bill paid in more than one go, what has already been handed
+    // over -- taken off here, since that part is in the expenses above as
+    // a Gasto of its own. See billOwed.
+    readonly paidSoFar?: number
     // Absent on anything written before a card could hold two currencies,
     // which was a peso one. A dollar Pendiente is left out of this peso
     // breakdown, like every other dollar amount.
@@ -101,12 +106,9 @@ export function summarizeByCategory(input: {
     add(expense.categoryId, expense.price, expense.currency)
   }
   for (const pendiente of input.pendientes ?? []) {
-    if (pendiente.expectedAmount !== null) {
-      add(
-        pendiente.categoryId,
-        pendiente.expectedAmount,
-        pendiente.currency ?? DEFAULT_CURRENCY,
-      )
+    const owed = billOwed(pendiente)
+    if (owed !== null) {
+      add(pendiente.categoryId, owed, pendiente.currency ?? DEFAULT_CURRENCY)
     }
   }
   for (const purchase of input.purchases ?? []) {

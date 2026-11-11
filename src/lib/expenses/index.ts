@@ -21,6 +21,7 @@ export {
   updateCategoryColor,
 } from './categoryManagement'
 export { CATEGORY_COLOR_PALETTE } from './categoryColor'
+export { billOwed } from './billOwed'
 export {
   computeMonthTotalIn,
   computePendingCommitted,

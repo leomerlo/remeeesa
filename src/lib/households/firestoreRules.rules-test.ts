@@ -676,6 +676,223 @@ describe('recurrence on a paid pendiente', () => {
   })
 })
 
+describe('paying part of a bill', () => {
+  const PENDIENTE = 'pendiente-1'
+  const GASTO = 'expense-parcial-1'
+
+  async function seedPendingBill(
+    overrides: Record<string, unknown> = {},
+  ): Promise<void> {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'pendientes', PENDIENTE), {
+        household_id: HOUSEHOLD,
+        category_id: 'cat-1',
+        name: 'Expensas',
+        due_date: Timestamp.fromDate(new Date(2026, 9, 10)),
+        expected_amount: 88000,
+        recurring: true,
+        auto_debit: false,
+        status: 'pending',
+        paid_expense_id: null,
+        paid_at: null,
+        created_at: Timestamp.now(),
+        ...overrides,
+      })
+    })
+  }
+
+  function partialGasto(price: number, overrides: Record<string, unknown> = {}) {
+    return {
+      household_id: HOUSEHOLD,
+      category_id: 'cat-1',
+      member_id: ME,
+      author_display_name: 'Ada',
+      name: 'Expensas',
+      price,
+      comments: '',
+      expense_date: Timestamp.now(),
+      pendiente_id: PENDIENTE,
+      is_service: true,
+      subcategory: null,
+      currency: 'ARS',
+      payment_method_id: null,
+      created_at: Timestamp.now(),
+      ...overrides,
+    }
+  }
+
+  // Exactly what payPendientePartially commits: the Gasto for the money
+  // that left, and the bill's running total, in one transaction.
+  it('writes the gasto and moves the running total in one commit', async () => {
+    await seedPendingBill()
+    const db = asMember()
+    const batch = writeBatch(db)
+    batch.set(doc(db, 'expenses', GASTO), partialGasto(50000))
+    batch.update(doc(db, 'pendientes', PENDIENTE), {
+      paid_so_far: 50000,
+      partial_expense_ids: [GASTO],
+    })
+
+    await assertSucceeds(batch.commit())
+  })
+
+  it('adds a second payment on top of the first', async () => {
+    await seedPendingBill({
+      paid_so_far: 50000,
+      partial_expense_ids: ['expense-parcial-0'],
+    })
+    const db = asMember()
+    const batch = writeBatch(db)
+    batch.set(doc(db, 'expenses', GASTO), partialGasto(20000))
+    batch.update(doc(db, 'pendientes', PENDIENTE), {
+      paid_so_far: 70000,
+      partial_expense_ids: ['expense-parcial-0', GASTO],
+    })
+
+    await assertSucceeds(batch.commit())
+  })
+
+  // Without this the running total on the bill could say anything, and
+  // what the month shows as owed would drift from the money in it.
+  it('refuses a running total the gasto does not account for', async () => {
+    await seedPendingBill()
+    const db = asMember()
+    const batch = writeBatch(db)
+    batch.set(doc(db, 'expenses', GASTO), partialGasto(50000))
+    batch.update(doc(db, 'pendientes', PENDIENTE), {
+      paid_so_far: 80000,
+      partial_expense_ids: [GASTO],
+    })
+
+    await assertFails(batch.commit())
+  })
+
+  it('refuses a running total with no gasto behind it at all', async () => {
+    await seedPendingBill()
+
+    await assertFails(
+      updateDoc(doc(asMember(), 'pendientes', PENDIENTE), {
+        paid_so_far: 50000,
+        partial_expense_ids: ['invented'],
+      }),
+    )
+  })
+
+  // Handing over everything still owed is paying the bill, and that goes
+  // through the mark-paid transition, which settles it.
+  it('refuses a part that covers the whole bill', async () => {
+    await seedPendingBill()
+    const db = asMember()
+    const batch = writeBatch(db)
+    batch.set(doc(db, 'expenses', GASTO), partialGasto(88000))
+    batch.update(doc(db, 'pendientes', PENDIENTE), {
+      paid_so_far: 88000,
+      partial_expense_ids: [GASTO],
+    })
+
+    await assertFails(batch.commit())
+  })
+
+  it('refuses it on a bill whose figure has not arrived', async () => {
+    await seedPendingBill({ expected_amount: null })
+    const db = asMember()
+    const batch = writeBatch(db)
+    batch.set(doc(db, 'expenses', GASTO), partialGasto(50000))
+    batch.update(doc(db, 'pendientes', PENDIENTE), {
+      paid_so_far: 50000,
+      partial_expense_ids: [GASTO],
+    })
+
+    await assertFails(batch.commit())
+  })
+
+  it('refuses it to somebody outside the household', async () => {
+    await seedPendingBill()
+    const db = asOutsider()
+    const batch = writeBatch(db)
+    batch.set(doc(db, 'expenses', GASTO), partialGasto(50000))
+    batch.update(doc(db, 'pendientes', PENDIENTE), {
+      paid_so_far: 50000,
+      partial_expense_ids: [GASTO],
+    })
+
+    await assertFails(batch.commit())
+  })
+
+  // Paying the rest afterwards is the ordinary mark-paid transition, and
+  // it has to still be allowed on a bill that already has part of it in.
+  it('still lets the rest be paid and the bill settled', async () => {
+    await seedPendingBill({
+      paid_so_far: 50000,
+      partial_expense_ids: ['expense-parcial-0'],
+    })
+    const db = asMember()
+    const batch = writeBatch(db)
+    batch.set(doc(db, 'expenses', 'expense-final'), partialGasto(38000))
+    batch.update(doc(db, 'pendientes', PENDIENTE), {
+      status: 'paid',
+      paid_expense_id: 'expense-final',
+      paid_at: Timestamp.now(),
+    })
+
+    await assertSucceeds(batch.commit())
+  })
+
+  describe('undoing the last one', () => {
+    async function seedPartlyPaid(): Promise<void> {
+      await seedPendingBill({
+        paid_so_far: 50000,
+        partial_expense_ids: [GASTO],
+      })
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(
+          doc(context.firestore(), 'expenses', GASTO),
+          partialGasto(50000),
+        )
+      })
+    }
+
+    it('takes the gasto out and the total back down, in one commit', async () => {
+      await seedPartlyPaid()
+      const db = asMember()
+      const batch = writeBatch(db)
+      batch.delete(doc(db, 'expenses', GASTO))
+      batch.update(doc(db, 'pendientes', PENDIENTE), {
+        paid_so_far: 0,
+        partial_expense_ids: [],
+      })
+
+      await assertSucceeds(batch.commit())
+    })
+
+    // Otherwise the gasto would stay in the month with nothing owing it,
+    // which is the orphan the unmark-paid rule exists to prevent too.
+    it('refuses to drop the payment while its gasto survives', async () => {
+      await seedPartlyPaid()
+
+      await assertFails(
+        updateDoc(doc(asMember(), 'pendientes', PENDIENTE), {
+          paid_so_far: 0,
+          partial_expense_ids: [],
+        }),
+      )
+    })
+
+    it('refuses to raise the total while pretending to undo', async () => {
+      await seedPartlyPaid()
+      const db = asMember()
+      const batch = writeBatch(db)
+      batch.delete(doc(db, 'expenses', GASTO))
+      batch.update(doc(db, 'pendientes', PENDIENTE), {
+        paid_so_far: 90000,
+        partial_expense_ids: [],
+      })
+
+      await assertFails(batch.commit())
+    })
+  })
+})
+
 describe('resúmenes', () => {
   const RESUMEN_ID = 'card-1_2026-10'
 
