@@ -216,7 +216,7 @@ export function Onboarding({
           <Step
             Icon={PartyPopper}
             head="Listo, ya pueden empezar"
-            say="Anotá lo que vayan gastando. Cuando termine el mes vas a ver en qué se fue."
+            say="Anotá lo que vayan gastando. Al cerrar el mes vas a tener el total repartido por categoría."
           />
         ) : null}
 

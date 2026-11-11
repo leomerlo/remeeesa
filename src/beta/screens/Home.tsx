@@ -1,6 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import {
   ArrowRight,
+  CalendarClock,
+  ChartPie,
+  Plus,
+  ReceiptText,
   CalendarDays,
   ChevronRight,
   Target,
@@ -61,6 +65,11 @@ export function Home({
   // columns stopped matching. Paying is what the Servicios screen is
   // for, and it is one tap away.
   const [editingBill, setEditingBill] = useState<Pendiente | null>(null)
+  // Adding from an empty column. A household that has just signed up sees
+  // nothing but headings otherwise, and the one thing it needs is the way
+  // in -- which is on the screen already, but not where somebody looking
+  // at an empty list is looking.
+  const [adding, setAdding] = useState<'gasto' | 'servicio' | null>(null)
   // The category whose month is open: tapping a slice of the ring shows
   // what it is made of.
   const [openCategory, setOpenCategory] = useState<string | null>(null)
@@ -383,6 +392,29 @@ export function Home({
         <div className="col">
           <section className="sec">
             <h2>Últimos gastos</h2>
+            {moves.length === 0 ? (
+              <div className="card empty">
+                <span className="orb" aria-hidden="true">
+                  <ReceiptText />
+                </span>
+                <h3>Todavía no hay gastos anotados</h3>
+                <p>
+                  Acá aparecen los gastos del día a día, ordenados por fecha.
+                  Los que se repiten todos los meses van en Servicios.
+                </p>
+                {/* Named apart from the one in the header, which is on
+                    screen at the same time: two buttons with one name is
+                    one button as far as anybody reading is concerned. */}
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={() => setAdding('gasto')}
+                >
+                  <Plus />
+                  Anotar el primero
+                </button>
+              </div>
+            ) : null}
             {moves.map((move) =>
               move.expense === undefined ? (
                 <PurchaseRow
@@ -404,14 +436,42 @@ export function Home({
             )}
             {/* At the foot of the list rather than beside its heading: it
                 is what you reach for once you have read the last row, and
-                up there it was a small link competing with the title. */}
-            <Link className="btn btn-secondary btn-wide" to="/gastos">
-              <ArrowRight />
-              Ver todos los gastos
-            </Link>
+                up there it was a small link competing with the title. Not
+                offered at all while there is no list: a way through to an
+                empty screen is not a next step. */}
+            {moves.length === 0 ? null : (
+              <Link className="btn btn-secondary btn-wide" to="/gastos">
+                <ArrowRight />
+                Ver todos los gastos
+              </Link>
+            )}
           </section>
         </div>
         <div className="col">
+          {bills.length === 0 ? (
+            <section className="sec">
+              <h2>Servicios</h2>
+              <div className="card empty">
+                <span className="orb" aria-hidden="true">
+                  <CalendarClock />
+                </span>
+                <h3>Todavía no hay servicios</h3>
+                <p>
+                  Son los pagos que se repiten todos los meses: la luz, el
+                  gas, el alquiler. Se cargan una vez y vuelven solos, cada
+                  uno con su fecha de vencimiento.
+                </p>
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={() => setAdding('servicio')}
+                >
+                  <Plus />
+                  Agregar un servicio
+                </button>
+              </div>
+            </section>
+          ) : null}
           {bills.length > 0 ? (
             <section className="sec">
               <h2>Servicios</h2>
@@ -443,19 +503,55 @@ export function Home({
       </div>
 
       <div className="band">
-        <Donut
-          rows={byCategory}
-          cardBills={cardBills}
-          onPick={setOpenCategory}
-        />
-        <Link className="btn btn-secondary btn-wide" to="/categorias">
-          <ArrowRight />
-          Ver por categoría
-        </Link>
+        {byCategory.length === 0 && cardBills.length === 0 ? (
+          <div className="card empty">
+            <span className="orb" aria-hidden="true">
+              <ChartPie />
+            </span>
+            <h3>Todavía no hay nada para repartir</h3>
+            <p>
+              Cuando haya gastos anotados, acá se reparte el total del mes
+              por categoría.
+            </p>
+          </div>
+        ) : (
+          <>
+            <Donut
+              rows={byCategory}
+              cardBills={cardBills}
+              onPick={setOpenCategory}
+            />
+            <Link className="btn btn-secondary btn-wide" to="/categorias">
+              <ArrowRight />
+              Ver por categoría
+            </Link>
+          </>
+        )}
       </div>
 
       <ProjectionLink monthStart={monthStart} />
 
+      {adding === null ? null : adding === 'gasto' ? (
+        <GastoSheet
+          open
+          onClose={() => setAdding(null)}
+          session={session}
+          expense={null}
+          categories={categories}
+          methods={methods}
+          today={new Date()}
+        />
+      ) : (
+        <ServicioSheet
+          open
+          onClose={() => setAdding(null)}
+          session={session}
+          bill={null}
+          categories={categories}
+          methods={methods}
+          today={new Date()}
+        />
+      )}
       {editing === null ? null : (
         <GastoSheet
           open
