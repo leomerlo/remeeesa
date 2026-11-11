@@ -1,4 +1,4 @@
-import { Banknote, Undo2 } from 'lucide-react'
+import { Banknote, Check, Undo2 } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
 import type { Card as PaymentMethod } from '@/lib/cards'
@@ -331,6 +331,21 @@ export function PagarSheet({
       ? 'Todavía estamos leyendo el hogar. Probá de nuevo en un segundo.'
       : null
 
+  // The figure arrived, but nobody has paid it yet: the bill keeps the
+  // new amount and goes on waiting. Without this the only way out of this
+  // form was paying, so correcting a figure meant claiming money had left
+  // the account.
+  const onJustSave = (): void => {
+    save.run(() =>
+      updatePendiente({
+        db: session.db,
+        householdId,
+        pendienteId: bill.id,
+        expectedAmount: moneyValue(amount),
+      }),
+    )
+  }
+
   const onSave = (): void => {
     save.run(() => {
       const finalAmount = moneyValue(amount)
@@ -375,9 +390,17 @@ export function PagarSheet({
           locked={locked}
           failed={save.failed}
           onSave={onSave}
+          secondary={{
+            label: 'Guardar el monto',
+            icon: <Check />,
+            onPress: onJustSave,
+          }}
         />
       }
     >
+      {/* "Cuánto pagaron" with the footer offering to save it and
+          nothing else: the bill arrives before it is paid, and writing
+          its real figure down is not the same as saying the money left. */}
       <MoneyField
         label="Cuánto pagaron"
         prefix={(bill.currency ?? 'ARS') === 'USD' ? 'US$' : '$'}

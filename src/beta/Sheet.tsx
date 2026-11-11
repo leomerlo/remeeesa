@@ -92,6 +92,7 @@ export function SheetFoot({
   locked,
   failed,
   onSave,
+  secondary,
 }: {
   readonly label: string
   readonly saving: boolean
@@ -103,6 +104,15 @@ export function SheetFoot({
   readonly locked: string | null
   readonly failed: string | null
   readonly onSave: () => void
+  // A second way out of the same form, where the form really has two: not
+  // "cancel" -- the X and the scrim already do that -- but another thing
+  // it can be used for. Paying a bill is the one: the figure that arrived
+  // can be written down before anybody pays it.
+  readonly secondary?: {
+    readonly label: string
+    readonly icon?: ReactNode
+    readonly onPress: () => void
+  }
 }): ReactElement {
   return (
     <div className="sheet-acts">
@@ -116,6 +126,18 @@ export function SheetFoot({
         {saving ? <Loader2 className="spin" /> : <Check />}
         {saving ? 'Guardando…' : label}
       </button>
+      {secondary === undefined ? null : (
+        <button
+          className="btn btn-secondary btn-block"
+          type="button"
+          disabled={saving || blocked || locked !== null}
+          aria-disabled={saving || blocked || locked !== null}
+          onClick={secondary.onPress}
+        >
+          {secondary.icon}
+          {secondary.label}
+        </button>
+      )}
       {failed === null ? null : (
         <p className="fproblem" role="alert">
           {failed}
