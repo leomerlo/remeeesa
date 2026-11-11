@@ -20,6 +20,41 @@ export const MAX_CUOTAS = 24
 // Every Resumen lives in this category, find-or-created on the first purchase.
 export const RESUMEN_CATEGORY_NAME = 'Tarjeta'
 
+// The category a card's Resúmenes live in, which is NOT "whatever is
+// called Tarjeta".
+//
+// It is created under that name and the household may rename it -- "me
+// cambié Tarjetas a Tarjetas de Crédito para que se entienda mejor" --
+// and after that, looking it up by name finds nothing and makes a second
+// one beside the first. The household would end up with two card
+// categories, the old Resúmenes in one and every new one in the other.
+//
+// So it is found the way every figure in the app finds it: off the
+// Resúmenes themselves, which carry it whatever it is called. The name
+// stays as the way in for a household that has no Resumen yet, which is
+// every household the first time it logs something on credit -- and that
+// is also the only time the name is the right answer, because it is the
+// moment the category is made.
+async function resumenCategoryId(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+}): Promise<string> {
+  const pendientes = await input.db.listPendientes({
+    householdId: input.householdId,
+  })
+  const resumen = pendientes.find(
+    (pendiente) => pendiente.cardId !== undefined,
+  )
+  if (resumen !== undefined) {
+    return resumen.categoryId
+  }
+  const made = await input.db.findOrCreateCategory({
+    householdId: input.householdId,
+    name: RESUMEN_CATEGORY_NAME,
+  })
+  return made.id
+}
+
 // Resúmenes are due on this day of their month.
 export const RESUMEN_DUE_DAY = 10
 
@@ -134,10 +169,12 @@ export async function createCardPurchase(input: {
   const purchaseDate = parseExpenseDate(input.purchaseDate)
   const authorDisplayName = parseAuthorDisplayName(input.authorDisplayName)
   const currency = await assertCardAccepts(input.db, input)
-  const resumenCategory = await input.db.findOrCreateCategory({
-    householdId: input.householdId,
-    name: RESUMEN_CATEGORY_NAME,
-  })
+  const resumenCategory = {
+    id: await resumenCategoryId({
+      db: input.db,
+      householdId: input.householdId,
+    }),
+  }
   return input.db.createCardPurchase({
     householdId: input.householdId,
     cardId: input.cardId,
@@ -184,10 +221,12 @@ export async function markPendientePaidWithCard(input: {
   const paymentDate = parseExpenseDate(input.paymentDate)
   const authorDisplayName = parseAuthorDisplayName(input.authorDisplayName)
   const currency = await assertCardAccepts(input.db, input)
-  const resumenCategory = await input.db.findOrCreateCategory({
-    householdId: input.householdId,
-    name: RESUMEN_CATEGORY_NAME,
-  })
+  const resumenCategory = {
+    id: await resumenCategoryId({
+      db: input.db,
+      householdId: input.householdId,
+    }),
+  }
   return input.db.markPendientePaidWithCard({
     householdId: input.householdId,
     pendienteId: input.pendienteId,
@@ -246,10 +285,12 @@ export async function updateCardPurchase(input: {
   const purchaseDate = parseExpenseDate(input.purchaseDate)
   const currency = await assertCardAccepts(input.db, input)
   // A new month -- or a new currency -- may need a new Resumen.
-  const resumenCategory = await input.db.findOrCreateCategory({
-    householdId: input.householdId,
-    name: RESUMEN_CATEGORY_NAME,
-  })
+  const resumenCategory = {
+    id: await resumenCategoryId({
+      db: input.db,
+      householdId: input.householdId,
+    }),
+  }
   return input.db.updateCardPurchase({
     householdId: input.householdId,
     purchaseId: input.purchaseId,
@@ -417,10 +458,12 @@ export async function markResumenPaid(input: {
   const amountPaid = parseExpensePrice(input.amountPaid)
   const paymentDate = parseExpenseDate(input.paymentDate)
   const authorDisplayName = parseAuthorDisplayName(input.authorDisplayName)
-  const tarjeta = await input.db.findOrCreateCategory({
-    householdId: input.householdId,
-    name: RESUMEN_CATEGORY_NAME,
-  })
+  const tarjeta = {
+    id: await resumenCategoryId({
+      db: input.db,
+      householdId: input.householdId,
+    }),
+  }
   // The Resumen's own currency decides what the expenses the payment writes
   // are denominated in -- not the card's, which may hold both and in any
   // case can be changed after the fact. A Resumen saved before a card could
