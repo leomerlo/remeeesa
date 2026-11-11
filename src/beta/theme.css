@@ -1170,9 +1170,27 @@ body {
 }
 .catrow .amt {
   grid-column: 3;
+  display: grid;
+  justify-items: end;
+  gap: 2px;
   font-size: var(--t-md);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+}
+/* The dollars under the pesos, never beside them: they are two bills,
+     not one sum, and the household's own money leads. Same shape the
+     cards on Inicio use for a figure in two currencies. */
+.catrow .amt .usd {
+  font-size: var(--t-sm);
+  font-weight: 700;
+  color: var(--ink-2);
+}
+/* The dollar ceiling's own bar, under the peso one. Dashed track so the
+     two are told apart at a glance even where the colour is the same. */
+.catrow .usdbar {
+  background: transparent;
+  border: 1px dashed #d6cbe9;
+  height: 8px;
 }
 .catrow .bar {
   grid-column: 2 / -1;

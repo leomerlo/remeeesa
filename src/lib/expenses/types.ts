@@ -13,6 +13,19 @@ export type Category = {
   // budget: per direct feedback you cap the few that matter and leave the
   // rest alone, and going over the total is a warning, not a refusal.
   readonly monthlyBudget: number
+  // The same ceiling for the dollars the category takes, counted apart.
+  // A category can have one, the other, or both: Meta Ads is spent only
+  // in dollars, Comida only in pesos, and a subscriptions category has
+  // some of each.
+  //
+  // Apart rather than converted, for the reason nothing in this app ever
+  // adds the two (see lib/money/currency): the rate moves every day, so
+  // a converted total would make a month that is already over keep
+  // changing -- and on a category holding both, nobody could tell a
+  // figure that moved because of spending from one that moved because of
+  // the blue. Absent on every category written before this existed, and
+  // zero means no ceiling, like monthlyBudget's own zero.
+  readonly monthlyBudgetUsd?: number
   readonly createdAt: Date
 }
 
