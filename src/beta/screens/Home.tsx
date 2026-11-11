@@ -265,9 +265,9 @@ export function Home({
   ]
     .sort((a, b) => b.at.getTime() - a.at.getTime())
     .slice(0, HOME_ROWS)
-  const soonest = [...bills]
-    .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
-    .slice(0, HOME_ROWS)
+  // Already in the order Servicios shows them in -- re-sorting by due
+  // date here was what undid it.
+  const soonest = bills.slice(0, HOME_ROWS)
   const several = members.length > 1
   const others = members
     .map((member) => member.displayName)

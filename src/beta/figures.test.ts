@@ -1238,4 +1238,16 @@ describe('the beta says the same month on every screen', () => {
       cents(homeFigures(without).paid) + cents(servicio.price),
     )
   })
+
+  // Inicio's "Servicios" column is the Servicios screen under a shorter
+  // heading, so it has to be the same list in the same order -- it used
+  // to sort the whole lot by due date, which mixed the settled ones back
+  // in among the open ones and cost the column rows it had to spare.
+  each('Inicio lists the servicios in the order Servicios does', (snap, key) => {
+    const home = homeFigures(snap)
+    const servicios = serviciosFigures(snap)
+    expect(home.bills.map((bill) => bill.id), key).toEqual(
+      servicios.bills.map((bill) => bill.id),
+    )
+  })
 })

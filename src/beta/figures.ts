@@ -227,13 +227,24 @@ export function homeFigures(input: HomeInput): HomeFigures {
     monthEnd,
     now,
   })
-  // Paid ones among them, by the day they fall due: the column says
-  // "Servicios", so a month where everything is settled still has a
-  // list, and the order is the one somebody reads a month in.
+  // The same order Servicios puts them in, because it is the same list
+  // under a shorter heading: what is already late leads, then what has
+  // fallen due, then what has not yet, and everything settled goes under
+  // all of it because it needs nothing from anybody.
+  //
+  // It used to sort the whole lot by due date alone, which mixed the
+  // settled ones back in among the open ones -- and since the column
+  // only shows the first few, a bill nobody has to think about took a
+  // row from one somebody does. Per direct feedback: "me aparece Arca,
+  // que ya lo pagué, y en el medio hay un montón que ya vencieron que no
+  // me están apareciendo".
   const bills = [
     ...unpaid,
-    ...input.settled.filter((one) => isBillToPay(one)),
-  ].sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
+    ...input.settled
+      .filter((one) => isBillToPay(one))
+      .slice()
+      .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime()),
+  ]
 
   // A month already over is compared whole against the month before it; a
   // month still running is cut at today. Anchoring on `now` whatever month

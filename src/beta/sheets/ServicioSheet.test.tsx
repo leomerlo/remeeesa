@@ -319,11 +319,10 @@ describe('the servicio form asks what the gasto form asks', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /Categoría/ }))
-    fireEvent.change(
-      screen.getByLabelText('Buscar o escribir una categoría'),
-      { target: { value: 'Impuestos' } },
-    )
+    fireEvent.focus(screen.getByLabelText('Categoría'))
+    fireEvent.change(screen.getByLabelText('Categoría'), {
+      target: { value: 'Impuestos' },
+    })
     fireEvent.click(screen.getByRole('option', { name: /Crear «Impuestos»/ }))
     fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
 
