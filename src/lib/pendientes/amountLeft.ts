@@ -1,3 +1,4 @@
+import { billOwed } from '@/lib/expenses/billOwed'
 import type { Pendiente } from './types'
 
 // What a bill still owes, once the part already handed over is taken off.
@@ -11,16 +12,15 @@ import type { Pendiente } from './types'
 // Null means "not known yet", the same thing expectedAmount's null means:
 // a bill whose figure has not arrived cannot owe an amount, whatever has
 // been handed over against it. A paid bill owes nothing.
+//
+// The arithmetic itself is lib/expenses/billOwed, which is where every
+// total of a pending bill reaches it -- this adds the one thing those
+// totals cannot see, which is whether the bill is settled.
 export function amountLeft(bill: Pendiente): number | null {
   if (bill.status === 'paid') {
     return 0
   }
-  if (bill.expectedAmount === null) {
-    return null
-  }
-  // Never negative: handing over more than the bill said is a correction
-  // waiting to happen, not a debt the other way round.
-  return Math.max(0, bill.expectedAmount - paidSoFar(bill))
+  return billOwed(bill)
 }
 
 // What has been handed over against a bill so far. Zero on every bill

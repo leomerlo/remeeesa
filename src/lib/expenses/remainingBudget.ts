@@ -1,3 +1,4 @@
+import { billOwed } from './billOwed'
 import { countedByBudget, DEFAULT_CURRENCY } from '@/lib/money'
 import type { Currency } from '@/lib/money'
 // Argentine peso formatting: thousands separator "." and decimal "," (e.g.
@@ -120,6 +121,11 @@ export function computeSpentThisMonth(
 export function computePendingCommitted(
   pendientes: readonly {
     expectedAmount: number | null
+    // What has already been handed over against the bill, on one paid in
+    // more than one go. Taken off here so that every screen reading this
+    // figure -- in both apps -- counts only what is left, without each of
+    // them having to remember to. See billOwed.
+    paidSoFar?: number
     currency?: Currency
   }[],
 ): number {
@@ -131,8 +137,9 @@ export function computePendingCommitted(
   )
   let cents = 0
   for (const pendiente of counted) {
-    if (pendiente.expectedAmount !== null) {
-      cents += Math.round(pendiente.expectedAmount * 100)
+    const owed = billOwed(pendiente)
+    if (owed !== null) {
+      cents += Math.round(owed * 100)
     }
   }
   return cents / 100
@@ -152,6 +159,7 @@ export function computeMonthTotalIn(input: {
   readonly expenses: readonly { price: number; currency: Currency }[]
   readonly pendientes?: readonly {
     readonly expectedAmount: number | null
+    readonly paidSoFar?: number
     readonly currency?: Currency
   }[]
   readonly currency: Currency
@@ -164,8 +172,9 @@ export function computeMonthTotalIn(input: {
   }
   for (const pendiente of input.pendientes ?? []) {
     const currency = pendiente.currency ?? DEFAULT_CURRENCY
-    if (currency === input.currency && pendiente.expectedAmount !== null) {
-      cents += Math.round(pendiente.expectedAmount * 100)
+    const owed = billOwed(pendiente)
+    if (currency === input.currency && owed !== null) {
+      cents += Math.round(owed * 100)
     }
   }
   return cents / 100
