@@ -35,6 +35,7 @@ export {
   markPendientePaidWithCard,
   MAX_CUOTAS,
   RESUMEN_CATEGORY_NAME,
+  RESUMEN_CATEGORY_NAMES,
   parseCuotas,
   ResumenAlreadyPaidError,
   ResumenNotYetPayableError,

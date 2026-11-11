@@ -22,6 +22,7 @@ import {
 import type { Pendiente } from '@/lib/pendientes'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { createCard } from './cards'
+import { RESUMEN_CATEGORY_NAME } from './purchases'
 import {
   canPayResumen,
   CardPurchaseLockedError,
@@ -145,7 +146,9 @@ describe('createCardPurchase', () => {
       db: s.db,
       householdId: s.householdId,
     })
-    const tarjeta = categories.find((category) => category.name === 'Tarjeta')
+    const tarjeta = categories.find(
+      (category) => category.name === RESUMEN_CATEGORY_NAME,
+    )
     expect(tarjeta).toBeDefined()
     const pendientes = await listPendientes({
       db: s.db,
@@ -1009,7 +1012,9 @@ describe('markResumenPaid', () => {
       db: s.db,
       householdId: s.householdId,
     })
-    const tarjeta = categories.find((category) => category.name === 'Tarjeta')
+    const tarjeta = categories.find(
+      (category) => category.name === RESUMEN_CATEGORY_NAME,
+    )
     expect(
       expenses.map((e) => [e.name, e.price, e.subcategory, e.categoryId]),
     ).toEqual([
@@ -1503,7 +1508,7 @@ describe('the card category after it has been renamed', () => {
     expect(
       categories.filter(
         (category) =>
-          category.name === 'Tarjeta' ||
+          category.name === RESUMEN_CATEGORY_NAME ||
           category.name === 'Tarjetas de Crédito',
       ).length,
     ).toBe(1)

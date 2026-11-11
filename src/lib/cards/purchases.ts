@@ -18,7 +18,19 @@ import type { CardPurchase } from './types'
 export const MAX_CUOTAS = 24
 
 // Every Resumen lives in this category, find-or-created on the first purchase.
-export const RESUMEN_CATEGORY_NAME = 'Tarjeta'
+// What the card category is called when the app makes one. Households
+// created before this called it "Tarjeta", and some renamed it by hand
+// -- so the name is never how it is found where a Resumen can say it
+// (see cardCategoryIds and resumenCategoryId); the names below exist
+// only for the one moment before a household has any Resumen at all.
+export const RESUMEN_CATEGORY_NAME = 'Tarjetas de Crédito'
+
+// Every name that has ever meant "the card's own category". Order does
+// not matter; a household has at most one of them.
+export const RESUMEN_CATEGORY_NAMES = [
+  RESUMEN_CATEGORY_NAME,
+  'Tarjeta',
+] as const
 
 // The category a card's Resúmenes live in, which is NOT "whatever is
 // called Tarjeta".
@@ -47,6 +59,17 @@ async function resumenCategoryId(input: {
   )
   if (resumen !== undefined) {
     return resumen.categoryId
+  }
+  // No Resumen yet, which is every household's first purchase on
+  // credit. Then the name is the only way in -- any of the names this
+  // category has gone by, so a household that has one under the old one
+  // does not get a second.
+  const categories = await input.db.listCategories(input.householdId)
+  const named = categories.find((category) =>
+    (RESUMEN_CATEGORY_NAMES as readonly string[]).includes(category.name),
+  )
+  if (named !== undefined) {
+    return named.id
   }
   const made = await input.db.findOrCreateCategory({
     householdId: input.householdId,

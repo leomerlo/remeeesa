@@ -1,4 +1,4 @@
-import { cardsDueNextMonthTotals, RESUMEN_CATEGORY_NAME } from '@/lib/cards'
+import { cardsDueNextMonthTotals, RESUMEN_CATEGORY_NAMES } from '@/lib/cards'
 import { cuotasOf } from '@/lib/cards/cuotas'
 import type {
   Card as PaymentMethod,
@@ -430,10 +430,14 @@ export function cardCategoryIds(input: {
       .filter((pendiente) => pendiente.cardId !== undefined)
       .map((pendiente) => pendiente.categoryId),
   )
-  const named = input.categories.find(
-    (category) => category.name === RESUMEN_CATEGORY_NAME,
-  )
-  if (named !== undefined) ids.add(named.id)
+  // Any name the card category has gone by: it is created under one,
+  // and a household may rename it. This is only the way in for a
+  // household with no Resumen to read it off.
+  for (const category of input.categories) {
+    if ((RESUMEN_CATEGORY_NAMES as readonly string[]).includes(category.name)) {
+      ids.add(category.id)
+    }
+  }
   return ids
 }
 
@@ -517,12 +521,16 @@ export function cardBillTotals(input: {
     ),
   ]
     .filter((bill) => cards.has(bill.categoryId))
-    // What is owed, never the estimate: a Resumen with no statement
-    // loaded yet owes nothing, which is the same rule the rest of the
-    // month's figures follow. A statement written by hand carries its
-    // own amount and counts in full.
+    // A Resumen nobody has written a figure on is worth what the cuotas
+    // logged against it come to. That is an estimate and the line says
+    // so -- but zero is not a better answer to "what do the statements
+    // come to this month", it is a wrong one, and it is what this line
+    // used to give until somebody typed the real figure in.
+    //
+    // Everything else counts what it says: a statement written by hand
+    // carries its own amount.
     .map((bill) => ({
-      price: bill.expectedAmount ?? 0,
+      price: bill.expectedAmount ?? bill.estimatedAmount ?? 0,
       currency: bill.currency ?? DEFAULT_CURRENCY,
     }))
   return (['ARS', 'USD'] as const).flatMap((currency) => {
@@ -1004,10 +1012,11 @@ export function projectionFigures(input: {
       .filter((pendiente) => pendiente.cardId !== undefined)
       .map((pendiente) => pendiente.categoryId),
   )
-  const named = input.categories.find(
-    (category) => category.name === RESUMEN_CATEGORY_NAME,
-  )
-  if (named !== undefined) cardCategories.add(named.id)
+  for (const category of input.categories) {
+    if ((RESUMEN_CATEGORY_NAMES as readonly string[]).includes(category.name)) {
+      cardCategories.add(category.id)
+    }
+  }
 
   const byId = new Map(
     input.categories.map((category) => [category.id, category]),

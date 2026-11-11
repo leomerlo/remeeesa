@@ -2990,6 +2990,9 @@ body {
   color: var(--ink-2);
   line-height: 1.35;
 }
+/* A note that is a caution rather than an explanation: the household is
+   about to leave something behind, and the form says so without
+   refusing. Amber, like every other "mirá esto" in the app. */
 .fnote {
   margin: 0;
   font-size: var(--t-sm);
@@ -2999,6 +3002,13 @@ body {
   color: var(--info-700);
   border-radius: 12px;
   padding: 12px 14px;
+}
+/* A note that cautions rather than explains: the household is about to
+     leave something behind, and the form says so without refusing.
+     Amber, like everything else in the app that means "mirá esto". */
+.fnote.warn {
+  background: var(--amber-50);
+  color: var(--amber-700);
 }
 /* What is missing, said in words and in the colour of something that
      needs fixing. Not shouted: it appears while a form is half-filled,
