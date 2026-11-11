@@ -345,7 +345,7 @@ export function ServicioSheet({
       {bill === null || !isPartlyPaid(bill) ? null : (
         <>
           <p className="fnote">
-            Ya van {pesos(paidSoFar(bill))} de{' '}
+            Pagaste {pesos(paidSoFar(bill))} de{' '}
             {pesos(bill.expectedAmount ?? 0)}, así que falta{' '}
             {pesos(amountLeft(bill) ?? 0)}. Deshacer el último pago le
             devuelve eso al servicio y saca el gasto que ese pago había
@@ -570,7 +570,7 @@ export function PagarSheet({
           ? {}
           : {
               hint: isPartlyPaid(bill)
-                ? `Ya van ${pesos(paidSoFar(bill))} de ${pesos(bill.expectedAmount)}, así que falta ${pesos(left ?? 0)}.`
+                ? `Pagaste ${pesos(paidSoFar(bill))} de ${pesos(bill.expectedAmount)}, así que falta ${pesos(left ?? 0)}.`
                 : `Lo esperado era ${pesos(bill.expectedAmount)}. Si vino distinto, poné lo que pagaste de verdad.`,
             })}
       />

@@ -157,9 +157,12 @@ describe('a category spent only in dollars', () => {
         name: 'Ver los movimientos de Suscripciones',
       }),
     ).toBeInTheDocument()
-    // Twice over: the movement in the list, and the category's own line
-    // in the breakdown.
-    expect(screen.getAllByText('US$ 4,96')).toHaveLength(2)
+    // Three times over: the panel's own figure at the top, the movement
+    // in the list, and the category's line in the breakdown. The panel
+    // used to be the one place on this screen that said nothing about
+    // dollars, which on a month spent in them is the first place it has
+    // to be said.
+    expect(screen.getAllByText('US$ 4,96')).toHaveLength(3)
   })
 })
 

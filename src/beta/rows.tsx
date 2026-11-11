@@ -268,7 +268,7 @@ export function BillRow({
                 left and on its own would read like a cheaper bill. */}
             {isPartlyPaid(bill) && bill.expectedAmount !== null ? (
               <span className="tag part">
-                Ya van {formatAmount(paidSoFar(bill), currency)} de{' '}
+                Pagaste {formatAmount(paidSoFar(bill), currency)} de{' '}
                 {formatAmount(bill.expectedAmount, currency)}
               </span>
             ) : null}
@@ -496,11 +496,12 @@ export function Donut({
           both currencies, which a peso ring could never do. */}
       {cardBills.length === 0 ? null : (
         <AlertCard kind="info" icon={<Info />}>
-          {/* "La tarjeta pide", not "hay que pagar": the figure counts
-              the month's card bills whether or not they have been paid,
-              which is the whole point of it -- it says what the card
-              asked of this month, beside what the categories took. */}
-          Además, este mes la tarjeta pide{' '}
+          {/* "Suman", not "hay que pagar": the figure counts the month's
+              card bills whether or not they have been paid, which is the
+              whole point of it -- it states what the statements come to,
+              beside what the categories took, and stating a sum is true
+              on both sides of the payment. Her wording. */}
+          Además, este mes los resúmenes de las tarjetas de crédito suman{' '}
           {cardBills.map(({ currency, total }, index) => (
             <span key={currency}>
               {index === 0 ? null : ' y '}
