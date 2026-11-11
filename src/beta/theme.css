@@ -2389,6 +2389,49 @@ body {
   color: var(--side-ink);
   font-variant-numeric: tabular-nums;
 }
+/* Which way the change is going, which is what picks the rate. Two
+     halves of one control, so it reads as one question with two answers
+     rather than as two things you could both press. The labels wrap at
+     this width, which is better than abbreviating them into "Vendo" and
+     "Compro" -- on their own those do not say what. */
+.dolar .sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-top: 10px;
+}
+.dolar .sides button {
+  font: inherit;
+  font-size: var(--t-xs);
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--side-ink-2);
+  background: transparent;
+  border: 2px solid var(--side-line, rgba(255, 255, 255, 0.18));
+  border-radius: 12px;
+  padding: 8px 6px;
+  min-height: 46px;
+  cursor: pointer;
+}
+.dolar .sides button.on {
+  background: var(--side-ink);
+  border-color: var(--side-ink);
+  color: var(--side-active);
+}
+.dolar .sides button:focus-visible {
+  outline: 2px solid var(--side-ink);
+  outline-offset: 2px;
+}
+/* What the chosen side actually means at today's rate, in the words
+     somebody standing at the counter would use. The whole point of the
+     pair above: the figure alone never said which way it ran. */
+.dolar .sidesay {
+  margin-top: 8px;
+  font-size: var(--t-xs);
+  font-weight: 400;
+  line-height: 1.35;
+  color: var(--side-ink-2);
+}
 .dolar .pair {
   display: grid;
   gap: 4px;

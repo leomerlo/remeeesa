@@ -2,7 +2,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { Card as PaymentMethod } from '@/lib/cards'
 import { currentMonthRange } from '@/lib/expenses'
-import type { Category } from '@/lib/expenses'
+import type { Category, Expense } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
@@ -94,7 +94,7 @@ function fill(name: string, amount: string): void {
 }
 
 async function movements(it: House): Promise<{
-  readonly expenses: readonly { name: string; price: number }[]
+  readonly expenses: readonly Expense[]
   readonly pendientes: readonly { name: string; recurring: boolean }[]
   readonly purchases: readonly { name: string; cuotas: number }[]
 }> {
@@ -400,9 +400,6 @@ describe('editing a gasto into a servicio', () => {
       expenseDate: TODAY,
       currency: 'ARS',
       paymentMethodId: null,
-      isService: false,
-      subcategory: null,
-      pendienteId: null,
     })
     return gasto
   }
