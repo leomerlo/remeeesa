@@ -426,3 +426,93 @@ describe('the servicio form asks what the gasto form asks', () => {
     })
   })
 })
+
+// Paying from the edit form with a credit card is the same event as
+// paying from the row with one: the money does not leave today, it
+// becomes a consumo in that card's Resumen. The switch used to write an
+// ordinary gasto with the card merely named on it, which charged the
+// month for money that had not moved and left the consumo out of the
+// card. Per direct feedback: "pagué Claro con la Visa y en el resumen
+// no aparece".
+describe('paying from the form with a credit card', () => {
+  it('books a consumo on the card instead of a gasto', async () => {
+    const db = createMemoryHouseholdsDb().asUser(FLOR)
+    const { household } = await db.createHouseholdAndMembership({
+      userId: FLOR,
+      name: 'Casa Merlo',
+      monthlyBudget: 500_000,
+      displayName: 'Flor',
+    })
+    const casa = await db.findOrCreateCategory({
+      householdId: household.id,
+      name: 'Casa',
+    })
+    const visa = await db.createCard({
+      householdId: household.id,
+      name: 'Visa CRÉDITO Santander FLOR',
+      kind: 'credito',
+      currency: 'ARS',
+      brand: 'visa',
+    })
+    const bill = await createPendiente({
+      db,
+      householdId: household.id,
+      categoryId: casa.id,
+      name: 'Claro Flor - Teléfono',
+      dueDate: new Date(2026, 8, 6, 12),
+      expectedAmount: 11_998.01,
+      recurring: true,
+      autoDebit: true,
+      paymentMethodId: visa.id,
+      currency: 'ARS',
+    })
+    const session: BetaSession = {
+      userId: FLOR,
+      householdId: household.id,
+      displayName: 'Flor',
+      db,
+      adopt: vi.fn(),
+      rename: vi.fn(),
+    }
+
+    renderWithProviders(
+      <ServicioSheet
+        open
+        onClose={vi.fn()}
+        session={session}
+        bill={bill}
+        categories={[casa]}
+        methods={[visa]}
+        today={TODAY}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('switch', { name: /Ya lo pagué/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    await waitFor(async () => {
+      const after = await db.getPendiente({
+        householdId: household.id,
+        pendienteId: bill.id,
+      })
+      expect(after?.status).toBe('paid')
+    })
+    const after = await db.getPendiente({
+      householdId: household.id,
+      pendienteId: bill.id,
+    })
+    // On the card, and not among the month's gastos: the money has not
+    // left, it is waiting in the Resumen.
+    expect(after?.paidPurchaseId ?? null).not.toBeNull()
+    expect(after?.paidExpenseId).toBeNull()
+    expect(
+      await db.listRecentExpenses({ householdId: household.id, limit: 10 }),
+    ).toEqual([])
+    // And the Resumen carries it, which is what puts it on Tarjetas.
+    const pendientes = await db.listPendientes({ householdId: household.id })
+    const carrying = pendientes.filter((one) =>
+      (one.purchaseIds ?? []).includes(after?.paidPurchaseId ?? ''),
+    )
+    expect(carrying.length).toBe(1)
+  })
+})

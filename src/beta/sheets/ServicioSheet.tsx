@@ -212,8 +212,31 @@ export function ServicioSheet({
       if (settled || !paid) return edited
       // Said to be paid, and it was not: settle it for what the form
       // says, today. The row's own "Ya lo pagué" asks more -- the date,
-      // the method, whether it was only a part -- and is still there.
+      // whether it was only a part -- and is still there.
       if (expectedAmount === null) return edited
+      // On a credit card this is a different event, and the form has to
+      // know it: the money does not leave today, it becomes a consumo in
+      // that card's Resumen and arrives when the Resumen is paid. Writing
+      // an ordinary gasto with the card merely named on it charged the
+      // month for money that had not moved, and left the consumo out of
+      // the card -- "pagué Claro con la Visa y en el resumen no aparece".
+      const chosen = methods.find((candidate) => candidate.id === methodId)
+      if (chosen !== undefined && chosen.kind === 'credito') {
+        return markPendientePaidWithCard({
+          db: session.db,
+          householdId,
+          pendienteId: bill.id,
+          cardId: chosen.id,
+          memberId: session.userId ?? '',
+          authorDisplayName: session.displayName ?? 'Alguien',
+          finalAmount: expectedAmount,
+          // A bill is one payment, never in cuotas: the card takes it
+          // whole into one Resumen.
+          cuotas: 1,
+          paymentDate: today,
+          currency,
+        })
+      }
       return markPendientePaid({
         db: session.db,
         householdId,
