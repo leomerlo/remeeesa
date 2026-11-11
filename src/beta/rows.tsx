@@ -496,14 +496,18 @@ export function Donut({
           both currencies, which a peso ring could never do. */}
       {cardBills.length === 0 ? null : (
         <AlertCard kind="info" icon={<Info />}>
-          Además, este mes hay que pagar{' '}
+          {/* "La tarjeta pide", not "hay que pagar": the figure counts
+              the month's card bills whether or not they have been paid,
+              which is the whole point of it -- it says what the card
+              asked of this month, beside what the categories took. */}
+          Además, este mes la tarjeta pide{' '}
           {cardBills.map(({ currency, total }, index) => (
             <span key={currency}>
               {index === 0 ? null : ' y '}
               <b>{formatAmount(total, currency)}</b>
             </span>
-          ))}{' '}
-          de tarjeta.
+          ))}
+          .
         </AlertCard>
       )}
       {/* What the chart counts, at the foot and in grey: it is the small
