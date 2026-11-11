@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeftRight, Pencil } from 'lucide-react'
+import { ArrowUpDown, Pencil } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement } from 'react'
-import { fetchDolarBlueRate, usdToArs } from '@/lib/dolarBlue'
+import { arsToUsd, fetchDolarBlueRate, usdToArs } from '@/lib/dolarBlue'
 import {
   clearDolarBlueOverride,
   readDolarBlueOverride,
@@ -23,7 +23,13 @@ export function Dolar(): ReactElement {
   )
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
-  const [usd, setUsd] = useState('100')
+  // One side holds what was typed and the other is worked out from it, so
+  // whichever box you are in is the one that keeps your digits. Typing in
+  // the other simply moves which side that is.
+  const [typed, setTyped] = useState<{
+    readonly side: 'usd' | 'ars'
+    readonly text: string
+  }>({ side: 'usd', text: '100' })
 
   const fetched = useQuery({
     queryKey: ['beta', 'dolar'],
@@ -75,6 +81,8 @@ export function Dolar(): ReactElement {
     )
   }
 
+  const sides = convert(typed, rate)
+
   return (
     <div className="dolar">
       <div className="top">
@@ -109,24 +117,64 @@ export function Dolar(): ReactElement {
           </button>
         </div>
       )}
+      {/* Both sides take a figure, and each says which money it is: the
+          two boxes were identical and the conversion only ran one way, so
+          whoever typed into them had to remember which was which and
+          could only ever ask the question in one direction.
+
+          The arrows between them are a picture of what is happening, not
+          a button: there is nothing to press when both sides are live.
+
+          One over the other, not side by side: the rail is 200px wide,
+          and a box holding "US$" and "155.500" at once cut the figure
+          off halfway through. */}
       <div className="pair">
-        {/* The same amount field the forms use: a figure typed here is
-            read the way one typed anywhere else is. */}
-        <AmountInput label="Dólares" value={usd} onChange={setUsd} />
+        <label className="side">
+          <span className="cur">US$</span>
+          <AmountInput
+            label="Dólares"
+            value={sides.usd}
+            onChange={(text) => setTyped({ side: 'usd', text })}
+          />
+        </label>
         <span className="swap" aria-hidden="true">
-          <ArrowLeftRight />
+          <ArrowUpDown />
         </span>
-        <input
-          value={
-            rate === null
-              ? ''
-              : formatPesos(Math.round(usdToArs(parseStoredAmount(usd), rate)))
-          }
-          inputMode="numeric"
-          aria-label="Pesos"
-          readOnly
-        />
+        <label className="side">
+          <span className="cur">$</span>
+          <AmountInput
+            label="Pesos"
+            value={sides.ars}
+            onChange={(text) => setTyped({ side: 'ars', text })}
+          />
+        </label>
       </div>
     </div>
   )
+}
+
+// What each box shows: the one that was typed in, verbatim, and the other
+// worked out at the rate. Nothing is worked out without a rate, and
+// nothing is worked out from an empty box -- a zero nobody typed reads
+// like an answer.
+//
+// Pesos come out whole, because nobody converts to pesos and cares about
+// the centavos; dollars come out to the cent, because at 1.555 a peso
+// rounding them to whole dollars would throw away a thousand pesos.
+export function convert(
+  typed: { readonly side: 'usd' | 'ars'; readonly text: string },
+  rate: number | null,
+): { readonly usd: string; readonly ars: string } {
+  const other =
+    rate === null || rate <= 0 || typed.text.trim() === ''
+      ? ''
+      : typed.side === 'usd'
+        ? String(Math.round(usdToArs(parseStoredAmount(typed.text), rate)))
+        : String(
+            Math.round(arsToUsd(parseStoredAmount(typed.text), rate) * 100) /
+              100,
+          )
+  return typed.side === 'usd'
+    ? { usd: typed.text, ars: other }
+    : { usd: other, ars: typed.text }
 }
