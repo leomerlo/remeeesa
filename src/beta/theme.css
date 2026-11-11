@@ -480,6 +480,24 @@ body {
 .trio > :nth-child(3) {
   grid-column: 1 / -1;
 }
+/* Four figures instead of three: two and two, at every width. "Pagado"
+   used to be one card for two different things -- what the month paid of
+   its bills, and what it spent on its own -- and only one of those ever
+   stops growing. Splitting the word meant splitting the card. */
+.trio.four > :nth-child(3) {
+  grid-column: auto;
+}
+.hood .trio.four > :nth-child(2),
+.hood .trio.four > :nth-child(4) {
+  border-left: 1px solid var(--hood-line);
+}
+.hood .trio.four > :nth-child(3),
+.hood .trio.four > :nth-child(4) {
+  border-top: 1px solid var(--hood-line);
+}
+.hood .trio.four > :nth-child(3) {
+  border-left: 0;
+}
 .trio .card {
   padding: 16px;
   display: grid;
@@ -3661,6 +3679,15 @@ body {
   .trio > :nth-child(3) {
     grid-column: auto;
   }
+  /* Four across would leave each figure a quarter of the panel, and
+     these are figures in the hundreds of thousands. Two and two. */
+  .trio.four {
+    grid-template-columns: 1fr 1fr;
+  }
+  .hood .trio.four > :nth-child(3) {
+    border-top: 1px solid var(--hood-line);
+    border-left: 0;
+  }
   /* All three share one row here, so all three lines are vertical. */
   .hood .trio > :nth-child(3) {
     border-top: 0;
@@ -3912,36 +3939,43 @@ a.card {
      card's on the right. Above the tabs and never changing with them --
      switching tabs to see the second figure meant losing sight of the
      first. */
-.duo,
-.trio {
+.duo {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0;
 }
-/* Three figures of one month, side by side where there is room for
-   them. Below that they stack, like the pair always has. */
-.trio {
-  grid-template-columns: 1fr 1fr 1fr;
+/* The same band holding three figures instead of two. Its own class
+   rather than the `.trio` the panel on Inicio has used since long before
+   this one: that one is a different shape (two across, the third under
+   both) and bending it to this would have bent Inicio with it. */
+.duo.three {
+  grid-template-columns: 1fr;
 }
-.hood .duo > * + *,
-.hood .trio > * + * {
+@media (min-width: 860px) {
+  .duo.three {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  /* A third of the width each, so the figure cannot go on taking its
+     size from the viewport. */
+  .duo.three .figure {
+    font-size: clamp(24px, 2.6vw, 34px);
+  }
+}
+.hood .duo > * + * {
   border-left: 1px solid var(--hood-line);
 }
-.hood .duo .card,
-.hood .trio .card {
+.hood .duo .card {
   padding: 22px 20px;
   display: grid;
   gap: 8px;
   align-content: start;
 }
-.duo .label,
-.trio .label {
+.duo .label {
   font-size: var(--t-sm);
   font-weight: 600;
   color: var(--hood-ink-2);
 }
-.duo .figure,
-.trio .figure {
+.duo .figure {
   font-size: clamp(28px, 7.5vw, 40px);
   font-weight: 600;
   letter-spacing: -0.03em;
@@ -3949,22 +3983,12 @@ a.card {
   font-variant-numeric: tabular-nums;
   min-width: 0;
 }
-/* Three of them in a row leaves each a third of the width, so the
-   figure cannot keep taking its size from the viewport. */
-@media (min-width: 860px) {
-  .trio .figure {
-    font-size: clamp(24px, 2.6vw, 34px);
-  }
-}
-.duo .herosay,
-.trio .herosay {
+.duo .herosay {
   color: var(--hood-ink-2);
 }
+/* Stacked: the dividing line goes from between them to above each. */
 @media (max-width: 859px) {
-  .trio {
-    grid-template-columns: 1fr;
-  }
-  .hood .trio > * + * {
+  .hood .duo.three > * + * {
     border-left: 0;
     border-top: 1px solid var(--hood-line);
   }

@@ -275,7 +275,7 @@ export function Servicios({
   // anybody has to do something about.
   const hero = (
     <div className="hood solo">
-      <div className="trio">
+      <div className="duo three">
         <div className="card half">
           <div className="label">
             {allUnpaid.length === 0
