@@ -10,6 +10,7 @@ import { useState } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
+import { isServicio } from '@/lib/expenses'
 import type { Expense } from '@/lib/expenses'
 import type { CardPurchase } from '@/lib/cards'
 import type { Pendiente } from '@/lib/pendientes'
@@ -204,7 +205,12 @@ export function Home({
   // spent" -- newest first; the bills go by the date they fall due, which
   // is the order somebody paying them works in.
   const moves = [
-    ...expenses.map((expense) => ({
+    // Paying a servicio writes a gasto -- that is how the money leaves
+    // the month -- but the gym is not something the household bought
+    // today, and listing it here alongside the café made one record read
+    // as two. It is on Servicios, where it belongs. Per direct feedback:
+    // "están apareciendo en gastos cosas que son servicios".
+    ...expenses.filter((expense) => !isServicio(expense)).map((expense) => ({
       id: expense.id,
       at: expense.expenseDate,
       expense,

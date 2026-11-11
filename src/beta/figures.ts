@@ -10,6 +10,7 @@ import {
   computePendingCommitted,
   computeSpendToDate,
   computeSpentThisMonth,
+  isServicio,
   summarizeByCategory,
 } from '@/lib/expenses'
 import type { Category, Expense } from '@/lib/expenses'
@@ -332,10 +333,18 @@ export function gastosFigures(input: {
   readonly expenses: readonly Expense[]
   readonly categories: readonly Category[]
 }): GastosFigures {
+  // Lo de una vez, which is what the Gastos screen is for and what its
+  // own subtitle has always said. Paying a servicio writes a gasto --
+  // that is how the money leaves the month -- but the gym is not
+  // something the household bought today: it is on Servicios, with its
+  // own figure, and listing it here as well made one record read as two.
+  // Inicio is where the month's whole figure lives. Per direct feedback:
+  // "no tiene que estar en gastos, tiene que estar en servicios".
+  const expenses = input.expenses.filter((expense) => !isServicio(expense))
   return {
-    total: computeSpentThisMonth(input.expenses),
-    totalUsd: sumIn(input.expenses, 'USD'),
-    byCategory: summarizeByCategory(input),
+    total: computeSpentThisMonth(expenses),
+    totalUsd: sumIn(expenses, 'USD'),
+    byCategory: summarizeByCategory({ ...input, expenses }),
   }
 }
 

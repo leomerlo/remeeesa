@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 import { cuotasOf } from '@/lib/cards/cuotas'
 import type { Card, CardPurchase } from '@/lib/cards'
-import { currentMonthRange } from '@/lib/expenses'
+import { currentMonthRange, isServicio } from '@/lib/expenses'
 import type { Category, Expense } from '@/lib/expenses'
 import type { Household } from '@/lib/households'
 import { amountLeft } from '@/lib/pendientes'
@@ -460,11 +460,28 @@ describe('the beta says the same month on every screen', () => {
     )
   })
 
-  // Inicio's "Pagado" and Gastos' "Total del mes" are the same sentence on
-  // two screens. They were off by $45 for a month, which is what a dollar
-  // expense counted as pesos looks like.
-  each('Inicio and Gastos agree on the month total', (snap, key) => {
-    expect(cents(gastosFigures(snap).total), key).toBe(
+  // Inicio's "Pagado" is the month's whole figure; Gastos' total is only
+  // lo de una vez, because paying a servicio belongs on Servicios and
+  // showing it on both made one record read as two. So the two screens no
+  // longer say the same number -- they say two halves of it, and the
+  // thing worth auditing is that nothing falls between them.
+  //
+  // (They used to be the same sentence on two screens, and were off by
+  // $45 for a month, which is what a dollar expense counted as pesos
+  // looks like. That is what the peso-only sums below still guard.)
+  each('Inicio is Gastos plus the servicios the month paid', (snap, key) => {
+    const servicios = cents(
+      sumIn(
+        snap.expenses
+          .filter((expense) => isServicio(expense))
+          .map((expense) => ({
+            price: expense.price,
+            currency: expense.currency ?? 'ARS',
+          })),
+        'ARS',
+      ),
+    )
+    expect(cents(gastosFigures(snap).total) + servicios, key).toBe(
       cents(homeFigures(snap).paid),
     )
   })
@@ -1186,6 +1203,31 @@ describe('the beta says the same month on every screen', () => {
     // And Servicios owes the rest, not the whole figure.
     expect(cents(serviciosFigures(snap).owed)).toBe(
       cents(serviciosFigures(base).owed) - cents(handed),
+    )
+  })
+
+  // Lo de una vez is what Gastos is for. The gym is paid every month and
+  // lives on Servicios; the café does not and lives here. Both are money
+  // that left, so Inicio counts both -- which is the audit above, over
+  // every seeded household. This one says it on one bill, plainly.
+  it('keeps a servicio the month paid out of Gastos, but not out of Inicio', () => {
+    const base = snapshots.get('completa\u00b7este mes')
+    if (base === undefined) throw new Error('missing snapshot')
+    const servicio = base.expenses.find((expense) => isServicio(expense))
+    if (servicio === undefined) throw new Error('no paid servicio seeded')
+
+    const without: Snapshot = {
+      ...base,
+      expenses: base.expenses.filter((one) => one.id !== servicio.id),
+    }
+
+    // Gastos never counted it...
+    expect(cents(gastosFigures(base).total)).toBe(
+      cents(gastosFigures(without).total),
+    )
+    // ...and Inicio counts nothing else.
+    expect(cents(homeFigures(base).paid)).toBe(
+      cents(homeFigures(without).paid) + cents(servicio.price),
     )
   })
 })

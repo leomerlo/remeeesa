@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { CreditCard, Plus, ReceiptText } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement, ReactNode } from 'react'
-import { computeSpentThisMonth } from '@/lib/expenses'
+import { computeSpentThisMonth, isServicio } from '@/lib/expenses'
 import type { Expense } from '@/lib/expenses'
 import type { CardPurchase } from '@/lib/cards'
 import type { Currency } from '@/lib/money'
@@ -101,7 +101,17 @@ export function Gastos({
     )
   }
 
-  const { expenses, purchases, categories, members, methods } = data.data
+  const { purchases, categories, members, methods } = data.data
+  // What this screen is for, and what its own subtitle has always said:
+  // lo de una vez. Paying a servicio writes a gasto, because that is how
+  // the money leaves the month, but the gym is not something the
+  // household bought today -- it is on Servicios, with its own figure,
+  // and listing it here as well made one record read as two. The total
+  // below counts what the list shows, so it moves with it; Inicio is
+  // where the month's whole figure lives. Per direct feedback.
+  const expenses = data.data.expenses.filter(
+    (expense) => !isServicio(expense),
+  )
   const several = members.length > 1
   const header = (
     <Title
@@ -156,7 +166,12 @@ export function Gastos({
               <b>{formatAmount(sumIn(delMes, 'USD'), 'USD')}</b>
             </p>
           ) : null}
-          <p className="herosay">Plata que ya salió de la cuenta.</p>
+          {/* Not the month's whole figure any more: los servicios se
+              pagan en Servicios y se cuentan ahí. Inicio es donde viven
+              los dos juntos. */}
+          <p className="herosay">
+            Plata que ya salió de la cuenta, sin contar los servicios.
+          </p>
         </div>
         <div className="card half">
           <div className="label">Con tarjeta en {monthName(monthStart)}</div>
