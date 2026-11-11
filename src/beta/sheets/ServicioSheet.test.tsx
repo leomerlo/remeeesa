@@ -6,7 +6,7 @@ import { createPendiente } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
-import { PagarSheet } from './ServicioSheet'
+import { PagarSheet, ServicioSheet } from './ServicioSheet'
 import type { BetaSession } from '../data'
 
 const FLOR = 'flor'
@@ -269,5 +269,161 @@ describe('paying part of a servicio', () => {
       limit: 10,
     })
     expect(gastos.reduce((sum, one) => sum + one.price, 0)).toBe(36_800)
+  })
+})
+
+// The two forms ask the same questions, in the same order, with the same
+// controls -- so it does not matter which screen somebody came from, and
+// a record filed as the wrong kind can be put right from the form that
+// holds everything else about it. Per direct feedback: "el formulario de
+// alta de gasto o servicio es el mismo para todo".
+describe('the servicio form asks what the gasto form asks', () => {
+  function edit(it_: Awaited<ReturnType<typeof house>>, bill: Pendiente): void {
+    renderWithProviders(
+      <ServicioSheet
+        open
+        onClose={vi.fn()}
+        session={it_.session}
+        bill={bill}
+        categories={[]}
+        methods={it_.methods}
+        today={TODAY}
+      />,
+    )
+  }
+
+  async function categories(
+    it_: Awaited<ReturnType<typeof house>>,
+  ): Promise<readonly { id: string; name: string }[]> {
+    return it_.db.listCategories(it_.householdId)
+  }
+
+  it('takes a category nobody has yet, like anotar un gasto does', async () => {
+    const it_ = await house()
+    const made = await categories(it_)
+    renderWithProviders(
+      <ServicioSheet
+        open
+        onClose={vi.fn()}
+        session={it_.session}
+        bill={it_.bill}
+        categories={made.map((category) => ({
+          ...category,
+          householdId: it_.householdId,
+          color: '#4e4c56',
+          monthlyBudget: 0,
+          createdAt: TODAY,
+        }))}
+        methods={it_.methods}
+        today={TODAY}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /Categoría/ }))
+    fireEvent.change(
+      screen.getByLabelText('Buscar o escribir una categoría'),
+      { target: { value: 'Impuestos' } },
+    )
+    fireEvent.click(screen.getByRole('option', { name: /Crear «Impuestos»/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    await waitFor(async () => {
+      expect((await categories(it_)).map((one) => one.name)).toContain(
+        'Impuestos',
+      )
+    })
+    const impuestos = (await categories(it_)).find(
+      (one) => one.name === 'Impuestos',
+    )
+    const after = await it_.db.getPendiente({
+      householdId: it_.householdId,
+      pendienteId: it_.bill.id,
+    })
+    expect(after?.categoryId).toBe(impuestos?.id)
+  })
+
+  it('settles the bill when Ya lo pagué is turned on', async () => {
+    const it_ = await house()
+    edit(it_, it_.bill)
+
+    fireEvent.click(screen.getByRole('switch', { name: /Ya lo pagué/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    await waitFor(async () => {
+      const after = await it_.db.getPendiente({
+        householdId: it_.householdId,
+        pendienteId: it_.bill.id,
+      })
+      expect(after?.status).toBe('paid')
+    })
+  })
+
+  it('undoes the payment when it is turned off again', async () => {
+    const it_ = await house()
+    const { pendiente } = await it_.db.markPendientePaid({
+      householdId: it_.householdId,
+      pendienteId: it_.bill.id,
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      finalAmount: 36_800,
+      paymentDate: TODAY,
+    })
+    edit(it_, pendiente)
+
+    fireEvent.click(screen.getByRole('switch', { name: /Ya lo pagué/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    await waitFor(async () => {
+      const after = await it_.db.getPendiente({
+        householdId: it_.householdId,
+        pendienteId: it_.bill.id,
+      })
+      expect(after?.status).toBe('pending')
+    })
+    // And the gasto that payment had written is gone with it.
+    expect(
+      await it_.db.listRecentExpenses({
+        householdId: it_.householdId,
+        limit: 10,
+      }),
+    ).toEqual([])
+  })
+
+  // Where a record is read is decided by the gasto's own flag, written
+  // when the money moved. Turning recurrence off on a paid bill has to
+  // tell it, or the record stays off Gastos for ever.
+  it('moves a paid one back to the gastos when it stops repeating', async () => {
+    const it_ = await house()
+    const { pendiente } = await it_.db.markPendientePaid({
+      householdId: it_.householdId,
+      pendienteId: it_.bill.id,
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      finalAmount: 36_800,
+      paymentDate: TODAY,
+    })
+    expect(
+      (
+        await it_.db.listRecentExpenses({
+          householdId: it_.householdId,
+          limit: 10,
+        })
+      )[0]?.isService,
+    ).toBe(true)
+    edit(it_, pendiente)
+
+    fireEvent.click(screen.getByRole('switch', { name: /Todos los meses/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    await waitFor(async () => {
+      expect(
+        (
+          await it_.db.listRecentExpenses({
+            householdId: it_.householdId,
+            limit: 10,
+          })
+        )[0]?.isService,
+      ).toBe(false)
+    })
   })
 })
