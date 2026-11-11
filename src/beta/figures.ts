@@ -286,6 +286,7 @@ export function homeFigures(input: HomeInput): HomeFigures {
     // up -- see monthByCategory.
     cardBills: cardBillTotals({
       pendientes,
+      settled: input.settled,
       categories: input.categories,
       monthStart,
       monthEnd,
@@ -450,16 +451,31 @@ export function cuotaInMonth(purchase: CardPurchase, monthStart: Date): number {
 // nothing is owed until the statement arrives.
 export function cardBillTotals(input: {
   readonly pendientes: readonly Pendiente[]
+  // The month's card bills that have already been settled. They belong
+  // here too: this figure is what the card asks of the month, and the
+  // month asked it whether or not anybody has paid yet. It used to count
+  // only the unpaid ones, so marking the card paid made the line shrink
+  // -- and a household that had paid the dollar side watched the dollars
+  // disappear from it, as if the month had never owed them. Per direct
+  // feedback: "eso no cambia si yo lo marco como pago o no. Es
+  // informativo".
+  readonly settled?: readonly Pendiente[]
   readonly categories: readonly Category[]
   readonly monthStart: Date
   readonly monthEnd: Date
 }): readonly CardsDueTotal[] {
   const cards = cardCategoryIds(input)
-  const bills = pendientesDueInMonth(
-    input.pendientes,
-    input.monthStart,
-    input.monthEnd,
-  )
+  const bills = [
+    ...pendientesDueInMonth(
+      input.pendientes,
+      input.monthStart,
+      input.monthEnd,
+    ),
+    ...(input.settled ?? []).filter(
+      (bill) =>
+        bill.dueDate >= input.monthStart && bill.dueDate <= input.monthEnd,
+    ),
+  ]
     .filter((bill) => cards.has(bill.categoryId))
     // What is owed, never the estimate: a Resumen with no statement
     // loaded yet owes nothing, which is the same rule the rest of the
@@ -1046,12 +1062,15 @@ export function projectionFigures(input: {
         ? 0
         : amountOf(row.key, row.price),
     }))
-    // By the figure the month suggests rather than by the one on screen:
-    // sorting on what is typed would move a line out from under the
-    // cursor halfway through typing it. The empty ones fall to the bottom
-    // by themselves, and sort among each other by name.
+    // Alphabetical, and nothing else. It used to lead with the biggest
+    // figure, which reads well on a month already written but makes this
+    // screen -- where every category is listed, most of them at zero --
+    // a place you have to search rather than scan. Sorting by a figure
+    // also meant a line could move out from under the cursor while it
+    // was being typed. Per direct feedback: "ordenalas alfabéticamente,
+    // no importa que estén en cero, es más fácil encontrarlas".
     .slice()
-    .sort((a, b) => b.price - a.price || a.label.localeCompare(b.label, 'es'))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 
   return {
     rows,

@@ -1097,8 +1097,10 @@ describe('the beta says the same month on every screen', () => {
     }
   })
 
-  // Biggest first, everywhere a list of amounts is shown.
-  each('every list of amounts is ordered biggest first', (snap, key) => {
+  // Biggest first wherever a list is read for what it says -- the ring
+  // divides a month that has already happened, and the eye should land
+  // on the slice that took the most.
+  each('the ring is ordered biggest first', (snap, key) => {
     const ring = homeFigures(snap).byCategory
     for (let index = 1; index < ring.length; index += 1) {
       expect(
@@ -1106,11 +1108,20 @@ describe('the beta says the same month on every screen', () => {
         `${key} · ring`,
       ).toBe(true)
     }
-    const projection = projectionFigures(snap).rows
-    for (let index = 1; index < projection.length; index += 1) {
+  })
+
+  // The projection is the exception, and deliberately: it lists every
+  // category the household has, most of them at zero, and it is a list
+  // you come to looking for one of them. Alphabetical is how you find a
+  // name; biggest-first is how you read a result. Per direct feedback.
+  each('the projection is ordered by name', (snap, key) => {
+    const rows = projectionFigures(snap).rows
+    for (let index = 1; index < rows.length; index += 1) {
       expect(
-        (projection[index - 1]?.amount ?? 0) >=
-          (projection[index]?.amount ?? 0),
+        (rows[index - 1]?.label ?? '').localeCompare(
+          rows[index]?.label ?? '',
+          'es',
+        ) <= 0,
         `${key} · proyección`,
       ).toBe(true)
     }
@@ -1293,5 +1304,70 @@ describe('the beta says the same month on every screen', () => {
     // The peso side is untouched by it: the two are never added.
     expect(capped?.over).toBe(false)
     expect(capped?.total).toBe(withUsd.total)
+  })
+
+  // What the card asks of the month does not change because somebody
+  // marked it paid. It used to: the line counted only the unpaid ones,
+  // so paying the dollar side made the dollars vanish from it, as if the
+  // month had never owed them. Per direct feedback: "es informativo".
+  //
+  // Built rather than seeded: Flor writes the card's real bill down as a
+  // servicio of her own under the card's category when she goes to pay
+  // it, which no demo household does.
+  it('says what the card asked of the month, paid or not', () => {
+    const base = snapshots.get('completa\u00b7este mes')
+    if (base === undefined) throw new Error('missing snapshot')
+    const [cardCategory] = [...cardCategoryIds(base)]
+    if (cardCategory === undefined) throw new Error('no card category')
+    const model = base.pendientes[0]
+    if (model === undefined) throw new Error('no bill to model on')
+
+    const byHand: Pendiente = {
+      ...model,
+      id: 'tarjeta-a-mano',
+      name: 'Visa de noviembre',
+      categoryId: cardCategory,
+      cardId: undefined,
+      purchaseIds: undefined,
+      estimatedAmount: undefined,
+      expectedAmount: 2_584_074.64,
+      currency: 'ARS',
+      status: 'pending',
+      paidExpenseId: null,
+      paidAt: null,
+      dueDate: new Date(
+        base.monthStart.getFullYear(),
+        base.monthStart.getMonth(),
+        12,
+      ),
+    }
+    const owing: Snapshot = {
+      ...base,
+      pendientes: [...base.pendientes, byHand],
+    }
+    const settled: Snapshot = {
+      ...base,
+      settled: [
+        ...base.settled,
+        { ...byHand, status: 'paid' as const, paidAt: base.now },
+      ],
+    }
+
+    // It is on the line while it is owed...
+    expect(
+      cents(
+        homeFigures(owing).cardBills.find((one) => one.currency === 'ARS')
+          ?.total ?? 0,
+      ),
+    ).toBe(
+      cents(
+        homeFigures(base).cardBills.find((one) => one.currency === 'ARS')
+          ?.total ?? 0,
+      ) + cents(2_584_074.64),
+    )
+    // ...and still on it once it is paid.
+    expect(homeFigures(settled).cardBills).toEqual(
+      homeFigures(owing).cardBills,
+    )
   })
 })
