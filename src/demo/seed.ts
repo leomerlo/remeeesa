@@ -19,6 +19,7 @@ import {
   createPendiente,
   listPendientes,
   markPendientePaid,
+  payPendientePartially,
   pendientesDueInMonth,
 } from '@/lib/pendientes'
 
@@ -241,6 +242,10 @@ async function seedCasa(
     readonly dueIn: number
     readonly autoDebit: boolean
     readonly paid: boolean
+    // Part of it handed over already, with the rest still owed: the one
+    // state the empty household cannot show and the figures most need
+    // looking at, since what left is a gasto and what is left is a debt.
+    readonly partly?: number
     readonly categoryId: string
   }[] = [
     {
@@ -265,6 +270,7 @@ async function seedCasa(
       dueIn: 4,
       autoDebit: false,
       paid: false,
+      partly: 50000,
       categoryId: casa.id,
     },
     {
@@ -303,6 +309,17 @@ async function seedCasa(
       recurring: true,
       autoDebit: bill.autoDebit,
     })
+    if (bill.partly !== undefined) {
+      await payPendientePartially({
+        db,
+        householdId,
+        pendienteId: created.id,
+        memberId: user.id,
+        authorDisplayName: user.displayName,
+        amount: bill.partly,
+        paymentDate: pastDayThisMonth(2),
+      })
+    }
     if (bill.paid) {
       await markPendientePaid({
         db,

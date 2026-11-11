@@ -4,6 +4,7 @@ import type { Card, CardPurchase } from '@/lib/cards'
 import { currentMonthRange } from '@/lib/expenses'
 import type { Category, Expense } from '@/lib/expenses'
 import type { Household } from '@/lib/households'
+import { amountLeft } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import type { Projection } from '@/lib/proyecciones'
 import { DEMO_SCENARIOS, DEMO_USER_ID, seedDemoHousehold } from '@/demo/seed'
@@ -421,7 +422,7 @@ describe('the beta says the same month on every screen', () => {
       cents(
         sumIn(
           month.unpaid.map((bill) => ({
-            price: bill.expectedAmount ?? 0,
+            price: amountLeft(bill) ?? 0,
             currency: bill.currency ?? 'ARS',
           })),
           'ARS',
@@ -744,7 +745,7 @@ describe('the beta says the same month on every screen', () => {
             pendiente.dueDate <= snap.monthEnd,
         )
         .map((bill) => ({
-          price: bill.expectedAmount ?? 0,
+          price: amountLeft(bill) ?? 0,
           currency: bill.currency ?? 'ARS',
         })),
       'USD',
@@ -762,7 +763,7 @@ describe('the beta says the same month on every screen', () => {
       cents(
         sumIn(
           servicios.unpaid.map((bill) => ({
-            price: bill.expectedAmount ?? 0,
+            price: amountLeft(bill) ?? 0,
             currency: bill.currency ?? 'ARS',
           })),
           'ARS',
@@ -807,7 +808,7 @@ describe('the beta says the same month on every screen', () => {
       cents(
         sumIn(
           inMonth.map((bill) => ({
-            price: bill.expectedAmount ?? 0,
+            price: amountLeft(bill) ?? 0,
             currency: bill.currency ?? 'ARS',
           })),
           'ARS',
