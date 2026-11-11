@@ -469,11 +469,18 @@ describe('the beta says the same month on every screen', () => {
   // (They used to be the same sentence on two screens, and were off by
   // $45 for a month, which is what a dollar expense counted as pesos
   // looks like. That is what the peso-only sums below still guard.)
-  each('Inicio is Gastos plus the servicios the month paid', (snap, key) => {
-    const servicios = cents(
+  each('Inicio is Gastos plus what the other two screens pay', (snap, key) => {
+    const cards = cardCategoryIds(snap)
+    // The two kinds of gasto that are not lo de una vez: paying a
+    // servicio, which Servicios counts, and paying a card's Resumen,
+    // which Tarjetas does.
+    const elsewhere = cents(
       sumIn(
         snap.expenses
-          .filter((expense) => isServicio(expense))
+          .filter(
+            (expense) =>
+              isServicio(expense) || cards.has(expense.categoryId),
+          )
           .map((expense) => ({
             price: expense.price,
             currency: expense.currency ?? 'ARS',
@@ -481,7 +488,7 @@ describe('the beta says the same month on every screen', () => {
         'ARS',
       ),
     )
-    expect(cents(gastosFigures(snap).total) + servicios, key).toBe(
+    expect(cents(gastosFigures(snap).total) + elsewhere, key).toBe(
       cents(homeFigures(snap).paid),
     )
   })
@@ -1225,6 +1232,7 @@ describe('the beta says the same month on every screen', () => {
     expect(cents(gastosFigures(base).total)).toBe(
       cents(gastosFigures(without).total),
     )
+    expect(cents(gastosFigures(base).total)).toBeGreaterThan(0)
     // ...and Inicio counts nothing else.
     expect(cents(homeFigures(base).paid)).toBe(
       cents(homeFigures(without).paid) + cents(servicio.price),

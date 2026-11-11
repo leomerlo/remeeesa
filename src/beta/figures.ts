@@ -332,6 +332,10 @@ export type GastosFigures = {
 export function gastosFigures(input: {
   readonly expenses: readonly Expense[]
   readonly categories: readonly Category[]
+  // Only to tell which category is a card's own. Omitted, the card
+  // category is still found by its name, which is what it is called
+  // until somebody renames it.
+  readonly pendientes?: readonly Pendiente[]
 }): GastosFigures {
   // Lo de una vez, which is what the Gastos screen is for and what its
   // own subtitle has always said. Paying a servicio writes a gasto --
@@ -340,7 +344,19 @@ export function gastosFigures(input: {
   // own figure, and listing it here as well made one record read as two.
   // Inicio is where the month's whole figure lives. Per direct feedback:
   // "no tiene que estar en gastos, tiene que estar en servicios".
-  const expenses = input.expenses.filter((expense) => !isServicio(expense))
+  // And what paying a card's Resumen wrote, for the same reason: that is
+  // the Visa being paid, not something bought today. It already behaves
+  // as a card everywhere else -- the ring has always left it out -- and
+  // it belongs on Tarjetas, which is where the household goes to see
+  // what the card is costing. Per direct feedback: "se comporta como
+  // tarjeta".
+  const cards = cardCategoryIds({
+    pendientes: input.pendientes ?? [],
+    categories: input.categories,
+  })
+  const expenses = input.expenses.filter(
+    (expense) => !isServicio(expense) && !cards.has(expense.categoryId),
+  )
   return {
     total: computeSpentThisMonth(expenses),
     totalUsd: sumIn(expenses, 'USD'),

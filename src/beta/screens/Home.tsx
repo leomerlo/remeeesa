@@ -15,7 +15,7 @@ import type { Expense } from '@/lib/expenses'
 import type { CardPurchase } from '@/lib/cards'
 import type { Pendiente } from '@/lib/pendientes'
 import { Figure } from '../Figure'
-import { categoryMovements, homeFigures } from '../figures'
+import { cardCategoryIds, categoryMovements, homeFigures } from '../figures'
 import type { HomeFigures } from '../figures'
 import { HomeSkeleton, Skel } from '../Skeleton'
 import { MonthPager } from '../MonthPager'
@@ -204,13 +204,22 @@ export function Home({
   // Movements are one list -- a consumo and a gasto are both "what we
   // spent" -- newest first; the bills go by the date they fall due, which
   // is the order somebody paying them works in.
+  const cardCategories = cardCategoryIds({ pendientes, categories })
   const moves = [
     // Paying a servicio writes a gasto -- that is how the money leaves
     // the month -- but the gym is not something the household bought
     // today, and listing it here alongside the café made one record read
-    // as two. It is on Servicios, where it belongs. Per direct feedback:
-    // "están apareciendo en gastos cosas que son servicios".
-    ...expenses.filter((expense) => !isServicio(expense)).map((expense) => ({
+    // as two. It is on Servicios, where it belongs. The same goes for
+    // what paying a card's Resumen wrote: that is the Visa being paid,
+    // and it belongs on Tarjetas. Per direct feedback: "están
+    // apareciendo en gastos cosas que son servicios", "se comporta como
+    // tarjeta".
+    ...expenses
+      .filter(
+        (expense) =>
+          !isServicio(expense) && !cardCategories.has(expense.categoryId),
+      )
+      .map((expense) => ({
       id: expense.id,
       at: expense.expenseDate,
       expense,
