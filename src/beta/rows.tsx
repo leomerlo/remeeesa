@@ -516,11 +516,13 @@ export function Donut({
           is explained here rather than up in the alert, which says the
           figure and stops. */}
       <p className="donutsay">
-        Este gráfico incluye lo que ya pagaron, lo que les falta pagar y lo que
-        compraron con tarjeta.
+        El gráfico reparte el mes en tres: los gastos que ya hicieron, los
+        servicios que todavía faltan pagar, y las compras con tarjeta de
+        crédito, que cuentan en el mes en que se compraron y no en el del
+        resumen.
         {cardBills.length === 0
           ? null
-          : ' Lo del resumen no entra: son los consumos del mes pasado, que ya se contaron cuando los hicieron.'}
+          : ' El pago del resumen no entra en ninguna categoría, porque esos consumos ya se contaron cuando se hicieron. Su total está en el aviso de arriba.'}
       </p>
     </div>
   )
