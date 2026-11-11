@@ -3,7 +3,7 @@ import type { ReactElement } from 'react'
 import { updateHouseholdBudget } from '@/lib/households'
 import type { Household } from '@/lib/households'
 import { monthlyBudgetFor } from '@/lib/households'
-import { Sheet, SheetFoot } from '../Sheet'
+import { DangerAction, Sheet, SheetFoot } from '../Sheet'
 import { MoneyField, moneyIsValid, moneyValue } from '../fields'
 import { monthName } from '../format'
 import { useSave } from '../useSave'
@@ -59,8 +59,37 @@ export function PresupuestoSheet({
         label={`Presupuesto de ${monthName(monthStart)}`}
         value={amount}
         onChange={setAmount}
-        hint="Vale para este mes y para los que vengan, hasta que lo cambien. Dejalo en cero y la pantalla vuelve a decir cuánto llevan gastado."
+        hint="Vale para este mes y para los que vengan, hasta que lo cambien."
       />
+      {/* Taking it off was always possible -- the field accepts nothing
+          and nothing means no ceiling -- but it was said in a line of
+          help under the box, which is not where anybody looks for a way
+          out. It is an action now. Nothing is lost by it: the month's
+          gastos are untouched, the screen just stops measuring them
+          against a figure. */}
+      {current > 0 ? (
+        <>
+          <p className="fnote">
+            Sin presupuesto no se pierde nada de lo anotado: la pantalla deja
+            de comparar contra un tope y pasa a decir cuánto llevan gastado.
+          </p>
+          <DangerAction
+            label="Quitar el presupuesto"
+            saving={saving}
+            locked={null}
+            onPress={() => {
+              run(() =>
+                updateHouseholdBudget({
+                  db: session.db,
+                  householdId: household.id,
+                  monthlyBudget: 0,
+                  month: monthStart,
+                }),
+              )
+            }}
+          />
+        </>
+      ) : null}
     </Sheet>
   )
 }
