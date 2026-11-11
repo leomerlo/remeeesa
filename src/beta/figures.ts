@@ -22,7 +22,12 @@ import {
   parseStoredAmount,
 } from '@/lib/money'
 import type { Currency } from '@/lib/money'
-import { amountLeft, isBillToPay, pendientesDueInMonth } from '@/lib/pendientes'
+import {
+  amountLeft,
+  isBillToPay,
+  paidSoFar,
+  pendientesDueInMonth,
+} from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 
 // Every figure the beta puts on screen, worked out here and nowhere else.
@@ -687,6 +692,15 @@ export type ServiciosFigures = {
   // Resumen.
   readonly onCard: readonly Pendiente[]
   readonly onCardTotal: number
+  // What has already come out of the month for its servicios: the bills
+  // settled in it, plus whatever has been handed over on the ones still
+  // open (see amountLeft). Paid and owed add up to the month's servicios
+  // between them, which is the point of saying both.
+  //
+  // Bills a credit card pays are in neither: that money does not leave
+  // this month at all, and it has its own figure.
+  readonly paidTotal: number
+  readonly paidTotalUsd: number
 }
 
 export function serviciosFigures(input: {
@@ -772,12 +786,29 @@ export function serviciosFigures(input: {
     currency: pendiente.currency ?? DEFAULT_CURRENCY,
   }))
 
+  // A settled bill is worth what it asked for, which is the figure its
+  // own row shows -- so this card is the sum of the list under it. An
+  // open one is worth only the part already handed over; the rest of it
+  // is in `owed`, and no peso is in both.
+  const spent = [
+    ...paid.map((pendiente) => ({
+      price: pendiente.expectedAmount ?? 0,
+      currency: pendiente.currency ?? DEFAULT_CURRENCY,
+    })),
+    ...unpaid.map((pendiente) => ({
+      price: paidSoFar(pendiente),
+      currency: pendiente.currency ?? DEFAULT_CURRENCY,
+    })),
+  ]
+
   return {
     bills: [...unpaid, ...paid],
     unpaid,
     paid,
     owed: sumIn(amounts, DEFAULT_CURRENCY),
     owedUsd: sumIn(amounts, 'USD'),
+    paidTotal: sumIn(spent, DEFAULT_CURRENCY),
+    paidTotalUsd: sumIn(spent, 'USD'),
     late,
     onCard,
     onCardTotal: sumIn(

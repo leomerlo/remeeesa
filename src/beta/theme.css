@@ -3826,26 +3826,36 @@ a.card {
      card's on the right. Above the tabs and never changing with them --
      switching tabs to see the second figure meant losing sight of the
      first. */
-.duo {
+.duo,
+.trio {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0;
 }
-.hood .duo > * + * {
+/* Three figures of one month, side by side where there is room for
+   them. Below that they stack, like the pair always has. */
+.trio {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.hood .duo > * + *,
+.hood .trio > * + * {
   border-left: 1px solid var(--hood-line);
 }
-.hood .duo .card {
+.hood .duo .card,
+.hood .trio .card {
   padding: 22px 20px;
   display: grid;
   gap: 8px;
   align-content: start;
 }
-.duo .label {
+.duo .label,
+.trio .label {
   font-size: var(--t-sm);
   font-weight: 600;
   color: var(--hood-ink-2);
 }
-.duo .figure {
+.duo .figure,
+.trio .figure {
   font-size: clamp(28px, 7.5vw, 40px);
   font-weight: 600;
   letter-spacing: -0.03em;
@@ -3853,8 +3863,25 @@ a.card {
   font-variant-numeric: tabular-nums;
   min-width: 0;
 }
-.duo .herosay {
+/* Three of them in a row leaves each a third of the width, so the
+   figure cannot keep taking its size from the viewport. */
+@media (min-width: 860px) {
+  .trio .figure {
+    font-size: clamp(24px, 2.6vw, 34px);
+  }
+}
+.duo .herosay,
+.trio .herosay {
   color: var(--hood-ink-2);
+}
+@media (max-width: 859px) {
+  .trio {
+    grid-template-columns: 1fr;
+  }
+  .hood .trio > * + * {
+    border-left: 0;
+    border-top: 1px solid var(--hood-line);
+  }
 }
 @media (max-width: 559px) {
   .duo {

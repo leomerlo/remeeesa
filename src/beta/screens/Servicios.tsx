@@ -214,32 +214,49 @@ export function Servicios({
       : (cardName.get(expense.paymentMethodId) ?? null)
   }
 
-  // The search narrows the bills themselves, before anything is counted,
-  // so every figure on the screen is the figure of what is on it: the
-  // total over a filtered list that still said the whole month would be
-  // the one number here nobody could check.
-  // Its name and its category, because "casa" is a fair way to look for
-  // the expensas.
+  // Looking for the luz does not change what the month is. The three
+  // figures above are always the whole month's, and the search narrows
+  // only the lists under the tabs -- it used to narrow the bills before
+  // anything was counted, so typing in the box rewrote the month. Per
+  // direct feedback: "eso no se tiene que filtrar, siempre tiene que ser
+  // lo mismo".
+  //
+  // It matches a bill by its name and its category, because "casa" is a
+  // fair way to look for the expensas.
   const categoryNameOf = new Map(
     categories.map((category) => [category.id, category.name]),
   )
   const asked = query.trim() !== ''
   const matches = (bill: Pendiente): boolean =>
     matchesSearch(query, [bill.name, categoryNameOf.get(bill.categoryId)])
-  const shownPendientes = pendientes.filter(matches)
-  const shownSettled = settled.filter(matches)
 
-  // The month's two sides: what it pays itself, and what its cards pay
-  // for it. A bill is on exactly one of them -- see figures.ts.
-  const { unpaid, paid, owed, owedUsd, late, onCard, onCardTotal } =
-    serviciosFigures({
-      pendientes: shownPendientes,
-      settled: shownSettled,
-      methods,
-      monthStart,
-      monthEnd,
-      now,
-    })
+  // The month's three sides: what it has already paid, what it still
+  // owes, and what its cards pay for it. A bill is on exactly one of
+  // them -- see figures.ts.
+  const {
+    unpaid: allUnpaid,
+    paid: allPaid,
+    owed,
+    owedUsd,
+    paidTotal,
+    paidTotalUsd,
+    late,
+    onCard: allOnCard,
+    onCardTotal,
+  } = serviciosFigures({
+    pendientes,
+    settled,
+    methods,
+    monthStart,
+    monthEnd,
+    now,
+  })
+
+  // What the lists under the tabs show, which is the only thing the
+  // search touches.
+  const unpaid = allUnpaid.filter(matches)
+  const paid = allPaid.filter(matches)
+  const onCard = allOnCard.filter(matches)
 
   const header = (
     <Title
@@ -249,16 +266,19 @@ export function Servicios({
     />
   )
 
-  // The month's two figures side by side, above the search and the
-  // tabs, the same in both: the month owes one of them and the card pays
-  // the other, and switching tabs to see the second meant losing sight
-  // of the first.
+  // The month's three figures, above the search and the tabs and the
+  // same in both: what the month has paid, what it still owes, and what
+  // the card pays for it. Switching tabs to see the last one meant
+  // losing sight of the other two.
+  //
+  // What is still owed leads, because it is the only one of the three
+  // anybody has to do something about.
   const hero = (
     <div className="hood solo">
-      <div className="duo">
+      <div className="trio">
         <div className="card half">
           <div className="label">
-            {unpaid.length === 0
+            {allUnpaid.length === 0
               ? `Pagaron todo en ${monthName(monthStart)}`
               : 'Servicios que faltan pagar'}
           </div>
@@ -274,15 +294,15 @@ export function Servicios({
               the one thing on this card you have to do something about,
               and in grey it read like a caption. */}
           <div className="herotags">
-            {unpaid.length === 0 ? (
+            {allUnpaid.length === 0 ? (
               <span className="tag ok">
                 <Check />
-                {`${String(paid.length)} ${paid.length === 1 ? 'servicio pagado' : 'servicios pagados'}`}
+                {`${String(allPaid.length)} ${allPaid.length === 1 ? 'servicio pagado' : 'servicios pagados'}`}
               </span>
             ) : (
               <span className="tag due">
                 <TriangleAlert />
-                {`${String(unpaid.length)} ${unpaid.length === 1 ? 'servicio sin pagar' : 'servicios sin pagar'}`}
+                {`${String(allUnpaid.length)} ${allUnpaid.length === 1 ? 'servicio sin pagar' : 'servicios sin pagar'}`}
               </span>
             )}
             {late.length > 0 ? (
@@ -294,6 +314,23 @@ export function Servicios({
               </span>
             ) : null}
           </div>
+        </div>
+        <div className="card half">
+          <div className="label">Servicios que ya pagaste</div>
+          <div className="figure">
+            <Figure amount={paidTotal} />
+          </div>
+          {paidTotalUsd > 0 ? (
+            <p className="usdline">
+              <b>{formatAmount(paidTotalUsd, 'USD')}</b>
+            </p>
+          ) : null}
+          {/* Said out loud because the figure above is not only the
+              settled bills: a servicio part-paid has money in here while
+              the rest of it is still in the figure beside it. */}
+          <p className="herosay">
+            Esta plata ya salió de la cuenta este mes.
+          </p>
         </div>
         <div className="card half">
           <div className="label">
