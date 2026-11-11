@@ -273,6 +273,30 @@ export type HouseholdsDb = {
     pendiente: Pendiente
     expense: Expense
   }>
+  // Handing over part of what a bill asks for. One transaction, all or
+  // nothing: it writes an ordinary Expense for the money that left and
+  // adds it to the bill\'s running total (paid_so_far,
+  // partial_expense_ids) while the bill stays pending, owing the rest.
+  // Never a Resumen, and never a credit method -- a part-payment is money
+  // that leaves now.
+  payPendientePartially(input: {
+    readonly householdId: string
+    readonly pendienteId: string
+    readonly memberId: string
+    readonly authorDisplayName: string
+    readonly amount: number
+    readonly paymentDate: Date
+    readonly paymentMethodId?: string | null
+  }): Promise<{
+    pendiente: Pendiente
+    expense: Expense
+  }>
+  // Reverses the last payPendientePartially: deletes the Expense it wrote
+  // and takes its amount back off paid_so_far.
+  undoLastPartialPayment(input: {
+    readonly householdId: string
+    readonly pendienteId: string
+  }): Promise<Pendiente>
   // Paying a bill with a credit card. One transaction, all or nothing: it
   // books a CardPurchase on that card, lands its cuotas in the card's
   // Resúmenes, and marks the bill paid through paid_purchase_id -- with no

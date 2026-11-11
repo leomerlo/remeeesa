@@ -4,6 +4,7 @@ import type { Card, CardPurchase } from '@/lib/cards'
 import { currentMonthRange } from '@/lib/expenses'
 import type { Category, Expense } from '@/lib/expenses'
 import type { Household } from '@/lib/households'
+import { amountLeft } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import type { Projection } from '@/lib/proyecciones'
 import { DEMO_SCENARIOS, DEMO_USER_ID, seedDemoHousehold } from '@/demo/seed'
@@ -421,7 +422,7 @@ describe('the beta says the same month on every screen', () => {
       cents(
         sumIn(
           month.unpaid.map((bill) => ({
-            price: bill.expectedAmount ?? 0,
+            price: amountLeft(bill) ?? 0,
             currency: bill.currency ?? 'ARS',
           })),
           'ARS',
@@ -744,7 +745,7 @@ describe('the beta says the same month on every screen', () => {
             pendiente.dueDate <= snap.monthEnd,
         )
         .map((bill) => ({
-          price: bill.expectedAmount ?? 0,
+          price: amountLeft(bill) ?? 0,
           currency: bill.currency ?? 'ARS',
         })),
       'USD',
@@ -762,7 +763,7 @@ describe('the beta says the same month on every screen', () => {
       cents(
         sumIn(
           servicios.unpaid.map((bill) => ({
-            price: bill.expectedAmount ?? 0,
+            price: amountLeft(bill) ?? 0,
             currency: bill.currency ?? 'ARS',
           })),
           'ARS',
@@ -807,7 +808,7 @@ describe('the beta says the same month on every screen', () => {
       cents(
         sumIn(
           inMonth.map((bill) => ({
-            price: bill.expectedAmount ?? 0,
+            price: amountLeft(bill) ?? 0,
             currency: bill.currency ?? 'ARS',
           })),
           'ARS',
@@ -1113,5 +1114,78 @@ describe('the beta says the same month on every screen', () => {
       expect(home.byCategory.length, key).toBe(0)
       expect(gastosFigures(snap).total, key).toBe(0)
     }
+  })
+
+  // A bill part-paid: the money that left is a Gasto of its own, and what
+  // the month still owes is only the rest. The figure worth testing is
+  // that the two add up to the bill and not to more than it -- counting
+  // the whole figure as owed while the part-payment also sat in the
+  // month's gastos would say the household spent it twice.
+  it('counts only what a part-paid bill still owes', () => {
+    const base = snapshots.get('completa\u00b7este mes')
+    if (base === undefined) throw new Error('missing snapshot')
+    const [model] = base.pendientes.filter(
+      (pendiente) =>
+        pendiente.cardId === undefined &&
+        pendiente.status === 'pending' &&
+        (pendiente.currency ?? 'ARS') === 'ARS' &&
+        (pendiente.expectedAmount ?? 0) > 1000 &&
+        pendiente.dueDate >= base.monthStart &&
+        pendiente.dueDate <= base.monthEnd,
+    )
+    if (model === undefined) throw new Error('no pending peso bill of the month')
+    const whole = model.expectedAmount ?? 0
+    const handed = Math.round(whole / 4)
+
+    const partly: Pendiente = {
+      ...model,
+      paidSoFar: handed,
+      partialExpenseIds: ['gasto-del-pago-parcial'],
+    }
+    const paid: Expense = {
+      id: 'gasto-del-pago-parcial',
+      householdId: model.householdId,
+      categoryId: model.categoryId,
+      memberId: DEMO_USER_ID,
+      authorDisplayName: 'Flor',
+      name: model.name,
+      price: handed,
+      comments: '',
+      expenseDate: base.now,
+      pendienteId: model.id,
+      isService: model.recurring,
+      subcategory: null,
+      currency: 'ARS',
+      paymentMethodId: null,
+      createdAt: base.now,
+    }
+    const snap: Snapshot = {
+      ...base,
+      pendientes: base.pendientes.map((one) =>
+        one.id === model.id ? partly : one,
+      ),
+      expenses: [...base.expenses, paid],
+      current: [...base.current, paid],
+      allExpenses: [...base.allExpenses, paid],
+    }
+
+    const before = homeFigures(base)
+    const home = homeFigures(snap)
+
+    // What left the account is in what the month paid...
+    expect(cents(home.paid)).toBe(cents(before.paid) + cents(handed))
+    // ...and comes off what it still owes, peso for peso.
+    expect(cents(home.owed)).toBe(cents(before.owed) - cents(handed))
+    // So the category it is in says the same as it did: part of the bill
+    // moved from owed to paid, and nothing about the month changed size.
+    const totalOf = (figures: ReturnType<typeof categoriasFigures>): number =>
+      figures.reduce((sum, row) => sum + cents(row.total), 0)
+    expect(totalOf(categoriasFigures(snap))).toBe(
+      totalOf(categoriasFigures(base)),
+    )
+    // And Servicios owes the rest, not the whole figure.
+    expect(cents(serviciosFigures(snap).owed)).toBe(
+      cents(serviciosFigures(base).owed) - cents(handed),
+    )
   })
 })

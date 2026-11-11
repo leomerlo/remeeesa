@@ -985,7 +985,7 @@ describe('firestore.rules Resúmenes', () => {
       'request.resource.data.purchase_ids.hasAll(resource.data.purchase_ids)',
     )
     expect(rules).toContain(
-      '|| isValidResumenUpdate() || isValidResumenMarkPaid());',
+      '|| isValidResumenUpdate() || isValidResumenMarkPaid()',
     )
   })
 

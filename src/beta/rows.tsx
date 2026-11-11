@@ -9,6 +9,7 @@ import type { ReactElement } from 'react'
 import { Link } from 'react-router-dom'
 import { cssVars } from '@/lib/cssVars'
 import type { Category, Expense } from '@/lib/expenses'
+import { amountLeft, isPartlyPaid, paidSoFar } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 import type { CardPurchase } from '@/lib/cards'
 import { billState } from './figures'
@@ -204,10 +205,24 @@ export function BillRow({
       >
         <CategoryTile name={mark.name} color={mark.color} />
         <span className="name">{bill.name}</span>
+        {/* On an open bill, what is left to pay -- which on all but a
+          part-paid one is the whole figure it asks for. It is the figure
+          somebody is about to hand over, so it is the one in big type;
+          what the bill asked for and what has gone in already are said
+          together on a badge below.
+
+          On a settled bill it is what the bill was worth: "lo que falta"
+          of something already paid is nothing, and a paid row reading $0
+          is the one thing this number must never say. */}
         <span className="amt">
           {bill.expectedAmount === null
             ? 'A confirmar'
-            : formatAmount(bill.expectedAmount, currency)}
+            : formatAmount(
+                state === 'paid'
+                  ? bill.expectedAmount
+                  : (amountLeft(bill) ?? 0),
+                currency,
+              )}
         </span>
         {/* One order, on every bill, whatever state it is in: the name, the
           date it is due, and then the badges. The grey line used to be
@@ -248,6 +263,15 @@ export function BillRow({
             ) : bill.paidPurchaseId != null ? (
               <span className="tag soft">Con tarjeta</span>
             ) : null}
+            {/* Part of it is already in: the badge says how much of how
+                much, because the big figure above now only says what is
+                left and on its own would read like a cheaper bill. */}
+            {isPartlyPaid(bill) && bill.expectedAmount !== null ? (
+              <span className="tag part">
+                Ya van {formatAmount(paidSoFar(bill), currency)} de{' '}
+                {formatAmount(bill.expectedAmount, currency)}
+              </span>
+            ) : null}
             {currency !== DEFAULT_CURRENCY ? (
               <span className="tag usd">En dólares</span>
             ) : null}
@@ -277,7 +301,7 @@ export function BillRow({
         <span className="rowfoot">
           <button className="btn btn-secondary" type="button" onClick={onPay}>
             <Check />
-            Ya lo pagué
+            {isPartlyPaid(bill) ? 'Pagar lo que falta' : 'Ya lo pagué'}
           </button>
         </span>
       )}

@@ -1107,6 +1107,13 @@ body {
   background: #ebe6f4;
   color: var(--ink-2);
 }
+/* Part of the bill is in. Not a warning and not a settlement: it is
+     progress, so it borrows the green of a paid bill at full strength --
+     the figure beside it is the one that still has to be found. */
+.tag.part {
+  background: var(--green-700);
+  color: #fff;
+}
 /* The category, wearing the category's own colour -- the same colour as
      its tile on the left of the row and its slice on the ring. A tint of
      it, not the colour itself: these sit beside two badges that mean

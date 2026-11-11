@@ -54,8 +54,11 @@ import {
 } from '@/lib/pendientes/converters'
 import {
   PendienteAlreadyPaidError,
+  PendienteAmountUnknownError,
   PendienteNotFoundError,
   PendienteNotPaidError,
+  PendienteNotPartlyPaidError,
+  ResumenCannotBePartlyPaidError,
 } from '@/lib/pendientes/pendientes'
 import { chunkForWriteBatch } from '@/lib/expenses/batching'
 import { nextCategoryColor } from '@/lib/expenses/categoryColor'
@@ -1400,6 +1403,173 @@ export function createFirestoreHouseholdsDb(
                 paymentMethodId: input.paymentMethodId ?? null,
                 createdAt,
               },
+            }
+          })
+        },
+        {
+          pendienteId: input.pendienteId,
+          householdId: input.householdId,
+        },
+      )
+    },
+    async payPendientePartially(input) {
+      return withHouseholdAccess(
+        'payPendientePartially',
+        async () => {
+          const memberId = await awaitAuthenticatedUserId(firestore)
+          const pendienteRef = doc(firestore, 'pendientes', input.pendienteId)
+          // Hoisted out of the transaction callback for the same reason
+          // markPendientePaid hoists its own: the callback re-runs on
+          // contention, and an id minted inside it would drift from the one
+          // returned to the caller.
+          const expenseRef = doc(collection(firestore, 'expenses'))
+          const now = Timestamp.now()
+          const createdAt = now.toDate()
+
+          return runTransaction(firestore, async (tx) => {
+            const pendienteSnap = await tx.get(pendienteRef)
+            if (
+              !pendienteSnap.exists() ||
+              pendienteSnap.data().household_id !== input.householdId
+            ) {
+              throw new PendienteNotFoundError()
+            }
+            const current = parsePendienteDocument({
+              id: pendienteSnap.id,
+              data: pendienteSnap.data(),
+            })
+            if (current.status !== 'pending') {
+              throw new PendienteAlreadyPaidError()
+            }
+            if (current.cardId !== undefined) {
+              throw new ResumenCannotBePartlyPaidError()
+            }
+            if (current.expectedAmount === null) {
+              throw new PendienteAmountUnknownError()
+            }
+
+            const expense: Expense = {
+              id: expenseRef.id,
+              householdId: input.householdId,
+              categoryId: current.categoryId,
+              memberId,
+              authorDisplayName: input.authorDisplayName,
+              name: current.name,
+              price: input.amount,
+              comments: '',
+              expenseDate: input.paymentDate,
+              pendienteId: input.pendienteId,
+              // Same rule a full payment follows: a Servicio is a
+              // *recurring* bill, not merely one that passed through
+              // Pendientes on its way to being paid.
+              isService: current.recurring,
+              subcategory: null,
+              currency: current.currency ?? DEFAULT_CURRENCY,
+              paymentMethodId: input.paymentMethodId ?? null,
+              createdAt,
+            }
+            tx.set(expenseRef, {
+              ...expenseToDocument({
+                householdId: expense.householdId,
+                categoryId: expense.categoryId,
+                memberId,
+                authorDisplayName: expense.authorDisplayName,
+                name: expense.name,
+                price: expense.price,
+                comments: '',
+                expenseDate: expense.expenseDate,
+                pendienteId: expense.pendienteId,
+                isService: expense.isService,
+                subcategory: null,
+                currency: expense.currency,
+                paymentMethodId: expense.paymentMethodId ?? null,
+                createdAt,
+              }),
+              expense_date: toFirestoreExpenseDate(input.paymentDate),
+              created_at: now,
+            })
+            // Written out in full rather than through increment(): the
+            // transaction has already read the bill, and a plain number is
+            // what the rule checks against.
+            const paidSoFar = (current.paidSoFar ?? 0) + input.amount
+            const partialExpenseIds = [
+              ...(current.partialExpenseIds ?? []),
+              expenseRef.id,
+            ]
+            tx.update(pendienteRef, {
+              paid_so_far: paidSoFar,
+              partial_expense_ids: partialExpenseIds,
+            })
+
+            return {
+              pendiente: {
+                ...current,
+                paidSoFar,
+                partialExpenseIds,
+              },
+              expense,
+            }
+          })
+        },
+        {
+          pendienteId: input.pendienteId,
+          householdId: input.householdId,
+        },
+      )
+    },
+    async undoLastPartialPayment(input) {
+      return withHouseholdAccess(
+        'undoLastPartialPayment',
+        async () => {
+          const pendienteRef = doc(firestore, 'pendientes', input.pendienteId)
+
+          return runTransaction(firestore, async (tx) => {
+            const pendienteSnap = await tx.get(pendienteRef)
+            if (
+              !pendienteSnap.exists() ||
+              pendienteSnap.data().household_id !== input.householdId
+            ) {
+              throw new PendienteNotFoundError()
+            }
+            const current = parsePendienteDocument({
+              id: pendienteSnap.id,
+              data: pendienteSnap.data(),
+            })
+            if (current.status !== 'pending') {
+              throw new PendienteAlreadyPaidError()
+            }
+            const ids = current.partialExpenseIds ?? []
+            const lastId = ids[ids.length - 1]
+            if (lastId === undefined) {
+              throw new PendienteNotPartlyPaidError()
+            }
+            // What comes off the running total is what the Gasto itself
+            // says, never a figure the caller passes in -- so an amount
+            // edited on the Gasto after the fact still undoes cleanly.
+            // It reads, so it runs before every write below.
+            const expenseRef = doc(firestore, 'expenses', lastId)
+            const expenseSnap = await tx.get(expenseRef)
+            const undone = expenseSnap.exists()
+              ? parseExpenseDocument({
+                  id: expenseSnap.id,
+                  data: expenseSnap.data(),
+                }).price
+              : 0
+
+            const paidSoFar = Math.max(0, (current.paidSoFar ?? 0) - undone)
+            const partialExpenseIds = ids.slice(0, -1)
+            if (expenseSnap.exists()) {
+              tx.delete(expenseRef)
+            }
+            tx.update(pendienteRef, {
+              paid_so_far: paidSoFar,
+              partial_expense_ids: partialExpenseIds,
+            })
+
+            return {
+              ...current,
+              paidSoFar,
+              partialExpenseIds,
             }
           })
         },

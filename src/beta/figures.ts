@@ -22,7 +22,7 @@ import {
   parseStoredAmount,
 } from '@/lib/money'
 import type { Currency } from '@/lib/money'
-import { isBillToPay, pendientesDueInMonth } from '@/lib/pendientes'
+import { amountLeft, isBillToPay, pendientesDueInMonth } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 
 // Every figure the beta puts on screen, worked out here and nowhere else.
@@ -207,6 +207,9 @@ export function homeFigures(input: HomeInput): HomeFigures {
     monthStart,
     monthEnd,
   ).filter((bill) => !onCreditCard(bill, credit))
+  // Part-paid bills count for what they still owe, not what they asked
+  // for: computePendingCommitted takes that off itself (billOwed), since
+  // the part already handed over is in "Pagado" as a Gasto of its own.
   const owed = computePendingCommitted(dueThisMonth)
   const cards = cardsDueNextMonthTotals(pendientes, monthStart)
   const budget = monthlyBudgetFor(household, monthStart, now)
@@ -563,7 +566,11 @@ export function categoryMovements(
         : {}),
       name: bill.name,
       date: bill.dueDate,
-      amount: bill.expectedAmount ?? 0,
+      // What it still owes, not what it asked for: a bill part-paid has
+      // already put money into this category through the Gasto that
+      // payment wrote, and counting the whole figure here would count
+      // that part twice.
+      amount: amountLeft(bill) ?? 0,
       currency: bill.currency ?? DEFAULT_CURRENCY,
     })),
     ...pieces.purchases
@@ -758,8 +765,10 @@ export function serviciosFigures(input: {
     ...sortBills(late, input.monthStart, input.now),
     ...sortBills(unpaidThisMonth, input.monthStart, input.now),
   ]
+  // What is still owed on each, which on a part-paid bill is less than
+  // what it asked for -- the rest already left as a Gasto of its own.
   const amounts = unpaid.map((pendiente) => ({
-    price: pendiente.expectedAmount ?? 0,
+    price: amountLeft(pendiente) ?? 0,
     currency: pendiente.currency ?? DEFAULT_CURRENCY,
   }))
 
@@ -773,6 +782,8 @@ export function serviciosFigures(input: {
     onCard,
     onCardTotal: sumIn(
       onCard.map((one) => ({
+        // These are already paid -- what they were worth, not what is
+        // left on them, which on a paid bill is nothing.
         price: one.expectedAmount ?? 0,
         currency: one.currency ?? DEFAULT_CURRENCY,
       })),
@@ -912,7 +923,7 @@ export function projectionFigures(input: {
     categoryId: pendiente.categoryId,
     color: colorOf(pendiente.categoryId),
     price:
-      pendiente.expectedAmount ??
+      amountLeft(pendiente) ??
       (pendiente.cardId === undefined ? 0 : (pendiente.estimatedAmount ?? 0)),
   }))
 
