@@ -290,3 +290,93 @@ describe('an amount written the way it is written here', () => {
     })
   })
 })
+
+// The category box. A dropdown of what the household already has cannot
+// name one it does not, and naming one is the half that matters:
+// anotando la panadería, nobody should have to leave the form, make a
+// category and come back. Per direct feedback: "habíamos dicho que era
+// un autocomplete".
+describe('choosing or naming a category', () => {
+  function openList(): void {
+    fireEvent.click(screen.getByRole('button', { name: /Categoría/ }))
+  }
+
+  function type(text: string): void {
+    fireEvent.change(
+      screen.getByLabelText('Buscar o escribir una categoría'),
+      { target: { value: text } },
+    )
+  }
+
+  it('narrows what the household already has', async () => {
+    const it_ = await house()
+    open(it_)
+    openList()
+
+    type('com')
+    expect(screen.getByRole('option', { name: 'Comida' })).toBeInTheDocument()
+    type('zzz')
+    expect(screen.queryByRole('option', { name: 'Comida' })).toBeNull()
+  })
+
+  it('makes the category when a name nobody has is saved', async () => {
+    const it_ = await house()
+    open(it_)
+    fill('Facturas', '4500')
+    openList()
+    type('Panadería')
+    fireEvent.click(screen.getByRole('option', { name: /Crear «Panadería»/ }))
+
+    // Nothing is written while the form is open: the name is carried as
+    // a name, and the category is made by the save.
+    expect(
+      (await it_.db.listCategories(it_.householdId)).map(
+        (category) => category.name,
+      ),
+    ).not.toContain('Panadería')
+
+    fireEvent.click(screen.getByRole('button', { name: /Anotar/ }))
+
+    await waitFor(async () => {
+      expect((await movements(it_)).expenses).toHaveLength(1)
+    })
+    const categories = await it_.db.listCategories(it_.householdId)
+    const made = categories.find((category) => category.name === 'Panadería')
+    expect(made).toBeDefined()
+    const [gasto] = await it_.db.listExpensesInMonth({
+      householdId: it_.householdId,
+      ...currentMonthRange(TODAY),
+    })
+    expect(gasto?.categoryId).toBe(made?.id)
+  })
+
+  it('offers no new category for a name that is already one', async () => {
+    const it_ = await house()
+    open(it_)
+    openList()
+    type('Comida')
+
+    expect(screen.queryByRole('option', { name: /Crear/ })).toBeNull()
+    expect(screen.getByRole('option', { name: 'Comida' })).toBeInTheDocument()
+  })
+
+  it('still files a gasto under a category that already exists', async () => {
+    const it_ = await house()
+    open(it_)
+    fill('Super', '12000')
+    openList()
+    fireEvent.click(screen.getByRole('option', { name: 'Comida' }))
+    fireEvent.click(screen.getByRole('button', { name: /Anotar/ }))
+
+    await waitFor(async () => {
+      expect((await movements(it_)).expenses).toHaveLength(1)
+    })
+    const categories = await it_.db.listCategories(it_.householdId)
+    const comida = categories.find((category) => category.name === 'Comida')
+    const [gasto] = await it_.db.listExpensesInMonth({
+      householdId: it_.householdId,
+      ...currentMonthRange(TODAY),
+    })
+    expect(gasto?.categoryId).toBe(comida?.id)
+  })
+})

@@ -8,7 +8,12 @@ import {
   updateCardPurchase,
 } from '@/lib/cards'
 import type { Category, Expense } from '@/lib/expenses'
-import { createExpense, deleteExpense, updateExpense } from '@/lib/expenses'
+import {
+  createExpense,
+  deleteExpense,
+  findOrCreateCategory,
+  updateExpense,
+} from '@/lib/expenses'
 import { createPendiente, markPendientePaid } from '@/lib/pendientes'
 import type { Currency } from '@/lib/money'
 import { CardBrandMark } from '../CardBrandMark'
@@ -20,6 +25,7 @@ import {
   DateField,
   MoneyRow,
   PickField,
+  CategoryField,
   SelectField,
   TextField,
   Toggle,
@@ -39,6 +45,11 @@ export type GastoDraft = {
   readonly amount: string
   readonly currency: Currency
   readonly categoryId: string
+  // A category nobody has yet, named here rather than created here: the
+  // save resolves it with findOrCreateCategory, so abandoning the form
+  // leaves nothing behind. Empty whenever an existing one is chosen, and
+  // the two are never both set.
+  readonly categoryName: string
   readonly date: string
   // '' is cash, the method every household has without creating it.
   readonly methodId: string
@@ -76,6 +87,7 @@ export function draftFromExpense(
       amount: '',
       currency: 'ARS',
       categoryId: fallbackCategoryId,
+      categoryName: '',
       date: isoDay(today),
       methodId: '',
       cuotas: '1',
@@ -92,6 +104,7 @@ export function draftFromExpense(
     amount: String(expense.price),
     currency: expense.currency,
     categoryId: expense.categoryId,
+    categoryName: '',
     date: isoDay(expense.expenseDate),
     methodId: expense.paymentMethodId ?? '',
     cuotas: '1',
@@ -108,6 +121,7 @@ export function draftFromPurchase(purchase: CardPurchase): GastoDraft {
     amount: String(purchase.total),
     currency: purchase.currency,
     categoryId: purchase.categoryId,
+    categoryName: '',
     date: isoDay(purchase.purchaseDate),
     methodId: purchase.cardId,
     cuotas: String(purchase.cuotas),
@@ -173,7 +187,10 @@ export function GastoSheet({
   // amount can be left empty. The v1 draws the line in the same place.
   const needsAmount = draft.paid || onCredit
   const priced = moneyIsValid(draft.amount, { required: needsAmount })
-  const blocked = !named || !priced || draft.categoryId === ''
+  const blocked =
+    !named ||
+    !priced ||
+    (draft.categoryId === '' && draft.categoryName.trim() === '')
   // What is missing, said only once they have started filling it in. A
   // form that opens already complaining is telling somebody off for not
   // having typed yet -- the empty form is its own explanation, and the
@@ -244,13 +261,26 @@ export function GastoSheet({
     save.run(async () => {
       const amount = moneyValue(draft.amount)
       const date = dayFromIso(draft.date)
+      // A name typed into the category box becomes a category here and
+      // nowhere earlier -- one lookup, before any of the branches below,
+      // so every one of them is given an id that exists.
+      const categoryId =
+        draft.categoryName.trim() === ''
+          ? draft.categoryId
+          : (
+              await findOrCreateCategory({
+                db: session.db,
+                householdId,
+                name: draft.categoryName.trim(),
+              })
+            ).id
       if (purchase !== null) {
         return updateCardPurchase({
           db: session.db,
           householdId,
           purchaseId: purchase.id,
           cardId: draft.methodId,
-          categoryId: draft.categoryId,
+          categoryId,
           name: draft.name.trim(),
           total: amount,
           cuotas: Number(draft.cuotas),
@@ -266,7 +296,7 @@ export function GastoSheet({
           expenseId: expense.id,
           name: draft.name.trim(),
           price: amount,
-          categoryId: draft.categoryId,
+          categoryId,
           comments: draft.comments,
           expenseDate: date,
           // Left exactly as it was found. It is the v1's old flag, which
@@ -282,7 +312,7 @@ export function GastoSheet({
           db: session.db,
           householdId,
           cardId: method.id,
-          categoryId: draft.categoryId,
+          categoryId,
           memberId,
           authorDisplayName: author,
           name: draft.name.trim(),
@@ -302,7 +332,7 @@ export function GastoSheet({
         const created = await createPendiente({
           db: session.db,
           householdId,
-          categoryId: draft.categoryId,
+          categoryId,
           name: draft.name.trim(),
           dueDate: date,
           expectedAmount: draft.amount.trim() === '' ? null : amount,
@@ -328,7 +358,7 @@ export function GastoSheet({
       return createExpense({
         db: session.db,
         householdId,
-        categoryId: draft.categoryId,
+        categoryId,
         memberId,
         authorDisplayName: author,
         name: draft.name.trim(),
@@ -406,14 +436,13 @@ export function GastoSheet({
         ]}
         {...(amountSays === null ? {} : { hint: amountSays })}
       />
-      <SelectField
+      <CategoryField
         label="Categoría"
         value={draft.categoryId}
-        onChange={(next) => set('categoryId', next)}
-        options={categories.map((category) => ({
-          value: category.id,
-          label: category.name,
-        }))}
+        newName={draft.categoryName}
+        onPick={(next) => set('categoryId', next)}
+        onName={(next) => set('categoryName', next)}
+        categories={categories}
       />
       <DateField
         label={draft.paid ? 'Cuándo' : 'Cuándo vence'}
