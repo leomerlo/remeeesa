@@ -4,6 +4,7 @@ import {
   PendienteAlreadyPaidError,
   PendienteNotFoundError,
   PendienteNotPaidError,
+  PendienteNotPartlyPaidError,
 } from '@/lib/pendientes/pendientes'
 import type { Pendiente } from '@/lib/pendientes/types'
 import type { Card, CardPurchase } from '@/lib/cards/types'
@@ -1158,6 +1159,86 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         throw new PendienteAlreadyPaidError()
       }
       state.pendientes.delete(input.pendienteId)
+    },
+    async payPendientePartially(input) {
+      assertMemberOf(state, userId, input.householdId)
+      // Same anti-spoof check markPendientePaid makes: the Gasto this
+      // writes has to be attributed to the caller.
+      if (input.memberId !== userId) {
+        throw new HouseholdAccessDeniedError()
+      }
+      const existing = state.pendientes.get(input.pendienteId)
+      if (
+        existing === undefined ||
+        existing.householdId !== input.householdId
+      ) {
+        throw new PendienteNotFoundError()
+      }
+      if (existing.status !== 'pending') {
+        throw new PendienteAlreadyPaidError()
+      }
+      // Mirrors firestore.rules' isValidPendientePartialPayment excluding
+      // Resúmenes and bills with no figure yet.
+      if (existing.cardId !== undefined || existing.expectedAmount === null) {
+        throw new PendienteNotFoundError()
+      }
+      const createdAt = new Date()
+      const expense: Expense = {
+        id: crypto.randomUUID(),
+        householdId: input.householdId,
+        categoryId: existing.categoryId,
+        memberId: input.memberId,
+        paymentMethodId: input.paymentMethodId ?? null,
+        authorDisplayName: input.authorDisplayName,
+        name: existing.name,
+        price: input.amount,
+        comments: '',
+        expenseDate: input.paymentDate,
+        pendienteId: input.pendienteId,
+        isService: existing.recurring,
+        subcategory: null,
+        currency: existing.currency ?? DEFAULT_CURRENCY,
+        createdAt,
+      }
+      const updated: Pendiente = {
+        ...existing,
+        paidSoFar: (existing.paidSoFar ?? 0) + input.amount,
+        partialExpenseIds: [...(existing.partialExpenseIds ?? []), expense.id],
+      }
+      state.expenses.set(expense.id, expense)
+      state.pendientes.set(input.pendienteId, updated)
+      return { pendiente: updated, expense }
+    },
+    async undoLastPartialPayment(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const existing = state.pendientes.get(input.pendienteId)
+      if (
+        existing === undefined ||
+        existing.householdId !== input.householdId
+      ) {
+        throw new PendienteNotFoundError()
+      }
+      if (existing.status !== 'pending') {
+        throw new PendienteAlreadyPaidError()
+      }
+      const ids = existing.partialExpenseIds ?? []
+      const lastId = ids[ids.length - 1]
+      if (lastId === undefined) {
+        throw new PendienteNotPartlyPaidError()
+      }
+      // Like the real adapter's tx.get of the Expense: what comes off the
+      // running total is what that Gasto actually says, never a figure the
+      // caller passes in.
+      const expense = state.expenses.get(lastId)
+      const undone = expense?.price ?? 0
+      const updated: Pendiente = {
+        ...existing,
+        paidSoFar: Math.max(0, (existing.paidSoFar ?? 0) - undone),
+        partialExpenseIds: ids.slice(0, -1),
+      }
+      state.expenses.delete(lastId)
+      state.pendientes.set(input.pendienteId, updated)
+      return updated
     },
     async markPendientePaid(input) {
       assertMemberOf(state, userId, input.householdId)

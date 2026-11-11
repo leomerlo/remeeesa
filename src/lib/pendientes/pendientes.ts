@@ -8,6 +8,7 @@ import {
   parseExpensePrice,
 } from '@/lib/expenses'
 import type { Expense } from '@/lib/expenses/types'
+import { amountLeft } from './amountLeft'
 import { nextCycleDueDate } from './recurrence'
 import type { Pendiente } from './types'
 import {
@@ -26,6 +27,32 @@ export class PendienteAlreadyPaidError extends Error {
 
 export class PendienteNotPaidError extends Error {
   override readonly name = 'PendienteNotPaidError'
+}
+
+// Part-paying a bill whose figure has not arrived. There is nothing to
+// take a part off: what is left over would be unknowable, and a bill that
+// cannot say what it still owes is worse than one that says nothing.
+export class PendienteAmountUnknownError extends Error {
+  override readonly name = 'PendienteAmountUnknownError'
+}
+
+// Part-paying a card's Resumen. A card bill is an estimate until it is
+// paid, and what the household actually hands the card it writes down as
+// a servicio of its own -- that one can be part-paid like any other. Per
+// direct feedback: "el resumen de la tarjeta, olvidate".
+export class ResumenCannotBePartlyPaidError extends Error {
+  override readonly name = 'ResumenCannotBePartlyPaidError'
+}
+
+// Handing over everything the bill still owes is not a part-payment, it
+// is paying the bill -- markPendientePaid does that, and settles it.
+export class PartialPaymentCoversBillError extends Error {
+  override readonly name = 'PartialPaymentCoversBillError'
+}
+
+// Undoing a part-payment on a bill that has none.
+export class PendienteNotPartlyPaidError extends Error {
+  override readonly name = 'PendienteNotPartlyPaidError'
 }
 
 export async function createPendiente(input: {
@@ -228,6 +255,77 @@ export async function markPendientePaid(input: {
     finalAmount: parseExpensePrice(input.finalAmount),
     paymentDate: parseExpenseDate(input.paymentDate),
     paymentMethodId: input.paymentMethodId ?? null,
+  })
+}
+
+// Handing over part of what a bill asks for: the household went to pay
+// the Luz, did not take the whole figure, and put down what it had. What
+// that creates is an ordinary Gasto for the money that left, while the
+// bill stays pending owing the rest -- see lib/pendientes/amountLeft. Per
+// direct feedback: "pagu\u00e9 X y me falta X".
+export async function payPendientePartially(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly pendienteId: string
+  readonly memberId: string
+  readonly authorDisplayName: string
+  readonly amount: number
+  readonly paymentDate: Date
+  // What it was handed over with, when it was one of the methods the
+  // household wrote down. Null for cash. Never a credit one: that money
+  // does not leave now, and a bill is not part-paid on credit.
+  readonly paymentMethodId?: string | null
+}): Promise<{
+  pendiente: Pendiente
+  expense: Expense
+}> {
+  const existing = await getPendienteOrThrow({
+    db: input.db,
+    householdId: input.householdId,
+    pendienteId: input.pendienteId,
+  })
+  if (existing.cardId !== undefined) {
+    throw new ResumenCannotBePartlyPaidError()
+  }
+  if (existing.expectedAmount === null) {
+    throw new PendienteAmountUnknownError()
+  }
+  const amount = parseExpensePrice(input.amount)
+  const left = amountLeft(existing)
+  if (left !== null && amount >= left) {
+    throw new PartialPaymentCoversBillError()
+  }
+  return input.db.payPendientePartially({
+    householdId: input.householdId,
+    pendienteId: input.pendienteId,
+    memberId: input.memberId,
+    authorDisplayName: parseAuthorDisplayName(input.authorDisplayName),
+    amount,
+    paymentDate: parseExpenseDate(input.paymentDate),
+    paymentMethodId: input.paymentMethodId ?? null,
+  })
+}
+
+// Undoes the last part-payment: deletes the Gasto it created and gives
+// the bill back what that payment had taken off. The escape hatch for a
+// figure typed wrong, the same one unmarkPendientePaid is for a payment
+// that never happened.
+export async function undoLastPartialPayment(input: {
+  readonly db: HouseholdsDb
+  readonly householdId: string
+  readonly pendienteId: string
+}): Promise<Pendiente> {
+  const existing = await getPendienteOrThrow({
+    db: input.db,
+    householdId: input.householdId,
+    pendienteId: input.pendienteId,
+  })
+  if ((existing.partialExpenseIds ?? []).length === 0) {
+    throw new PendienteNotPartlyPaidError()
+  }
+  return input.db.undoLastPartialPayment({
+    householdId: input.householdId,
+    pendienteId: input.pendienteId,
   })
 }
 
