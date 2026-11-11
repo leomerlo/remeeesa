@@ -298,7 +298,11 @@ export function Home({
               and the card's own figure takes the full width under them --
               the shape reads faster, and it is the whole of the panel, so
               there is nothing above it to shrink them against. */}
-          <div className={budget > 0 ? 'trio four' : 'trio four pairplus'}>
+          {/* The same four, with a budget or without one. "pairplus" was
+              the no-budget shape back when this panel held three cards
+              and one of them carried the only action on the screen; the
+              action lives under the panel now and the shape is one. */}
+          <div className="trio four">
             <div className="card out">
               <span className="cap">
                 <span className="dot dot-paid" />
@@ -306,20 +310,8 @@ export function Home({
               </span>
               <Figure className="amt" amount={spent} />
               <span className="foot">
-                Lo de una vez, lo que está en Gastos.
+                Gastos que realizás una vez. Ejemplo, café o comida.
               </span>
-              {/* The one thing this panel can offer when there is no
-                  budget, on the card somebody is already reading. */}
-              {budget > 0 ? null : (
-                <button
-                  className="btn btn-secondary"
-                  type="button"
-                  onClick={() => setBudgeting(true)}
-                >
-                  <Target />
-                  Poner un presupuesto
-                </button>
-              )}
             </div>
             <div className="card out">
               <span className="cap">
@@ -328,7 +320,7 @@ export function Home({
               </span>
               <Figure className="amt" amount={serviciosPaid} />
               <span className="foot">
-                Lo que se paga mes a mes y ya salió.
+                Servicios que se pagan mensualmente o de forma recurrente.
               </span>
             </div>
             <div className="card wait">
@@ -338,7 +330,8 @@ export function Home({
               </span>
               <Figure className="amt" amount={owed} />
               <span className="foot">
-                Los que vencen este mes y todavía no pagaron.
+                Servicios que se pagan mensualmente o de forma recurrente, y
+                todavía no se pagaron.
               </span>
             </div>
             <Link className="card cardtot" to="/tarjetas">
@@ -370,6 +363,21 @@ export function Home({
           </div>
         </div>
       </div>
+      {/* Under the panel and to its right, where every other "and now
+          what" in this app sits -- "Ver todos los gastos", "Ver por
+          categoría". Inside one of the cards it pushed that card taller
+          than the three beside it, so a button for the panel was bending
+          the panel's own grid. */}
+      {budget > 0 ? null : (
+        <button
+          className="btn btn-secondary btn-wide"
+          type="button"
+          onClick={() => setBudgeting(true)}
+        >
+          <Target />
+          Poner un presupuesto
+        </button>
+      )}
 
       <div className="cols">
         <div className="col">

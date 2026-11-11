@@ -149,10 +149,9 @@ export function Dolar(): ReactElement {
           because those are the cueva's words for its own side of the
           counter and read backwards from here: the cueva's compra is the
           household selling. */}
-      <div className="sides" role="group" aria-label="Qué vas a hacer">
+      <div className="segment" role="group" aria-label="Qué vas a hacer">
         <button
           type="button"
-          className={side === 'compra' ? 'on' : ''}
           aria-pressed={side === 'compra'}
           onClick={() => setSide('compra')}
         >
@@ -160,7 +159,6 @@ export function Dolar(): ReactElement {
         </button>
         <button
           type="button"
-          className={side === 'venta' ? 'on' : ''}
           aria-pressed={side === 'venta'}
           onClick={() => setSide('venta')}
         >
