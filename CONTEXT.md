@@ -43,6 +43,21 @@ Expense; that's the moment it starts counting against the budget.
 _Avoid_: Bill (English works too, but "Pendiente" is the term the household actually uses),
 recurring expense (a Pendiente may or may not repeat monthly)
 
+**Pago parcial** (Part-payment):
+Handing over part of what a Pendiente asks for — going to pay the Expensas without the whole
+figure in hand. It writes an ordinary **Expense** for the money that left and leaves the
+Pendiente pending, now owing only the rest; the Pendiente keeps a running total of what has gone
+in. Paying the last of it is the ordinary paid transition, which settles it. Never on a
+**Resumen**: a card's bill is an estimate until it is paid, and what the household actually hands
+the card it writes down as a Pendiente of its own.
+_Avoid_: anticipo, seña (both mean a payment *before* the obligation is settled in a different
+sense — a deposit — and a pago parcial is simply part of this bill)
+
+**Lo que falta** (What is still owed):
+What a Pendiente asks for minus the pagos parciales already made — the figure every total of an
+unpaid bill is built on, and the one shown in big type on its row. Unknown while the Pendiente
+has no expected amount, and nothing once it is paid.
+
 **Recurring** (as applied to a Pendiente):
 A Pendiente that comes back every month under the same name/category (e.g. "Internet", "Seguro del
 auto") — but the *amount* is expected to vary each cycle (inflation), so recurring never means
@@ -94,6 +109,9 @@ _Avoid_: Tag, child category
   generates exactly one **Expense**; an **Expense** may or may not have originated from a Pendiente
   (a coffee bought on the spot is an Expense with no Pendiente behind it). The exception is a
   **Resumen**: paying one generates one **Expense** per **Cuota**, plus an optional ajuste.
+- A **Pendiente** may also have any number of **pagos parciales**, each generating its own
+  **Expense**, before the one that settles it. What it counts against its month is always **lo
+  que falta**, never what it asks for — the rest is already in the month as those Expenses.
 - A **Compra con tarjeta** belongs to one **Tarjeta** and one **Category**, and has 1–24
   **Cuotas**, each in a different **Resumen** of that **Tarjeta**.
 
