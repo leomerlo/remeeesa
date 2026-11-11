@@ -40,7 +40,15 @@ jobs:
       # one place the screens, the Firestore adapter and the rules run
       # together. It found a real bug on its first green run -- a
       # brand-new household had no navigation until the page was reloaded.
-      - run: npx playwright install --with-deps chromium
+      # `--with-deps` pulls font packages from Ubuntu's apt mirrors, and
+      # when those mirrors are unreachable from the runner -- which has
+      # happened for half an hour at a time -- the step fails and takes a
+      # green branch red for a reason that has nothing to do with the
+      # code. The browser itself comes from Playwright's own CDN, so on
+      # that failure we install it alone: the system libraries Chromium
+      # needs are already on this image, and the fonts those packages add
+      # are for scripts this app does not render.
+      - run: npx playwright install --with-deps chromium || npx playwright install chromium
       - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()
