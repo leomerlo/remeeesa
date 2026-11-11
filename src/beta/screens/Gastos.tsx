@@ -147,15 +147,22 @@ export function Gastos({
     currency: expense.currency,
     expense,
   }))
-  const conTarjeta: readonly Movement[] = purchases.map((purchase) => ({
-    id: purchase.id,
-    name: purchase.name,
-    categoryId: purchase.categoryId,
-    date: purchase.purchaseDate,
-    price: purchase.total,
-    currency: purchase.currency,
-    purchase,
-  }))
+  // A consumo that came from paying a servicio belongs to Servicios, on
+  // its "Con tarjeta" side -- the same rule the gastos above follow. It
+  // used to be listed here because nothing on it said where it came
+  // from. Per direct feedback: "es un servicio, no me tiene que aparecer
+  // en gastos".
+  const conTarjeta: readonly Movement[] = purchases
+    .filter((purchase) => (purchase.pendienteId ?? null) === null)
+    .map((purchase) => ({
+      id: purchase.id,
+      name: purchase.name,
+      categoryId: purchase.categoryId,
+      date: purchase.purchaseDate,
+      price: purchase.total,
+      currency: purchase.currency,
+      purchase,
+    }))
   const items = view === 'mes' ? delMes : conTarjeta
 
   // Pesos only, like every other peso figure in the app: a $45 expense in

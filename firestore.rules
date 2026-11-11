@@ -770,7 +770,7 @@ service cloud.firestore {
     // whole number of cents; the 0.5 slack makes "at least one cent per
     // cuota" exact instead of tripping on 0.03 < 3 * 0.01 in doubles.
     function isValidCardPurchase(data) {
-      return data.keys().hasOnly(['household_id', 'card_id', 'category_id', 'member_id', 'author_display_name', 'name', 'total', 'cuotas', 'purchase_date', 'comments', 'currency', 'created_at', 'paid_resumen_ids'])
+      return data.keys().hasOnly(['household_id', 'card_id', 'category_id', 'member_id', 'author_display_name', 'name', 'total', 'cuotas', 'purchase_date', 'comments', 'currency', 'created_at', 'paid_resumen_ids', 'pendiente_id'])
         && data.household_id is string
         && data.household_id.size() > 0
         && data.card_id is string
@@ -791,6 +791,14 @@ service cloud.firestore {
         // Absent on every purchase written before a card could hold two.
         && (!('currency' in data) || data.currency in ['ARS', 'USD'])
         && data.created_at is timestamp
+        // The bill this consumo came from, where it came from one.
+        // Absent on ordinary shopping and on everything written before
+        // the field existed. Only shape is checked: the write that sets
+        // it is the same transaction that marks the bill paid, and that
+        // transition has its own rule.
+        && (!('pendiente_id' in data)
+            || data.pendiente_id == null
+            || data.pendiente_id is string)
         && get(/databases/$(database)/documents/cards/$(data.card_id)).data.household_id == data.household_id
         && get(/databases/$(database)/documents/categories/$(data.category_id)).data.household_id == data.household_id;
     }

@@ -1426,6 +1426,8 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         purchaseDate: input.paymentDate,
         comments: '',
         currency: input.currency,
+        // Where it came from, so Gastos can leave it to Servicios.
+        pendienteId: input.pendienteId,
         createdAt,
         paidResumenIds: [],
       }
