@@ -480,10 +480,11 @@ body {
 .trio > :nth-child(3) {
   grid-column: 1 / -1;
 }
-/* Four figures instead of three: two and two, at every width. "Pagado"
-   used to be one card for two different things -- what the month paid of
-   its bills, and what it spent on its own -- and only one of those ever
-   stops growing. Splitting the word meant splitting the card. */
+/* Four figures instead of three. The first three are one sentence --
+   what the month spent of its own, what it paid of its bills, what it
+   still owes of them -- so they share a row and the card's own figure
+   takes the width underneath. Below this width they stack two and two,
+   and on a phone one under the other. */
 .trio.four > :nth-child(3) {
   grid-column: auto;
 }
@@ -497,6 +498,16 @@ body {
 }
 .hood .trio.four > :nth-child(3) {
   border-left: 0;
+}
+/* One size for all four, for the reason the band on Servicios has one:
+   a figure that shrinks itself by how many digits it has makes the
+   shorter one beside it look like the bigger number when it is not. The
+   size holds the longest, so none of them has to shrink. */
+.trio.four .amt {
+  font-size: clamp(24px, 6.4vw, 30px);
+}
+.trio.four .fig[data-len] {
+  font-size: 1em;
 }
 .trio .card {
   padding: 16px;
@@ -2407,38 +2418,26 @@ body {
   color: var(--side-ink);
   font-variant-numeric: tabular-nums;
 }
-/* Which way the change is going, which is what picks the rate. Two
-     halves of one control, so it reads as one question with two answers
-     rather than as two things you could both press. The labels wrap at
-     this width, which is better than abbreviating them into "Vendo" and
-     "Compro" -- on their own those do not say what. */
-.dolar .sides {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
+/* Which way the change is going, which is what picks the rate. The same
+   control Gastos and Servicios switch their tabs with, in the rail's own
+   colours -- one component wearing the dark instead of a second one that
+   only looks like it. Per direct feedback: "así queda todo el mismo
+   componente". */
+.dolar .segment {
+  background: rgba(255, 255, 255, 0.07);
   margin-top: 10px;
 }
-.dolar .sides button {
-  font: inherit;
+.dolar .segment button {
   font-size: var(--t-xs);
-  font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.2;
   color: var(--side-ink-2);
-  background: transparent;
-  border: 2px solid var(--side-line, rgba(255, 255, 255, 0.18));
-  border-radius: 12px;
-  padding: 8px 6px;
-  min-height: 46px;
-  cursor: pointer;
+  min-height: 40px;
+  padding: 6px 6px;
 }
-.dolar .sides button.on {
+.dolar .segment button[aria-pressed='true'] {
   background: var(--side-ink);
-  border-color: var(--side-ink);
   color: var(--side-active);
-}
-.dolar .sides button:focus-visible {
-  outline: 2px solid var(--side-ink);
-  outline-offset: 2px;
+  border: 0;
 }
 /* What the chosen side actually means at today's rate, in the words
      somebody standing at the counter would use. The whole point of the
@@ -3107,48 +3106,77 @@ body {
   display: grid;
   gap: 8px;
 }
-/* The box at the top of the category list. It is the whole control:
-   it narrows what the household already has, and when nothing matches,
-   it is where the new name was typed. Full height like every other
-   control, because a search box you have to aim at is a search box
-   nobody uses on a phone. */
-.pickfind {
-  width: 100%;
-  min-height: 46px;
-  padding: 11px 16px;
+/* The category field: a text field like every other, with the list of
+   what matches under it. The field is where the cursor goes, so there is
+   nothing to open before you can type. Per direct feedback: "un
+   autocomplete normal". */
+/* The list sits in the flow under the field rather than floating over
+   it: the sheet's body is what scrolls, and anything floating inside a
+   scrolling box gets cut off by it -- which is the same reason the
+   method list is laid out this way. */
+.aclist {
+  margin-top: 6px;
+  display: grid;
+  gap: 4px;
+  max-height: 272px;
+  overflow-y: auto;
+  padding: 6px;
+  background: var(--card);
   border: 2px solid #e0d8ee;
   border-radius: 16px;
-  background: #fff;
+  box-shadow: 0 18px 40px rgb(32 18 58 / 18%);
+}
+.aclist button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  padding: 8px 10px;
+  min-height: 46px;
   font-family: inherit;
+}
+.aclist button .k {
   font-size: var(--t-md);
-  font-weight: 600;
+  font-weight: 700;
   color: var(--ink);
 }
-.pickfind::placeholder {
-  font-weight: 400;
-  color: var(--ink-2);
+.aclist button[aria-selected='true'] {
+  background: var(--grape-50, #f1ecfa);
 }
-.pickfind:focus-visible {
-  outline: 2px solid var(--grape-600);
-  outline-offset: 1px;
+.aclist button:hover,
+.aclist button:focus-visible {
+  background: #f1ecfa;
+  outline: 0;
 }
-/* Making a category rather than choosing one: the grape of every other
-   action in the app, so it reads as the thing that adds something. */
-.pickopt.make {
-  border-color: var(--grape-600);
-}
-.pickopt.make .k {
+/* Making one rather than choosing one: the grape of every other action
+   in the app, so it reads as the row that adds something. */
+.aclist button.make .k {
   color: var(--grape-700);
 }
-.pickopt.make .mk svg {
-  width: 22px;
-  height: 22px;
+.aclist .plus {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: #f1ecfa;
   color: var(--grape-700);
+  flex: none;
 }
-.pickempty {
+.aclist .plus svg {
+  width: 20px;
+  height: 20px;
+}
+.acempty {
+  margin: 0;
+  padding: 10px;
   color: var(--ink-2);
   font-size: var(--t-sm);
-  padding: 4px 2px;
 }
 .pickopt {
   display: grid;
@@ -3679,12 +3707,26 @@ body {
   .trio > :nth-child(3) {
     grid-column: auto;
   }
-  /* Four across would leave each figure a quarter of the panel, and
-     these are figures in the hundreds of thousands. Two and two. */
+  /* Three across and the fourth underneath: the three that are one
+     sentence share a row, and the card's own figure -- which is about
+     next month, not this one -- gets the width to itself. Four across
+     would leave each a quarter of the panel, and these are figures in
+     the millions. */
   .trio.four {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .trio.four > :nth-child(4) {
+    grid-column: 1 / -1;
+  }
+  /* A third of the panel each from here up. */
+  .trio.four .amt {
+    font-size: clamp(22px, 2.2vw, 28px);
   }
   .hood .trio.four > :nth-child(3) {
+    border-top: 0;
+    border-left: 1px solid var(--hood-line);
+  }
+  .hood .trio.four > :nth-child(4) {
     border-top: 1px solid var(--hood-line);
     border-left: 0;
   }
@@ -3958,7 +4000,31 @@ a.card {
   /* A third of the width each, so the figure cannot go on taking its
      size from the viewport. */
   .duo.three .figure {
-    font-size: clamp(24px, 2.6vw, 34px);
+    font-size: clamp(22px, 2.2vw, 28px);
+  }
+}
+/* Three figures of one month, all at one size. Elsewhere a figure
+   shrinks itself by how many digits it has, which keeps a long one
+   inside its card -- but these three sit side by side, and a figure
+   that shrinks on its own makes the one beside it look like the bigger
+   number when it is not. The size is picked to hold the longest, so
+   none of them has to. Per direct feedback: "tiene que ser todo el
+   mismo tamaño". */
+.duo.three .fig[data-len] {
+  font-size: 1em;
+}
+.duo.three .usdline b {
+  font-size: inherit;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+.duo.three .usdline {
+  font-size: clamp(28px, 7.5vw, 40px);
+  color: var(--hood-ink);
+}
+@media (min-width: 860px) {
+  .duo.three .usdline {
+    font-size: clamp(22px, 2.2vw, 28px);
   }
 }
 .hood .duo > * + * {

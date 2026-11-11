@@ -127,10 +127,7 @@ test('a new household signs up, sets a budget and anota su primer gasto', async 
   // created -- so this is a choice, not a new category. The field is a
   // list with a box over it: the box narrows what the household has, and
   // when nothing matches it is where a new name is typed.
-  await sheet.getByRole('button', { name: /Categoría/ }).click()
-  await sheet
-    .getByLabel('Buscar o escribir una categoría')
-    .fill('Comida')
+  await sheet.getByLabel('Categoría').fill('Comida')
   await sheet.getByRole('option', { name: 'Comida' }).click()
   await sheet.getByRole('button', { name: 'Anotar' }).click()
   await expect(sheet).toBeHidden({ timeout: 20000 })
@@ -303,10 +300,7 @@ test('a category nobody has yet is named while anotando a gasto', async ({
   const sheet = page.getByRole('dialog', { name: 'Anotar un gasto' })
   await sheet.getByLabel('¿Qué fue?').fill('Facturas')
   await sheet.getByLabel('Cuánto').fill('6800')
-  await sheet.getByRole('button', { name: /Categoría/ }).click()
-  await sheet
-    .getByLabel('Buscar o escribir una categoría')
-    .fill('Panadería')
+  await sheet.getByLabel('Categoría').fill('Panadería')
   await sheet.getByRole('option', { name: /Crear «Panadería»/ }).click()
   await sheet.getByRole('button', { name: 'Anotar' }).click()
   await expect(sheet).toBeHidden({ timeout: 20000 })

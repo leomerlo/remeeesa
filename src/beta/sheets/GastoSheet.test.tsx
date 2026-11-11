@@ -297,15 +297,16 @@ describe('an amount written the way it is written here', () => {
 // category and come back. Per direct feedback: "habíamos dicho que era
 // un autocomplete".
 describe('choosing or naming a category', () => {
+  // The field is the box: clicking it puts the cursor in it and drops
+  // the list under it. There is nothing to open first.
   function openList(): void {
-    fireEvent.click(screen.getByRole('button', { name: /Categoría/ }))
+    fireEvent.focus(screen.getByLabelText('Categoría'))
   }
 
   function type(text: string): void {
-    fireEvent.change(
-      screen.getByLabelText('Buscar o escribir una categoría'),
-      { target: { value: text } },
-    )
+    fireEvent.change(screen.getByLabelText('Categoría'), {
+      target: { value: text },
+    })
   }
 
   it('narrows what the household already has', async () => {
