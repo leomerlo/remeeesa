@@ -211,7 +211,7 @@ test('a servicio is part-paid, and the month only counts what is left', async ({
 
   // Still open, now asking for the rest and saying how much of how much
   // is in.
-  await expect(page.getByText('Ya van $ 50.000 de $ 88.000')).toBeVisible({
+  await expect(page.getByText('Pagaste $ 50.000 de $ 88.000')).toBeVisible({
     timeout: 20000,
   })
   await expect(page.getByText('$ 38.000').first()).toBeVisible()

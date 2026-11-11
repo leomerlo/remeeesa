@@ -150,19 +150,27 @@ export function Dolar(): ReactElement {
           counter and read backwards from here: the cueva's compra is the
           household selling. */}
       <div className="segment" role="group" aria-label="Qué vas a hacer">
+        {/* One word each, so the control is one line in a 200px rail.
+            Said from the household's side, which is the side it is
+            standing on: "Venta" is the household selling its dollars,
+            and the rate under it is what the cueva pays for them. The
+            line below says which way the money runs, so the short label
+            never has to. */}
         <button
           type="button"
+          aria-label="Venta: vendo dólares"
           aria-pressed={side === 'compra'}
           onClick={() => setSide('compra')}
         >
-          Vendo dólares
+          Venta
         </button>
         <button
           type="button"
+          aria-label="Compra: compro dólares"
           aria-pressed={side === 'venta'}
           onClick={() => setSide('venta')}
         >
-          Compro dólares
+          Compra
         </button>
       </div>
       <p className="sidesay">

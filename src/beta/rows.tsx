@@ -268,7 +268,7 @@ export function BillRow({
                 left and on its own would read like a cheaper bill. */}
             {isPartlyPaid(bill) && bill.expectedAmount !== null ? (
               <span className="tag part">
-                Ya van {formatAmount(paidSoFar(bill), currency)} de{' '}
+                Pagaste {formatAmount(paidSoFar(bill), currency)} de{' '}
                 {formatAmount(bill.expectedAmount, currency)}
               </span>
             ) : null}
@@ -496,11 +496,12 @@ export function Donut({
           both currencies, which a peso ring could never do. */}
       {cardBills.length === 0 ? null : (
         <AlertCard kind="info" icon={<Info />}>
-          {/* "La tarjeta pide", not "hay que pagar": the figure counts
-              the month's card bills whether or not they have been paid,
-              which is the whole point of it -- it says what the card
-              asked of this month, beside what the categories took. */}
-          Además, este mes la tarjeta pide{' '}
+          {/* "Suman", not "hay que pagar": the figure counts the month's
+              card bills whether or not they have been paid, which is the
+              whole point of it -- it states what the statements come to,
+              beside what the categories took, and stating a sum is true
+              on both sides of the payment. Her wording. */}
+          Además, este mes los resúmenes de las tarjetas de crédito suman{' '}
           {cardBills.map(({ currency, total }, index) => (
             <span key={currency}>
               {index === 0 ? null : ' y '}
@@ -515,11 +516,13 @@ export function Donut({
           is explained here rather than up in the alert, which says the
           figure and stops. */}
       <p className="donutsay">
-        Este gráfico incluye lo que ya pagaron, lo que les falta pagar y lo que
-        compraron con tarjeta.
+        El gráfico reparte el mes en tres: los gastos que ya hicieron, los
+        servicios que todavía faltan pagar, y las compras con tarjeta de
+        crédito, que cuentan en el mes en que se compraron y no en el del
+        resumen.
         {cardBills.length === 0
           ? null
-          : ' Lo del resumen no entra: son los consumos del mes pasado, que ya se contaron cuando los hicieron.'}
+          : ' El pago del resumen no entra en ninguna categoría, porque esos consumos ya se contaron cuando se hicieron. Su total está en el aviso de arriba.'}
       </p>
     </div>
   )

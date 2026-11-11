@@ -202,7 +202,7 @@ describe('paying part of a servicio', () => {
 
     expect(screen.getByLabelText('Cuánto pagaron')).toHaveValue('16.800')
     expect(
-      screen.getByText(/Ya van .* de .*, así que falta/),
+      screen.getByText(/Pagaste .* de .*, así que falta/),
     ).toBeInTheDocument()
   })
 

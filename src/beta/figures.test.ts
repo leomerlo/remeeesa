@@ -241,11 +241,12 @@ describe('the beta says the same month on every screen', () => {
   })
 
   // No seeded household has a bill left unpaid from an earlier month, so
-  // the rule Flor asked for -- an unpaid bill does not stay in its month,
-  // it follows the household forward with a warning -- is built here
-  // rather than hoped for. It is also the one case where Inicio's figure
-  // and Servicios' are meant to differ.
-  it('carries an unpaid bill forward without charging this month for it', () => {
+  // the rule -- an unpaid bill does not stay in its month, it follows the
+  // household forward with a warning -- is built here rather than hoped
+  // for. It is money this month has to find, whichever month it came
+  // from: "si estoy arrastrando una deuda es parte del presupuesto de
+  // este mes, porque la tengo que pagar de alguna forma".
+  it('carries an unpaid bill forward and charges this month for it', () => {
     const base = snapshots.get('completa·este mes')
     if (base === undefined) throw new Error('missing snapshot')
     const [first] = base.pendientes.filter(
@@ -280,13 +281,17 @@ describe('the beta says the same month on every screen', () => {
     expect(home.bills[0]?.id).toBe(stale.id)
     expect(cuentas.bills[0]?.id).toBe(stale.id)
 
-    // It is still owed, so Servicios counts it...
+    // Both screens count it: it is owed now, whatever month it is from.
     expect(cents(cuentas.owed)).toBe(
       cents(serviciosFigures(base).owed) + cents(stale.expectedAmount ?? 0),
     )
-    // ...and this month's budget does not, because it was September's
-    // money. That is the whole of the October bug, as a test.
-    expect(cents(home.owed)).toBe(cents(owedBefore))
+    expect(cents(home.owed)).toBe(
+      cents(owedBefore) + cents(stale.expectedAmount ?? 0),
+    )
+    // And Inicio can say how much of its figure is arrears, so a month
+    // that has just inherited five of them says so rather than only
+    // looking expensive.
+    expect(cents(home.owedBefore)).toBe(cents(stale.expectedAmount ?? 0))
   })
 
   // A bill settled with a credit card is the one case where a bill and a
@@ -907,9 +912,10 @@ describe('the beta says the same month on every screen', () => {
     const home = homeFigures(snap)
     const servicios = serviciosFigures(snap)
 
-    expect(cents(home.owed)).toBe(
-      cents(servicios.owed) + cents(91_000) - cents(17_500),
-    )
+    // The two differ by the statement alone now: Inicio counts a Resumen
+    // with its real figure on it, which Servicios leaves to the cards,
+    // and the arrears are counted by both.
+    expect(cents(home.owed)).toBe(cents(servicios.owed) + cents(91_000))
     // Each screen's own list says the same thing the figures do.
     expect(servicios.unpaid.map((bill) => bill.id)).not.toContain(statement.id)
     expect(servicios.late.map((bill) => bill.id)).toContain(stale.id)

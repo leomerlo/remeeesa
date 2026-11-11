@@ -211,7 +211,17 @@ export function Home({
     monthEnd,
     now,
   })
-  const { budget, owed, cards, bills, late, byCategory, cardBills } =
+  const {
+    budget,
+    owed,
+    owedUsd,
+    owedBefore,
+    cards,
+    bills,
+    late,
+    byCategory,
+    cardBills,
+  } =
     figures
   // Both columns the same height: a list of three beside a list of four
   // read as two unrelated things, and the eye goes to the longer one.
@@ -245,6 +255,26 @@ export function Home({
       })),
     'ARS',
   )
+  // The same three in dollars. They are never added to the pesos and they
+  // never touch the budget -- the ceiling is in pesos and there is no rate
+  // this app is willing to pick -- but leaving them off the first screen
+  // is not the same as keeping them apart: a month spent on Meta Ads and
+  // herramientas looked empty here while the money was plainly gone.
+  // Every other screen has said them for months. Per direct feedback:
+  // "informativamente tiene que mostrarse, por más que no afecte".
+  const inUsd = (kept: (expense: Expense) => boolean): number =>
+    sumIn(
+      expenses.filter(kept).map((expense) => ({
+        price: expense.price,
+        currency: expense.currency ?? 'ARS',
+      })),
+      'USD',
+    )
+  const spentUsd = inUsd(
+    (expense) =>
+      !isServicio(expense) && !cardCategories.has(expense.categoryId),
+  )
+  const serviciosPaidUsd = inUsd((expense) => isServicio(expense))
   const moves = [
     // Paying a servicio writes a gasto -- that is how the money leaves
     // the month -- but the gym is not something the household bought
@@ -317,7 +347,12 @@ export function Home({
                 <span className="dot dot-paid" />
                 Gastos realizados
               </span>
-              <Figure className="amt" amount={spent} />
+              <span className="amt">
+                <Figure className="one" amount={spent} />
+                {spentUsd > 0 ? (
+                  <Figure className="one" amount={spentUsd} currency="USD" />
+                ) : null}
+              </span>
               <span className="foot">
                 Gastos que realizás una vez. Ejemplo, café o comida.
               </span>
@@ -327,7 +362,16 @@ export function Home({
                 <span className="dot dot-paid" />
                 Servicios pagados
               </span>
-              <Figure className="amt" amount={serviciosPaid} />
+              <span className="amt">
+                <Figure className="one" amount={serviciosPaid} />
+                {serviciosPaidUsd > 0 ? (
+                  <Figure
+                    className="one"
+                    amount={serviciosPaidUsd}
+                    currency="USD"
+                  />
+                ) : null}
+              </span>
               <span className="foot">
                 Servicios que se pagan mensualmente o de forma recurrente.
               </span>
@@ -337,10 +381,20 @@ export function Home({
                 <span className="dot dot-owed" />
                 Servicios por pagar
               </span>
-              <Figure className="amt" amount={owed} />
+              <span className="amt">
+                <Figure className="one" amount={owed} />
+                {owedUsd > 0 ? (
+                  <Figure className="one" amount={owedUsd} currency="USD" />
+                ) : null}
+              </span>
+              {/* How much of it is arrears, said here rather than left
+                  to be inferred: a month that has just inherited five of
+                  the municipality's should say so and not only look
+                  expensive. */}
               <span className="foot">
-                Servicios que se pagan mensualmente o de forma recurrente, y
-                todavía no se pagaron.
+                {owedBefore > 0
+                  ? `Incluye ${formatCurrency(owedBefore)} que viene de meses anteriores y todavía hay que pagar.`
+                  : 'Servicios que se pagan mensualmente o de forma recurrente, y todavía no se pagaron.'}
               </span>
             </div>
             <Link className="card cardtot" to="/tarjetas">

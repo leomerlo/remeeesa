@@ -9,6 +9,7 @@ import {
   buildProjection,
   computePendingCommitted,
   computeSpendToDate,
+  computeMonthTotalIn,
   computeSpentThisMonth,
   isServicio,
   summarizeByCategory,
@@ -144,6 +145,11 @@ export type HomeFigures = {
   // the month because the v1 scopes it: a bill due in December does not eat
   // into October, and a paid one counts through its Expense instead.
   readonly owed: number
+  // The same, in dollars. Never added to the pesos: a bill in dollars is
+  // owed in dollars and the budget is a figure in pesos.
+  readonly owedUsd: number
+  // How much of `owed` was carried in from months already closed.
+  readonly owedBefore: number
   // What the cards will ask for next month, one figure per currency, read
   // off the Resúmenes rather than re-added from purchases.
   readonly cards: readonly CardsDueTotal[]
@@ -207,16 +213,6 @@ export function homeFigures(input: HomeInput): HomeFigures {
   // Minus whatever the bank takes from a credit card: that money does not
   // leave this month, it becomes a consumo in that card's Resumen. Those
   // bills live beside the cards, on Servicios' "Con tarjeta" side.
-  const credit = creditMethodIds(input.methods)
-  const dueThisMonth = pendientesDueInMonth(
-    pendientes,
-    monthStart,
-    monthEnd,
-  ).filter((bill) => !onCreditCard(bill, credit))
-  // Part-paid bills count for what they still owe, not what they asked
-  // for: computePendingCommitted takes that off itself (billOwed), since
-  // the part already handed over is in "Pagado" as a Gasto of its own.
-  const owed = computePendingCommitted(dueThisMonth)
   const cards = cardsDueNextMonthTotals(pendientes, monthStart)
   const budget = monthlyBudgetFor(household, monthStart, now)
 
@@ -227,6 +223,48 @@ export function homeFigures(input: HomeInput): HomeFigures {
     monthEnd,
     now,
   })
+  // What this month has to pay: its own bills and the ones it inherited.
+  //
+  // It used to count only the bills whose due date falls inside the month
+  // on screen, which keeps a December bill out of November -- and that
+  // part still holds, because billsForMonth only looks backwards, and
+  // only while the month on screen is the one running. But it also kept
+  // out everything carried in from before, and that is money the
+  // household owes now: "si estoy arrastrando una deuda es parte del
+  // presupuesto de este mes, porque la tengo que pagar de alguna forma".
+  // Per direct feedback, against the earlier reading of the same rule.
+  //
+  // Whatever a credit card pays is already out of this list: that money
+  // does not leave the month, it becomes a consumo in the card's Resumen
+  // and lives beside the cards.
+  //
+  // Part-paid bills count for what they still owe, not what they asked
+  // for: computePendingCommitted takes that off itself (billOwed), since
+  // the part already handed over is in "Pagado" as a Gasto of its own.
+  //
+  // The month's own bills are taken from the full list rather than from
+  // `unpaid`, because `unpaid` leaves a card's Resumen out -- it belongs
+  // to the "Con tarjeta" side of Servicios -- and a Resumen with its real
+  // figure written on it is money this month has to find. The arrears are
+  // added on top; the two lists cannot overlap, one being before the
+  // month and the other inside it.
+  const credit = creditMethodIds(input.methods)
+  const dueThisMonth = pendientesDueInMonth(
+    pendientes,
+    monthStart,
+    monthEnd,
+  ).filter((bill) => !onCreditCard(bill, credit))
+  const owing = [...dueThisMonth, ...late]
+  const owed = computePendingCommitted(owing)
+  const owedUsd = computeMonthTotalIn({
+    expenses: [],
+    pendientes: owing,
+    currency: 'USD',
+  })
+  // How much of it is arrears. Said out loud beside the figure, because a
+  // month that has just inherited five of the municipality's should say
+  // so rather than only look expensive.
+  const owedBefore = computePendingCommitted(late)
   // The same order Servicios puts them in, because it is the same list
   // under a shorter heading: what is already late leads, then what has
   // fallen due, then what has not yet, and everything settled goes under
@@ -280,6 +318,8 @@ export function homeFigures(input: HomeInput): HomeFigures {
             ),
           )
         : 0,
+    owedUsd,
+    owedBefore,
     bills,
     late,
     // What the month consumed, which is not the same list the hero adds
