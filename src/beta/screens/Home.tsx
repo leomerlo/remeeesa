@@ -10,11 +10,17 @@ import { useState } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 
+import { isServicio } from '@/lib/expenses'
 import type { Expense } from '@/lib/expenses'
 import type { CardPurchase } from '@/lib/cards'
 import type { Pendiente } from '@/lib/pendientes'
 import { Figure } from '../Figure'
-import { categoryMovements, homeFigures } from '../figures'
+import {
+  cardCategoryIds,
+  categoryMovements,
+  homeFigures,
+  sumIn,
+} from '../figures'
 import type { HomeFigures } from '../figures'
 import { HomeSkeleton, Skel } from '../Skeleton'
 import { MonthPager } from '../MonthPager'
@@ -196,15 +202,55 @@ export function Home({
     monthEnd,
     now,
   })
-  const { budget, paid, owed, cards, bills, late, byCategory, cardBills } =
+  const { budget, owed, cards, bills, late, byCategory, cardBills } =
     figures
   // Both columns the same height: a list of three beside a list of four
   // read as two unrelated things, and the eye goes to the longer one.
   // Movements are one list -- a consumo and a gasto are both "what we
   // spent" -- newest first; the bills go by the date they fall due, which
   // is the order somebody paying them works in.
+  const cardCategories = cardCategoryIds({ pendientes, categories })
+  // "Pagado" said one word for two different things, and one of them
+  // never stops growing: a café bought on the way home is not a bill
+  // anybody paid. Split the way the screens themselves are split, so
+  // each figure is the one its own screen shows. Per direct feedback:
+  // "pone gastos realizados y servicios pagados".
+  const spent = sumIn(
+    expenses
+      .filter(
+        (expense) =>
+          !isServicio(expense) && !cardCategories.has(expense.categoryId),
+      )
+      .map((expense) => ({
+        price: expense.price,
+        currency: expense.currency ?? 'ARS',
+      })),
+    'ARS',
+  )
+  const serviciosPaid = sumIn(
+    expenses
+      .filter((expense) => isServicio(expense))
+      .map((expense) => ({
+        price: expense.price,
+        currency: expense.currency ?? 'ARS',
+      })),
+    'ARS',
+  )
   const moves = [
-    ...expenses.map((expense) => ({
+    // Paying a servicio writes a gasto -- that is how the money leaves
+    // the month -- but the gym is not something the household bought
+    // today, and listing it here alongside the café made one record read
+    // as two. It is on Servicios, where it belongs. The same goes for
+    // what paying a card's Resumen wrote: that is the Visa being paid,
+    // and it belongs on Tarjetas. Per direct feedback: "están
+    // apareciendo en gastos cosas que son servicios", "se comporta como
+    // tarjeta".
+    ...expenses
+      .filter(
+        (expense) =>
+          !isServicio(expense) && !cardCategories.has(expense.categoryId),
+      )
+      .map((expense) => ({
       id: expense.id,
       at: expense.expenseDate,
       expense,
@@ -252,14 +298,16 @@ export function Home({
               and the card's own figure takes the full width under them --
               the shape reads faster, and it is the whole of the panel, so
               there is nothing above it to shrink them against. */}
-          <div className={budget > 0 ? 'trio' : 'trio pairplus'}>
+          <div className={budget > 0 ? 'trio four' : 'trio four pairplus'}>
             <div className="card out">
               <span className="cap">
                 <span className="dot dot-paid" />
-                Pagado
+                Gastos realizados
               </span>
-              <Figure className="amt" amount={paid} />
-              <span className="foot">Ya salió de la cuenta.</span>
+              <Figure className="amt" amount={spent} />
+              <span className="foot">
+                Lo de una vez, lo que está en Gastos.
+              </span>
               {/* The one thing this panel can offer when there is no
                   budget, on the card somebody is already reading. */}
               {budget > 0 ? null : (
@@ -273,14 +321,24 @@ export function Home({
                 </button>
               )}
             </div>
+            <div className="card out">
+              <span className="cap">
+                <span className="dot dot-paid" />
+                Servicios pagados
+              </span>
+              <Figure className="amt" amount={serviciosPaid} />
+              <span className="foot">
+                Lo que se paga mes a mes y ya salió.
+              </span>
+            </div>
             <div className="card wait">
               <span className="cap">
                 <span className="dot dot-owed" />
-                Pendiente
+                Servicios por pagar
               </span>
               <Figure className="amt" amount={owed} />
               <span className="foot">
-                Servicios que vencen y todavía no pagaron.
+                Los que vencen este mes y todavía no pagaron.
               </span>
             </div>
             <Link className="card cardtot" to="/tarjetas">

@@ -1,4 +1,4 @@
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Plus } from 'lucide-react'
 import type { ReactElement, ReactNode } from 'react'
 import { useId, useLayoutEffect, useRef, useState } from 'react'
 import {
@@ -6,6 +6,8 @@ import {
   formatAmountForDisplay,
   parseStoredAmount,
 } from '@/lib/money'
+import { matchesSearch } from '@/lib/search/fuzzyMatch'
+import { CategoryTile } from './Tile'
 import { formatPesos } from './format'
 
 // The form controls every sheet is built from. They exist so a field is
@@ -443,6 +445,173 @@ export function PickField({
               )}
             </button>
           ))}
+        </div>
+      ) : null}
+      {hint === undefined ? null : <span className="fhint">{hint}</span>}
+    </div>
+  )
+}
+
+// Choosing a category, or naming one that does not exist yet.
+//
+// A dropdown of what the household already has cannot do the second, and
+// the second is the half that matters: somebody anotando la panadería
+// should not have to leave the form, go to Categorías, make one, and come
+// back. The v1 did it with a native <datalist> -- type anything, and a
+// name nobody had used before became a new category on save. The redesign
+// turned it into a plain <select> and quietly dropped that. Per the
+// agreement in docs/stories/wallet-visual-system.md, and per direct
+// feedback: "habíamos dicho que era un autocomplete".
+//
+// Nothing is written while the form is open: a name typed here is carried
+// as a name, and the category is created by the save, so abandoning the
+// form leaves no category behind.
+export function CategoryField({
+  label,
+  value,
+  newName,
+  onPick,
+  onName,
+  categories,
+  hint,
+}: {
+  readonly label: string
+  // The chosen category, or '' when a new one is being named instead.
+  readonly value: string
+  // The name typed for a category that does not exist yet, or ''.
+  readonly newName: string
+  readonly onPick: (categoryId: string) => void
+  readonly onName: (name: string) => void
+  readonly categories: readonly {
+    readonly id: string
+    readonly name: string
+    readonly color: string
+  }[]
+  readonly hint?: string
+}): ReactElement {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const id = useId()
+  const chosen = categories.find((category) => category.id === value)
+  const typed = query.trim()
+  const shown = categories.filter((category) =>
+    matchesSearch(query, [category.name]),
+  )
+  // Offered only for a name nobody is using: an exact match is the
+  // category itself, and it is already in the list above.
+  const already = categories.some(
+    (category) => category.name.toLowerCase() === typed.toLowerCase(),
+  )
+  const canCreate = typed !== '' && !already
+
+  const shut = (): void => {
+    setOpen(false)
+    setQuery('')
+  }
+
+  return (
+    <div
+      className="field pick"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) shut()
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') shut()
+      }}
+    >
+      <span className="flabel" id={`${id}-label`}>
+        {label}
+      </span>
+      <button
+        type="button"
+        className="picked flat"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-labelledby={`${id}-label ${id}-value`}
+        onClick={() => setOpen((current) => !current)}
+      >
+        {chosen === undefined && newName.trim() === '' ? null : (
+          <span className="mk" aria-hidden="true">
+            <CategoryTile
+              name={chosen?.name ?? newName}
+              color={chosen?.color ?? 'var(--grape-600)'}
+            />
+          </span>
+        )}
+        <span className="k" id={`${id}-value`}>
+          {chosen?.name ?? (newName.trim() === '' ? 'Elegí una' : newName)}
+        </span>
+        <span className="ch" aria-hidden="true">
+          <ChevronDown />
+        </span>
+      </button>
+      {open ? (
+        <div className="picklist" role="listbox" aria-labelledby={`${id}-label`}>
+          {/* The box is the whole point: it narrows what is there and,
+              when nothing matches, it is where the new name was typed. */}
+          <input
+            className="pickfind"
+            type="text"
+            value={query}
+            autoFocus
+            aria-label="Buscar o escribir una categoría"
+            placeholder="Buscá o escribí una nueva"
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter') return
+              event.preventDefault()
+              const first = shown[0]
+              if (first !== undefined) {
+                onPick(first.id)
+                onName('')
+                shut()
+              } else if (canCreate) {
+                onName(typed)
+                onPick('')
+                shut()
+              }
+            }}
+          />
+          {shown.map((category) => (
+            <button
+              key={category.id}
+              type="button"
+              role="option"
+              className="pickopt flat"
+              aria-selected={category.id === value}
+              onClick={() => {
+                onPick(category.id)
+                onName('')
+                shut()
+              }}
+            >
+              <span className="mk" aria-hidden="true">
+                <CategoryTile name={category.name} color={category.color} />
+              </span>
+              <span className="k">{category.name}</span>
+            </button>
+          ))}
+          {canCreate ? (
+            <button
+              type="button"
+              role="option"
+              className="pickopt flat make"
+              aria-selected={false}
+              onClick={() => {
+                onName(typed)
+                onPick('')
+                shut()
+              }}
+            >
+              <span className="mk" aria-hidden="true">
+                <Plus />
+              </span>
+              <span className="k">Crear «{typed}»</span>
+            </button>
+          ) : null}
+          {shown.length === 0 && !canCreate ? (
+            <p className="pickempty">Nada que coincida.</p>
+          ) : null}
         </div>
       ) : null}
       {hint === undefined ? null : <span className="fhint">{hint}</span>}

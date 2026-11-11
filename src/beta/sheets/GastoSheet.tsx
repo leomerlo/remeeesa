@@ -8,7 +8,16 @@ import {
   updateCardPurchase,
 } from '@/lib/cards'
 import type { Category, Expense } from '@/lib/expenses'
-import { createExpense, deleteExpense, updateExpense } from '@/lib/expenses'
+import {
+  createExpense,
+  deleteExpense,
+  findOrCreateCategory,
+  updateExpense,
+} from '@/lib/expenses'
+import {
+  convertExpenseToPendiente,
+  setPendienteRecurrence,
+} from '@/lib/pendientes'
 import { createPendiente, markPendientePaid } from '@/lib/pendientes'
 import type { Currency } from '@/lib/money'
 import { CardBrandMark } from '../CardBrandMark'
@@ -20,6 +29,7 @@ import {
   DateField,
   MoneyRow,
   PickField,
+  CategoryField,
   SelectField,
   TextField,
   Toggle,
@@ -39,6 +49,11 @@ export type GastoDraft = {
   readonly amount: string
   readonly currency: Currency
   readonly categoryId: string
+  // A category nobody has yet, named here rather than created here: the
+  // save resolves it with findOrCreateCategory, so abandoning the form
+  // leaves nothing behind. Empty whenever an existing one is chosen, and
+  // the two are never both set.
+  readonly categoryName: string
   readonly date: string
   // '' is cash, the method every household has without creating it.
   readonly methodId: string
@@ -76,6 +91,7 @@ export function draftFromExpense(
       amount: '',
       currency: 'ARS',
       categoryId: fallbackCategoryId,
+      categoryName: '',
       date: isoDay(today),
       methodId: '',
       cuotas: '1',
@@ -92,11 +108,16 @@ export function draftFromExpense(
     amount: String(expense.price),
     currency: expense.currency,
     categoryId: expense.categoryId,
+    categoryName: '',
     date: isoDay(expense.expenseDate),
     methodId: expense.paymentMethodId ?? '',
     cuotas: '1',
     comments: expense.comments,
-    recurring: false,
+    // What it already is, so the same three questions can be re-answered
+    // rather than asked again from scratch. A gasto that reaches this
+    // form is money that has left and does not come back every month --
+    // a recurring one is a servicio and is edited as one.
+    recurring: expense.isService,
     autoDebit: false,
     paid: true,
   }
@@ -108,6 +129,7 @@ export function draftFromPurchase(purchase: CardPurchase): GastoDraft {
     amount: String(purchase.total),
     currency: purchase.currency,
     categoryId: purchase.categoryId,
+    categoryName: '',
     date: isoDay(purchase.purchaseDate),
     methodId: purchase.cardId,
     cuotas: String(purchase.cuotas),
@@ -173,7 +195,10 @@ export function GastoSheet({
   // amount can be left empty. The v1 draws the line in the same place.
   const needsAmount = draft.paid || onCredit
   const priced = moneyIsValid(draft.amount, { required: needsAmount })
-  const blocked = !named || !priced || draft.categoryId === ''
+  const blocked =
+    !named ||
+    !priced ||
+    (draft.categoryId === '' && draft.categoryName.trim() === '')
   // What is missing, said only once they have started filling it in. A
   // form that opens already complaining is telling somebody off for not
   // having typed yet -- the empty form is its own explanation, and the
@@ -244,13 +269,26 @@ export function GastoSheet({
     save.run(async () => {
       const amount = moneyValue(draft.amount)
       const date = dayFromIso(draft.date)
+      // A name typed into the category box becomes a category here and
+      // nowhere earlier -- one lookup, before any of the branches below,
+      // so every one of them is given an id that exists.
+      const categoryId =
+        draft.categoryName.trim() === ''
+          ? draft.categoryId
+          : (
+              await findOrCreateCategory({
+                db: session.db,
+                householdId,
+                name: draft.categoryName.trim(),
+              })
+            ).id
       if (purchase !== null) {
         return updateCardPurchase({
           db: session.db,
           householdId,
           purchaseId: purchase.id,
           cardId: draft.methodId,
-          categoryId: draft.categoryId,
+          categoryId,
           name: draft.name.trim(),
           total: amount,
           cuotas: Number(draft.cuotas),
@@ -260,21 +298,53 @@ export function GastoSheet({
         })
       }
       if (expense !== null) {
-        return updateExpense({
+        const edited = await updateExpense({
           db: session.db,
           householdId,
           expenseId: expense.id,
           name: draft.name.trim(),
           price: amount,
-          categoryId: draft.categoryId,
+          categoryId,
           comments: draft.comments,
           expenseDate: date,
-          // Left exactly as it was found. It is the v1's old flag, which
-          // nothing writes true any more; editing a gasto is no reason to
-          // change what it already says.
+          // Left exactly as it was found here: whether this is a servicio
+          // is answered below, by the two switches, and a conversion
+          // writes it on the record it builds.
           isService: expense.isService,
           currency: draft.currency,
           paymentMethodId: draft.methodId === '' ? null : draft.methodId,
+        })
+        // The same two answers the alta is built on, asked again. Saying
+        // yes to either is asking for something an Expense cannot be --
+        // only a bill comes back every month, and only a bill can be
+        // *owed* rather than spent -- so the record is rebuilt as the
+        // bill the alta would have made from these answers. The edits
+        // above go in first, so the bill carries them.
+        //
+        // Per direct feedback: "si yo me confundí y anoté un servicio
+        // como gasto, tengo que poder editarlo y hacerlo servicio".
+        const wantsBill = draft.recurring || !draft.paid
+        if (!wantsBill) return edited
+        // One that already has a bill behind it is not converted: the
+        // bill is where recurrence lives, so this just answers it there.
+        if (expense.pendienteId !== null) {
+          return setPendienteRecurrence({
+            db: session.db,
+            householdId,
+            pendienteId: expense.pendienteId,
+            recurring: draft.recurring,
+            autoDebit: draft.autoDebit,
+          })
+        }
+        return convertExpenseToPendiente({
+          db: session.db,
+          householdId,
+          expenseId: expense.id,
+          recurring: draft.recurring,
+          autoDebit: draft.autoDebit,
+          markPaid: draft.paid,
+          memberId,
+          authorDisplayName: author,
         })
       }
       if (onCredit && method !== undefined) {
@@ -282,7 +352,7 @@ export function GastoSheet({
           db: session.db,
           householdId,
           cardId: method.id,
-          categoryId: draft.categoryId,
+          categoryId,
           memberId,
           authorDisplayName: author,
           name: draft.name.trim(),
@@ -302,7 +372,7 @@ export function GastoSheet({
         const created = await createPendiente({
           db: session.db,
           householdId,
-          categoryId: draft.categoryId,
+          categoryId,
           name: draft.name.trim(),
           dueDate: date,
           expectedAmount: draft.amount.trim() === '' ? null : amount,
@@ -328,7 +398,7 @@ export function GastoSheet({
       return createExpense({
         db: session.db,
         householdId,
-        categoryId: draft.categoryId,
+        categoryId,
         memberId,
         authorDisplayName: author,
         name: draft.name.trim(),
@@ -406,28 +476,30 @@ export function GastoSheet({
         ]}
         {...(amountSays === null ? {} : { hint: amountSays })}
       />
-      <SelectField
+      <CategoryField
         label="Categoría"
         value={draft.categoryId}
-        onChange={(next) => set('categoryId', next)}
-        options={categories.map((category) => ({
-          value: category.id,
-          label: category.name,
-        }))}
+        newName={draft.categoryName}
+        onPick={(next) => set('categoryId', next)}
+        onName={(next) => set('categoryName', next)}
+        categories={categories}
       />
       <DateField
         label={draft.paid ? 'Cuándo' : 'Cuándo vence'}
         value={draft.date}
         onChange={(next) => set('date', next)}
       />
-      {/* The three questions that decide what this becomes, and only when
-          anotando algo nuevo: an existing record already is one thing or
-          the other, and turning a saved gasto into a servicio is a
-          conversion rather than an edit.
+      {/* The three questions that decide what this becomes -- asked when
+          anotando algo nuevo and asked again when editing it, because
+          the answer is exactly what somebody comes back to change: a
+          servicio anotado como gasto is fixed here, by saying yes.
+          Turning one into the other is a conversion rather than an edit,
+          and the save does it; the form has no business hiding the
+          question over it.
 
           None of them on a credit card: a consumo already happened, it
           does not come every month, and the bank does not debit it. */}
-      {expense === null && purchase === null && !onCredit ? (
+      {purchase === null && !onCredit ? (
         <>
           <Toggle
             k="Ya lo pagué"

@@ -124,8 +124,14 @@ test('a new household signs up, sets a budget and anota su primer gasto', async 
   await sheet.getByLabel('¿Qué fue?').fill('Verdulería')
   await sheet.getByLabel('Cuánto').fill('12500')
   // Every household starts with the same six categories, seeded when it is
-  // created -- so this is a choice, not a new category.
-  await sheet.getByLabel('Categoría').selectOption({ label: 'Comida' })
+  // created -- so this is a choice, not a new category. The field is a
+  // list with a box over it: the box narrows what the household has, and
+  // when nothing matches it is where a new name is typed.
+  await sheet.getByRole('button', { name: /Categoría/ }).click()
+  await sheet
+    .getByLabel('Buscar o escribir una categoría')
+    .fill('Comida')
+  await sheet.getByRole('option', { name: 'Comida' }).click()
   await sheet.getByRole('button', { name: 'Anotar' }).click()
   await expect(sheet).toBeHidden({ timeout: 20000 })
 
@@ -281,4 +287,39 @@ test('a servicio a credit card pays lands on Con tarjeta, not on the month', asy
   ).toBeVisible()
   // Twice over: that figure, and the row's.
   await expect(page.getByText('$ 42.000')).toHaveCount(2)
+})
+
+// Naming a category that does not exist yet, from the form that needed
+// it. The v1 did this with a native datalist and the redesign dropped
+// it, so this is the journey that says it is back -- and the only place
+// the new control runs against the real rules, which have to admit a
+// category created in the same breath as the gasto filed under it.
+test('a category nobody has yet is named while anotando a gasto', async ({
+  page,
+}) => {
+  await signUpBeta(page, { budget: '1000000' })
+
+  await page.getByRole('button', { name: 'Anotar un gasto' }).click()
+  const sheet = page.getByRole('dialog', { name: 'Anotar un gasto' })
+  await sheet.getByLabel('¿Qué fue?').fill('Facturas')
+  await sheet.getByLabel('Cuánto').fill('6800')
+  await sheet.getByRole('button', { name: /Categoría/ }).click()
+  await sheet
+    .getByLabel('Buscar o escribir una categoría')
+    .fill('Panadería')
+  await sheet.getByRole('option', { name: /Crear «Panadería»/ }).click()
+  await sheet.getByRole('button', { name: 'Anotar' }).click()
+  await expect(sheet).toBeHidden({ timeout: 20000 })
+
+  // The gasto is filed under a category that did not exist a moment ago.
+  await expect(page.getByText('Facturas')).toBeVisible({ timeout: 20000 })
+  await page
+    .getByRole('navigation', { name: 'Navegación principal' })
+    .getByRole('link', { name: 'Categorías' })
+    .click()
+  // .first(): the category is on the screen twice, as its own row and as
+  // the badge on the gasto filed under it.
+  await expect(page.getByText('Panadería').first()).toBeVisible({
+    timeout: 20000,
+  })
 })

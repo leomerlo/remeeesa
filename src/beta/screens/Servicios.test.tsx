@@ -68,10 +68,24 @@ function render(session: BetaSession): void {
   )
 }
 
+
+// The figure on one of the three cards above the search, read off that
+// card rather than off the screen: the same amount is usually on a row
+// below as well, which is the point of the card agreeing with it.
+async function heroFigure(label: string): Promise<string> {
+  const card = (await screen.findByText(label)).closest('.card')
+  if (card === null) throw new Error(`no hero card for ${label}`)
+  const figure = card.querySelector('.figure')
+  if (figure === null) throw new Error(`no figure on ${label}`)
+  // The figures are rendered with a non-breaking space after the sign,
+  // which reads identical and compares as different.
+  return (figure.textContent ?? '').replace(/\s+/g, ' ').trim()
+}
+
 // One box over both tabs: looking for the luz, nobody first wants to
 // decide whether they paid it with a card.
 describe('looking for a servicio', () => {
-  it('narrows the list, and the figure with it', async () => {
+  it('narrows the list and leaves the month alone', async () => {
     render(await house())
 
     // Both are there, and the month owes what the two come to.
@@ -84,11 +98,13 @@ describe('looking for a servicio', () => {
 
     expect(screen.queryByText('Luz')).toBeNull()
     expect(screen.getByText('Expensas')).toBeInTheDocument()
-    // The total is of what is on screen: a figure over a filtered list
-    // that still said the whole month would be the one number here
-    // nobody could check.
-    // Twice over: the hero's figure, and the row's own.
-    expect(screen.getAllByText('$ 88.000')).toHaveLength(2)
+    // Looking for the expensas does not change what November is. The
+    // figures above the search are the month's, always -- they used to
+    // be the filtered list's, so typing in the box rewrote the month.
+    // Per direct feedback.
+    expect(screen.getByText('$ 124.800')).toBeInTheDocument()
+    // The badge counts the month too, not what the search left.
+    expect(screen.getByText('2 servicios sin pagar')).toBeInTheDocument()
   })
 
   it('finds a bill by its category', async () => {
@@ -236,5 +252,55 @@ describe('a servicio paid in more than one go', () => {
     const row = await screen.findByRole('button', { name: 'Editar Luz' })
     expect(within(row).getByText('$ 36.800')).toBeInTheDocument()
     expect(within(row).queryByText('$ 0')).not.toBeInTheDocument()
+  })
+})
+
+// Three figures of one month, not two: what it has already paid, what it
+// still owes, and what the card pays for it. Per direct feedback.
+describe('the three figures of the month', () => {
+  it('counts a settled bill as paid and an open one as owed', async () => {
+    const session = await house()
+    const [luz] = (
+      await session.db.listPendientes({ householdId: session.householdId ?? '' })
+    ).filter((bill) => bill.name === 'Luz')
+    if (luz === undefined) throw new Error('missing Luz')
+    await session.db.markPendientePaid({
+      householdId: session.householdId ?? '',
+      pendienteId: luz.id,
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      finalAmount: 36_800,
+      paymentDate: DUE(9),
+    })
+
+    render(session)
+
+    expect(await heroFigure('Servicios que ya pagaste')).toBe('$ 36.800')
+    expect(await heroFigure('Servicios que faltan pagar')).toBe('$ 88.000')
+  })
+
+  // The half of a part-paid bill that has gone in is money that left the
+  // account, so it belongs on the paid side -- and the other half stays
+  // owed. Between them they come to the bill, counted once.
+  it('splits a part-paid bill across the two figures', async () => {
+    const session = await house()
+    const [expensas] = (
+      await session.db.listPendientes({ householdId: session.householdId ?? '' })
+    ).filter((bill) => bill.name === 'Expensas')
+    if (expensas === undefined) throw new Error('missing Expensas')
+    await session.db.payPendientePartially({
+      householdId: session.householdId ?? '',
+      pendienteId: expensas.id,
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      amount: 50_000,
+      paymentDate: DUE(12),
+    })
+
+    render(session)
+
+    // $50.000 out, and $36.800 + $38.000 still owed.
+    expect(await heroFigure('Servicios que ya pagaste')).toBe('$ 50.000')
+    expect(await heroFigure('Servicios que faltan pagar')).toBe('$ 74.800')
   })
 })

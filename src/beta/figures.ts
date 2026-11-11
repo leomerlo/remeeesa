@@ -10,6 +10,7 @@ import {
   computePendingCommitted,
   computeSpendToDate,
   computeSpentThisMonth,
+  isServicio,
   summarizeByCategory,
 } from '@/lib/expenses'
 import type { Category, Expense } from '@/lib/expenses'
@@ -22,7 +23,12 @@ import {
   parseStoredAmount,
 } from '@/lib/money'
 import type { Currency } from '@/lib/money'
-import { amountLeft, isBillToPay, pendientesDueInMonth } from '@/lib/pendientes'
+import {
+  amountLeft,
+  isBillToPay,
+  paidSoFar,
+  pendientesDueInMonth,
+} from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
 
 // Every figure the beta puts on screen, worked out here and nowhere else.
@@ -326,11 +332,35 @@ export type GastosFigures = {
 export function gastosFigures(input: {
   readonly expenses: readonly Expense[]
   readonly categories: readonly Category[]
+  // Only to tell which category is a card's own. Omitted, the card
+  // category is still found by its name, which is what it is called
+  // until somebody renames it.
+  readonly pendientes?: readonly Pendiente[]
 }): GastosFigures {
+  // Lo de una vez, which is what the Gastos screen is for and what its
+  // own subtitle has always said. Paying a servicio writes a gasto --
+  // that is how the money leaves the month -- but the gym is not
+  // something the household bought today: it is on Servicios, with its
+  // own figure, and listing it here as well made one record read as two.
+  // Inicio is where the month's whole figure lives. Per direct feedback:
+  // "no tiene que estar en gastos, tiene que estar en servicios".
+  // And what paying a card's Resumen wrote, for the same reason: that is
+  // the Visa being paid, not something bought today. It already behaves
+  // as a card everywhere else -- the ring has always left it out -- and
+  // it belongs on Tarjetas, which is where the household goes to see
+  // what the card is costing. Per direct feedback: "se comporta como
+  // tarjeta".
+  const cards = cardCategoryIds({
+    pendientes: input.pendientes ?? [],
+    categories: input.categories,
+  })
+  const expenses = input.expenses.filter(
+    (expense) => !isServicio(expense) && !cards.has(expense.categoryId),
+  )
   return {
-    total: computeSpentThisMonth(input.expenses),
-    totalUsd: sumIn(input.expenses, 'USD'),
-    byCategory: summarizeByCategory(input),
+    total: computeSpentThisMonth(expenses),
+    totalUsd: sumIn(expenses, 'USD'),
+    byCategory: summarizeByCategory({ ...input, expenses }),
   }
 }
 
@@ -687,6 +717,15 @@ export type ServiciosFigures = {
   // Resumen.
   readonly onCard: readonly Pendiente[]
   readonly onCardTotal: number
+  // What has already come out of the month for its servicios: the bills
+  // settled in it, plus whatever has been handed over on the ones still
+  // open (see amountLeft). Paid and owed add up to the month's servicios
+  // between them, which is the point of saying both.
+  //
+  // Bills a credit card pays are in neither: that money does not leave
+  // this month at all, and it has its own figure.
+  readonly paidTotal: number
+  readonly paidTotalUsd: number
 }
 
 export function serviciosFigures(input: {
@@ -772,12 +811,29 @@ export function serviciosFigures(input: {
     currency: pendiente.currency ?? DEFAULT_CURRENCY,
   }))
 
+  // A settled bill is worth what it asked for, which is the figure its
+  // own row shows -- so this card is the sum of the list under it. An
+  // open one is worth only the part already handed over; the rest of it
+  // is in `owed`, and no peso is in both.
+  const spent = [
+    ...paid.map((pendiente) => ({
+      price: pendiente.expectedAmount ?? 0,
+      currency: pendiente.currency ?? DEFAULT_CURRENCY,
+    })),
+    ...unpaid.map((pendiente) => ({
+      price: paidSoFar(pendiente),
+      currency: pendiente.currency ?? DEFAULT_CURRENCY,
+    })),
+  ]
+
   return {
     bills: [...unpaid, ...paid],
     unpaid,
     paid,
     owed: sumIn(amounts, DEFAULT_CURRENCY),
     owedUsd: sumIn(amounts, 'USD'),
+    paidTotal: sumIn(spent, DEFAULT_CURRENCY),
+    paidTotalUsd: sumIn(spent, 'USD'),
     late,
     onCard,
     onCardTotal: sumIn(
