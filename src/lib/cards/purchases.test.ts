@@ -22,7 +22,10 @@ import {
 import type { Pendiente } from '@/lib/pendientes'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { createCard } from './cards'
-import { RESUMEN_CATEGORY_NAME } from './purchases'
+import {
+  markPendientePaidWithCard,
+  RESUMEN_CATEGORY_NAME,
+} from './purchases'
 import {
   canPayResumen,
   CardPurchaseLockedError,
@@ -1521,5 +1524,56 @@ describe('the card category after it has been renamed', () => {
         categories.find((category) => category.id === resumen.categoryId)?.name,
       ).toBe('Tarjetas de Crédito')
     }
+  })
+})
+
+// Paying a servicio with a credit card writes a consumo and nothing
+// else, because the money does not leave today. That consumo has to say
+// where it came from, or it is indistinguishable from a café bought on
+// the same card -- and Gastos listed it, while the whole point of
+// putting a servicio on a card is that it belongs to Servicios. Per
+// direct feedback: "es un servicio, no me tiene que aparecer en gastos".
+describe('the consumo a servicio payment writes', () => {
+  it('remembers the bill it came from', async () => {
+    const s = await setup()
+    const bill = await createPendiente({
+      db: s.db,
+      householdId: s.householdId,
+      categoryId: s.comidaId,
+      name: 'Claro Flor - Teléfono',
+      dueDate: new Date(2026, 8, 6),
+      expectedAmount: 11_998.01,
+      recurring: true,
+      autoDebit: true,
+      paymentMethodId: s.visa.id,
+    })
+
+    const { purchase } = await markPendientePaidWithCard({
+      db: s.db,
+      householdId: s.householdId,
+      pendienteId: bill.id,
+      cardId: s.visa.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 11_998.01,
+      cuotas: 1,
+      paymentDate: new Date(2026, 8, 11),
+      currency: 'ARS',
+    })
+
+    expect(purchase.pendienteId).toBe(bill.id)
+    // And it survives being read back, which is what the screens do.
+    const [back] = await s.db.getCardPurchases({
+      householdId: s.householdId,
+      purchaseIds: [purchase.id],
+    })
+    expect(back?.pendienteId).toBe(bill.id)
+  })
+
+  it('leaves ordinary shopping unmarked', async () => {
+    const s = await setup()
+    const bought = await purchase(s)
+
+    expect(bought.pendienteId ?? null).toBeNull()
   })
 })

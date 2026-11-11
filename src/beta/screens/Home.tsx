@@ -295,12 +295,16 @@ export function Home({
       expense,
       purchase: undefined,
     })),
-    ...purchases.map((purchase) => ({
-      id: purchase.id,
-      at: purchase.purchaseDate,
-      expense: undefined,
-      purchase,
-    })),
+    // Same rule: a consumo that came from paying a servicio is on
+    // Servicios, not among the month's shopping.
+    ...purchases
+      .filter((purchase) => (purchase.pendienteId ?? null) === null)
+      .map((purchase) => ({
+        id: purchase.id,
+        at: purchase.purchaseDate,
+        expense: undefined,
+        purchase,
+      })),
   ]
     .sort((a, b) => b.at.getTime() - a.at.getTime())
     .slice(0, HOME_ROWS)

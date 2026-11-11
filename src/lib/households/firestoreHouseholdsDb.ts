@@ -1675,6 +1675,11 @@ export function createFirestoreHouseholdsDb(
               purchase_date: toFirestoreExpenseDate(input.paymentDate),
               comments: '',
               currency: input.currency,
+              // Where it came from. Without it this consumo is
+              // indistinguishable from shopping done on the same card,
+              // and Gastos listed it -- while the whole point of paying
+              // a servicio with a card is that it belongs to Servicios.
+              pendiente_id: input.pendienteId,
               created_at: now,
             })
             cuotas.forEach((cuota, index) => {
