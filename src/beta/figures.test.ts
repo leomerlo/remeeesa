@@ -1250,4 +1250,48 @@ describe('the beta says the same month on every screen', () => {
       servicios.bills.map((bill) => bill.id),
     )
   })
+
+  // A ceiling per currency, counted apart. A category spent in dollars
+  // measured against a peso ceiling reads "$ 0 de $ 1.000.000" while the
+  // money is plainly gone -- and converting the two into one figure is
+  // refused everywhere else in this app, for the reason the rate moves
+  // every day. Per direct feedback: "la categoría puede tener su tope en
+  // dólares".
+  it('measures each currency against its own ceiling', () => {
+    const base = snapshots.get('completa\u00b7este mes')
+    if (base === undefined) throw new Error('missing snapshot')
+    const withUsd = categoriasFigures(base).find((row) => row.totalUsd > 0)
+    if (withUsd === undefined) throw new Error('no category spent in dollars')
+
+    // A peso ceiling says nothing about the dollars...
+    const pesosOnly = categoriasFigures({
+      ...base,
+      categories: base.categories.map((category) =>
+        category.id === withUsd.categoryId
+          ? { ...category, monthlyBudget: 10_000_000 }
+          : category,
+      ),
+    }).find((row) => row.categoryId === withUsd.categoryId)
+    expect(pesosOnly?.over).toBe(false)
+    expect(pesosOnly?.capUsd).toBe(0)
+    expect(pesosOnly?.overUsd).toBe(false)
+
+    // ...and a dollar ceiling is what the dollars are held to.
+    const capped = categoriasFigures({
+      ...base,
+      categories: base.categories.map((category) =>
+        category.id === withUsd.categoryId
+          ? {
+              ...category,
+              monthlyBudget: 10_000_000,
+              monthlyBudgetUsd: withUsd.totalUsd - 1,
+            }
+          : category,
+      ),
+    }).find((row) => row.categoryId === withUsd.categoryId)
+    expect(capped?.overUsd).toBe(true)
+    // The peso side is untouched by it: the two are never added.
+    expect(capped?.over).toBe(false)
+    expect(capped?.total).toBe(withUsd.total)
+  })
 })

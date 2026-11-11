@@ -61,11 +61,18 @@ export async function updateCategoryBudget(input: {
   readonly householdId: string
   readonly categoryId: string
   readonly monthlyBudget: number
+  // The dollar ceiling, when the category has one. Left out, whatever it
+  // had stays as it was -- the peso form can be saved without touching
+  // it.
+  readonly monthlyBudgetUsd?: number
 }): Promise<Category> {
   return input.db.updateCategoryBudget({
     householdId: input.householdId,
     categoryId: input.categoryId,
     monthlyBudget: parseCategoryBudget(input.monthlyBudget),
+    ...(input.monthlyBudgetUsd === undefined
+      ? {}
+      : { monthlyBudgetUsd: parseCategoryBudget(input.monthlyBudgetUsd) }),
   })
 }
 

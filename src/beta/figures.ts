@@ -662,6 +662,13 @@ export type CategoryRow = {
   // 0 when the category has no cap, which is most of them.
   readonly cap: number
   readonly total: number
+  // The same pair in dollars, counted apart: nothing in this app adds
+  // the two currencies, so a category spent in dollars needs a ceiling
+  // of its own or it is measured against a figure it never touches.
+  // Meta Ads is only dollars, Comida only pesos, suscripciones both.
+  readonly capUsd: number
+  readonly totalUsd: number
+  readonly overUsd: boolean
   readonly share: number
   readonly over: boolean
   // The card's own category. Its figure is always zero here on purpose:
@@ -688,12 +695,17 @@ export function categoriasFigures(input: {
     input.categories
       .map((category) => {
         const total = found.get(category.id)?.total ?? 0
+        const totalUsd = found.get(category.id)?.totalUsd ?? 0
+        const capUsd = category.monthlyBudgetUsd ?? 0
         return {
           categoryId: category.id,
           name: category.name,
           color: category.color,
           cap: category.monthlyBudget,
           total,
+          capUsd,
+          totalUsd,
+          overUsd: capUsd > 0 && totalUsd > capUsd,
           share: found.get(category.id)?.share ?? 0,
           over: category.monthlyBudget > 0 && total > category.monthlyBudget,
           isCard: cards.has(category.id),

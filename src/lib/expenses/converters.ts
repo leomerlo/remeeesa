@@ -52,7 +52,14 @@ export function parseCategoryDocument(input: {
     throw new Error('Category document must be an object')
   }
 
-  const { household_id, name, color, monthly_budget, created_at } = input.data
+  const {
+    household_id,
+    name,
+    color,
+    monthly_budget,
+    monthly_budget_usd,
+    created_at,
+  } = input.data
   if (typeof name !== 'string') {
     throw new Error('Category name must be a string')
   }
@@ -75,6 +82,11 @@ export function parseCategoryDocument(input: {
     color: parsedColor,
     // Missing on every category written before ceilings existed, which is
     // all of them -- read as "sin tope" rather than rejecting the document.
+    // Left off rather than written as zero on a category nobody has
+    // capped in dollars, which is almost all of them.
+    ...(typeof monthly_budget_usd === 'number'
+      ? { monthlyBudgetUsd: parseCategoryBudget(monthly_budget_usd) }
+      : {}),
     monthlyBudget:
       typeof monthly_budget === 'number'
         ? parseCategoryBudget(monthly_budget)
@@ -88,12 +100,14 @@ export function categoryToDocument(input: {
   readonly name: string
   readonly color: string
   readonly monthlyBudget: number
+  readonly monthlyBudgetUsd?: number
   readonly createdAt: Date
 }): {
   readonly household_id: string
   readonly name: string
   readonly color: string
   readonly monthly_budget: number
+  readonly monthly_budget_usd?: number
   readonly created_at: Date
 } {
   return {
@@ -101,6 +115,9 @@ export function categoryToDocument(input: {
     name: input.name,
     color: input.color,
     monthly_budget: input.monthlyBudget,
+    ...(input.monthlyBudgetUsd === undefined
+      ? {}
+      : { monthly_budget_usd: input.monthlyBudgetUsd }),
     created_at: input.createdAt,
   }
 }
