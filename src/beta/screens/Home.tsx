@@ -495,6 +495,7 @@ export function Home({
                   key={move.id}
                   purchase={move.purchase}
                   categories={categories}
+                  methods={methods}
                   several={several}
                   onEdit={() => setEditingPurchase(move.purchase ?? null)}
                 />
@@ -503,6 +504,7 @@ export function Home({
                   key={move.id}
                   expense={move.expense}
                   categories={categories}
+                  methods={methods}
                   several={several}
                   onEdit={() => setEditing(move.expense ?? null)}
                 />

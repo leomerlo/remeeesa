@@ -11,7 +11,7 @@ import { cssVars } from '@/lib/cssVars'
 import type { Category, Expense } from '@/lib/expenses'
 import { amountLeft, isPartlyPaid, paidSoFar } from '@/lib/pendientes'
 import type { Pendiente } from '@/lib/pendientes'
-import type { CardPurchase } from '@/lib/cards'
+import type { Card as PaymentMethod, CardPurchase } from '@/lib/cards'
 import { billState } from './figures'
 export { billState, sortBills } from './figures'
 import { DEFAULT_CURRENCY } from '@/lib/money'
@@ -47,14 +47,34 @@ export function Section({
   )
 }
 
+// What a gasto or a consumo was paid with, named. Servicios has always
+// named it on a paid bill -- "Con Visa CRÉDITO Santander FLOR" -- while
+// these two rows said "Con la tarjeta" or nothing at all, so the same
+// fact read three ways depending on the screen. Per direct feedback: "¿y
+// por qué los gastos dicen con la tarjeta y los servicios muestran el
+// método de pago? Me gusta el método de pago".
+//
+// Efectivo is the method nobody creates, so a gasto with none is one
+// paid in cash.
+function paidWithName(
+  methods: readonly PaymentMethod[],
+  methodId: string | null,
+): string {
+  if (methodId === null) return 'efectivo'
+  return methods.find((method) => method.id === methodId)?.name ?? 'tarjeta'
+}
+
 export function ExpenseRow({
   expense,
   categories,
+  methods = [],
   several,
   onEdit,
 }: {
   readonly expense: Expense
   readonly categories: readonly Category[]
+  // Every way the household pays, to name the one on this row.
+  readonly methods?: readonly PaymentMethod[]
   readonly several: boolean
   // Written by the beta itself, which is the only kind of row it can edit
   // or delete. Marked so the difference is visible before you open it.
@@ -91,6 +111,9 @@ export function ExpenseRow({
             is the whole difference between it and a bill. Who loaded it
             goes last, after the category, on every row that has one. */}
         <span className="badges">
+          <span className="tag soft">
+            Con {paidWithName(methods, expense.paymentMethodId)}
+          </span>
           <span className="tag cat-tag" style={cssVars({ '--pc': mark.color })}>
             {mark.name}
           </span>
@@ -108,11 +131,13 @@ export function ExpenseRow({
 export function PurchaseRow({
   purchase,
   categories,
+  methods = [],
   several,
   onEdit,
 }: {
   readonly purchase: CardPurchase
   readonly categories: readonly Category[]
+  readonly methods?: readonly PaymentMethod[]
   readonly several: boolean
   readonly onEdit?: () => void
 }): ReactElement {
@@ -140,7 +165,12 @@ export function PurchaseRow({
           {monthName(purchase.purchaseDate)}
         </span>
         <span className="badges">
-          <span className="tag credit">Con la tarjeta</span>
+          {/* Still the loud badge, because this one is not money of
+              this month -- it arrives with the card's resumen -- but it
+              names the card like everywhere else. */}
+          <span className="tag credit">
+            Con {paidWithName(methods, purchase.cardId)}
+          </span>
           <span className="tag cat-tag" style={cssVars({ '--pc': mark.color })}>
             {mark.name}
           </span>
