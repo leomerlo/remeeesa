@@ -11,6 +11,7 @@ import {
 import { createCard } from './cards'
 import {
   cardsDueNextMonth,
+  deleteCardPurchase,
   listResumenCuotas,
   markPendientePaidWithCard,
   markResumenPaid,
@@ -299,5 +300,37 @@ describe('what a Resumen knows about its own bill', () => {
     expect(undone.expectedAmount).toBeNull()
     // The household's own record of what it put on the card is untouched.
     expect(undone.estimatedAmount).toBe(36800)
+  })
+})
+
+// A bill can end up pointing at a consumo that is no longer there: one
+// deleted by hand, or by a conversion that did not know the bill was
+// pointing at it. Undoing the payment used to refuse -- "me dice que no
+// se encontró el pago" -- which left the bill stuck as paid with no way
+// to correct it.
+describe('undoing a payment whose consumo is gone', () => {
+  it('puts the bill back to pending all the same', async () => {
+    const { db, householdId, cardId, pendienteId } = await setup()
+    const { purchase } = await markPendientePaidWithCard({
+      db,
+      householdId,
+      pendienteId,
+      cardId,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 12_000,
+      cuotas: 1,
+      paymentDate: TODAY,
+    })
+    await deleteCardPurchase({ db, householdId, purchaseId: purchase.id })
+
+    const after = await unmarkPendientePaid({ db, householdId, pendienteId })
+
+    expect(after.status).toBe('pending')
+    expect(after.paidPurchaseId ?? null).toBeNull()
+    // And it can be paid again, which is the whole point of being able
+    // to undo it.
+    const again = await getPendiente({ db, householdId, pendienteId })
+    expect(again?.status).toBe('pending')
   })
 })

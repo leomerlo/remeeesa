@@ -1478,11 +1478,21 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       // frozen -- ownUnlockedPurchase says so rather than leaving a consumo
       // behind with nothing owing it.
       const paidPurchaseId = existing.paidPurchaseId ?? null
-      if (paidPurchaseId !== null) {
+      // A bill can point at a consumo that is no longer there -- one
+      // deleted by hand, or by a conversion that did not know the bill
+      // was pointing at it. Then there is nothing to take out of any
+      // Resumen and the payment is undone all the same: refusing left
+      // the bill stuck as paid with no way back ("me dice que no se
+      // encontró el pago").
+      const paidPurchase =
+        paidPurchaseId === null
+          ? undefined
+          : state.cardPurchases.get(paidPurchaseId)
+      if (paidPurchase !== undefined) {
         const purchase = ownUnlockedPurchase(
           state,
           input.householdId,
-          paidPurchaseId,
+          paidPurchase.id,
         )
         moveCuotas(state, purchase, null, () => {
           throw new Error('undoing a payment creates no Resumen')
