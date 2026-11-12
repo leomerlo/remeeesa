@@ -96,7 +96,10 @@ export function Tarjetas({
         pager
       />
 
-      <div className="hood solo">
+      {/* Its figure keeps the hero's own size: this screen says one
+          thing and the rest of the app's panels were levelled to one
+          size without it. "La pantalla de tarjetas está bien." */}
+      <div className="hood solo bigfig">
         <div className="card hero">
           <div className="label">Los resúmenes de {monthName(next)}</div>
           <div className="figure">
