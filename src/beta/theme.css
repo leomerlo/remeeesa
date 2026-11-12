@@ -2891,6 +2891,32 @@ body {
 .field > * {
   min-width: 0;
 }
+/* iOS sizes a date input from its own little editor and ignores the
+     width it is given, so this one field pushed the whole sheet sideways
+     again on a phone -- "el modal ahora vuelve a tener scroll horizontal
+     por el input de las fechas". Dropping the native appearance makes it
+     an ordinary box that obeys its width, and the editor inside it gets
+     the same treatment, since it carries an intrinsic width of its own.
+     The calendar button is a separate part and stays. */
+.field input[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+}
+.field input[type='date']::-webkit-date-and-time-value {
+  width: 100%;
+  margin: 0;
+  text-align: left;
+}
+.field input[type='date']::-webkit-datetime-edit {
+  width: 100%;
+  padding: 0;
+}
+/* And nothing inside a sheet scrolls sideways, whatever width a platform
+     decides one of its own controls deserves. */
+.sheet-b {
+  overflow-x: hidden;
+}
 .field input,
 .field select {
   min-width: 0;

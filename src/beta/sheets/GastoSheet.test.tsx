@@ -189,6 +189,83 @@ describe('anotar un gasto', () => {
     expect(after.expenses[0]?.name).toBe('Internet')
   })
 
+  // Her own case, and the one the form refused to describe: la Visa
+  // debita Netflix todos los meses. The card says how it is paid; the
+  // three switches say what it is, and picking a card used to hide them.
+  it('asks the same three questions on a credit card', async () => {
+    const it_ = await house()
+    open(it_)
+    fill('Netflix', '9000')
+    fireEvent.click(
+      screen.getByRole('button', { name: /¿Con qué lo pagaron\?/ }),
+    )
+    fireEvent.click(screen.getByRole('option', { name: /Visa/ }))
+
+    expect(
+      screen.getByRole('switch', { name: /Ya lo pagué/ }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('switch', { name: /Todos los meses/ }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('switch', { name: /Débito automático/ }),
+    ).toBeInTheDocument()
+  })
+
+  it('writes a servicio that the card pays every month', async () => {
+    const it_ = await house()
+    open(it_)
+    fill('Netflix', '9000')
+    fireEvent.click(
+      screen.getByRole('button', { name: /¿Con qué lo pagaron\?/ }),
+    )
+    fireEvent.click(screen.getByRole('option', { name: /Visa/ }))
+    fireEvent.click(screen.getByRole('switch', { name: /Todos los meses/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Anotar/ }))
+
+    await waitFor(async () => {
+      expect((await movements(it_)).purchases).toHaveLength(1)
+    })
+    const after = await movements(it_)
+    // On the card, so it lands in the Resumen and not in this month: no
+    // gasto anywhere, and the consumo says which bill it came from.
+    expect(after.expenses).toHaveLength(0)
+    expect(after.purchases[0]?.name).toBe('Netflix')
+    // And it is a servicio, so it comes back next month.
+    const bills = await it_.db.listPaidPendientesDueInMonth({
+      householdId: it_.householdId,
+      ...currentMonthRange(TODAY),
+    })
+    expect(bills.map((bill) => [bill.name, bill.recurring])).toEqual([
+      ['Netflix', true],
+    ])
+  })
+
+  it('writes a bill the card is going to pay when it is not paid yet', async () => {
+    const it_ = await house()
+    open(it_)
+    fill('Expensas', '45000')
+    fireEvent.click(
+      screen.getByRole('button', { name: /¿Con qué lo pagaron\?/ }),
+    )
+    fireEvent.click(screen.getByRole('option', { name: /Visa/ }))
+    fireEvent.click(screen.getByRole('switch', { name: /Ya lo pagué/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Anotar/ }))
+
+    await waitFor(async () => {
+      expect((await movements(it_)).pendientes).toHaveLength(1)
+    })
+    const after = await movements(it_)
+    // Nothing has been paid, so there is no consumo and no gasto: only
+    // the bill, which remembers what is going to pay it.
+    expect(after.purchases).toHaveLength(0)
+    expect(after.expenses).toHaveLength(0)
+    const [bill] = await it_.db.listPendientes({
+      householdId: it_.householdId,
+    })
+    expect(bill?.paymentMethodId).toBe(it_.methods[0]?.id)
+  })
+
   it('writes a consumo, not a gasto, when it goes on a credit card', async () => {
     const it_ = await house()
     open(it_)
@@ -209,7 +286,7 @@ describe('anotar un gasto', () => {
     expect(after.expenses).toHaveLength(0)
   })
 
-  it('does not ask about months or payment on a credit card', async () => {
+  it('asks about the cuotas as well, on a credit card', async () => {
     const it_ = await house()
     open(it_)
     fireEvent.click(
@@ -217,8 +294,6 @@ describe('anotar un gasto', () => {
     )
     fireEvent.click(screen.getByRole('option', { name: /Visa/ }))
 
-    expect(screen.queryByRole('switch', { name: /Ya lo pagué/ })).toBeNull()
-    expect(screen.queryByRole('switch', { name: /Todos los meses/ })).toBeNull()
     expect(screen.getByLabelText('En cuántas cuotas')).toBeInTheDocument()
   })
 })
@@ -502,6 +577,29 @@ describe('editing a gasto into a servicio', () => {
     expect(after.expenses).toHaveLength(0)
   })
 
+  // The other direction of the same mistake: lo pagué con la Visa y lo
+  // anoté como gasto. The form offers the cards here too, and saying so
+  // moves the money to the card's resumen.
+  it('moves it onto the card when a credit card is picked', async () => {
+    const it_ = await house()
+    edit(it_, await loggedGasto(it_))
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /¿Con qué lo pagaron\?/ }),
+    )
+    fireEvent.click(screen.getByRole('option', { name: /Visa/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    await waitFor(async () => {
+      expect((await movements(it_)).purchases).toHaveLength(1)
+    })
+    const after = await movements(it_)
+    expect(after.purchases[0]?.name).toBe('Gimnasio')
+    // And it is no longer money of this month: it arrives with the
+    // card's resumen.
+    expect(after.expenses).toHaveLength(0)
+  })
+
   it('leaves an ordinary edit an ordinary gasto', async () => {
     const it_ = await house()
     edit(it_, await loggedGasto(it_))
@@ -625,9 +723,34 @@ describe('editar un consumo', () => {
     expect((await movements(it_)).expenses).toHaveLength(0)
   })
 
-  // The consumo a servicio's payment wrote: the bill points at it, so what
-  // paid it is changed on the servicio and not here.
-  it('does not offer cash on the consumo of a servicio', async () => {
+  // A consumo that turns out to come every month: Netflix en la Visa.
+  // The same three switches as everywhere else, and saying yes writes
+  // the servicio and takes the loose consumo away.
+  it('becomes a servicio paid with the card when it comes every month', async () => {
+    const it_ = await house()
+    edit(it_, await loggedConsumo(it_))
+
+    fireEvent.click(screen.getByRole('switch', { name: /Todos los meses/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    await waitFor(async () => {
+      const bills = await it_.db.listPaidPendientesDueInMonth({
+        householdId: it_.householdId,
+        ...currentMonthRange(TODAY),
+      })
+      expect(bills).toHaveLength(1)
+    })
+    const after = await movements(it_)
+    // One consumo, not two: the loose one was removed and the servicio's
+    // own took its place.
+    expect(after.purchases).toHaveLength(1)
+    expect(after.expenses).toHaveLength(0)
+  })
+
+  // The consumo a servicio's payment wrote. The same form, the same
+  // questions: picking cash on it undoes the card payment and pays the
+  // bill in cash instead -- it stays the servicio it is.
+  it('pays the servicio in cash when the consumo comes off the card', async () => {
     const it_ = await house()
     const bill = await createPendiente({
       db: it_.db,
@@ -654,9 +777,124 @@ describe('editar un consumo', () => {
     fireEvent.click(
       screen.getByRole('button', { name: /¿Con qué lo pagaron\?/ }),
     )
-    expect(
-      screen.queryByRole('option', { name: /Efectivo o transferencia/ }),
-    ).not.toBeInTheDocument()
-    expect(screen.getByText(/Es el pago de un servicio/)).toBeInTheDocument()
+    fireEvent.click(
+      screen.getByRole('option', { name: /Efectivo o transferencia/ }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    await waitFor(async () => {
+      expect((await movements(it_)).purchases).toHaveLength(0)
+    })
+    const after = await movements(it_)
+    // Paid in cash now: the money left this month, and the bill still
+    // says it is paid.
+    expect(after.expenses).toHaveLength(1)
+    expect(after.expenses[0]?.pendienteId).toBe(bill.id)
+    expect(after.pendientes).toHaveLength(0)
+  })
+})
+
+// The whole of what she asked for, checked as one thing: anotar, editar
+// un gasto y editar un consumo son el mismo formulario. "Nada tiene que
+// cambiar, todos los modales en todos los casos deben de ser iguales."
+describe('el mismo formulario en los tres casos', () => {
+  function shown(): {
+    readonly fields: readonly string[]
+    readonly switches: readonly string[]
+  } {
+    return {
+      // Every question the sheet puts on screen, by the label over it.
+      fields: [...document.querySelectorAll('.field > label')]
+        .map((label) => label.textContent ?? '')
+        // The cuotas only belong to a credit card, and a consumo opens on
+        // one while an alta opens on cash. It is the same question in all
+        // three, asked when a card is picked.
+        .filter((label) => !label.startsWith('En cuántas cuotas')),
+      switches: screen
+        .getAllByRole('switch')
+        .map((control) => (control.textContent ?? '').slice(0, 20)),
+    }
+  }
+
+  it('ofrece las mismas preguntas en los tres', async () => {
+    const it_ = await house()
+
+    const alta = renderWithProviders(
+      <GastoSheet
+        open
+        onClose={vi.fn()}
+        session={it_.session}
+        expense={null}
+        categories={it_.categories}
+        methods={it_.methods}
+        today={TODAY}
+      />,
+    )
+    const altaShown = shown()
+    alta.unmount()
+
+    const gasto = renderWithProviders(
+      <GastoSheet
+        open
+        onClose={vi.fn()}
+        session={it_.session}
+        expense={await it_.db.createExpense({
+          householdId: it_.householdId,
+          categoryId: it_.categories[0]?.id ?? '',
+          memberId: FLOR,
+          authorDisplayName: 'Flor',
+          name: 'Super',
+          price: 12_000,
+          comments: '',
+          expenseDate: TODAY,
+          currency: 'ARS',
+          paymentMethodId: null,
+        })}
+        categories={it_.categories}
+        methods={it_.methods}
+        today={TODAY}
+      />,
+    )
+    const gastoShown = shown()
+    gasto.unmount()
+
+    renderWithProviders(
+      <GastoSheet
+        open
+        onClose={vi.fn()}
+        session={it_.session}
+        expense={null}
+        purchase={await createCardPurchase({
+          db: it_.db,
+          householdId: it_.householdId,
+          cardId: it_.methods[0]?.id ?? '',
+          categoryId: it_.categories[0]?.id ?? '',
+          memberId: FLOR,
+          authorDisplayName: 'Flor',
+          name: 'Zapatillas',
+          total: 90_000,
+          cuotas: 3,
+          purchaseDate: TODAY,
+          comments: '',
+        })}
+        categories={it_.categories}
+        methods={it_.methods}
+        today={TODAY}
+      />,
+    )
+    const consumoShown = shown()
+
+    // The same three switches, whatever it was opened on.
+    expect(gastoShown.switches).toEqual(altaShown.switches)
+    expect(consumoShown.switches).toEqual(altaShown.switches)
+    // And the same questions, up to the one word that says whether this
+    // is an alta or an edición (the save button) and the delete at the
+    // foot of an edición.
+    const asked = (labels: readonly string[]): readonly string[] =>
+      labels.filter(
+        (label) => !label.startsWith('Borrar') && !label.startsWith('Cerrar'),
+      )
+    expect(asked(gastoShown.fields)).toEqual(asked(altaShown.fields))
+    expect(asked(consumoShown.fields)).toEqual(asked(altaShown.fields))
   })
 })

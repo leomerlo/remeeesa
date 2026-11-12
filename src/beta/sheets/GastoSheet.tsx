@@ -18,8 +18,11 @@ import {
 import {
   convertExpenseToPendiente,
   setPendienteRecurrence,
+  unmarkPendientePaid,
 } from '@/lib/pendientes'
 import { createPendiente, markPendientePaid } from '@/lib/pendientes'
+import type { Pendiente } from '@/lib/pendientes'
+import { markPendientePaidWithCard } from '@/lib/cards'
 import type { Currency } from '@/lib/money'
 import { CardBrandMark } from '../CardBrandMark'
 import { DangerAction, Sheet, SheetFoot } from '../Sheet'
@@ -217,70 +220,33 @@ export function GastoSheet({
       ? 'Todavía estamos leyendo el hogar. Probá de nuevo en un segundo.'
       : null
 
-  // Every way this household pays, each with its own mark. Efectivo is the
-  // one nobody creates, so it is written in here rather than read.
+  // Every way this household pays, each with its own mark, and the same
+  // list every time this form opens. Efectivo is the one nobody creates,
+  // so it is written in here rather than read.
   //
-  // Editing a consumo offers the same list as editing a gasto, cash
-  // included: picking something that is not a credit card takes the
-  // consumo off the card, and the save turns it into a gasto of the month
-  // it was made in. It used to offer only the cards -- "si me confundí y
-  // le quiero sacar que lo pagué con tarjeta, lo tengo que poder editar".
-  //
-  // The exception is a consumo that is the payment of a servicio: the bill
-  // points at it, so it is the servicio that says what paid it, and only
-  // the cards are offered here. Editing a gasto offers everything but
-  // credit, for the mirror reason: paying with credit books a consumo, not
-  // a gasto.
-  const fromServicio =
-    purchase !== null && (purchase.pendienteId ?? null) !== null
-  const offered = methods.filter((candidate) =>
-    purchase !== null
-      ? !fromServicio || candidate.kind === 'credito'
-      : expense === null || candidate.kind !== 'credito',
-  )
+  // It used to be three different lists -- no credit when editing a
+  // gasto, only credit when editing a consumo, cash and debit when
+  // anotando -- so the same form asked a different question depending on
+  // what it had been opened on. "Nada tiene que cambiar, todos los
+  // modales en todos los casos deben de ser iguales." The answers decide
+  // what gets written; the questions are always these.
   const methodOptions = [
-    ...(purchase === null || !fromServicio
-      ? [{ value: '', k: 'Efectivo o transferencia', mark: <Banknote /> }]
-      : []),
-    ...offered.map((candidate) => ({
+    { value: '', k: 'Efectivo o transferencia', mark: <Banknote /> },
+    ...methods.map((candidate) => ({
       value: candidate.id,
       k: candidate.name,
       ...(candidate.kind === 'efectivo' ? {} : { v: kindOf(candidate.kind) }),
       mark: <CardBrandMark brand={candidate.brand} />,
     })),
-    // Whatever it was actually saved with, when that is not on the list
-    // above -- a gasto paid with a credit card before this form stopped
-    // offering them. Shown rather than silently swapped for the first
-    // option on save.
-    ...methods
-      .filter(
-        (candidate) =>
-          candidate.id === draft.methodId &&
-          !offered.some((one) => one.id === candidate.id),
-      )
-      .map((candidate) => ({
-        value: candidate.id,
-        k: candidate.name,
-        v: kindOf(candidate.kind),
-        mark: <CardBrandMark brand={candidate.brand} />,
-      })),
   ]
 
   // Under the method, and only when picking it means something more than a
-  // label: what a bill is going to be paid with, and -- on a consumo -- the
-  // fact that this choice is what takes it off the card.
-  const methodSays =
-    purchase !== null
-      ? fromServicio
-        ? 'Es el pago de un servicio: con qué se pagó se cambia desde Servicios.'
-        : onCredit
-          ? null
-          : 'Lo sacás de la tarjeta: deja de ir al resumen y pasa a contar como gasto del mes.'
-      : draft.paid
-        ? null
-        : draft.autoDebit
-          ? 'De acá lo va a debitar el banco cuando venza.'
-          : 'Lo que va a venir propuesto cuando lo marques como pagado.'
+  // label: what a bill is going to be paid with.
+  const methodSays = draft.paid
+    ? null
+    : draft.autoDebit
+      ? 'De acá lo va a debitar el banco cuando venza.'
+      : 'Lo que va a venir propuesto cuando lo marques como pagado.'
 
   // Under the amount, and only when there is something to say about it.
   const amountSays =
@@ -290,10 +256,26 @@ export function GastoSheet({
         ? null
         : 'Si todavía no sabés cuánto, dejalo vacío.'
 
+  // What the answers add up to, which is the only thing that decides
+  // what gets written. The form asks the same questions whatever it was
+  // opened on, and they can describe three things:
+  //
+  //   un servicio -- viene todos los meses, o todavía se debe: a
+  //                  Pendiente, saldado en el acto si ya se pagó.
+  //   un consumo  -- pagado, una vez, con una tarjeta de crédito: no es
+  //                  plata de este mes, va al resumen de esa tarjeta.
+  //   un gasto    -- pagado, una vez, con cualquier otra cosa.
+  //
+  // What the record already is only decides whether the save edits it
+  // where it is or lo vuelve a escribir con la otra forma y borra el
+  // anterior. Per direct feedback, after this form had grown three
+  // different versions of itself: "nada tiene que cambiar, todos los
+  // modales en todos los casos deben de ser iguales".
   const onSave = (): void => {
     save.run(async () => {
       const amount = moneyValue(draft.amount)
       const date = dayFromIso(draft.date)
+      const methodId = draft.methodId === '' ? null : draft.methodId
       // A name typed into the category box becomes a category here and
       // nowhere earlier -- one lookup, before any of the branches below,
       // so every one of them is given an id that exists.
@@ -307,96 +289,63 @@ export function GastoSheet({
                 name: draft.categoryName.trim(),
               })
             ).id
-      if (purchase !== null) {
-        // Off the card: the same money becomes an ordinary gasto, dated
-        // when it was made, and its cuotas leave the Resúmenes they were
-        // in. A conversion rather than an edit -- see
-        // convertCardPurchaseToExpense.
-        if (!onCredit) {
-          return convertCardPurchaseToExpense({
+      const wantsBill = draft.recurring || !draft.paid
+      const wantsConsumo = !wantsBill && onCredit && method !== undefined
+
+      // Settling a bill that was already paid when it was written down.
+      // With a credit card that is not money leaving today: it goes onto
+      // the card and arrives in its Resumen, so it books a consumo and no
+      // gasto at all. Everything else has already left the account.
+      const settle = async (pendienteId: string): Promise<unknown> => {
+        if (onCredit && method !== undefined) {
+          return markPendientePaidWithCard({
             db: session.db,
             householdId,
-            purchaseId: purchase.id,
-            categoryId,
-            name: draft.name.trim(),
-            price: amount,
-            comments: draft.comments,
-            expenseDate: date,
+            pendienteId,
+            cardId: method.id,
             memberId,
             authorDisplayName: author,
+            finalAmount: amount,
+            cuotas: Number(draft.cuotas),
+            paymentDate: date,
             currency: draft.currency,
-            paymentMethodId: draft.methodId === '' ? null : draft.methodId,
           })
         }
-        return updateCardPurchase({
+        return markPendientePaid({
           db: session.db,
           householdId,
-          purchaseId: purchase.id,
-          cardId: draft.methodId,
-          categoryId,
-          name: draft.name.trim(),
-          total: amount,
-          cuotas: Number(draft.cuotas),
-          purchaseDate: date,
-          comments: draft.comments,
-          currency: draft.currency,
+          pendienteId,
+          memberId,
+          authorDisplayName: author,
+          finalAmount: amount,
+          paymentDate: date,
+          paymentMethodId: methodId,
         })
       }
-      if (expense !== null) {
-        const edited = await updateExpense({
+
+      const editExpense = async (expenseId: string): Promise<unknown> =>
+        updateExpense({
           db: session.db,
           householdId,
-          expenseId: expense.id,
+          expenseId,
           name: draft.name.trim(),
           price: amount,
           categoryId,
           comments: draft.comments,
           expenseDate: date,
-          // Left exactly as it was found here: whether this is a servicio
-          // is answered below, by the two switches, and a conversion
-          // writes it on the record it builds.
-          isService: expense.isService,
+          // Left exactly as it was found: whether this is a servicio is
+          // answered by the switches, and a conversion writes it on the
+          // record it builds.
+          isService: expense?.isService ?? false,
           currency: draft.currency,
-          paymentMethodId: draft.methodId === '' ? null : draft.methodId,
+          paymentMethodId: methodId,
         })
-        // The same two answers the alta is built on, asked again. Saying
-        // yes to either is asking for something an Expense cannot be --
-        // only a bill comes back every month, and only a bill can be
-        // *owed* rather than spent -- so the record is rebuilt as the
-        // bill the alta would have made from these answers. The edits
-        // above go in first, so the bill carries them.
-        //
-        // Per direct feedback: "si yo me confundí y anoté un servicio
-        // como gasto, tengo que poder editarlo y hacerlo servicio".
-        const wantsBill = draft.recurring || !draft.paid
-        if (!wantsBill) return edited
-        // One that already has a bill behind it is not converted: the
-        // bill is where recurrence lives, so this just answers it there.
-        if (expense.pendienteId !== null) {
-          return setPendienteRecurrence({
-            db: session.db,
-            householdId,
-            pendienteId: expense.pendienteId,
-            recurring: draft.recurring,
-            autoDebit: draft.autoDebit,
-          })
-        }
-        return convertExpenseToPendiente({
+
+      const bookConsumo = async (cardId: string): Promise<unknown> =>
+        createCardPurchase({
           db: session.db,
           householdId,
-          expenseId: expense.id,
-          recurring: draft.recurring,
-          autoDebit: draft.autoDebit,
-          markPaid: draft.paid,
-          memberId,
-          authorDisplayName: author,
-        })
-      }
-      if (onCredit && method !== undefined) {
-        return createCardPurchase({
-          db: session.db,
-          householdId,
-          cardId: method.id,
+          cardId,
           categoryId,
           memberId,
           authorDisplayName: author,
@@ -407,14 +356,9 @@ export function GastoSheet({
           comments: draft.comments,
           currency: draft.currency,
         })
-      }
-      // From here on it is the v1's own decision, in its order: a one-off
-      // already paid is a gasto and nothing else. Everything else is a
-      // bill of the month -- it comes every month, or it is still owed --
-      // so it is written as one and then settled on the spot if it was
-      // already paid. That is what makes it come back next month.
-      if (draft.recurring || !draft.paid) {
-        const created = await createPendiente({
+
+      const openBill = async (): Promise<Pendiente> =>
+        createPendiente({
           db: session.db,
           householdId,
           categoryId,
@@ -425,20 +369,132 @@ export function GastoSheet({
           autoDebit: draft.autoDebit,
           // What it is paid with, which on a débito automático is the
           // card the bank takes it from.
-          paymentMethodId: draft.methodId === '' ? null : draft.methodId,
+          paymentMethodId: methodId,
           currency: draft.currency,
         })
-        if (!draft.paid) return created
-        return markPendientePaid({
+
+      // The bill behind this record, when it has one: what is open is a
+      // servicio's payment, whether that payment was cash (an Expense) or
+      // a card (a CardPurchase). The bill is the record then, so the
+      // answers go to the bill and the payment is only re-pointed.
+      const billId = purchase?.pendienteId ?? expense?.pendienteId ?? null
+      if (billId !== null) {
+        const paidWith =
+          purchase !== null
+            ? purchase.cardId
+            : (expense?.paymentMethodId ?? null)
+        if (!draft.paid) {
+          // Undoing the payment takes its gasto -- or its consumo -- with
+          // it, and leaves the bill owed again.
+          await unmarkPendientePaid({
+            db: session.db,
+            householdId,
+            pendienteId: billId,
+          })
+        } else if (paidWith !== methodId) {
+          await unmarkPendientePaid({
+            db: session.db,
+            householdId,
+            pendienteId: billId,
+          })
+          await settle(billId)
+        } else if (expense !== null) {
+          await editExpense(expense.id)
+        }
+        return setPendienteRecurrence({
           db: session.db,
           householdId,
-          pendienteId: created.id,
+          pendienteId: billId,
+          recurring: draft.recurring,
+          autoDebit: draft.autoDebit,
+        })
+      }
+
+      if (purchase !== null) {
+        if (wantsBill) {
+          const created = await openBill()
+          if (draft.paid) await settle(created.id)
+          await deleteCardPurchase({
+            db: session.db,
+            householdId,
+            purchaseId: purchase.id,
+          })
+          return created
+        }
+        if (wantsConsumo) {
+          return updateCardPurchase({
+            db: session.db,
+            householdId,
+            purchaseId: purchase.id,
+            cardId: draft.methodId,
+            categoryId,
+            name: draft.name.trim(),
+            total: amount,
+            cuotas: Number(draft.cuotas),
+            purchaseDate: date,
+            comments: draft.comments,
+            currency: draft.currency,
+          })
+        }
+        // Off the card: the same money becomes an ordinary gasto of the
+        // month it was made in, and its cuotas leave the Resúmenes they
+        // were in. See convertCardPurchaseToExpense.
+        return convertCardPurchaseToExpense({
+          db: session.db,
+          householdId,
+          purchaseId: purchase.id,
+          categoryId,
+          name: draft.name.trim(),
+          price: amount,
+          comments: draft.comments,
+          expenseDate: date,
           memberId,
           authorDisplayName: author,
-          finalAmount: amount,
-          paymentDate: date,
-          paymentMethodId: draft.methodId === '' ? null : draft.methodId,
+          currency: draft.currency,
+          paymentMethodId: methodId,
         })
+      }
+
+      if (expense !== null) {
+        if (wantsBill) {
+          // The edits go in first, so the bill the conversion builds
+          // carries them.
+          await editExpense(expense.id)
+          return convertExpenseToPendiente({
+            db: session.db,
+            householdId,
+            expenseId: expense.id,
+            recurring: draft.recurring,
+            autoDebit: draft.autoDebit,
+            markPaid: draft.paid,
+            memberId,
+            authorDisplayName: author,
+          })
+        }
+        if (wantsConsumo && method !== undefined) {
+          // Onto the card: it stops being money of this month and starts
+          // being a cuota of that card's Resumen. Written before the
+          // gasto is removed, so an interrupted save leaves it twice
+          // rather than losing it.
+          const created = await bookConsumo(method.id)
+          await deleteExpense({
+            db: session.db,
+            householdId,
+            expenseId: expense.id,
+          })
+          return created
+        }
+        return editExpense(expense.id)
+      }
+
+      if (wantsBill) {
+        const created = await openBill()
+        if (!draft.paid) return created
+        await settle(created.id)
+        return created
+      }
+      if (wantsConsumo && method !== undefined) {
+        return bookConsumo(method.id)
       }
       return createExpense({
         db: session.db,
@@ -451,7 +507,7 @@ export function GastoSheet({
         comments: draft.comments,
         expenseDate: date,
         currency: draft.currency,
-        paymentMethodId: draft.methodId === '' ? null : draft.methodId,
+        paymentMethodId: methodId,
       })
     })
   }
@@ -536,41 +592,42 @@ export function GastoSheet({
           and the save does it; the form has no business hiding the
           question over it.
 
-          None of them on a credit card: a consumo already happened, it
-          does not come every month, and the bank does not debit it. */}
-      {purchase === null && !onCredit ? (
-        <>
-          <Toggle
-            k="Ya lo pagué"
-            v="Si no, queda esperando en Servicios con esa fecha de vencimiento."
-            checked={draft.paid}
-            onChange={(next) => {
-              setDraft((current) => ({ ...current, paid: next }))
-            }}
-          />
-          <Toggle
-            k="Todos los meses"
-            v="Se vuelve a crear solo cuando arranca el mes siguiente."
-            checked={draft.recurring}
-            onChange={(next) => {
-              // Switching it off takes the bank's debit with it, or it
-              // would come back the moment it is switched on again.
-              setDraft((current) => ({
-                ...current,
-                recurring: next,
-                autoDebit: next ? current.autoDebit : false,
-              }))
-            }}
-          />
-          <Toggle
-            k="Débito automático"
-            v="Lo debita el banco en la fecha. No hace falta marcarlo como pagado: se salda solo cuando pasa el vencimiento."
-            checked={draft.autoDebit}
-            disabled={!draft.recurring}
-            onChange={(next) => set('autoDebit', next)}
-          />
-        </>
-      ) : null}
+          Asked on a credit card too: what the card changes is how it is
+          paid, not what it is. "Si pongo crédito no me aparece el Ya lo
+          pagué, débito automático o recurrente. ¿Por qué?" -- there was
+          no reason, and Netflix on the Visa every month is exactly the
+          thing the three of them describe. */}
+      <>
+        <Toggle
+          k="Ya lo pagué"
+          v="Si no, queda esperando en Servicios con esa fecha de vencimiento."
+          checked={draft.paid}
+          onChange={(next) => {
+            setDraft((current) => ({ ...current, paid: next }))
+          }}
+        />
+        <Toggle
+          k="Todos los meses"
+          v="Se vuelve a crear solo cuando arranca el mes siguiente."
+          checked={draft.recurring}
+          onChange={(next) => {
+            // Switching it off takes the bank's debit with it, or it
+            // would come back the moment it is switched on again.
+            setDraft((current) => ({
+              ...current,
+              recurring: next,
+              autoDebit: next ? current.autoDebit : false,
+            }))
+          }}
+        />
+        <Toggle
+          k="Débito automático"
+          v="Lo debita el banco en la fecha. No hace falta marcarlo como pagado: se salda solo cuando pasa el vencimiento."
+          checked={draft.autoDebit}
+          disabled={!draft.recurring}
+          onChange={(next) => set('autoDebit', next)}
+        />
+      </>
       {blocked && started ? (
         <p className="fproblem" role="alert">
           {!named
