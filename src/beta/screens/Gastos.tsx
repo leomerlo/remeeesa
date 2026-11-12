@@ -310,6 +310,7 @@ export function Gastos({
               <PurchaseRow
                 purchase={item.purchase as CardPurchase}
                 categories={categories}
+                methods={methods}
                 several={several}
                 onEdit={() => setEditingPurchase(item.purchase ?? null)}
               />
@@ -317,6 +318,7 @@ export function Gastos({
               <ExpenseRow
                 expense={item.expense}
                 categories={categories}
+                methods={methods}
                 several={several}
                 onEdit={() => setEditing(item.expense ?? null)}
               />

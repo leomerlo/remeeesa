@@ -114,6 +114,15 @@ describe('the two lists on Inicio', () => {
     ).toBeInTheDocument()
   })
 
+  // The same fact read three ways depending on the screen: Servicios
+  // named the method, a consumo said "Con la tarjeta" and a gasto said
+  // nothing. Per direct feedback: "me gusta el método de pago".
+  it('names what each movement was paid with', async () => {
+    render(await house())
+
+    expect(await screen.findByText('Con efectivo')).toBeInTheDocument()
+  })
+
   // The one thing a bill does not do here. That footer is a row taller
   // than a movement, so with it the two columns stopped matching -- and
   // paying is what the Servicios screen is for.
