@@ -4201,3 +4201,55 @@ a.card {
   line-height: 1.45;
   color: var(--ink);
 }
+
+/* ===== one size for every figure in a violet card ===== */
+/* The dark panels -- Inicio, Gastos, Servicios -- each sized their
+   figures their own way: the hero took 54px, a two-card band took 40px
+   and shrank itself by how many digits it had, and the band of three was
+   already pinned to one size. Side by side that made the same money look
+   like different money, and a short figure look like a bigger one.
+   Per direct feedback: "todos los números de todas las cards violetas
+   tienen que ser del mismo tamaño, usá el tamaño de servicios. Los pesos
+   todos del mismo tamaño y los dólares todos del mismo tamaño".
+
+   So: Servicios' size for all of them, pesos and dollars alike, and no
+   figure shrinks itself any more -- the size holds the longest one. Only
+   inside .hood, so the white cards elsewhere (the projection's hero) are
+   untouched, and not in .bigfig, which is Tarjetas: "la pantalla de
+   tarjetas está bien". */
+.hood:not(.bigfig) .hero .figure,
+.hood:not(.bigfig) .duo .figure,
+.hood:not(.bigfig) .duo .usdline,
+.hood:not(.bigfig) .trio .amt,
+.hood:not(.bigfig) .trio .usdline {
+  font-size: clamp(28px, 7.5vw, 40px);
+}
+.hood:not(.bigfig) .fig[data-len] {
+  font-size: 1em;
+}
+/* The dollars were a size down from the pesos they sit under, on the
+   hero and on the small cards alike, and the dollar line of a two-card
+   band carried a size of its own. All three now read at the panel's one
+   size: "los dólares todos del mismo tamaño". */
+.hood:not(.bigfig) .hero .figure .one + .one,
+.hood:not(.bigfig) .trio .amt .one + .one {
+  font-size: 1em;
+}
+.hood:not(.bigfig) .usdline b {
+  font-size: inherit;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+/* From 560px the panel on Inicio puts its small cards two across, so a
+   figure sized off the whole viewport no longer fits one of them -- the
+   step down happens there and not at the 860px the band of three uses,
+   or "$ 289.750,50" runs out of its card on a tablet. */
+@media (min-width: 560px) {
+  .hood:not(.bigfig) .hero .figure,
+  .hood:not(.bigfig) .duo .figure,
+  .hood:not(.bigfig) .duo .usdline,
+  .hood:not(.bigfig) .trio .amt,
+  .hood:not(.bigfig) .trio .usdline {
+    font-size: clamp(22px, 2.4vw, 28px);
+  }
+}
