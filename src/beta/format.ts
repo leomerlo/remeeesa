@@ -80,6 +80,24 @@ export function formatCompactCurrency(amount: number): string {
   return spaced(plainCompact(amount))
 }
 
+// The same figure for the hole of the donut, in either currency: the
+// hole is 85 units wide and a dollar figure written in full ("US$
+// 2.476,99") runs past it. Whole dollars, and thousands said as
+// thousands -- the peso figure beside it is already rounded the same
+// way, because both are there to be glanced at.
+export function formatCompactAmount(
+  amount: number,
+  currency: Currency,
+): string {
+  if (currency === 'ARS') return formatCompactCurrency(amount)
+  const sign = amount < 0 ? '-' : ''
+  const magnitude = Math.abs(amount)
+  if (magnitude >= 1000) {
+    return `${sign}US$ ${String(Math.round(magnitude / 1000))} mil`
+  }
+  return `${sign}${formatAmount(Math.round(magnitude), currency)}`
+}
+
 export function formatPesos(value: number): string {
   return Number.isFinite(value) ? PESOS.format(value) : ''
 }
