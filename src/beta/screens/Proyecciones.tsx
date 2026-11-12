@@ -13,7 +13,7 @@ import { ListSkeleton, NameSkel } from '../Skeleton'
 import { Figure } from '../Figure'
 import { MonthPager } from '../MonthPager'
 import { CategoryTile } from '../Tile'
-import { formatCurrency, monthName } from '../format'
+import { formatAmount, formatCurrency, monthName } from '../format'
 import type { BetaSession } from '../data'
 import { AlertCard } from '../rows'
 import { LoadFailed, Title } from './Gastos'
@@ -210,7 +210,7 @@ export function Proyecciones({
   // Every row and the total, worked out in figures.ts rather than here:
   // this is the arithmetic the audit checks, and it can only check what
   // it can reach.
-  const { rows, total, empty } = projectionFigures({
+  const { rows, total, totalUsd, empty } = projectionFigures({
     current,
     previous,
     pendientes,
@@ -289,11 +289,25 @@ export function Proyecciones({
           Así se perfila {monthName(monthStart)} si todo sigue igual
         </div>
         <div className="figure">
-          <Figure amount={total} />
+          {totalUsd === 0 ? (
+            <Figure amount={total} />
+          ) : (
+            <>
+              <Figure className="one" amount={total} />
+              {/* Beside the pesos, never inside them: the projection used
+                  to read the two months in pesos alone, so a household
+                  that pays things in dollares siempre iba a dar de menos.
+                  Her words. */}
+              <Figure className="one" amount={totalUsd} currency="USD" />
+            </>
+          )}
         </div>
         <p className="herosay">
           Lo que ya anotaron de ese mes, más lo que el mes anterior dice que va
           a repetirse.
+          {totalUsd === 0
+            ? ''
+            : ' Los dólares van aparte: se muestran, no se suman a los pesos.'}
         </p>
       </div>
       {/* One card per line, with its switch and its amount on it -- the
@@ -353,6 +367,16 @@ export function Proyecciones({
                       Son las cuotas que ya compraron para{' '}
                       {monthName(monthStart)}. Lo que compren ese mes todavía no
                       está acá: si sabés que va a ser más, escribilo.
+                    </p>
+                  ) : null}
+                  {/* The line's dollars, said out loud: the amount field
+                      beside it is the peso figure, and a line that only
+                      ever moves in dollars read "$ 0" with no sign that
+                      anything was there. */}
+                  {row.priceUsd > 0 ? (
+                    <p className="sub">
+                      Y {formatAmount(row.priceUsd, 'USD')} en dólares, que no
+                      entran en el total en pesos.
                     </p>
                   ) : null}
                   {on ? null : (

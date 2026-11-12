@@ -208,3 +208,102 @@ describe('typing over what the card is going to be', () => {
     expect(screen.getByText('Cuotas ya compradas')).toBeInTheDocument()
   })
 })
+
+// The dollars this screen used to read straight past. Her words: "al
+// igual que las categorías, en las proyecciones tampoco está considerando
+// los dólares, solo los pesos. Entonces siempre va a dar de menos".
+describe('the dollars of the month ahead', () => {
+  async function houseWithDollars(): Promise<BetaSession> {
+    const db = createMemoryHouseholdsDb().asUser(FLOR)
+    const { household } = await db.createHouseholdAndMembership({
+      userId: FLOR,
+      name: 'Casa Merlo',
+      monthlyBudget: 500_000,
+      displayName: 'Flor',
+    })
+    const comida = await db.findOrCreateCategory({
+      householdId: household.id,
+      name: 'Comida',
+    })
+    const suscripciones = await db.findOrCreateCategory({
+      householdId: household.id,
+      name: 'Suscripciones',
+    })
+    // Last month, in pesos: the line the projection has always carried.
+    await db.createExpense({
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      name: 'Super',
+      price: 120_000,
+      comments: '',
+      expenseDate: lastMonth(),
+      currency: 'ARS',
+      paymentMethodId: null,
+    })
+    // And last month in dollars, in a category that has no pesos at all:
+    // the one that used to project $0 with nothing said about it.
+    await db.createExpense({
+      householdId: household.id,
+      categoryId: suscripciones.id,
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      name: 'Hosting',
+      price: 20,
+      comments: '',
+      expenseDate: lastMonth(),
+      currency: 'USD',
+      paymentMethodId: null,
+    })
+    // A bill in dollars due in the month the screen opens on.
+    await db.createPendiente({
+      householdId: household.id,
+      categoryId: suscripciones.id,
+      name: 'Netflix',
+      dueDate: new Date(2026, 9, 10, 12),
+      expectedAmount: 15.99,
+      recurring: false,
+      autoDebit: false,
+      currency: 'USD',
+    })
+    return {
+      userId: FLOR,
+      householdId: household.id,
+      displayName: 'Flor',
+      db,
+      adopt: vi.fn(),
+      rename: vi.fn(),
+    }
+  }
+
+  it('adds them up beside the pesos, never inside them', async () => {
+    render(await houseWithDollars())
+
+    // The pesos are the pesos: the dollar bill and the dollar gasto are
+    // not in this figure.
+    expect(await screen.findByText('$ 120.000')).toBeInTheDocument()
+    // And the dollars have a figure of their own: US$ 20 carried plus the
+    // US$ 15,99 of the bill.
+    expect(screen.getByText('US$ 35,99')).toBeInTheDocument()
+  })
+
+  it('says it on the line the dollars are on', async () => {
+    render(await houseWithDollars())
+
+    expect(await screen.findByText(/US\$.15,99 en dólares/)).toBeInTheDocument()
+    expect(screen.getByText(/US\$.20 en dólares/)).toBeInTheDocument()
+  })
+
+  it('drops them from the total when the line is switched off', async () => {
+    render(await houseWithDollars())
+
+    fireEvent.click(
+      await screen.findByRole('switch', { name: /Contar Netflix/ }),
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('US$ 20')).toBeInTheDocument()
+    })
+  })
+})

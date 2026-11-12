@@ -3397,13 +3397,16 @@ body {
   font-weight: 400;
   color: var(--ink-2);
 }
-/* The amount is a figure being edited, not a form field taking the
-     width of the card: it hugs, and sits where every other amount in the
-     app sits -- the right-hand edge of its row. Same face as the fields
-     in a sheet, down to the 52px and the 12px corner. */
+/* On a phone the amount takes the whole width of the card, like every
+     other field you type into there: a figure hugging the right edge of a
+     320px card is a thumb-sized target with a screen of empty space
+     beside it. Per direct feedback -- "en mobile el input de plata full
+     width, uno abajo del otro". From 760px up it hugs again (see the wide
+     block), where it sits beside what the line has to say. Same face as
+     the fields in a sheet, down to the 52px and the 12px corner. */
 .projcard .money-in {
-  width: auto;
-  justify-self: end;
+  width: 100%;
+  justify-self: stretch;
   min-height: 52px;
   padding-left: 14px;
   padding-right: 4px;
@@ -3417,7 +3420,7 @@ body {
   letter-spacing: 0;
   color: var(--ink);
   padding: 12px 12px 12px 6px;
-  width: 7.5em;
+  width: 100%;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -3583,8 +3586,15 @@ body {
     align-items: center;
     gap: 16px;
   }
+  /* Width enough for both, so the figure goes back to hugging its own
+     right-hand edge beside the line's explanation. */
   .projbody .money-in {
     grid-column: 2;
+    width: auto;
+    justify-self: end;
+  }
+  .projbody .money-in input {
+    width: 7.5em;
   }
   /* Two rows now, so the bar can sit over the content column while the
        rail runs the full height beside both. */
