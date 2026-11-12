@@ -208,3 +208,99 @@ describe('a month with nothing in it yet', () => {
     expect(screen.queryByText('Ver por categoría')).toBeNull()
   })
 })
+
+// Her own way of working: the card's statement is loaded by hand as a
+// servicio, with the real figure on it, while the app keeps its own
+// estimate of the same month on the Resumen it builds from the cuotas.
+// They are the same money. The line under the ring counted both for an
+// evening -- "se le sumó como un millón de pesos y 20 usd y pico, raro"
+// -- so it counts only what somebody wrote down.
+describe('what the cards asked of the month', () => {
+  async function houseWithACardBillLoadedByHand(): Promise<BetaSession> {
+    const db = createMemoryHouseholdsDb().asUser(FLOR)
+    const { household } = await db.createHouseholdAndMembership({
+      userId: FLOR,
+      name: 'Casa Merlo',
+      monthlyBudget: 500_000,
+      displayName: 'Flor',
+    })
+    const tarjetas = await db.findOrCreateCategory({
+      householdId: household.id,
+      name: 'Tarjetas de Crédito',
+    })
+    const ropa = await db.findOrCreateCategory({
+      householdId: household.id,
+      name: 'Ropa',
+    })
+    const visa = await db.createCard({
+      householdId: household.id,
+      name: 'Visa',
+      kind: 'credito',
+      currency: 'ARS',
+      brand: 'visa',
+    })
+    // Bought in August, so its one cuota lands in September's Resumen --
+    // which nobody has written a figure on.
+    await db.createCardPurchase({
+      householdId: household.id,
+      cardId: visa.id,
+      categoryId: ropa.id,
+      resumenCategoryId: tarjetas.id,
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      name: 'Zapatillas',
+      total: 90_000,
+      cuotas: 1,
+      purchaseDate: new Date(2026, 7, 10, 12),
+      comments: '',
+      currency: 'ARS',
+    })
+    // Something ordinary in the month, so there is a ring for the line
+    // to sit under: the breakdown draws nothing at all otherwise.
+    await db.createExpense({
+      householdId: household.id,
+      categoryId: ropa.id,
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      name: 'Medias',
+      price: 8_000,
+      comments: '',
+      expenseDate: new Date(2026, 8, 20, 12),
+      currency: 'ARS',
+      paymentMethodId: null,
+    })
+    // And the statement itself, loaded by hand with the final figure.
+    await db.createPendiente({
+      householdId: household.id,
+      categoryId: tarjetas.id,
+      name: 'Visa septiembre',
+      dueDate: new Date(2026, 8, 15, 12),
+      expectedAmount: 120_000,
+      recurring: false,
+      autoDebit: false,
+      currency: 'ARS',
+    })
+    return {
+      userId: FLOR,
+      householdId: household.id,
+      displayName: 'Flor',
+      db,
+      adopt: vi.fn(),
+      rename: vi.fn(),
+    }
+  }
+
+  it('counts the statement once, not the estimate beside it', async () => {
+    render(await houseWithACardBillLoadedByHand())
+
+    const alert = await screen.findByText(
+      (_, element) =>
+        element?.tagName === 'P' &&
+        (element.textContent ?? '').includes('los resúmenes de las tarjetas'),
+    )
+    // The figure she typed, and not a peso more: the app's own estimate
+    // of the same month is the same money said twice.
+    expect(alert).toHaveTextContent('120.000')
+    expect(alert).not.toHaveTextContent('210.000')
+  })
+})

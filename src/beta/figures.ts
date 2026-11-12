@@ -517,16 +517,17 @@ export function cardBillTotals(input: {
     ),
   ]
     .filter((bill) => cards.has(bill.categoryId))
-    // A Resumen nobody has written a figure on is worth what the cuotas
-    // logged against it come to. That is an estimate and the line says
-    // so -- but zero is not a better answer to "what do the statements
-    // come to this month", it is a wrong one, and it is what this line
-    // used to give until somebody typed the real figure in.
-    //
-    // Everything else counts what it says: a statement written by hand
-    // carries its own amount.
+    // Only a figure somebody wrote down, never the estimate off the
+    // cuotas. This line briefly counted the estimate too, so that a
+    // Resumen with no statement loaded would not read as zero -- and in
+    // a real household it read as double: the statement is loaded by
+    // hand as a servicio in this same category ("la tarjeta la cargo
+    // como servicio, porque yo pongo el precio final"), so the estimate
+    // the app keeps and the figure she typed are the same money, and
+    // this figure gained a whole card bill overnight. The estimate has
+    // its own place, on Tarjetas, where it is labelled as estimated.
     .map((bill) => ({
-      price: bill.expectedAmount ?? bill.estimatedAmount ?? 0,
+      price: bill.expectedAmount ?? 0,
       currency: bill.currency ?? DEFAULT_CURRENCY,
     }))
   return (['ARS', 'USD'] as const).flatMap((currency) => {
