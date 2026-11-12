@@ -1,6 +1,8 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import type { Card as PaymentMethod } from '@/lib/cards'
+import type { Card as PaymentMethod, CardPurchase } from '@/lib/cards'
+import { createCardPurchase, markPendientePaidWithCard } from '@/lib/cards'
+import { createPendiente } from '@/lib/pendientes'
 import { currentMonthRange } from '@/lib/expenses'
 import type { Category, Expense } from '@/lib/expenses'
 import type { HouseholdsDb } from '@/lib/households'
@@ -96,7 +98,11 @@ function fill(name: string, amount: string): void {
 async function movements(it: House): Promise<{
   readonly expenses: readonly Expense[]
   readonly pendientes: readonly { name: string; recurring: boolean }[]
-  readonly purchases: readonly { name: string; cuotas: number }[]
+  readonly purchases: readonly {
+    name: string
+    cuotas: number
+    cardId: string
+  }[]
 }> {
   const { monthStart, monthEnd } = currentMonthRange(TODAY)
   const [expenses, pendientes, purchases] = await Promise.all([
@@ -405,11 +411,12 @@ describe('editing a gasto into a servicio', () => {
     return gasto
   }
 
-
   // A servicio the conversion already settled is paid, and a paid bill is
   // not in listPendientes -- the same way Firestore keeps them out. So it
   // is read where Servicios reads it.
-  async function settled(it_: House): Promise<readonly { name: string; recurring: boolean }[]> {
+  async function settled(
+    it_: House,
+  ): Promise<readonly { name: string; recurring: boolean }[]> {
     return it_.db.listPaidPendientesDueInMonth({
       householdId: it_.householdId,
       ...currentMonthRange(TODAY),
@@ -508,5 +515,148 @@ describe('editing a gasto into a servicio', () => {
       expect((await movements(it_)).expenses[0]?.price).toBe(35_000)
     })
     expect((await movements(it_)).pendientes).toHaveLength(0)
+  })
+})
+
+// A consumo is the same form as a gasto, and the method is the question
+// that decides which of the two the record is. Her case: "si me confundí
+// y le quiero sacar que lo pagué con tarjeta porque me confundí, lo tengo
+// que poder editar".
+describe('editar un consumo', () => {
+  async function loggedConsumo(it_: House): Promise<CardPurchase> {
+    return createCardPurchase({
+      db: it_.db,
+      householdId: it_.householdId,
+      cardId: it_.methods[0]?.id ?? '',
+      categoryId: it_.categories[0]?.id ?? '',
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      name: 'Zapatillas',
+      total: 90_000,
+      cuotas: 3,
+      purchaseDate: TODAY,
+      comments: '',
+    })
+  }
+
+  function edit(it_: House, purchase: CardPurchase): void {
+    renderWithProviders(
+      <GastoSheet
+        open
+        onClose={vi.fn()}
+        session={it_.session}
+        expense={null}
+        purchase={purchase}
+        categories={it_.categories}
+        methods={it_.methods}
+        today={TODAY}
+      />,
+    )
+  }
+
+  it('offers cash, the same as the gasto form does', async () => {
+    const it_ = await house()
+    edit(it_, await loggedConsumo(it_))
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /¿Con qué lo pagaron\?/ }),
+    )
+    expect(
+      screen.getByRole('option', { name: /Efectivo o transferencia/ }),
+    ).toBeInTheDocument()
+  })
+
+  it('turns it into a gasto of the month when it comes off the card', async () => {
+    const it_ = await house()
+    edit(it_, await loggedConsumo(it_))
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /¿Con qué lo pagaron\?/ }),
+    )
+    fireEvent.click(
+      screen.getByRole('option', { name: /Efectivo o transferencia/ }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    await waitFor(async () => {
+      expect((await movements(it_)).expenses).toHaveLength(1)
+    })
+    const after = await movements(it_)
+    expect(after.expenses[0]?.name).toBe('Zapatillas')
+    expect(after.expenses[0]?.price).toBe(90_000)
+    expect(after.expenses[0]?.paymentMethodId).toBeNull()
+    // And it is off the card: no consumo, and no Resumen left holding a
+    // cuota of it.
+    expect(after.purchases).toHaveLength(0)
+    expect(after.pendientes).toHaveLength(0)
+  })
+
+  it('keeps it a consumo when it moves to another card', async () => {
+    const it_ = await house()
+    const otra = await it_.db.createCard({
+      householdId: it_.householdId,
+      name: 'Amex',
+      kind: 'credito',
+      currency: 'ARS',
+      brand: 'amex',
+    })
+    renderWithProviders(
+      <GastoSheet
+        open
+        onClose={vi.fn()}
+        session={it_.session}
+        expense={null}
+        purchase={await loggedConsumo(it_)}
+        categories={it_.categories}
+        methods={[...it_.methods, otra]}
+        today={TODAY}
+      />,
+    )
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /¿Con qué lo pagaron\?/ }),
+    )
+    fireEvent.click(screen.getByRole('option', { name: /Amex/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    await waitFor(async () => {
+      expect((await movements(it_)).purchases[0]?.cardId).toBe(otra.id)
+    })
+    expect((await movements(it_)).expenses).toHaveLength(0)
+  })
+
+  // The consumo a servicio's payment wrote: the bill points at it, so what
+  // paid it is changed on the servicio and not here.
+  it('does not offer cash on the consumo of a servicio', async () => {
+    const it_ = await house()
+    const bill = await createPendiente({
+      db: it_.db,
+      householdId: it_.householdId,
+      categoryId: it_.categories[0]?.id ?? '',
+      name: 'Claro',
+      dueDate: TODAY,
+      expectedAmount: 12_000,
+    })
+    const { purchase } = await markPendientePaidWithCard({
+      db: it_.db,
+      householdId: it_.householdId,
+      pendienteId: bill.id,
+      cardId: it_.methods[0]?.id ?? '',
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      finalAmount: 12_000,
+      cuotas: 1,
+      paymentDate: TODAY,
+      currency: 'ARS',
+    })
+    edit(it_, purchase)
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /¿Con qué lo pagaron\?/ }),
+    )
+    expect(
+      screen.queryByRole('option', { name: /Efectivo o transferencia/ }),
+    ).not.toBeInTheDocument()
+    expect(screen.getByText(/Es el pago de un servicio/)).toBeInTheDocument()
   })
 })
