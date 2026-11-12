@@ -20,6 +20,7 @@ import { CategoryTile } from './Tile'
 import {
   categoryMark,
   formatAmount,
+  formatCompactAmount,
   formatCompactCurrency,
   formatCurrency,
   monthName,
@@ -428,6 +429,14 @@ export function Donut({
   // lines under it come to.
   const total =
     spent.reduce((cents, row) => cents + Math.round(row.total * 100), 0) / 100
+  // The month's dollars, in the hole beside the pesos. The ring divides
+  // up pesos and cannot draw these -- the two are never added -- but the
+  // figure in the middle used to say "EN TOTAL" over a number that was
+  // only half of what the month spent. Per direct feedback: "el gráfico
+  // muestra adentro solo pesos: sacá el Total y poné la suma en usd".
+  const totalUsd =
+    spent.reduce((cents, row) => cents + Math.round(row.totalUsd * 100), 0) /
+    100
   const circumference = 2 * Math.PI * 52
   const arcs = spent.map((row, index) => ({
     row,
@@ -461,12 +470,19 @@ export function Donut({
               />
             ))}
           </g>
-          <text className="hole" x="70" y="68" textAnchor="middle">
+          <text
+            className="hole"
+            x="70"
+            y={totalUsd === 0 ? 76 : 68}
+            textAnchor="middle"
+          >
             {formatCompactCurrency(total)}
           </text>
-          <text className="holesub" x="70" y="84" textAnchor="middle">
-            EN TOTAL
-          </text>
+          {totalUsd === 0 ? null : (
+            <text className="holesub" x="70" y="86" textAnchor="middle">
+              {formatCompactAmount(totalUsd, 'USD')}
+            </text>
+          )}
         </svg>
       </div>
       {/* Half the rows per column, told to the CSS so the two-column
