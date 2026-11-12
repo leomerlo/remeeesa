@@ -747,6 +747,76 @@ describe('editar un consumo', () => {
     expect(after.expenses).toHaveLength(0)
   })
 
+  // The consumo of a servicio paid before consumos carried a mark of
+  // their own: it says nothing about where it came from, and the link is
+  // on the bill. The screen reads it there and hands it over, so the
+  // save treats it as the payment it is -- editing it used to write a
+  // second bill beside the one already there: "tenía un gasto de Claro,
+  // lo paso a tarjeta y se me duplicó".
+  it('does not write a second bill when the consumo already pays one', async () => {
+    const it_ = await house()
+    const bill = await createPendiente({
+      db: it_.db,
+      householdId: it_.householdId,
+      categoryId: it_.categories[0]?.id ?? '',
+      name: 'Claro',
+      dueDate: TODAY,
+      expectedAmount: 12_000,
+      recurring: true,
+      autoDebit: true,
+    })
+    // Paid with the card, and the consumo carries no mark -- which is
+    // every one written before the mark existed.
+    const consumo = await createCardPurchase({
+      db: it_.db,
+      householdId: it_.householdId,
+      cardId: it_.methods[0]?.id ?? '',
+      categoryId: it_.categories[0]?.id ?? '',
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      name: 'Claro',
+      total: 12_000,
+      cuotas: 1,
+      purchaseDate: TODAY,
+      comments: '',
+    })
+    renderWithProviders(
+      <GastoSheet
+        open
+        onClose={vi.fn()}
+        session={it_.session}
+        expense={null}
+        purchase={consumo}
+        billId={bill.id}
+        categories={it_.categories}
+        methods={it_.methods}
+        today={TODAY}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('switch', { name: /Todos los meses/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    await waitFor(async () => {
+      expect((await movements(it_)).pendientes[0]?.recurring).toBe(true)
+    })
+    // One Claro in the whole month, counting both sides: listPendientes
+    // holds what is still owed and the paid ones live apart, so a second
+    // bill written already-paid hides from the first list alone.
+    const [owed, paid] = await Promise.all([
+      it_.db.listPendientes({ householdId: it_.householdId }),
+      it_.db.listPaidPendientesDueInMonth({
+        householdId: it_.householdId,
+        ...currentMonthRange(TODAY),
+      }),
+    ])
+    expect(
+      [...owed, ...paid].filter((one) => one.name === 'Claro'),
+    ).toHaveLength(1)
+    // And its consumo was left where it was.
+    expect((await movements(it_)).purchases).toHaveLength(1)
+  })
+
   // The consumo a servicio's payment wrote. The same form, the same
   // questions: picking cash on it undoes the card payment and pays the
   // bill in cash instead -- it stays the servicio it is.
