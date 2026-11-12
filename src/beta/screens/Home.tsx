@@ -196,6 +196,18 @@ export function Home({
     methods,
   } = data.data
 
+  // Which bill each consumo paid, read off the bills themselves: the
+  // link lives there (paidPurchaseId), and every consumo written before
+  // the day it started carrying a copy has none. See Gastos, which reads
+  // it the same way.
+  const billByPurchase = new Map(
+    [...pendientes, ...settled].flatMap((bill) =>
+      bill.paidPurchaseId == null ? [] : [[bill.paidPurchaseId, bill.id]],
+    ),
+  )
+  const billOf = (purchase: CardPurchase): string | null =>
+    purchase.pendienteId ?? billByPurchase.get(purchase.id) ?? null
+
   const figures = homeFigures({
     household,
     expenses,
@@ -297,7 +309,7 @@ export function Home({
     // Same rule: a consumo that came from paying a servicio is on
     // Servicios, not among the month's shopping.
     ...purchases
-      .filter((purchase) => (purchase.pendienteId ?? null) === null)
+      .filter((purchase) => billOf(purchase) === null)
       .map((purchase) => ({
         id: purchase.id,
         at: purchase.purchaseDate,
@@ -632,6 +644,7 @@ export function Home({
           session={session}
           expense={null}
           purchase={editingPurchase}
+          billId={billOf(editingPurchase)}
           categories={categories}
           methods={methods}
           today={new Date()}

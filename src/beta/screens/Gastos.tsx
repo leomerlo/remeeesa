@@ -59,7 +59,24 @@ export function Gastos({
           // Resumen wrote can be left to Tarjetas.
           session.db.listPendientes({ householdId: id }),
         ])
-      return { expenses, purchases, categories, members, methods, pendientes }
+      // The month's bills that are already paid. listPendientes leaves
+      // them out, and they are exactly the ones that have a payment to
+      // point at -- a bill paid with a card names the consumo it wrote,
+      // and that consumo belongs to the bill and not to this screen.
+      const settled = await session.db.listPaidPendientesDueInMonth({
+        householdId: id,
+        monthStart,
+        monthEnd,
+      })
+      return {
+        expenses,
+        purchases,
+        categories,
+        members,
+        methods,
+        pendientes,
+        settled,
+      }
     },
   })
 
@@ -104,7 +121,19 @@ export function Gastos({
     )
   }
 
-  const { purchases, categories, members, methods, pendientes } = data.data
+  const { purchases, categories, members, methods, pendientes, settled } =
+    data.data
+  // Which bill each consumo paid, read off the bills themselves. The
+  // consumo carries a mark of its own since the day that was added, but
+  // every one written before that day carries nothing -- and this is the
+  // link that has always been there, on the side that was always right.
+  const billByPurchase = new Map(
+    [...pendientes, ...settled].flatMap((bill) =>
+      bill.paidPurchaseId == null ? [] : [[bill.paidPurchaseId, bill.id]],
+    ),
+  )
+  const billOf = (purchase: CardPurchase): string | null =>
+    purchase.pendienteId ?? billByPurchase.get(purchase.id) ?? null
   // What this screen is for, and what its own subtitle has always said:
   // lo de una vez. Two kinds of gasto are not that, and both were here.
   //
@@ -153,7 +182,7 @@ export function Gastos({
   // from. Per direct feedback: "es un servicio, no me tiene que aparecer
   // en gastos".
   const conTarjeta: readonly Movement[] = purchases
-    .filter((purchase) => (purchase.pendienteId ?? null) === null)
+    .filter((purchase) => billOf(purchase) === null)
     .map((purchase) => ({
       id: purchase.id,
       name: purchase.name,
@@ -313,6 +342,7 @@ export function Gastos({
           session={session}
           expense={null}
           purchase={editingPurchase}
+          billId={billOf(editingPurchase)}
           categories={categories}
           methods={methods}
           today={new Date()}

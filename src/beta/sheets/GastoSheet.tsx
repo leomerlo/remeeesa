@@ -150,6 +150,7 @@ export function GastoSheet({
   session,
   expense,
   purchase = null,
+  billId: linkedBillId = null,
   categories,
   methods,
   today,
@@ -159,6 +160,14 @@ export function GastoSheet({
   readonly session: BetaSession
   // Null when adding.
   readonly expense: Expense | null
+  // The bill this record pays, when the screen that opened the sheet
+  // knows of one. The link lives on the bill (paidPurchaseId) and the
+  // record only carries a copy of it, which every consumo written before
+  // that copy existed is missing -- so the screen's answer wins. Without
+  // it an old servicio payment looked like a loose consumo, and saying
+  // "todos los meses" on it wrote a second bill beside the one that was
+  // already there: "lo paso a tarjeta y se me duplicó".
+  readonly billId?: string | null
   // Set when what is being edited is a consumo on a credit card rather than
   // a gasto. It is the same form -- a consumo is a gasto that has not
   // happened to the month yet -- so the fields, the validation and the lock
@@ -377,7 +386,8 @@ export function GastoSheet({
       // servicio's payment, whether that payment was cash (an Expense) or
       // a card (a CardPurchase). The bill is the record then, so the
       // answers go to the bill and the payment is only re-pointed.
-      const billId = purchase?.pendienteId ?? expense?.pendienteId ?? null
+      const billId =
+        linkedBillId ?? purchase?.pendienteId ?? expense?.pendienteId ?? null
       if (billId !== null) {
         const paidWith =
           purchase !== null
