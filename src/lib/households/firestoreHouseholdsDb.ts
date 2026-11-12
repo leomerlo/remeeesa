@@ -1795,16 +1795,46 @@ export function createFirestoreHouseholdsDb(
             // before any write below. A purchase whose Resumen has itself
             // been paid is frozen and this refuses, rather than leaving a
             // consumo behind with nothing owing it.
+            // A bill can point at a consumo that is no longer there --
+            // one deleted by hand, or by a conversion that did not know
+            // the bill was pointing at it. Then there is nothing to take
+            // out of any Resumen and the payment is undone all the same:
+            // refusing left the bill stuck as paid with no way back ("me
+            // dice que no se encontró el pago").
             const paidPurchaseId = current.paidPurchaseId ?? null
             if (paidPurchaseId !== null) {
-              await moveCardPurchaseCuotas({
+              const purchaseRef = doc(
                 firestore,
-                tx,
-                householdId: input.householdId,
-                purchaseId: paidPurchaseId,
-                after: () => null,
+                'card_purchases',
+                paidPurchaseId,
+              )
+              // Asked before anything is moved, because a bill can point
+              // at a consumo that is no longer there -- one deleted by
+              // hand, or by a conversion that did not know the bill was
+              // pointing at it. Then there is nothing to take out of any
+              // Resumen and the payment is undone all the same. It used
+              // to refuse, which left the bill stuck as paid with no way
+              // back: "me dice que no se encontró el pago".
+              const snap = await tx.get(purchaseRef).catch((error: unknown) => {
+                // A missing document reads as denied, since there is no
+                // resource for the rules to check.
+                if (isFirestorePermissionDenied(error)) return null
+                throw error
               })
-              tx.delete(doc(firestore, 'card_purchases', paidPurchaseId))
+              const stillThere =
+                snap !== null &&
+                snap.exists() &&
+                snap.data().household_id === input.householdId
+              if (stillThere) {
+                await moveCardPurchaseCuotas({
+                  firestore,
+                  tx,
+                  householdId: input.householdId,
+                  purchaseId: paidPurchaseId,
+                  after: () => null,
+                })
+                tx.delete(purchaseRef)
+              }
             }
             for (const expenseId of paidExpenseIds) {
               tx.delete(doc(firestore, 'expenses', expenseId))
