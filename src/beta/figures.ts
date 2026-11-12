@@ -510,11 +510,7 @@ export function cardBillTotals(input: {
 }): readonly CardsDueTotal[] {
   const cards = cardCategoryIds(input)
   const bills = [
-    ...pendientesDueInMonth(
-      input.pendientes,
-      input.monthStart,
-      input.monthEnd,
-    ),
+    ...pendientesDueInMonth(input.pendientes, input.monthStart, input.monthEnd),
     ...(input.settled ?? []).filter(
       (bill) =>
         bill.dueDate >= input.monthStart && bill.dueDate <= input.monthEnd,
@@ -945,9 +941,17 @@ export type ProjectionLine = {
   readonly categoryId: string
   readonly color: string
   readonly price: number
+  // The same line in dollars, which is a reading of its own and never
+  // added to the one above: a category the household spends in dollars
+  // used to project $0 and say nothing, so the projection "siempre va a
+  // dar de menos". Her words. Not editable -- the amount typed over a
+  // line is the peso figure, which is the one the budget is compared
+  // with -- so this follows the switch and nothing else.
+  readonly priceUsd: number
   // What the line counts as once the household's own edits are applied:
   // the typed-over amount, or 0 when the row is switched off.
   readonly amount: number
+  readonly amountUsd: number
   readonly excluded: boolean
   // Typed over by hand, as opposed to read off the two months.
   readonly pinned: boolean
@@ -956,6 +960,8 @@ export type ProjectionLine = {
 export type ProjectionFigures = {
   readonly rows: readonly ProjectionLine[]
   readonly total: number
+  // The month's dollars, beside the pesos and never inside them.
+  readonly totalUsd: number
   readonly edited: boolean
   // Nothing in either month and no bills: a column of zeroes would be a
   // list of everything the household could spend on and nothing it does.
@@ -985,19 +991,22 @@ export function projectionFigures(input: {
   readonly monthStart: Date
   readonly monthEnd: Date
 }): ProjectionFigures {
+  const due = pendientesDueInMonth(
+    input.pendientes,
+    input.monthStart,
+    input.monthEnd,
+  ).map((pendiente) => ({
+    ...pendiente,
+    currency: pendiente.currency ?? DEFAULT_CURRENCY,
+  }))
   // Through countedByBudget like every other peso figure: a card billed in
   // dollars is due this month too, and adding it in would make the total a
   // number of nothing.
-  const servicios = countedByBudget(
-    pendientesDueInMonth(
-      input.pendientes,
-      input.monthStart,
-      input.monthEnd,
-    ).map((pendiente) => ({
-      ...pendiente,
-      currency: pendiente.currency ?? DEFAULT_CURRENCY,
-    })),
-  )
+  const servicios = countedByBudget(due)
+  // And the other half, which until now was simply missing: a dollar bill
+  // -- an account billed in dollars, or a card's dollar Resumen -- is as
+  // due next month as any other, and the screen showed no sign of it.
+  const serviciosUsd = due.filter((pendiente) => pendiente.currency === 'USD')
 
   // Paying a card bill writes its gastos into the card's own category, so
   // carrying that category over from last month is a second guess at the
@@ -1033,10 +1042,24 @@ export function projectionFigures(input: {
     readonly categoryId: string
     readonly color: string
     readonly price: number
+    readonly priceUsd: number
   }
 
   // What the two months say: a category spent in this one, or last one's
   // figure where this one has nothing yet.
+  // The same two months read in dollars, by category: what this month has
+  // in dollars, or last month's where this one has nothing yet.
+  const carriedUsd = new Map(
+    buildProjection(
+      input.previous,
+      input.current,
+      serviciosUsd.map((servicio) => servicio.name),
+      'USD',
+    )
+      .filter((row) => !cardCategories.has(row.categoryId))
+      .map((row) => [row.categoryId, row.price] as const),
+  )
+
   const carried: readonly Seed[] = buildProjection(
     input.previous,
     input.current,
@@ -1051,25 +1074,39 @@ export function projectionFigures(input: {
       categoryId: row.categoryId,
       color: colorOf(row.categoryId),
       price: row.price,
+      priceUsd: carriedUsd.get(row.categoryId) ?? 0,
     }))
 
   // A card bill is the one line the app can fill in before it arrives: the
   // cuotas already bought that land in this month add up to a figure it
   // has been keeping all along. Still only an estimate -- next month's own
   // purchases are not in it -- so it is the line most worth typing over.
-  const billed: readonly Seed[] = servicios.map((pendiente) => ({
-    key: `servicio-${pendiente.id}`,
-    label: pendiente.name,
-    kind:
-      pendiente.cardId === undefined
-        ? ('servicio' as const)
-        : ('tarjeta' as const),
-    categoryId: pendiente.categoryId,
-    color: colorOf(pendiente.categoryId),
-    price:
+  const billSeed = (
+    pendiente: (typeof due)[number],
+    currency: Currency,
+  ): Seed => {
+    const owed =
       amountLeft(pendiente) ??
-      (pendiente.cardId === undefined ? 0 : (pendiente.estimatedAmount ?? 0)),
-  }))
+      (pendiente.cardId === undefined ? 0 : (pendiente.estimatedAmount ?? 0))
+    return {
+      key: `servicio-${pendiente.id}`,
+      label: pendiente.name,
+      kind:
+        pendiente.cardId === undefined
+          ? ('servicio' as const)
+          : ('tarjeta' as const),
+      categoryId: pendiente.categoryId,
+      color: colorOf(pendiente.categoryId),
+      price: currency === 'ARS' ? owed : 0,
+      priceUsd: currency === 'USD' ? owed : 0,
+    }
+  }
+  const billed: readonly Seed[] = [
+    ...servicios.map((pendiente) => billSeed(pendiente, 'ARS')),
+    // A dollar bill is its own line, with its figure in the dollar column
+    // and nothing in the peso one: the two are never added.
+    ...serviciosUsd.map((pendiente) => billSeed(pendiente, 'USD')),
+  ]
 
   // And every other category the household has, at zero. Reading the two
   // months only ever yields the categories that had something in them,
@@ -1088,6 +1125,9 @@ export function projectionFigures(input: {
       categoryId: category.id,
       color: category.color,
       price: 0,
+      // A category with dollars and no pesos lands here, since the peso
+      // reading has nothing to say about it. Its figure is not zero.
+      priceUsd: carriedUsd.get(category.id) ?? 0,
     }))
 
   const monthKey = (key: string): string =>
@@ -1110,6 +1150,9 @@ export function projectionFigures(input: {
       amount: excluded.has(monthKey(row.key))
         ? 0
         : amountOf(row.key, row.price),
+      // Switched off takes the dollars with it -- the line is the line --
+      // but a figure typed over it is a peso figure and leaves them alone.
+      amountUsd: excluded.has(monthKey(row.key)) ? 0 : row.priceUsd,
     }))
     // Alphabetical, and nothing else. It used to lead with the biggest
     // figure, which reads well on a month already written but makes this
@@ -1126,8 +1169,12 @@ export function projectionFigures(input: {
     total:
       rows.reduce((cents, row) => cents + Math.round(row.amount * 100), 0) /
       100,
+    totalUsd:
+      rows.reduce((cents, row) => cents + Math.round(row.amountUsd * 100), 0) /
+      100,
     edited: rows.some((row) => row.excluded || row.pinned),
-    empty: carried.length === 0 && billed.length === 0,
+    // A month with nothing but dollars in it has something to project.
+    empty: carried.length === 0 && billed.length === 0 && carriedUsd.size === 0,
   }
 }
 

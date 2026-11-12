@@ -10,6 +10,10 @@ export {
 } from './types'
 export type { CardsDueTotal, ResumenCuota } from './purchases'
 export {
+  ConsumoFromServicioError,
+  convertCardPurchaseToExpense,
+} from './convertConsumo'
+export {
   CardNameTakenError,
   createCard,
   listCards,

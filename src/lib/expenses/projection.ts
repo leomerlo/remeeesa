@@ -1,4 +1,5 @@
-import { countedByBudget } from '@/lib/money'
+import { DEFAULT_CURRENCY } from '@/lib/money'
+import type { Currency } from '@/lib/money'
 import { isServicio } from './servicio'
 import type { Expense } from './types'
 
@@ -10,11 +11,18 @@ export type ProjectionRow = {
   readonly source: 'actual' | 'projected'
 }
 
-// Dollars are left out here too: a projection is a forecast of the peso
-// budget. See lib/money/currency.
-function totalsByCategory(expenses: readonly Expense[]): Map<string, number> {
+// One currency at a time, never two added together: see
+// lib/money/currency. Pesos are the projection the budget is compared
+// with; the dollar reading is the same arithmetic over the other half of
+// the month, shown beside it so a household that spends in dollars does
+// not read a column of zeroes.
+function totalsByCategory(
+  expenses: readonly Expense[],
+  currency: Currency,
+): Map<string, number> {
   const totals = new Map<string, number>()
-  for (const expense of countedByBudget(expenses)) {
+  for (const expense of expenses) {
+    if (expense.currency !== currency) continue
     totals.set(
       expense.categoryId,
       (totals.get(expense.categoryId) ?? 0) + expense.price,
@@ -45,14 +53,18 @@ export function buildProjection(
   previous: readonly Expense[],
   current: readonly Expense[],
   activeServicioNames: readonly string[] = [],
+  // Which currency is being read. Pesos unless asked otherwise, which is
+  // what every call written before dollars were shown here meant.
+  currency: Currency = DEFAULT_CURRENCY,
 ): readonly ProjectionRow[] {
   const active = new Set([
     ...activeServicioNames.map(normalize),
     ...current.filter(isBill).map((e) => normalize(e.name)),
   ])
-  const now = totalsByCategory(current)
+  const now = totalsByCategory(current, currency)
   const before = totalsByCategory(
     previous.filter((e) => !(isBill(e) && active.has(normalize(e.name)))),
+    currency,
   )
   const rows: ProjectionRow[] = [...now].map(([categoryId, price]) => ({
     categoryId,

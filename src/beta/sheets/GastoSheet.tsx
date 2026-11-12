@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { ReactElement } from 'react'
 import type { Card as PaymentMethod, CardPurchase } from '@/lib/cards'
 import {
+  convertCardPurchaseToExpense,
   createCardPurchase,
   deleteCardPurchase,
   updateCardPurchase,
@@ -219,18 +220,26 @@ export function GastoSheet({
   // Every way this household pays, each with its own mark. Efectivo is the
   // one nobody creates, so it is written in here rather than read.
   //
-  // Editing a consumo offers only the credit cards: a consumo lives on a
-  // card by definition, and moving it to cash is not an edit but a
-  // different record -- borrarlo y anotarlo de nuevo is the way. Editing a
-  // gasto offers everything but credit, for the mirror reason: paying with
-  // credit books a consumo, not a gasto.
+  // Editing a consumo offers the same list as editing a gasto, cash
+  // included: picking something that is not a credit card takes the
+  // consumo off the card, and the save turns it into a gasto of the month
+  // it was made in. It used to offer only the cards -- "si me confundí y
+  // le quiero sacar que lo pagué con tarjeta, lo tengo que poder editar".
+  //
+  // The exception is a consumo that is the payment of a servicio: the bill
+  // points at it, so it is the servicio that says what paid it, and only
+  // the cards are offered here. Editing a gasto offers everything but
+  // credit, for the mirror reason: paying with credit books a consumo, not
+  // a gasto.
+  const fromServicio =
+    purchase !== null && (purchase.pendienteId ?? null) !== null
   const offered = methods.filter((candidate) =>
     purchase !== null
-      ? candidate.kind === 'credito'
+      ? !fromServicio || candidate.kind === 'credito'
       : expense === null || candidate.kind !== 'credito',
   )
   const methodOptions = [
-    ...(purchase === null
+    ...(purchase === null || !fromServicio
       ? [{ value: '', k: 'Efectivo o transferencia', mark: <Banknote /> }]
       : []),
     ...offered.map((candidate) => ({
@@ -256,6 +265,22 @@ export function GastoSheet({
         mark: <CardBrandMark brand={candidate.brand} />,
       })),
   ]
+
+  // Under the method, and only when picking it means something more than a
+  // label: what a bill is going to be paid with, and -- on a consumo -- the
+  // fact that this choice is what takes it off the card.
+  const methodSays =
+    purchase !== null
+      ? fromServicio
+        ? 'Es el pago de un servicio: con qué se pagó se cambia desde Servicios.'
+        : onCredit
+          ? null
+          : 'Lo sacás de la tarjeta: deja de ir al resumen y pasa a contar como gasto del mes.'
+      : draft.paid
+        ? null
+        : draft.autoDebit
+          ? 'De acá lo va a debitar el banco cuando venza.'
+          : 'Lo que va a venir propuesto cuando lo marques como pagado.'
 
   // Under the amount, and only when there is something to say about it.
   const amountSays =
@@ -283,6 +308,26 @@ export function GastoSheet({
               })
             ).id
       if (purchase !== null) {
+        // Off the card: the same money becomes an ordinary gasto, dated
+        // when it was made, and its cuotas leave the Resúmenes they were
+        // in. A conversion rather than an edit -- see
+        // convertCardPurchaseToExpense.
+        if (!onCredit) {
+          return convertCardPurchaseToExpense({
+            db: session.db,
+            householdId,
+            purchaseId: purchase.id,
+            categoryId,
+            name: draft.name.trim(),
+            price: amount,
+            comments: draft.comments,
+            expenseDate: date,
+            memberId,
+            authorDisplayName: author,
+            currency: draft.currency,
+            paymentMethodId: draft.methodId === '' ? null : draft.methodId,
+          })
+        }
         return updateCardPurchase({
           db: session.db,
           householdId,
@@ -444,13 +489,7 @@ export function GastoSheet({
         value={draft.methodId}
         onChange={(next) => set('methodId', next)}
         options={methodOptions}
-        {...(draft.paid
-          ? {}
-          : {
-              hint: draft.autoDebit
-                ? 'De acá lo va a debitar el banco cuando venza.'
-                : 'Lo que va a venir propuesto cuando lo marques como pagado.',
-            })}
+        {...(methodSays === null ? {} : { hint: methodSays })}
       />
       {onCredit ? (
         <SelectField

@@ -483,8 +483,7 @@ describe('the beta says the same month on every screen', () => {
       sumIn(
         snap.expenses
           .filter(
-            (expense) =>
-              isServicio(expense) || cards.has(expense.categoryId),
+            (expense) => isServicio(expense) || cards.has(expense.categoryId),
           )
           .map((expense) => ({
             price: expense.price,
@@ -1099,8 +1098,18 @@ describe('the beta says the same month on every screen', () => {
     for (const row of projection.rows) {
       if (row.excluded) {
         expect(row.amount, `${key} · ${row.label}`).toBe(0)
+        expect(row.amountUsd, `${key} · ${row.label} · USD`).toBe(0)
       }
     }
+  })
+
+  // The dollars of the month ahead: their own figure, made of the same
+  // rows, and never folded into the peso one.
+  each('the projection keeps its dollars apart', (snap, key) => {
+    const projection = projectionFigures(snap)
+    expect(cents(projection.totalUsd), key).toBe(
+      projection.rows.reduce((sum, row) => sum + cents(row.amountUsd), 0),
+    )
   })
 
   // Biggest first wherever a list is read for what it says -- the ring
@@ -1174,7 +1183,8 @@ describe('the beta says the same month on every screen', () => {
         pendiente.dueDate >= base.monthStart &&
         pendiente.dueDate <= base.monthEnd,
     )
-    if (model === undefined) throw new Error('no pending peso bill of the month')
+    if (model === undefined)
+      throw new Error('no pending peso bill of the month')
     const whole = model.expectedAmount ?? 0
     const handed = Math.round(whole / 4)
 
@@ -1260,13 +1270,17 @@ describe('the beta says the same month on every screen', () => {
   // heading, so it has to be the same list in the same order -- it used
   // to sort the whole lot by due date, which mixed the settled ones back
   // in among the open ones and cost the column rows it had to spare.
-  each('Inicio lists the servicios in the order Servicios does', (snap, key) => {
-    const home = homeFigures(snap)
-    const servicios = serviciosFigures(snap)
-    expect(home.bills.map((bill) => bill.id), key).toEqual(
-      servicios.bills.map((bill) => bill.id),
-    )
-  })
+  each(
+    'Inicio lists the servicios in the order Servicios does',
+    (snap, key) => {
+      const home = homeFigures(snap)
+      const servicios = serviciosFigures(snap)
+      expect(
+        home.bills.map((bill) => bill.id),
+        key,
+      ).toEqual(servicios.bills.map((bill) => bill.id))
+    },
+  )
 
   // A ceiling per currency, counted apart. A category spent in dollars
   // measured against a peso ceiling reads "$ 0 de $ 1.000.000" while the
@@ -1372,8 +1386,6 @@ describe('the beta says the same month on every screen', () => {
       ) + cents(2_584_074.64),
     )
     // ...and still on it once it is paid.
-    expect(homeFigures(settled).cardBills).toEqual(
-      homeFigures(owing).cardBills,
-    )
+    expect(homeFigures(settled).cardBills).toEqual(homeFigures(owing).cardBills)
   })
 })
