@@ -288,11 +288,55 @@ describe('the dollars of the month ahead', () => {
     expect(screen.getByText('US$ 35,99')).toBeInTheDocument()
   })
 
-  it('says it on the line the dollars are on', async () => {
+  it("puts them in the line's own dollar field", async () => {
     render(await houseWithDollars())
 
-    expect(await screen.findByText(/US\$.15,99 en dólares/)).toBeInTheDocument()
-    expect(screen.getByText(/US\$.20 en dólares/)).toBeInTheDocument()
+    expect(
+      await screen.findByLabelText('Cuánto va a ser Netflix en dólares'),
+    ).toHaveValue('15,99')
+    expect(
+      screen.getByLabelText('Cuánto va a ser Suscripciones en dólares'),
+    ).toHaveValue('20')
+    // And the peso field of a line that only moves in dollars is empty,
+    // not a 0 typed into it.
+    expect(screen.getByLabelText('Cuánto va a ser Netflix')).toHaveValue('')
+  })
+
+  // The whole of her message: "en proyecciones los inputs quedaron solos
+  // en pesos". A figure can be put in by hand on either side.
+  it("takes a dollar figure typed over the month's", async () => {
+    render(await houseWithDollars())
+
+    fireEvent.change(
+      await screen.findByLabelText('Cuánto va a ser Netflix en dólares'),
+      { target: { value: '18' } },
+    )
+
+    // The dollars moved and the pesos did not.
+    expect(screen.getByText('US$ 38')).toBeInTheDocument()
+    expect(screen.getByText('$ 120.000')).toBeInTheDocument()
+    expect(screen.getAllByText('Puesto a mano').length).toBe(1)
+  })
+
+  it('gives the way back to what the month said', async () => {
+    render(await houseWithDollars())
+
+    fireEvent.change(
+      await screen.findByLabelText('Cuánto va a ser Netflix en dólares'),
+      { target: { value: '18' } },
+    )
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /Volver a los dólares del mes \(US\$.15,99\)/,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText('Cuánto va a ser Netflix en dólares'),
+      ).toHaveValue('15,99')
+    })
+    expect(screen.getByText('US$ 35,99')).toBeInTheDocument()
   })
 
   it('drops them from the total when the line is switched off', async () => {

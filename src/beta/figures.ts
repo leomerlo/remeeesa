@@ -944,17 +944,20 @@ export type ProjectionLine = {
   // The same line in dollars, which is a reading of its own and never
   // added to the one above: a category the household spends in dollars
   // used to project $0 and say nothing, so the projection "siempre va a
-  // dar de menos". Her words. Not editable -- the amount typed over a
-  // line is the peso figure, which is the one the budget is compared
-  // with -- so this follows the switch and nothing else.
+  // dar de menos". Her words. Typed over on its own, like the peso
+  // figure beside it: the two are two readings of the same line, not one
+  // with a footnote.
   readonly priceUsd: number
   // What the line counts as once the household's own edits are applied:
   // the typed-over amount, or 0 when the row is switched off.
   readonly amount: number
   readonly amountUsd: number
   readonly excluded: boolean
-  // Typed over by hand, as opposed to read off the two months.
+  // Typed over by hand, as opposed to read off the two months. One per
+  // currency: a line can have its dollars put in by hand and its pesos
+  // left as the month says.
   readonly pinned: boolean
+  readonly pinnedUsd: boolean
 }
 
 export type ProjectionFigures = {
@@ -1132,10 +1135,14 @@ export function projectionFigures(input: {
 
   const monthKey = (key: string): string =>
     `${String(input.monthStart.getTime())}-${key}`
+  // The same line's dollar figure, under a key of its own in the same
+  // map. Prefixed rather than suffixed, so it can never collide with a
+  // line whose own key happens to end the same way.
+  const usdKey = (key: string): string => `usd-${monthKey(key)}`
   const excluded = new Set(input.projection?.excluded ?? [])
   const overrides = input.projection?.overrides ?? {}
-  const amountOf = (key: string, price: number): number => {
-    const raw = overrides[monthKey(key)]
+  const typedOver = (key: string, price: number): number => {
+    const raw = overrides[key]
     if (raw === undefined) return price
     // Plain as the field hands it over, or written as it was typed before
     // the field knew how to format itself -- parseStoredAmount takes both.
@@ -1147,12 +1154,14 @@ export function projectionFigures(input: {
       ...row,
       excluded: excluded.has(monthKey(row.key)),
       pinned: overrides[monthKey(row.key)] !== undefined,
+      pinnedUsd: overrides[usdKey(row.key)] !== undefined,
       amount: excluded.has(monthKey(row.key))
         ? 0
-        : amountOf(row.key, row.price),
-      // Switched off takes the dollars with it -- the line is the line --
-      // but a figure typed over it is a peso figure and leaves them alone.
-      amountUsd: excluded.has(monthKey(row.key)) ? 0 : row.priceUsd,
+        : typedOver(monthKey(row.key), row.price),
+      // Switched off takes the dollars with it: the line is the line.
+      amountUsd: excluded.has(monthKey(row.key))
+        ? 0
+        : typedOver(usdKey(row.key), row.priceUsd),
     }))
     // Alphabetical, and nothing else. It used to lead with the biggest
     // figure, which reads well on a month already written but makes this
@@ -1172,7 +1181,7 @@ export function projectionFigures(input: {
     totalUsd:
       rows.reduce((cents, row) => cents + Math.round(row.amountUsd * 100), 0) /
       100,
-    edited: rows.some((row) => row.excluded || row.pinned),
+    edited: rows.some((row) => row.excluded || row.pinned || row.pinnedUsd),
     // A month with nothing but dollars in it has something to project.
     empty: carried.length === 0 && billed.length === 0 && carriedUsd.size === 0,
   }
