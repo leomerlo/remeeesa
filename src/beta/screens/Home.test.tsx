@@ -123,6 +123,16 @@ describe('the two lists on Inicio', () => {
     await screen.findByRole('button', { name: 'Editar Luz' })
     expect(screen.queryByRole('button', { name: 'Ya lo pagué' })).toBeNull()
   })
+
+  // The card bill is loaded by hand as a servicio, so both figures have
+  // resúmenes inside them and the subtext says so. Her words.
+  it('says the servicios figures include the cards', async () => {
+    render(await house())
+
+    expect(
+      (await screen.findAllByText(/\(Incluye tarjetas de crédito\)/)).length,
+    ).toBe(2)
+  })
 })
 
 // A month spent in dollars was a month with no category at all: the ring
