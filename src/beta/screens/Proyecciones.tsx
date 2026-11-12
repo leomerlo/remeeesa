@@ -6,6 +6,7 @@ import { currentMonthRange, summarizeByCategory } from '@/lib/expenses'
 import type { Category } from '@/lib/expenses'
 import { cssVars } from '@/lib/cssVars'
 import { parseStoredAmount } from '@/lib/money'
+import type { Currency } from '@/lib/money'
 import { AmountInput } from '../fields'
 import { projectionFigures } from '../figures'
 import type { ProjectionKind } from '../figures'
@@ -191,6 +192,10 @@ export function Proyecciones({
   // saved, so the figure moves while somebody is still deciding.
   const monthKey = (key: string): string =>
     `${String(monthStart.getTime())}-${key}`
+  // The dollar figure of the same line, in the same map under its own
+  // key -- see figures.ts, which reads it back the same way.
+  const keyOf = (key: string, currency: Currency): string =>
+    currency === 'USD' ? `usd-${monthKey(key)}` : monthKey(key)
   const mine = edits?.monthTime === monthStart.getTime() ? edits : null
   const excluded = new Set(mine?.excluded ?? projection?.excluded ?? [])
   // A figure saved before the field knew how to format itself was stored
@@ -255,22 +260,27 @@ export function Proyecciones({
     else nextExcluded.add(monthKey(key))
     apply(nextExcluded, overrides)
   }
-  const type = (key: string, raw: string, price: number): void => {
+  const type = (
+    key: string,
+    raw: string,
+    price: number,
+    currency: Currency,
+  ): void => {
     const nextOverrides: Record<string, string> = { ...overrides }
     // An amount typed back to the suggested one stops being an override:
     // left behind it would pin the line to a figure the next reading is
     // meant to move.
     if (raw.trim() === '' || parseStoredAmount(raw) === price)
-      delete nextOverrides[monthKey(key)]
-    else nextOverrides[monthKey(key)] = raw
+      delete nextOverrides[keyOf(key, currency)]
+    else nextOverrides[keyOf(key, currency)] = raw
     apply(excluded, nextOverrides)
   }
   // Back to whatever the month says, without having to remember what it
   // said. Emptying the field does the same thing, which is no use to
   // anybody who cannot see that it does.
-  const unpin = (key: string): void => {
+  const unpin = (key: string, currency: Currency): void => {
     const nextOverrides: Record<string, string> = { ...overrides }
-    delete nextOverrides[monthKey(key)]
+    delete nextOverrides[keyOf(key, currency)]
     apply(excluded, nextOverrides)
   }
 
@@ -317,6 +327,7 @@ export function Proyecciones({
         {rows.map((row) => {
           const on = !excluded.has(monthKey(row.key))
           const typed = overrides[monthKey(row.key)]
+          const typedUsd = overrides[keyOf(row.key, 'USD')]
           return (
             <div
               className={on ? 'card projcard' : 'card projcard off'}
@@ -333,7 +344,9 @@ export function Proyecciones({
                 <CategoryTile name={row.label} color={row.color} />
                 <span className="name">{row.label}</span>
                 <span className="tag" style={cssVars({ '--pc': row.color })}>
-                  {typed === undefined ? BADGE[row.kind] : PINNED}
+                  {typed === undefined && typedUsd === undefined
+                    ? BADGE[row.kind]
+                    : PINNED}
                 </span>
                 <span className="tg" aria-hidden="true">
                   <i />
@@ -356,7 +369,7 @@ export function Proyecciones({
                       <button
                         className="btn btn-tertiary"
                         type="button"
-                        onClick={() => unpin(row.key)}
+                        onClick={() => unpin(row.key, 'ARS')}
                       >
                         <RotateCcw />
                         Volver al estimado ({formatCurrency(row.price)})
@@ -369,33 +382,63 @@ export function Proyecciones({
                       está acá: si sabés que va a ser más, escribilo.
                     </p>
                   ) : null}
-                  {/* The line's dollars, said out loud: the amount field
-                      beside it is the peso figure, and a line that only
-                      ever moves in dollars read "$ 0" with no sign that
-                      anything was there. */}
-                  {row.priceUsd > 0 ? (
-                    <p className="sub">
-                      Y {formatAmount(row.priceUsd, 'USD')} en dólares, que no
-                      entran en el total en pesos.
-                    </p>
-                  ) : null}
+                  {typedUsd === undefined ? null : (
+                    <div className="projpin">
+                      <button
+                        className="btn btn-tertiary"
+                        type="button"
+                        onClick={() => unpin(row.key, 'USD')}
+                      >
+                        <RotateCcw />
+                        Volver a los dólares del mes (
+                        {formatAmount(row.priceUsd, 'USD')})
+                      </button>
+                    </div>
+                  )}
                   {on ? null : (
                     <span className="sub">No cuenta en el total</span>
                   )}
                 </div>
-                <div className="money-in">
-                  <span className="pre" aria-hidden="true">
-                    $
-                  </span>
-                  <AmountInput
-                    label={`Cuánto va a ser ${row.label}`}
-                    // A zero is left as the placeholder rather than typed
-                    // into the field: tapping a field that already says 0
-                    // and typing lands "025000" in it.
-                    value={typed ?? (row.price === 0 ? '' : String(row.price))}
-                    disabled={!on}
-                    onChange={(raw) => type(row.key, raw, row.price)}
-                  />
+                {/* Two figures, because the line has two: the pesos the
+                    budget is compared with and the dollars beside them.
+                    They were one field and the dollars could only be
+                    read, never put in -- "en proyecciones los inputs
+                    quedaron solos en pesos". Side by side where there is
+                    width, one under the other and full width on a
+                    phone. */}
+                <div className="projmoney">
+                  <div className="money-in">
+                    <span className="pre" aria-hidden="true">
+                      $
+                    </span>
+                    <AmountInput
+                      label={`Cuánto va a ser ${row.label}`}
+                      // A zero is left as the placeholder rather than typed
+                      // into the field: tapping a field that already says 0
+                      // and typing lands "025000" in it.
+                      value={
+                        typed ?? (row.price === 0 ? '' : String(row.price))
+                      }
+                      disabled={!on}
+                      onChange={(raw) => type(row.key, raw, row.price, 'ARS')}
+                    />
+                  </div>
+                  <div className="money-in">
+                    <span className="pre" aria-hidden="true">
+                      US$
+                    </span>
+                    <AmountInput
+                      label={`Cuánto va a ser ${row.label} en dólares`}
+                      value={
+                        typedUsd ??
+                        (row.priceUsd === 0 ? '' : String(row.priceUsd))
+                      }
+                      disabled={!on}
+                      onChange={(raw) =>
+                        type(row.key, raw, row.priceUsd, 'USD')
+                      }
+                    />
+                  </div>
                 </div>
               </div>
             </div>
