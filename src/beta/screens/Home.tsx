@@ -221,8 +221,7 @@ export function Home({
     late,
     byCategory,
     cardBills,
-  } =
-    figures
+  } = figures
   // Both columns the same height: a list of three beside a list of four
   // read as two unrelated things, and the eye goes to the longer one.
   // Movements are one list -- a consumo and a gasto are both "what we
@@ -290,11 +289,11 @@ export function Home({
           !isServicio(expense) && !cardCategories.has(expense.categoryId),
       )
       .map((expense) => ({
-      id: expense.id,
-      at: expense.expenseDate,
-      expense,
-      purchase: undefined,
-    })),
+        id: expense.id,
+        at: expense.expenseDate,
+        expense,
+        purchase: undefined,
+      })),
     // Same rule: a consumo that came from paying a servicio is on
     // Servicios, not among the month's shopping.
     ...purchases
@@ -376,8 +375,13 @@ export function Home({
                   />
                 ) : null}
               </span>
+              {/* The resúmenes paid this month are in this figure: the
+                  card bill is loaded as a servicio, so it is one. Said in
+                  the subtext rather than left to be worked out from the
+                  figure. Her words, parentheses and all. */}
               <span className="foot">
                 Servicios que se pagan mensualmente o de forma recurrente.
+                (Incluye tarjetas de crédito)
               </span>
             </div>
             <div className="card wait">
@@ -397,8 +401,8 @@ export function Home({
                   expensive. */}
               <span className="foot">
                 {owedBefore > 0
-                  ? `Incluye ${formatCurrency(owedBefore)} que viene de meses anteriores y todavía hay que pagar.`
-                  : 'Servicios que se pagan mensualmente o de forma recurrente, y todavía no se pagaron.'}
+                  ? `Incluye ${formatCurrency(owedBefore)} que viene de meses anteriores y todavía hay que pagar. (Incluye tarjetas de crédito)`
+                  : 'Servicios que se pagan mensualmente o de forma recurrente, y todavía no se pagaron. (Incluye tarjetas de crédito)'}
               </span>
             </div>
             <Link className="card cardtot" to="/tarjetas">
@@ -515,9 +519,9 @@ export function Home({
                 </span>
                 <h3>Todavía no hay servicios</h3>
                 <p>
-                  Son los pagos que se repiten todos los meses: la luz, el
-                  gas, el alquiler. Se cargan una vez y vuelven solos, cada
-                  uno con su fecha de vencimiento.
+                  Son los pagos que se repiten todos los meses: la luz, el gas,
+                  el alquiler. Se cargan una vez y vuelven solos, cada uno con
+                  su fecha de vencimiento.
                 </p>
                 <button
                   className="btn btn-primary"
@@ -568,8 +572,8 @@ export function Home({
             </span>
             <h3>Todavía no hay nada para repartir</h3>
             <p>
-              Cuando haya gastos anotados, acá se reparte el total del mes
-              por categoría.
+              Cuando haya gastos anotados, acá se reparte el total del mes por
+              categoría.
             </p>
           </div>
         ) : (
