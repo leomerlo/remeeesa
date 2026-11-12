@@ -208,3 +208,146 @@ describe('typing over what the card is going to be', () => {
     expect(screen.getByText('Cuotas ya compradas')).toBeInTheDocument()
   })
 })
+
+// The dollars this screen used to read straight past. Her words: "al
+// igual que las categorías, en las proyecciones tampoco está considerando
+// los dólares, solo los pesos. Entonces siempre va a dar de menos".
+describe('the dollars of the month ahead', () => {
+  async function houseWithDollars(): Promise<BetaSession> {
+    const db = createMemoryHouseholdsDb().asUser(FLOR)
+    const { household } = await db.createHouseholdAndMembership({
+      userId: FLOR,
+      name: 'Casa Merlo',
+      monthlyBudget: 500_000,
+      displayName: 'Flor',
+    })
+    const comida = await db.findOrCreateCategory({
+      householdId: household.id,
+      name: 'Comida',
+    })
+    const suscripciones = await db.findOrCreateCategory({
+      householdId: household.id,
+      name: 'Suscripciones',
+    })
+    // Last month, in pesos: the line the projection has always carried.
+    await db.createExpense({
+      householdId: household.id,
+      categoryId: comida.id,
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      name: 'Super',
+      price: 120_000,
+      comments: '',
+      expenseDate: lastMonth(),
+      currency: 'ARS',
+      paymentMethodId: null,
+    })
+    // And last month in dollars, in a category that has no pesos at all:
+    // the one that used to project $0 with nothing said about it.
+    await db.createExpense({
+      householdId: household.id,
+      categoryId: suscripciones.id,
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      name: 'Hosting',
+      price: 20,
+      comments: '',
+      expenseDate: lastMonth(),
+      currency: 'USD',
+      paymentMethodId: null,
+    })
+    // A bill in dollars due in the month the screen opens on.
+    await db.createPendiente({
+      householdId: household.id,
+      categoryId: suscripciones.id,
+      name: 'Netflix',
+      dueDate: new Date(2026, 9, 10, 12),
+      expectedAmount: 15.99,
+      recurring: false,
+      autoDebit: false,
+      currency: 'USD',
+    })
+    return {
+      userId: FLOR,
+      householdId: household.id,
+      displayName: 'Flor',
+      db,
+      adopt: vi.fn(),
+      rename: vi.fn(),
+    }
+  }
+
+  it('adds them up beside the pesos, never inside them', async () => {
+    render(await houseWithDollars())
+
+    // The pesos are the pesos: the dollar bill and the dollar gasto are
+    // not in this figure.
+    expect(await screen.findByText('$ 120.000')).toBeInTheDocument()
+    // And the dollars have a figure of their own: US$ 20 carried plus the
+    // US$ 15,99 of the bill.
+    expect(screen.getByText('US$ 35,99')).toBeInTheDocument()
+  })
+
+  it("puts them in the line's own dollar field", async () => {
+    render(await houseWithDollars())
+
+    expect(
+      await screen.findByLabelText('Cuánto va a ser Netflix en dólares'),
+    ).toHaveValue('15,99')
+    expect(
+      screen.getByLabelText('Cuánto va a ser Suscripciones en dólares'),
+    ).toHaveValue('20')
+    // And the peso field of a line that only moves in dollars is empty,
+    // not a 0 typed into it.
+    expect(screen.getByLabelText('Cuánto va a ser Netflix')).toHaveValue('')
+  })
+
+  // The whole of her message: "en proyecciones los inputs quedaron solos
+  // en pesos". A figure can be put in by hand on either side.
+  it("takes a dollar figure typed over the month's", async () => {
+    render(await houseWithDollars())
+
+    fireEvent.change(
+      await screen.findByLabelText('Cuánto va a ser Netflix en dólares'),
+      { target: { value: '18' } },
+    )
+
+    // The dollars moved and the pesos did not.
+    expect(screen.getByText('US$ 38')).toBeInTheDocument()
+    expect(screen.getByText('$ 120.000')).toBeInTheDocument()
+    expect(screen.getAllByText('Puesto a mano').length).toBe(1)
+  })
+
+  it('gives the way back to what the month said', async () => {
+    render(await houseWithDollars())
+
+    fireEvent.change(
+      await screen.findByLabelText('Cuánto va a ser Netflix en dólares'),
+      { target: { value: '18' } },
+    )
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /Volver a los dólares del mes \(US\$.15,99\)/,
+      }),
+    )
+
+    await waitFor(() => {
+      expect(
+        screen.getByLabelText('Cuánto va a ser Netflix en dólares'),
+      ).toHaveValue('15,99')
+    })
+    expect(screen.getByText('US$ 35,99')).toBeInTheDocument()
+  })
+
+  it('drops them from the total when the line is switched off', async () => {
+    render(await houseWithDollars())
+
+    fireEvent.click(
+      await screen.findByRole('switch', { name: /Contar Netflix/ }),
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText('US$ 20')).toBeInTheDocument()
+    })
+  })
+})

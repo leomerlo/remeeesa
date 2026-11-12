@@ -241,11 +241,12 @@ describe('the beta says the same month on every screen', () => {
   })
 
   // No seeded household has a bill left unpaid from an earlier month, so
-  // the rule Flor asked for -- an unpaid bill does not stay in its month,
-  // it follows the household forward with a warning -- is built here
-  // rather than hoped for. It is also the one case where Inicio's figure
-  // and Servicios' are meant to differ.
-  it('carries an unpaid bill forward without charging this month for it', () => {
+  // the rule -- an unpaid bill does not stay in its month, it follows the
+  // household forward with a warning -- is built here rather than hoped
+  // for. It is money this month has to find, whichever month it came
+  // from: "si estoy arrastrando una deuda es parte del presupuesto de
+  // este mes, porque la tengo que pagar de alguna forma".
+  it('carries an unpaid bill forward and charges this month for it', () => {
     const base = snapshots.get('completa·este mes')
     if (base === undefined) throw new Error('missing snapshot')
     const [first] = base.pendientes.filter(
@@ -280,13 +281,17 @@ describe('the beta says the same month on every screen', () => {
     expect(home.bills[0]?.id).toBe(stale.id)
     expect(cuentas.bills[0]?.id).toBe(stale.id)
 
-    // It is still owed, so Servicios counts it...
+    // Both screens count it: it is owed now, whatever month it is from.
     expect(cents(cuentas.owed)).toBe(
       cents(serviciosFigures(base).owed) + cents(stale.expectedAmount ?? 0),
     )
-    // ...and this month's budget does not, because it was September's
-    // money. That is the whole of the October bug, as a test.
-    expect(cents(home.owed)).toBe(cents(owedBefore))
+    expect(cents(home.owed)).toBe(
+      cents(owedBefore) + cents(stale.expectedAmount ?? 0),
+    )
+    // And Inicio can say how much of its figure is arrears, so a month
+    // that has just inherited five of them says so rather than only
+    // looking expensive.
+    expect(cents(home.owedBefore)).toBe(cents(stale.expectedAmount ?? 0))
   })
 
   // A bill settled with a credit card is the one case where a bill and a
@@ -478,8 +483,7 @@ describe('the beta says the same month on every screen', () => {
       sumIn(
         snap.expenses
           .filter(
-            (expense) =>
-              isServicio(expense) || cards.has(expense.categoryId),
+            (expense) => isServicio(expense) || cards.has(expense.categoryId),
           )
           .map((expense) => ({
             price: expense.price,
@@ -907,9 +911,10 @@ describe('the beta says the same month on every screen', () => {
     const home = homeFigures(snap)
     const servicios = serviciosFigures(snap)
 
-    expect(cents(home.owed)).toBe(
-      cents(servicios.owed) + cents(91_000) - cents(17_500),
-    )
+    // The two differ by the statement alone now: Inicio counts a Resumen
+    // with its real figure on it, which Servicios leaves to the cards,
+    // and the arrears are counted by both.
+    expect(cents(home.owed)).toBe(cents(servicios.owed) + cents(91_000))
     // Each screen's own list says the same thing the figures do.
     expect(servicios.unpaid.map((bill) => bill.id)).not.toContain(statement.id)
     expect(servicios.late.map((bill) => bill.id)).toContain(stale.id)
@@ -1093,12 +1098,24 @@ describe('the beta says the same month on every screen', () => {
     for (const row of projection.rows) {
       if (row.excluded) {
         expect(row.amount, `${key} · ${row.label}`).toBe(0)
+        expect(row.amountUsd, `${key} · ${row.label} · USD`).toBe(0)
       }
     }
   })
 
-  // Biggest first, everywhere a list of amounts is shown.
-  each('every list of amounts is ordered biggest first', (snap, key) => {
+  // The dollars of the month ahead: their own figure, made of the same
+  // rows, and never folded into the peso one.
+  each('the projection keeps its dollars apart', (snap, key) => {
+    const projection = projectionFigures(snap)
+    expect(cents(projection.totalUsd), key).toBe(
+      projection.rows.reduce((sum, row) => sum + cents(row.amountUsd), 0),
+    )
+  })
+
+  // Biggest first wherever a list is read for what it says -- the ring
+  // divides a month that has already happened, and the eye should land
+  // on the slice that took the most.
+  each('the ring is ordered biggest first', (snap, key) => {
     const ring = homeFigures(snap).byCategory
     for (let index = 1; index < ring.length; index += 1) {
       expect(
@@ -1106,11 +1123,20 @@ describe('the beta says the same month on every screen', () => {
         `${key} · ring`,
       ).toBe(true)
     }
-    const projection = projectionFigures(snap).rows
-    for (let index = 1; index < projection.length; index += 1) {
+  })
+
+  // The projection is the exception, and deliberately: it lists every
+  // category the household has, most of them at zero, and it is a list
+  // you come to looking for one of them. Alphabetical is how you find a
+  // name; biggest-first is how you read a result. Per direct feedback.
+  each('the projection is ordered by name', (snap, key) => {
+    const rows = projectionFigures(snap).rows
+    for (let index = 1; index < rows.length; index += 1) {
       expect(
-        (projection[index - 1]?.amount ?? 0) >=
-          (projection[index]?.amount ?? 0),
+        (rows[index - 1]?.label ?? '').localeCompare(
+          rows[index]?.label ?? '',
+          'es',
+        ) <= 0,
         `${key} · proyección`,
       ).toBe(true)
     }
@@ -1157,7 +1183,8 @@ describe('the beta says the same month on every screen', () => {
         pendiente.dueDate >= base.monthStart &&
         pendiente.dueDate <= base.monthEnd,
     )
-    if (model === undefined) throw new Error('no pending peso bill of the month')
+    if (model === undefined)
+      throw new Error('no pending peso bill of the month')
     const whole = model.expectedAmount ?? 0
     const handed = Math.round(whole / 4)
 
@@ -1237,5 +1264,128 @@ describe('the beta says the same month on every screen', () => {
     expect(cents(homeFigures(base).paid)).toBe(
       cents(homeFigures(without).paid) + cents(servicio.price),
     )
+  })
+
+  // Inicio's "Servicios" column is the Servicios screen under a shorter
+  // heading, so it has to be the same list in the same order -- it used
+  // to sort the whole lot by due date, which mixed the settled ones back
+  // in among the open ones and cost the column rows it had to spare.
+  each(
+    'Inicio lists the servicios in the order Servicios does',
+    (snap, key) => {
+      const home = homeFigures(snap)
+      const servicios = serviciosFigures(snap)
+      expect(
+        home.bills.map((bill) => bill.id),
+        key,
+      ).toEqual(servicios.bills.map((bill) => bill.id))
+    },
+  )
+
+  // A ceiling per currency, counted apart. A category spent in dollars
+  // measured against a peso ceiling reads "$ 0 de $ 1.000.000" while the
+  // money is plainly gone -- and converting the two into one figure is
+  // refused everywhere else in this app, for the reason the rate moves
+  // every day. Per direct feedback: "la categoría puede tener su tope en
+  // dólares".
+  it('measures each currency against its own ceiling', () => {
+    const base = snapshots.get('completa\u00b7este mes')
+    if (base === undefined) throw new Error('missing snapshot')
+    const withUsd = categoriasFigures(base).find((row) => row.totalUsd > 0)
+    if (withUsd === undefined) throw new Error('no category spent in dollars')
+
+    // A peso ceiling says nothing about the dollars...
+    const pesosOnly = categoriasFigures({
+      ...base,
+      categories: base.categories.map((category) =>
+        category.id === withUsd.categoryId
+          ? { ...category, monthlyBudget: 10_000_000 }
+          : category,
+      ),
+    }).find((row) => row.categoryId === withUsd.categoryId)
+    expect(pesosOnly?.over).toBe(false)
+    expect(pesosOnly?.capUsd).toBe(0)
+    expect(pesosOnly?.overUsd).toBe(false)
+
+    // ...and a dollar ceiling is what the dollars are held to.
+    const capped = categoriasFigures({
+      ...base,
+      categories: base.categories.map((category) =>
+        category.id === withUsd.categoryId
+          ? {
+              ...category,
+              monthlyBudget: 10_000_000,
+              monthlyBudgetUsd: withUsd.totalUsd - 1,
+            }
+          : category,
+      ),
+    }).find((row) => row.categoryId === withUsd.categoryId)
+    expect(capped?.overUsd).toBe(true)
+    // The peso side is untouched by it: the two are never added.
+    expect(capped?.over).toBe(false)
+    expect(capped?.total).toBe(withUsd.total)
+  })
+
+  // What the card asks of the month does not change because somebody
+  // marked it paid. It used to: the line counted only the unpaid ones,
+  // so paying the dollar side made the dollars vanish from it, as if the
+  // month had never owed them. Per direct feedback: "es informativo".
+  //
+  // Built rather than seeded: Flor writes the card's real bill down as a
+  // servicio of her own under the card's category when she goes to pay
+  // it, which no demo household does.
+  it('says what the card asked of the month, paid or not', () => {
+    const base = snapshots.get('completa\u00b7este mes')
+    if (base === undefined) throw new Error('missing snapshot')
+    const [cardCategory] = [...cardCategoryIds(base)]
+    if (cardCategory === undefined) throw new Error('no card category')
+    const model = base.pendientes[0]
+    if (model === undefined) throw new Error('no bill to model on')
+
+    const byHand: Pendiente = {
+      ...model,
+      id: 'tarjeta-a-mano',
+      name: 'Visa de noviembre',
+      categoryId: cardCategory,
+      cardId: undefined,
+      purchaseIds: undefined,
+      estimatedAmount: undefined,
+      expectedAmount: 2_584_074.64,
+      currency: 'ARS',
+      status: 'pending',
+      paidExpenseId: null,
+      paidAt: null,
+      dueDate: new Date(
+        base.monthStart.getFullYear(),
+        base.monthStart.getMonth(),
+        12,
+      ),
+    }
+    const owing: Snapshot = {
+      ...base,
+      pendientes: [...base.pendientes, byHand],
+    }
+    const settled: Snapshot = {
+      ...base,
+      settled: [
+        ...base.settled,
+        { ...byHand, status: 'paid' as const, paidAt: base.now },
+      ],
+    }
+
+    // It is on the line while it is owed...
+    expect(
+      cents(
+        homeFigures(owing).cardBills.find((one) => one.currency === 'ARS')
+          ?.total ?? 0,
+      ),
+    ).toBe(
+      cents(
+        homeFigures(base).cardBills.find((one) => one.currency === 'ARS')
+          ?.total ?? 0,
+      ) + cents(2_584_074.64),
+    )
+    // ...and still on it once it is paid.
+    expect(homeFigures(settled).cardBills).toEqual(homeFigures(owing).cardBills)
   })
 })

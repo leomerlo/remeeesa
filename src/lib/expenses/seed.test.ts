@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { categoryDocumentId, defaultCategoryRecords } from './seed'
+import {
+  categoryDocumentId,
+  defaultCategoryRecords,
+  DEFAULT_CATEGORY_NAMES,
+} from './seed'
 
 describe('categoryDocumentId', () => {
   it('is unique per household and case-insensitive trimmed name', () => {
@@ -27,13 +31,16 @@ describe('categoryDocumentId', () => {
     for (const category of [...first, ...again]) {
       byId.set(category.id, category.name)
     }
-    expect(byId.size).toBe(6)
+    expect(byId.size).toBe(DEFAULT_CATEGORY_NAMES.length)
     expect([...byId.values()]).toEqual([
       'Comida',
+      'Casa',
       'Transporte',
+      'Auto',
       'Servicios',
       'Entretenimiento',
       'Salud',
+      'Tarjetas de Crédito',
       'Otros',
     ])
   })

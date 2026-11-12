@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
-import { listCardPurchasesInMonth } from '@/lib/cards'
+import {
+  listCardPurchasesInMonth,
+  RESUMEN_CATEGORY_NAME,
+} from '@/lib/cards'
 import {
   currentMonthRange,
   listCategories,
@@ -43,7 +46,7 @@ describe('seedDemoHousehold', () => {
     ).toHaveLength(1)
 
     const tarjeta = (await listCategories({ db, householdId })).find(
-      (category) => category.name === 'Tarjeta',
+      (category) => category.name === RESUMEN_CATEGORY_NAME,
     )
     const cardExpenses = (
       await listExpensesInMonth({ db, householdId, monthStart, monthEnd })

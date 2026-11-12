@@ -10,6 +10,10 @@ export {
 } from './types'
 export type { CardsDueTotal, ResumenCuota } from './purchases'
 export {
+  ConsumoFromServicioError,
+  convertCardPurchaseToExpense,
+} from './convertConsumo'
+export {
   CardNameTakenError,
   createCard,
   listCards,
@@ -35,6 +39,7 @@ export {
   markPendientePaidWithCard,
   MAX_CUOTAS,
   RESUMEN_CATEGORY_NAME,
+  RESUMEN_CATEGORY_NAMES,
   parseCuotas,
   ResumenAlreadyPaidError,
   ResumenNotYetPayableError,

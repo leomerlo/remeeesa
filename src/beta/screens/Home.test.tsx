@@ -55,6 +55,26 @@ async function house(): Promise<BetaSession> {
   }
 }
 
+// A household that has just signed up: the categories its creation seeds
+// and nothing else.
+async function emptyHouse(): Promise<BetaSession> {
+  const db = createMemoryHouseholdsDb().asUser(FLOR)
+  const { household } = await db.createHouseholdAndMembership({
+    userId: FLOR,
+    name: 'Casa nueva',
+    monthlyBudget: 0,
+    displayName: 'Flor',
+  })
+  return {
+    userId: FLOR,
+    householdId: household.id,
+    displayName: 'Flor',
+    db,
+    adopt: vi.fn(),
+    rename: vi.fn(),
+  }
+}
+
 function render(session: BetaSession): void {
   renderWithProviders(
     // Inicio links out to the other screens, so it needs somewhere for
@@ -103,6 +123,16 @@ describe('the two lists on Inicio', () => {
     await screen.findByRole('button', { name: 'Editar Luz' })
     expect(screen.queryByRole('button', { name: 'Ya lo pagué' })).toBeNull()
   })
+
+  // The card bill is loaded by hand as a servicio, so both figures have
+  // resúmenes inside them and the subtext says so. Her words.
+  it('says the servicios figures include the cards', async () => {
+    render(await house())
+
+    expect(
+      (await screen.findAllByText(/\(Incluye tarjetas de crédito\)/)).length,
+    ).toBe(2)
+  })
 })
 
 // A month spent in dollars was a month with no category at all: the ring
@@ -137,8 +167,44 @@ describe('a category spent only in dollars', () => {
         name: 'Ver los movimientos de Suscripciones',
       }),
     ).toBeInTheDocument()
-    // Twice over: the movement in the list, and the category's own line
-    // in the breakdown.
-    expect(screen.getAllByText('US$ 4,96')).toHaveLength(2)
+    // Three times over: the panel's own figure at the top, the movement
+    // in the list, and the category's line in the breakdown. The panel
+    // used to be the one place on this screen that said nothing about
+    // dollars, which on a month spent in them is the first place it has
+    // to be said.
+    expect(screen.getAllByText('US$ 4,96')).toHaveLength(3)
+  })
+})
+
+// A household that has just signed up. Inicio used to be headings over
+// nothing: "Últimos gastos" with a button through to an empty screen,
+// and the Servicios column not drawn at all. Nothing on it said what to
+// do first. Per direct feedback: "no hay nada de estados de vacío".
+describe('a month with nothing in it yet', () => {
+  it('says what each column is for, and offers the way in', async () => {
+    render(await emptyHouse())
+
+    expect(
+      await screen.findByText('Todavía no hay gastos anotados'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Todavía no hay servicios')).toBeInTheDocument()
+    expect(
+      screen.getByText('Todavía no hay nada para repartir'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /Anotar el primero/ }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /Agregar un servicio/ }),
+    ).toBeInTheDocument()
+  })
+
+  // A way through to a screen with nothing on it is not a next step.
+  it('does not offer to see a list that is empty', async () => {
+    render(await emptyHouse())
+    await screen.findByText('Todavía no hay gastos anotados')
+
+    expect(screen.queryByText('Ver todos los gastos')).toBeNull()
+    expect(screen.queryByText('Ver por categoría')).toBeNull()
   })
 })

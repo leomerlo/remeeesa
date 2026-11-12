@@ -66,6 +66,12 @@ export function parseCardPurchaseDocument(input: {
     // pesos, which is what its card held.
     currency: parseCurrency(d.currency),
     createdAt: parseTimestamp(d.created_at, 'created_at'),
+    // The bill this consumo came from, on one that came from a bill.
+    // Left off rather than written as null on ordinary shopping, which
+    // is almost all of them.
+    ...(d.pendiente_id === undefined || d.pendiente_id === null
+      ? {}
+      : { pendienteId: parseRequiredString(d.pendiente_id, 'pendiente_id') }),
     // Absent until one of its Resúmenes is paid.
     paidResumenIds:
       d.paid_resumen_ids === undefined

@@ -212,8 +212,31 @@ export function ServicioSheet({
       if (settled || !paid) return edited
       // Said to be paid, and it was not: settle it for what the form
       // says, today. The row's own "Ya lo pagué" asks more -- the date,
-      // the method, whether it was only a part -- and is still there.
+      // whether it was only a part -- and is still there.
       if (expectedAmount === null) return edited
+      // On a credit card this is a different event, and the form has to
+      // know it: the money does not leave today, it becomes a consumo in
+      // that card's Resumen and arrives when the Resumen is paid. Writing
+      // an ordinary gasto with the card merely named on it charged the
+      // month for money that had not moved, and left the consumo out of
+      // the card -- "pagué Claro con la Visa y en el resumen no aparece".
+      const chosen = methods.find((candidate) => candidate.id === methodId)
+      if (chosen !== undefined && chosen.kind === 'credito') {
+        return markPendientePaidWithCard({
+          db: session.db,
+          householdId,
+          pendienteId: bill.id,
+          cardId: chosen.id,
+          memberId: session.userId ?? '',
+          authorDisplayName: session.displayName ?? 'Alguien',
+          finalAmount: expectedAmount,
+          // A bill is one payment, never in cuotas: the card takes it
+          // whole into one Resumen.
+          cuotas: 1,
+          paymentDate: today,
+          currency,
+        })
+      }
       return markPendientePaid({
         db: session.db,
         householdId,
@@ -330,6 +353,23 @@ export function ServicioSheet({
         checked={autoDebit}
         onChange={setAutoDebit}
       />
+      {/* Lowering a bill under what has already gone into it. Nothing
+          refuses it -- a figure typed wrong is corrected by typing it
+          again, and the household may really have overpaid -- but the
+          form says what it leaves behind, because the gastos stay as
+          they are and the bill simply reads as settled with change
+          nobody is tracking. */}
+      {bill !== null &&
+      isPartlyPaid(bill) &&
+      priced &&
+      amount.trim() !== '' &&
+      moneyValue(amount) < paidSoFar(bill) ? (
+        <p className="fnote warn">
+          Ya pagaron {pesos(paidSoFar(bill))} de este servicio, más de los{' '}
+          {pesos(moneyValue(amount))} que estás poniendo. Si lo guardás así, la
+          cuenta queda saldada y la diferencia sigue contada como gastada.
+        </p>
+      ) : null}
       {blocked ? (
         <p className="fproblem" role="alert">
           {!named
@@ -345,7 +385,7 @@ export function ServicioSheet({
       {bill === null || !isPartlyPaid(bill) ? null : (
         <>
           <p className="fnote">
-            Ya van {pesos(paidSoFar(bill))} de{' '}
+            Pagaste {pesos(paidSoFar(bill))} de{' '}
             {pesos(bill.expectedAmount ?? 0)}, así que falta{' '}
             {pesos(amountLeft(bill) ?? 0)}. Deshacer el último pago le
             devuelve eso al servicio y saca el gasto que ese pago había
@@ -370,39 +410,16 @@ export function ServicioSheet({
           </button>
         </>
       )}
-      {bill === null || bill.status !== 'paid' ? null : (
-        <>
-          {paidWith === null ? null : (
-            <div className="field">
-              <span className="flabel">Pagado con</span>
-              <p className="codebox">{paidWith}</p>
-            </div>
-          )}
-          <p className="fnote">
-            Esto es con qué se pagó esta vez. Arriba está con qué se paga
-            normalmente, que es lo que va a proponer la próxima: el mismo
-            servicio puede ir en efectivo un mes y con tarjeta el siguiente.
-            Para cambiar este pago, deshacelo y volvé a pagarlo.
-          </p>
-          {/* Undoing it is the "Ya lo pagué" switch above, which is the
-              same question the gasto form asks. It used to be a button of
-              its own down here, which left two ways to do one thing. What
-              that button explained is worth keeping, so it stays as the
-              note it always was -- with what a paid servicio will not let
-              anybody change, which the form used to simply refuse to save
-              without saying why. */}
-          <p className="fnote">
-            Mientras esté pagado, lo único que se puede cambiar es si vuelve
-            todos los meses. El nombre, el monto, la fecha y la categoría
-            quedan como quedaron: son el registro de algo que ya pasó.
-          </p>
-          <p className="fnote">
-            Para corregir cualquiera de esos, o para deshacer el pago, apagá
-            «Ya lo pagué» y guardá: vuelve a lo que falta pagar, se saca el
-            gasto que ese pago había anotado, y ahí sí podés editarlo. Si lo
-            pagaron con tarjeta, también sale el consumo del resumen.
-          </p>
-        </>
+      {/* What a paid bill was settled with, where it is known. One line,
+          not three: the form used to carry a paragraph about what can be
+          changed, another about how to change it, and a third about the
+          method -- which is a manual where a label was asked for. The
+          switches above already say what they do. */}
+      {bill === null || bill.status !== 'paid' || paidWith === null ? null : (
+        <div className="field">
+          <span className="flabel">Se pagó con</span>
+          <p className="codebox">{paidWith}</p>
+        </div>
       )}
       {bill === null ? null : (
         <DangerAction
@@ -570,7 +587,7 @@ export function PagarSheet({
           ? {}
           : {
               hint: isPartlyPaid(bill)
-                ? `Ya van ${pesos(paidSoFar(bill))} de ${pesos(bill.expectedAmount)}, así que falta ${pesos(left ?? 0)}.`
+                ? `Pagaste ${pesos(paidSoFar(bill))} de ${pesos(bill.expectedAmount)}, así que falta ${pesos(left ?? 0)}.`
                 : `Lo esperado era ${pesos(bill.expectedAmount)}. Si vino distinto, poné lo que pagaste de verdad.`,
             })}
       />

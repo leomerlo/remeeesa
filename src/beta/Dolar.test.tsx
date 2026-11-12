@@ -95,7 +95,7 @@ describe('which side of the counter', () => {
     renderWithProviders(<Dolar />)
 
     expect(
-      screen.getByRole('button', { name: 'Vendo dólares' }),
+      screen.getByRole('button', { name: /Venta/ }),
     ).toHaveAttribute('aria-pressed', 'true')
     expect(
       screen.getByText(/Te pagan \$ ?1\.555 por cada dólar/),
@@ -105,7 +105,7 @@ describe('which side of the counter', () => {
   it('converts at the other rate once the other side is chosen', () => {
     renderWithProviders(<Dolar />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Compro dólares' }))
+    fireEvent.click(screen.getByRole('button', { name: /Compra/ }))
 
     expect(
       screen.getByText(/Te cobran \$ ?1\.600 por cada dólar/),
@@ -119,8 +119,8 @@ describe('which side of the counter', () => {
   it('goes back to the first rate when the first side is chosen again', () => {
     renderWithProviders(<Dolar />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Compro dólares' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Vendo dólares' }))
+    fireEvent.click(screen.getByRole('button', { name: /Compra/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Venta/ }))
 
     fireEvent.change(screen.getByLabelText('Dólares'), {
       target: { value: '2' },

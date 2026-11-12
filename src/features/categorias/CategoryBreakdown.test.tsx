@@ -10,6 +10,7 @@ import { createCard, createCardPurchase, markResumenPaid } from '@/lib/cards'
 import { createHouseholdWithMembership } from '@/lib/households'
 import { listPendientes } from '@/lib/pendientes'
 import type { HouseholdsDb } from '@/lib/households'
+import { RESUMEN_CATEGORY_NAME } from '@/lib/cards'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { MemoryRouter } from 'react-router-dom'
 import type { ReactElement } from 'react'
@@ -530,7 +531,7 @@ describe('CategoryBreakdown', () => {
       screen.queryByText('Todavía no hay nada para repartir'),
     ).not.toBeInTheDocument()
   })
-  describe('Tarjeta', () => {
+  describe(RESUMEN_CATEGORY_NAME, () => {
     // Visa's Resumen of this month is paid $10 over its cuotas (the ajuste);
     // Master's is still unpaid. Both come from purchases dated last month,
     // whose single cuota lands in this month's Resumen.
@@ -599,7 +600,7 @@ describe('CategoryBreakdown', () => {
         .getAllByRole('listitem')
         .filter((item) => item.parentElement === list)
       expect(items).toHaveLength(2)
-      expect(items[0]).toHaveTextContent('Tarjeta')
+      expect(items[0]).toHaveTextContent(RESUMEN_CATEGORY_NAME)
       // The Visa payment and its ajuste. Master's estimate is outside the
       // slice: an estimate is not money spent.
       expect(items[0]).toHaveTextContent('$310')
@@ -612,8 +613,10 @@ describe('CategoryBreakdown', () => {
 
       renderInRouter(<CategoryBreakdown db={db} householdId={householdId} />)
 
-      const toggle = await screen.findByText('Tarjeta')
-      const lines = screen.getByRole('list', { name: 'Tarjeta por categoría' })
+      const toggle = await screen.findByText(RESUMEN_CATEGORY_NAME)
+      const lines = screen.getByRole('list', {
+        name: `${RESUMEN_CATEGORY_NAME} por categoría`,
+      })
       expect(lines).not.toBeVisible()
 
       fireEvent.click(toggle)
@@ -672,7 +675,7 @@ describe('CategoryBreakdown', () => {
       expect(
         await screen.findByText('Todavía no hay nada para repartir'),
       ).toBeInTheDocument()
-      expect(screen.queryByText('Tarjeta')).not.toBeInTheDocument()
+      expect(screen.queryByText(RESUMEN_CATEGORY_NAME)).not.toBeInTheDocument()
     })
   })
 })

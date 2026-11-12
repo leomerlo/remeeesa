@@ -1,6 +1,7 @@
 import { waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { RESUMEN_CATEGORY_NAME } from '@/lib/cards'
+import { listResumenCuotas, RESUMEN_CATEGORY_NAME } from '@/lib/cards'
+import type { Pendiente } from '@/lib/pendientes'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { useAutoDebits } from './useAutoDebits'
@@ -199,5 +200,46 @@ describe('what the bank already took', () => {
       pendienteId: bill.id,
     })
     expect(after?.status).toBe('pending')
+  })
+})
+
+// The consumo it writes has to reach the Resumen the Tarjetas screen
+// lists, not merely exist. The test above proved the bill points at a
+// purchase; this one follows the purchase to where somebody goes looking
+// for it. Per direct feedback: "pagué Claro con la Visa en débito
+// automático y en el resumen no aparece".
+describe('where the consumo lands', () => {
+  it('reaches the Resumen that Tarjetas lists for that card', async () => {
+    const { session, householdId, billId } = await house({ onCard: true })
+    renderWithProviders(<Mounted session={session} />)
+
+    await waitFor(async () => {
+      const bill = await session.db.getPendiente({
+        householdId,
+        pendienteId: billId,
+      })
+      expect(bill?.status).toBe('paid')
+    })
+
+    const pendientes = await session.db.listPendientes({ householdId })
+    const resumenes = pendientes.filter((one) => one.cardId !== undefined)
+    expect(resumenes.length).toBeGreaterThan(0)
+
+    // The screen reads each Resumen's own purchase list, so that is what
+    // has to carry it.
+    const bill = await session.db.getPendiente({ householdId, pendienteId: billId })
+    const purchaseId = bill?.paidPurchaseId ?? ''
+    const carrying = resumenes.filter((resumen) =>
+      (resumen.purchaseIds ?? []).includes(purchaseId),
+    )
+    expect(carrying.length).toBe(1)
+
+    // And the lines that Resumen draws name the bill.
+    const lines = await listResumenCuotas({
+      db: session.db,
+      householdId,
+      resumen: carrying[0] as Pendiente,
+    })
+    expect(lines.map((line) => line.purchase.name)).toContain('Edenor')
   })
 })

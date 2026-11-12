@@ -177,6 +177,71 @@ describe('cards', () => {
   })
 })
 
+describe('a ceiling in dollars on a category', () => {
+  function categoryDocument(overrides: Record<string, unknown> = {}) {
+    return {
+      household_id: HOUSEHOLD,
+      name: 'Meta Ads',
+      color: '#4e4c56',
+      monthly_budget: 0,
+      created_at: Timestamp.now(),
+      ...overrides,
+    }
+  }
+
+  it('lets a category be created with one', async () => {
+    await assertSucceeds(
+      setDoc(
+        doc(asMember(), 'categories', 'cat-ads'),
+        categoryDocument({ monthly_budget_usd: 500 }),
+      ),
+    )
+  })
+
+  it('lets it be set and cleared afterwards', async () => {
+    const db = asMember()
+    await setDoc(doc(db, 'categories', 'cat-ads'), categoryDocument())
+
+    await assertSucceeds(
+      updateDoc(doc(db, 'categories', 'cat-ads'), {
+        monthly_budget_usd: 500,
+      }),
+    )
+    await assertSucceeds(
+      updateDoc(doc(db, 'categories', 'cat-ads'), { monthly_budget_usd: 0 }),
+    )
+  })
+
+  it('refuses a ceiling that is not a number of zero or more', async () => {
+    const db = asMember()
+    await setDoc(doc(db, 'categories', 'cat-ads'), categoryDocument())
+
+    await assertFails(
+      updateDoc(doc(db, 'categories', 'cat-ads'), { monthly_budget_usd: -1 }),
+    )
+    await assertFails(
+      updateDoc(doc(db, 'categories', 'cat-ads'), {
+        monthly_budget_usd: 'mucho',
+      }),
+    )
+  })
+
+  it('refuses it to somebody outside the household', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(
+        doc(context.firestore(), 'categories', 'cat-ads'),
+        categoryDocument(),
+      )
+    })
+
+    await assertFails(
+      updateDoc(doc(asOutsider(), 'categories', 'cat-ads'), {
+        monthly_budget_usd: 500,
+      }),
+    )
+  })
+})
+
 describe('expenses', () => {
   function expenseDocument(overrides: Record<string, unknown> = {}) {
     return {

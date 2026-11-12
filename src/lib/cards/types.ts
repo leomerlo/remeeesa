@@ -127,6 +127,18 @@ export type CardPurchase = {
   // cuotas land in. Always one of the card's -- see cardAccepts.
   readonly currency: Currency
   readonly createdAt: Date
+  // The bill this consumo came from, when it came from one: paying a
+  // servicio with a credit card writes a CardPurchase and nothing else,
+  // because the money does not leave today.
+  //
+  // Without it the consumo is indistinguishable from a café bought on
+  // the same card, so Gastos listed it -- and the whole point of putting
+  // a servicio on a card is that it belongs to Servicios. The Expense a
+  // cash payment writes has carried the same link since the beginning;
+  // this is that link, for the other half of the same question. Absent
+  // on every purchase written before it existed, and on every one that
+  // really is just shopping.
+  readonly pendienteId?: string | null
   // The paid Resúmenes holding one of its cuotas. Non-empty locks the
   // purchase: it can no longer be edited or deleted (rules enforce it too).
   readonly paidResumenIds: readonly string[]

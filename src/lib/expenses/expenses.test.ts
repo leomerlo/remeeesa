@@ -18,9 +18,10 @@ import {
   listRecentExpenses,
   updateExpense,
 } from './expenses'
+import { DEFAULT_CATEGORY_NAMES } from './seed'
 
 describe('listCategories after household create', () => {
-  it('seeds the six default category names for that household only', async () => {
+  it('seeds the default category names for that household only', async () => {
     const store = createMemoryHouseholdsDb()
     const first = await createHouseholdWithMembership({
       db: store.asUser('user-1'),
@@ -46,28 +47,34 @@ describe('listCategories after household create', () => {
 
     expect(firstCategories.map((category) => category.name)).toEqual([
       'Comida',
+      'Casa',
       'Transporte',
+      'Auto',
       'Servicios',
       'Entretenimiento',
       'Salud',
+      'Tarjetas de Crédito',
       'Otros',
     ])
-    expect(firstCategories).toHaveLength(6)
+    expect(firstCategories).toHaveLength(DEFAULT_CATEGORY_NAMES.length)
     expect(
       firstCategories.every((category) => category.householdId === first.id),
     ).toBe(true)
     expect(secondCategories.map((category) => category.name)).toEqual([
       'Comida',
+      'Casa',
       'Transporte',
+      'Auto',
       'Servicios',
       'Entretenimiento',
       'Salud',
+      'Tarjetas de Crédito',
       'Otros',
     ])
     expect(
       secondCategories.every((category) => category.householdId === second.id),
     ).toBe(true)
-    expect(new Set(firstCategories.map((category) => category.id)).size).toBe(6)
+    expect(new Set(firstCategories.map((category) => category.id)).size).toBe(DEFAULT_CATEGORY_NAMES.length)
   })
 })
 
@@ -97,7 +104,7 @@ describe('findOrCreateCategory', () => {
     expect(resolved.name).toBe('Comida')
     expect(resolved.householdId).toBe(household.id)
     const after = await listCategories({ db, householdId: household.id })
-    expect(after).toHaveLength(6)
+    expect(after).toHaveLength(DEFAULT_CATEGORY_NAMES.length)
   })
 
   it('creates a new category that another member can list afterward', async () => {
@@ -269,7 +276,7 @@ describe('findOrCreateCategory', () => {
     ).rejects.toThrow('El nombre de la categoría no puede estar vacío')
 
     const after = await listCategories({ db, householdId: household.id })
-    expect(after).toHaveLength(6)
+    expect(after).toHaveLength(DEFAULT_CATEGORY_NAMES.length)
   })
 
   it('keeps the original display name when the same new name is typed again', async () => {
@@ -1374,10 +1381,13 @@ describe('expense access', () => {
     })
     expect(categories.map((category) => category.name)).toEqual([
       'Comida',
+      'Casa',
       'Transporte',
+      'Auto',
       'Servicios',
       'Entretenimiento',
       'Salud',
+      'Tarjetas de Crédito',
       'Otros',
     ])
   })

@@ -1,4 +1,4 @@
-import { cardsDueNextMonthTotals, RESUMEN_CATEGORY_NAME } from '@/lib/cards'
+import { cardsDueNextMonthTotals, RESUMEN_CATEGORY_NAMES } from '@/lib/cards'
 import { cuotasOf } from '@/lib/cards/cuotas'
 import type {
   Card as PaymentMethod,
@@ -9,6 +9,7 @@ import {
   buildProjection,
   computePendingCommitted,
   computeSpendToDate,
+  computeMonthTotalIn,
   computeSpentThisMonth,
   isServicio,
   summarizeByCategory,
@@ -144,6 +145,11 @@ export type HomeFigures = {
   // the month because the v1 scopes it: a bill due in December does not eat
   // into October, and a paid one counts through its Expense instead.
   readonly owed: number
+  // The same, in dollars. Never added to the pesos: a bill in dollars is
+  // owed in dollars and the budget is a figure in pesos.
+  readonly owedUsd: number
+  // How much of `owed` was carried in from months already closed.
+  readonly owedBefore: number
   // What the cards will ask for next month, one figure per currency, read
   // off the Resúmenes rather than re-added from purchases.
   readonly cards: readonly CardsDueTotal[]
@@ -207,16 +213,6 @@ export function homeFigures(input: HomeInput): HomeFigures {
   // Minus whatever the bank takes from a credit card: that money does not
   // leave this month, it becomes a consumo in that card's Resumen. Those
   // bills live beside the cards, on Servicios' "Con tarjeta" side.
-  const credit = creditMethodIds(input.methods)
-  const dueThisMonth = pendientesDueInMonth(
-    pendientes,
-    monthStart,
-    monthEnd,
-  ).filter((bill) => !onCreditCard(bill, credit))
-  // Part-paid bills count for what they still owe, not what they asked
-  // for: computePendingCommitted takes that off itself (billOwed), since
-  // the part already handed over is in "Pagado" as a Gasto of its own.
-  const owed = computePendingCommitted(dueThisMonth)
   const cards = cardsDueNextMonthTotals(pendientes, monthStart)
   const budget = monthlyBudgetFor(household, monthStart, now)
 
@@ -227,13 +223,66 @@ export function homeFigures(input: HomeInput): HomeFigures {
     monthEnd,
     now,
   })
-  // Paid ones among them, by the day they fall due: the column says
-  // "Servicios", so a month where everything is settled still has a
-  // list, and the order is the one somebody reads a month in.
+  // What this month has to pay: its own bills and the ones it inherited.
+  //
+  // It used to count only the bills whose due date falls inside the month
+  // on screen, which keeps a December bill out of November -- and that
+  // part still holds, because billsForMonth only looks backwards, and
+  // only while the month on screen is the one running. But it also kept
+  // out everything carried in from before, and that is money the
+  // household owes now: "si estoy arrastrando una deuda es parte del
+  // presupuesto de este mes, porque la tengo que pagar de alguna forma".
+  // Per direct feedback, against the earlier reading of the same rule.
+  //
+  // Whatever a credit card pays is already out of this list: that money
+  // does not leave the month, it becomes a consumo in the card's Resumen
+  // and lives beside the cards.
+  //
+  // Part-paid bills count for what they still owe, not what they asked
+  // for: computePendingCommitted takes that off itself (billOwed), since
+  // the part already handed over is in "Pagado" as a Gasto of its own.
+  //
+  // The month's own bills are taken from the full list rather than from
+  // `unpaid`, because `unpaid` leaves a card's Resumen out -- it belongs
+  // to the "Con tarjeta" side of Servicios -- and a Resumen with its real
+  // figure written on it is money this month has to find. The arrears are
+  // added on top; the two lists cannot overlap, one being before the
+  // month and the other inside it.
+  const credit = creditMethodIds(input.methods)
+  const dueThisMonth = pendientesDueInMonth(
+    pendientes,
+    monthStart,
+    monthEnd,
+  ).filter((bill) => !onCreditCard(bill, credit))
+  const owing = [...dueThisMonth, ...late]
+  const owed = computePendingCommitted(owing)
+  const owedUsd = computeMonthTotalIn({
+    expenses: [],
+    pendientes: owing,
+    currency: 'USD',
+  })
+  // How much of it is arrears. Said out loud beside the figure, because a
+  // month that has just inherited five of the municipality's should say
+  // so rather than only look expensive.
+  const owedBefore = computePendingCommitted(late)
+  // The same order Servicios puts them in, because it is the same list
+  // under a shorter heading: what is already late leads, then what has
+  // fallen due, then what has not yet, and everything settled goes under
+  // all of it because it needs nothing from anybody.
+  //
+  // It used to sort the whole lot by due date alone, which mixed the
+  // settled ones back in among the open ones -- and since the column
+  // only shows the first few, a bill nobody has to think about took a
+  // row from one somebody does. Per direct feedback: "me aparece Arca,
+  // que ya lo pagué, y en el medio hay un montón que ya vencieron que no
+  // me están apareciendo".
   const bills = [
     ...unpaid,
-    ...input.settled.filter((one) => isBillToPay(one)),
-  ].sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
+    ...input.settled
+      .filter((one) => isBillToPay(one))
+      .slice()
+      .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime()),
+  ]
 
   // A month already over is compared whole against the month before it; a
   // month still running is cut at today. Anchoring on `now` whatever month
@@ -269,12 +318,15 @@ export function homeFigures(input: HomeInput): HomeFigures {
             ),
           )
         : 0,
+    owedUsd,
+    owedBefore,
     bills,
     late,
     // What the month consumed, which is not the same list the hero adds
     // up -- see monthByCategory.
     cardBills: cardBillTotals({
       pendientes,
+      settled: input.settled,
       categories: input.categories,
       monthStart,
       monthEnd,
@@ -378,10 +430,14 @@ export function cardCategoryIds(input: {
       .filter((pendiente) => pendiente.cardId !== undefined)
       .map((pendiente) => pendiente.categoryId),
   )
-  const named = input.categories.find(
-    (category) => category.name === RESUMEN_CATEGORY_NAME,
-  )
-  if (named !== undefined) ids.add(named.id)
+  // Any name the card category has gone by: it is created under one,
+  // and a household may rename it. This is only the way in for a
+  // household with no Resumen to read it off.
+  for (const category of input.categories) {
+    if ((RESUMEN_CATEGORY_NAMES as readonly string[]).includes(category.name)) {
+      ids.add(category.id)
+    }
+  }
   return ids
 }
 
@@ -439,23 +495,38 @@ export function cuotaInMonth(purchase: CardPurchase, monthStart: Date): number {
 // nothing is owed until the statement arrives.
 export function cardBillTotals(input: {
   readonly pendientes: readonly Pendiente[]
+  // The month's card bills that have already been settled. They belong
+  // here too: this figure is what the card asks of the month, and the
+  // month asked it whether or not anybody has paid yet. It used to count
+  // only the unpaid ones, so marking the card paid made the line shrink
+  // -- and a household that had paid the dollar side watched the dollars
+  // disappear from it, as if the month had never owed them. Per direct
+  // feedback: "eso no cambia si yo lo marco como pago o no. Es
+  // informativo".
+  readonly settled?: readonly Pendiente[]
   readonly categories: readonly Category[]
   readonly monthStart: Date
   readonly monthEnd: Date
 }): readonly CardsDueTotal[] {
   const cards = cardCategoryIds(input)
-  const bills = pendientesDueInMonth(
-    input.pendientes,
-    input.monthStart,
-    input.monthEnd,
-  )
+  const bills = [
+    ...pendientesDueInMonth(input.pendientes, input.monthStart, input.monthEnd),
+    ...(input.settled ?? []).filter(
+      (bill) =>
+        bill.dueDate >= input.monthStart && bill.dueDate <= input.monthEnd,
+    ),
+  ]
     .filter((bill) => cards.has(bill.categoryId))
-    // What is owed, never the estimate: a Resumen with no statement
-    // loaded yet owes nothing, which is the same rule the rest of the
-    // month's figures follow. A statement written by hand carries its
-    // own amount and counts in full.
+    // A Resumen nobody has written a figure on is worth what the cuotas
+    // logged against it come to. That is an estimate and the line says
+    // so -- but zero is not a better answer to "what do the statements
+    // come to this month", it is a wrong one, and it is what this line
+    // used to give until somebody typed the real figure in.
+    //
+    // Everything else counts what it says: a statement written by hand
+    // carries its own amount.
     .map((bill) => ({
-      price: bill.expectedAmount ?? 0,
+      price: bill.expectedAmount ?? bill.estimatedAmount ?? 0,
       currency: bill.currency ?? DEFAULT_CURRENCY,
     }))
   return (['ARS', 'USD'] as const).flatMap((currency) => {
@@ -651,6 +722,13 @@ export type CategoryRow = {
   // 0 when the category has no cap, which is most of them.
   readonly cap: number
   readonly total: number
+  // The same pair in dollars, counted apart: nothing in this app adds
+  // the two currencies, so a category spent in dollars needs a ceiling
+  // of its own or it is measured against a figure it never touches.
+  // Meta Ads is only dollars, Comida only pesos, suscripciones both.
+  readonly capUsd: number
+  readonly totalUsd: number
+  readonly overUsd: boolean
   readonly share: number
   readonly over: boolean
   // The card's own category. Its figure is always zero here on purpose:
@@ -677,12 +755,17 @@ export function categoriasFigures(input: {
     input.categories
       .map((category) => {
         const total = found.get(category.id)?.total ?? 0
+        const totalUsd = found.get(category.id)?.totalUsd ?? 0
+        const capUsd = category.monthlyBudgetUsd ?? 0
         return {
           categoryId: category.id,
           name: category.name,
           color: category.color,
           cap: category.monthlyBudget,
           total,
+          capUsd,
+          totalUsd,
+          overUsd: capUsd > 0 && totalUsd > capUsd,
           share: found.get(category.id)?.share ?? 0,
           over: category.monthlyBudget > 0 && total > category.monthlyBudget,
           isCard: cards.has(category.id),
@@ -858,17 +941,30 @@ export type ProjectionLine = {
   readonly categoryId: string
   readonly color: string
   readonly price: number
+  // The same line in dollars, which is a reading of its own and never
+  // added to the one above: a category the household spends in dollars
+  // used to project $0 and say nothing, so the projection "siempre va a
+  // dar de menos". Her words. Typed over on its own, like the peso
+  // figure beside it: the two are two readings of the same line, not one
+  // with a footnote.
+  readonly priceUsd: number
   // What the line counts as once the household's own edits are applied:
   // the typed-over amount, or 0 when the row is switched off.
   readonly amount: number
+  readonly amountUsd: number
   readonly excluded: boolean
-  // Typed over by hand, as opposed to read off the two months.
+  // Typed over by hand, as opposed to read off the two months. One per
+  // currency: a line can have its dollars put in by hand and its pesos
+  // left as the month says.
   readonly pinned: boolean
+  readonly pinnedUsd: boolean
 }
 
 export type ProjectionFigures = {
   readonly rows: readonly ProjectionLine[]
   readonly total: number
+  // The month's dollars, beside the pesos and never inside them.
+  readonly totalUsd: number
   readonly edited: boolean
   // Nothing in either month and no bills: a column of zeroes would be a
   // list of everything the household could spend on and nothing it does.
@@ -898,19 +994,22 @@ export function projectionFigures(input: {
   readonly monthStart: Date
   readonly monthEnd: Date
 }): ProjectionFigures {
+  const due = pendientesDueInMonth(
+    input.pendientes,
+    input.monthStart,
+    input.monthEnd,
+  ).map((pendiente) => ({
+    ...pendiente,
+    currency: pendiente.currency ?? DEFAULT_CURRENCY,
+  }))
   // Through countedByBudget like every other peso figure: a card billed in
   // dollars is due this month too, and adding it in would make the total a
   // number of nothing.
-  const servicios = countedByBudget(
-    pendientesDueInMonth(
-      input.pendientes,
-      input.monthStart,
-      input.monthEnd,
-    ).map((pendiente) => ({
-      ...pendiente,
-      currency: pendiente.currency ?? DEFAULT_CURRENCY,
-    })),
-  )
+  const servicios = countedByBudget(due)
+  // And the other half, which until now was simply missing: a dollar bill
+  // -- an account billed in dollars, or a card's dollar Resumen -- is as
+  // due next month as any other, and the screen showed no sign of it.
+  const serviciosUsd = due.filter((pendiente) => pendiente.currency === 'USD')
 
   // Paying a card bill writes its gastos into the card's own category, so
   // carrying that category over from last month is a second guess at the
@@ -925,10 +1024,11 @@ export function projectionFigures(input: {
       .filter((pendiente) => pendiente.cardId !== undefined)
       .map((pendiente) => pendiente.categoryId),
   )
-  const named = input.categories.find(
-    (category) => category.name === RESUMEN_CATEGORY_NAME,
-  )
-  if (named !== undefined) cardCategories.add(named.id)
+  for (const category of input.categories) {
+    if ((RESUMEN_CATEGORY_NAMES as readonly string[]).includes(category.name)) {
+      cardCategories.add(category.id)
+    }
+  }
 
   const byId = new Map(
     input.categories.map((category) => [category.id, category]),
@@ -945,10 +1045,24 @@ export function projectionFigures(input: {
     readonly categoryId: string
     readonly color: string
     readonly price: number
+    readonly priceUsd: number
   }
 
   // What the two months say: a category spent in this one, or last one's
   // figure where this one has nothing yet.
+  // The same two months read in dollars, by category: what this month has
+  // in dollars, or last month's where this one has nothing yet.
+  const carriedUsd = new Map(
+    buildProjection(
+      input.previous,
+      input.current,
+      serviciosUsd.map((servicio) => servicio.name),
+      'USD',
+    )
+      .filter((row) => !cardCategories.has(row.categoryId))
+      .map((row) => [row.categoryId, row.price] as const),
+  )
+
   const carried: readonly Seed[] = buildProjection(
     input.previous,
     input.current,
@@ -963,25 +1077,39 @@ export function projectionFigures(input: {
       categoryId: row.categoryId,
       color: colorOf(row.categoryId),
       price: row.price,
+      priceUsd: carriedUsd.get(row.categoryId) ?? 0,
     }))
 
   // A card bill is the one line the app can fill in before it arrives: the
   // cuotas already bought that land in this month add up to a figure it
   // has been keeping all along. Still only an estimate -- next month's own
   // purchases are not in it -- so it is the line most worth typing over.
-  const billed: readonly Seed[] = servicios.map((pendiente) => ({
-    key: `servicio-${pendiente.id}`,
-    label: pendiente.name,
-    kind:
-      pendiente.cardId === undefined
-        ? ('servicio' as const)
-        : ('tarjeta' as const),
-    categoryId: pendiente.categoryId,
-    color: colorOf(pendiente.categoryId),
-    price:
+  const billSeed = (
+    pendiente: (typeof due)[number],
+    currency: Currency,
+  ): Seed => {
+    const owed =
       amountLeft(pendiente) ??
-      (pendiente.cardId === undefined ? 0 : (pendiente.estimatedAmount ?? 0)),
-  }))
+      (pendiente.cardId === undefined ? 0 : (pendiente.estimatedAmount ?? 0))
+    return {
+      key: `servicio-${pendiente.id}`,
+      label: pendiente.name,
+      kind:
+        pendiente.cardId === undefined
+          ? ('servicio' as const)
+          : ('tarjeta' as const),
+      categoryId: pendiente.categoryId,
+      color: colorOf(pendiente.categoryId),
+      price: currency === 'ARS' ? owed : 0,
+      priceUsd: currency === 'USD' ? owed : 0,
+    }
+  }
+  const billed: readonly Seed[] = [
+    ...servicios.map((pendiente) => billSeed(pendiente, 'ARS')),
+    // A dollar bill is its own line, with its figure in the dollar column
+    // and nothing in the peso one: the two are never added.
+    ...serviciosUsd.map((pendiente) => billSeed(pendiente, 'USD')),
+  ]
 
   // And every other category the household has, at zero. Reading the two
   // months only ever yields the categories that had something in them,
@@ -1000,14 +1128,21 @@ export function projectionFigures(input: {
       categoryId: category.id,
       color: category.color,
       price: 0,
+      // A category with dollars and no pesos lands here, since the peso
+      // reading has nothing to say about it. Its figure is not zero.
+      priceUsd: carriedUsd.get(category.id) ?? 0,
     }))
 
   const monthKey = (key: string): string =>
     `${String(input.monthStart.getTime())}-${key}`
+  // The same line's dollar figure, under a key of its own in the same
+  // map. Prefixed rather than suffixed, so it can never collide with a
+  // line whose own key happens to end the same way.
+  const usdKey = (key: string): string => `usd-${monthKey(key)}`
   const excluded = new Set(input.projection?.excluded ?? [])
   const overrides = input.projection?.overrides ?? {}
-  const amountOf = (key: string, price: number): number => {
-    const raw = overrides[monthKey(key)]
+  const typedOver = (key: string, price: number): number => {
+    const raw = overrides[key]
     if (raw === undefined) return price
     // Plain as the field hands it over, or written as it was typed before
     // the field knew how to format itself -- parseStoredAmount takes both.
@@ -1019,24 +1154,36 @@ export function projectionFigures(input: {
       ...row,
       excluded: excluded.has(monthKey(row.key)),
       pinned: overrides[monthKey(row.key)] !== undefined,
+      pinnedUsd: overrides[usdKey(row.key)] !== undefined,
       amount: excluded.has(monthKey(row.key))
         ? 0
-        : amountOf(row.key, row.price),
+        : typedOver(monthKey(row.key), row.price),
+      // Switched off takes the dollars with it: the line is the line.
+      amountUsd: excluded.has(monthKey(row.key))
+        ? 0
+        : typedOver(usdKey(row.key), row.priceUsd),
     }))
-    // By the figure the month suggests rather than by the one on screen:
-    // sorting on what is typed would move a line out from under the
-    // cursor halfway through typing it. The empty ones fall to the bottom
-    // by themselves, and sort among each other by name.
+    // Alphabetical, and nothing else. It used to lead with the biggest
+    // figure, which reads well on a month already written but makes this
+    // screen -- where every category is listed, most of them at zero --
+    // a place you have to search rather than scan. Sorting by a figure
+    // also meant a line could move out from under the cursor while it
+    // was being typed. Per direct feedback: "ordenalas alfabéticamente,
+    // no importa que estén en cero, es más fácil encontrarlas".
     .slice()
-    .sort((a, b) => b.price - a.price || a.label.localeCompare(b.label, 'es'))
+    .sort((a, b) => a.label.localeCompare(b.label, 'es'))
 
   return {
     rows,
     total:
       rows.reduce((cents, row) => cents + Math.round(row.amount * 100), 0) /
       100,
-    edited: rows.some((row) => row.excluded || row.pinned),
-    empty: carried.length === 0 && billed.length === 0,
+    totalUsd:
+      rows.reduce((cents, row) => cents + Math.round(row.amountUsd * 100), 0) /
+      100,
+    edited: rows.some((row) => row.excluded || row.pinned || row.pinnedUsd),
+    // A month with nothing but dollars in it has something to project.
+    empty: carried.length === 0 && billed.length === 0 && carriedUsd.size === 0,
   }
 }
 

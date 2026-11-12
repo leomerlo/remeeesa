@@ -457,11 +457,15 @@ export function PickField({
 // A dropdown of what the household already has cannot do the second, and
 // the second is the half that matters: somebody anotando la panadería
 // should not have to leave the form, go to Categorías, make one, and come
-// back. The v1 did it with a native <datalist> -- type anything, and a
-// name nobody had used before became a new category on save. The redesign
-// turned it into a plain <select> and quietly dropped that. Per the
-// agreement in docs/stories/wallet-visual-system.md, and per direct
-// feedback: "habíamos dicho que era un autocomplete".
+// back. The v1 did it with a native <datalist> -- one text field, type
+// anything, and a name nobody had used became a new category on save.
+//
+// So this is that, with the redesign's own list under it: the field is a
+// text field like every other, you click it and the cursor is in it, and
+// what drops down is the list of what matches. Not a button that opens a
+// panel that holds a second box to type in -- that was two things to
+// learn where the v1 had none. Per direct feedback: "un autocomplete
+// normal, no la sobrecompliques".
 //
 // Nothing is written while the form is open: a name typed here is carried
 // as a name, and the category is created by the save, so abandoning the
@@ -489,14 +493,25 @@ export function CategoryField({
   }[]
   readonly hint?: string
 }): ReactElement {
-  const [open, setOpen] = useState(false)
-  const [query, setQuery] = useState('')
   const id = useId()
   const chosen = categories.find((category) => category.id === value)
-  const typed = query.trim()
-  const shown = categories.filter((category) =>
-    matchesSearch(query, [category.name]),
-  )
+  // What is in the box. It starts as whatever the form already holds --
+  // the chosen category's name, or the new name somebody typed before --
+  // and from then on it is what was typed, because an input that rewrites
+  // itself under the cursor cannot be typed in.
+  const [text, setText] = useState(chosen?.name ?? newName)
+  const [open, setOpen] = useState(false)
+  // Whether what is in the box is something somebody typed just now. The
+  // box opens holding the chosen category's name, and filtering by that
+  // would show the one category you already have -- which is the one
+  // thing you did not open it to find. So the list is everything until a
+  // key is pressed.
+  const [typing, setTyping] = useState(false)
+
+  const typed = text.trim()
+  const shown = typing
+    ? categories.filter((category) => matchesSearch(text, [category.name]))
+    : categories
   // Offered only for a name nobody is using: an exact match is the
   // category itself, and it is already in the list above.
   const already = categories.some(
@@ -504,90 +519,90 @@ export function CategoryField({
   )
   const canCreate = typed !== '' && !already
 
-  const shut = (): void => {
+  // Every keystroke answers the form, so there is nothing to confirm: a
+  // name that is already a category picks it, and one that is not is
+  // carried as the name to create.
+  const say = (next: string): void => {
+    setText(next)
+    const match = categories.find(
+      (category) => category.name.toLowerCase() === next.trim().toLowerCase(),
+    )
+    if (match !== undefined) {
+      onPick(match.id)
+      onName('')
+      return
+    }
+    onPick('')
+    onName(next.trim())
+  }
+
+  const take = (category: { readonly id: string; readonly name: string }): void => {
+    setText(category.name)
+    setTyping(false)
+    onPick(category.id)
+    onName('')
     setOpen(false)
-    setQuery('')
   }
 
   return (
     <div
-      className="field pick"
+      className="field ac"
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) shut()
+        // A click that lands on one of its own options is not outside, so
+        // the pick still registers.
+        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false)
       }}
       onKeyDown={(event) => {
-        if (event.key === 'Escape') shut()
+        if (event.key === 'Escape') setOpen(false)
       }}
     >
-      <span className="flabel" id={`${id}-label`}>
-        {label}
-      </span>
-      <button
-        type="button"
-        className="picked flat"
-        aria-haspopup="listbox"
+      <label htmlFor={id}>{label}</label>
+      <input
+        id={id}
+        value={text}
+        role="combobox"
         aria-expanded={open}
-        aria-labelledby={`${id}-label ${id}-value`}
-        onClick={() => setOpen((current) => !current)}
-      >
-        {chosen === undefined && newName.trim() === '' ? null : (
-          <span className="mk" aria-hidden="true">
-            <CategoryTile
-              name={chosen?.name ?? newName}
-              color={chosen?.color ?? 'var(--grape-600)'}
-            />
-          </span>
-        )}
-        <span className="k" id={`${id}-value`}>
-          {chosen?.name ?? (newName.trim() === '' ? 'Elegí una' : newName)}
-        </span>
-        <span className="ch" aria-hidden="true">
-          <ChevronDown />
-        </span>
-      </button>
+        aria-autocomplete="list"
+        autoComplete="off"
+        placeholder="Elegí o escribí una nueva"
+        onFocus={(event) => {
+          setOpen(true)
+          setTyping(false)
+          // Selected, so the first key replaces the name that is there
+          // rather than appending to it.
+          event.target.select()
+        }}
+        onClick={() => setOpen(true)}
+        onChange={(event) => {
+          setTyping(true)
+          say(event.target.value)
+          setOpen(true)
+        }}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter') return
+          event.preventDefault()
+          const first = shown[0]
+          if (first !== undefined) take(first)
+          else setOpen(false)
+        }}
+      />
+      {/* The list is labelled apart from the field itself: both carrying
+          the same name made "the Categoría box" two different things. */}
       {open ? (
-        <div className="picklist" role="listbox" aria-labelledby={`${id}-label`}>
-          {/* The box is the whole point: it narrows what is there and,
-              when nothing matches, it is where the new name was typed. */}
-          <input
-            className="pickfind"
-            type="text"
-            value={query}
-            autoFocus
-            aria-label="Buscar o escribir una categoría"
-            placeholder="Buscá o escribí una nueva"
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== 'Enter') return
-              event.preventDefault()
-              const first = shown[0]
-              if (first !== undefined) {
-                onPick(first.id)
-                onName('')
-                shut()
-              } else if (canCreate) {
-                onName(typed)
-                onPick('')
-                shut()
-              }
-            }}
-          />
+        <div
+          className="aclist"
+          role="listbox"
+          aria-label={`Opciones de ${label}`}
+        >
           {shown.map((category) => (
             <button
               key={category.id}
               type="button"
               role="option"
-              className="pickopt flat"
               aria-selected={category.id === value}
-              onClick={() => {
-                onPick(category.id)
-                onName('')
-                shut()
-              }}
+              onClick={() => take(category)}
             >
-              <span className="mk" aria-hidden="true">
-                <CategoryTile name={category.name} color={category.color} />
-              </span>
+              <CategoryTile name={category.name} color={category.color} />
               <span className="k">{category.name}</span>
             </button>
           ))}
@@ -595,22 +610,22 @@ export function CategoryField({
             <button
               type="button"
               role="option"
-              className="pickopt flat make"
+              className="make"
               aria-selected={false}
               onClick={() => {
                 onName(typed)
                 onPick('')
-                shut()
+                setOpen(false)
               }}
             >
-              <span className="mk" aria-hidden="true">
+              <span className="plus" aria-hidden="true">
                 <Plus />
               </span>
               <span className="k">Crear «{typed}»</span>
             </button>
           ) : null}
           {shown.length === 0 && !canCreate ? (
-            <p className="pickempty">Nada que coincida.</p>
+            <p className="acempty">Nada que coincida.</p>
           ) : null}
         </div>
       ) : null}

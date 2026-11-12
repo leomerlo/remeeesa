@@ -214,7 +214,7 @@ describe('a servicio paid in more than one go', () => {
 
     expect(await screen.findByText('$ 38.000')).toBeInTheDocument()
     expect(
-      await screen.findByText('Ya van $ 50.000 de $ 88.000'),
+      await screen.findByText('Pagaste $ 50.000 de $ 88.000'),
     ).toBeInTheDocument()
     // And the footer asks for the rest, not for the whole thing again.
     expect(

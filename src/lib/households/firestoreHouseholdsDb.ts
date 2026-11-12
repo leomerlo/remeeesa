@@ -752,10 +752,22 @@ export function createFirestoreHouseholdsDb(
         async () => {
           const existing = await readOwnCategory(firestore, input)
           const monthlyBudget = parseCategoryBudget(input.monthlyBudget)
+          // Left alone when the caller does not mention it, rather than
+          // written as zero: saving the peso form is not a statement
+          // about the dollar ceiling.
+          const usd =
+            input.monthlyBudgetUsd === undefined
+              ? undefined
+              : parseCategoryBudget(input.monthlyBudgetUsd)
           await updateDoc(doc(firestore, 'categories', existing.id), {
             monthly_budget: monthlyBudget,
+            ...(usd === undefined ? {} : { monthly_budget_usd: usd }),
           })
-          return { ...existing, monthlyBudget }
+          return {
+            ...existing,
+            monthlyBudget,
+            ...(usd === undefined ? {} : { monthlyBudgetUsd: usd }),
+          }
         },
         { householdId: input.householdId, categoryId: input.categoryId },
       )
@@ -1663,6 +1675,11 @@ export function createFirestoreHouseholdsDb(
               purchase_date: toFirestoreExpenseDate(input.paymentDate),
               comments: '',
               currency: input.currency,
+              // Where it came from. Without it this consumo is
+              // indistinguishable from shopping done on the same card,
+              // and Gastos listed it -- while the whole point of paying
+              // a servicio with a card is that it belongs to Servicios.
+              pendiente_id: input.pendienteId,
               created_at: now,
             })
             cuotas.forEach((cuota, index) => {

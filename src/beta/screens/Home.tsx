@@ -1,6 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import {
   ArrowRight,
+  CalendarClock,
+  ChartPie,
+  Plus,
+  ReceiptText,
   CalendarDays,
   ChevronRight,
   Target,
@@ -61,6 +65,11 @@ export function Home({
   // columns stopped matching. Paying is what the Servicios screen is
   // for, and it is one tap away.
   const [editingBill, setEditingBill] = useState<Pendiente | null>(null)
+  // Adding from an empty column. A household that has just signed up sees
+  // nothing but headings otherwise, and the one thing it needs is the way
+  // in -- which is on the screen already, but not where somebody looking
+  // at an empty list is looking.
+  const [adding, setAdding] = useState<'gasto' | 'servicio' | null>(null)
   // The category whose month is open: tapping a slice of the ring shows
   // what it is made of.
   const [openCategory, setOpenCategory] = useState<string | null>(null)
@@ -202,8 +211,17 @@ export function Home({
     monthEnd,
     now,
   })
-  const { budget, owed, cards, bills, late, byCategory, cardBills } =
-    figures
+  const {
+    budget,
+    owed,
+    owedUsd,
+    owedBefore,
+    cards,
+    bills,
+    late,
+    byCategory,
+    cardBills,
+  } = figures
   // Both columns the same height: a list of three beside a list of four
   // read as two unrelated things, and the eye goes to the longer one.
   // Movements are one list -- a consumo and a gasto are both "what we
@@ -236,6 +254,26 @@ export function Home({
       })),
     'ARS',
   )
+  // The same three in dollars. They are never added to the pesos and they
+  // never touch the budget -- the ceiling is in pesos and there is no rate
+  // this app is willing to pick -- but leaving them off the first screen
+  // is not the same as keeping them apart: a month spent on Meta Ads and
+  // herramientas looked empty here while the money was plainly gone.
+  // Every other screen has said them for months. Per direct feedback:
+  // "informativamente tiene que mostrarse, por más que no afecte".
+  const inUsd = (kept: (expense: Expense) => boolean): number =>
+    sumIn(
+      expenses.filter(kept).map((expense) => ({
+        price: expense.price,
+        currency: expense.currency ?? 'ARS',
+      })),
+      'USD',
+    )
+  const spentUsd = inUsd(
+    (expense) =>
+      !isServicio(expense) && !cardCategories.has(expense.categoryId),
+  )
+  const serviciosPaidUsd = inUsd((expense) => isServicio(expense))
   const moves = [
     // Paying a servicio writes a gasto -- that is how the money leaves
     // the month -- but the gym is not something the household bought
@@ -251,23 +289,27 @@ export function Home({
           !isServicio(expense) && !cardCategories.has(expense.categoryId),
       )
       .map((expense) => ({
-      id: expense.id,
-      at: expense.expenseDate,
-      expense,
-      purchase: undefined,
-    })),
-    ...purchases.map((purchase) => ({
-      id: purchase.id,
-      at: purchase.purchaseDate,
-      expense: undefined,
-      purchase,
-    })),
+        id: expense.id,
+        at: expense.expenseDate,
+        expense,
+        purchase: undefined,
+      })),
+    // Same rule: a consumo that came from paying a servicio is on
+    // Servicios, not among the month's shopping.
+    ...purchases
+      .filter((purchase) => (purchase.pendienteId ?? null) === null)
+      .map((purchase) => ({
+        id: purchase.id,
+        at: purchase.purchaseDate,
+        expense: undefined,
+        purchase,
+      })),
   ]
     .sort((a, b) => b.at.getTime() - a.at.getTime())
     .slice(0, HOME_ROWS)
-  const soonest = [...bills]
-    .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
-    .slice(0, HOME_ROWS)
+  // Already in the order Servicios shows them in -- re-sorting by due
+  // date here was what undid it.
+  const soonest = bills.slice(0, HOME_ROWS)
   const several = members.length > 1
   const others = members
     .map((member) => member.displayName)
@@ -298,37 +340,48 @@ export function Home({
               and the card's own figure takes the full width under them --
               the shape reads faster, and it is the whole of the panel, so
               there is nothing above it to shrink them against. */}
-          <div className={budget > 0 ? 'trio four' : 'trio four pairplus'}>
+          {/* The same four, with a budget or without one. "pairplus" was
+              the no-budget shape back when this panel held three cards
+              and one of them carried the only action on the screen; the
+              action lives under the panel now and the shape is one. */}
+          <div className="trio four">
             <div className="card out">
               <span className="cap">
                 <span className="dot dot-paid" />
                 Gastos realizados
               </span>
-              <Figure className="amt" amount={spent} />
-              <span className="foot">
-                Lo de una vez, lo que está en Gastos.
+              <span className="amt">
+                <Figure className="one" amount={spent} />
+                {spentUsd > 0 ? (
+                  <Figure className="one" amount={spentUsd} currency="USD" />
+                ) : null}
               </span>
-              {/* The one thing this panel can offer when there is no
-                  budget, on the card somebody is already reading. */}
-              {budget > 0 ? null : (
-                <button
-                  className="btn btn-secondary"
-                  type="button"
-                  onClick={() => setBudgeting(true)}
-                >
-                  <Target />
-                  Poner un presupuesto
-                </button>
-              )}
+              <span className="foot">
+                Gastos que realizás una vez. Ejemplo, café o comida.
+              </span>
             </div>
             <div className="card out">
               <span className="cap">
                 <span className="dot dot-paid" />
                 Servicios pagados
               </span>
-              <Figure className="amt" amount={serviciosPaid} />
+              <span className="amt">
+                <Figure className="one" amount={serviciosPaid} />
+                {serviciosPaidUsd > 0 ? (
+                  <Figure
+                    className="one"
+                    amount={serviciosPaidUsd}
+                    currency="USD"
+                  />
+                ) : null}
+              </span>
+              {/* The resúmenes paid this month are in this figure: the
+                  card bill is loaded as a servicio, so it is one. Said in
+                  the subtext rather than left to be worked out from the
+                  figure. Her words, parentheses and all. */}
               <span className="foot">
-                Lo que se paga mes a mes y ya salió.
+                Servicios que se pagan mensualmente o de forma recurrente.
+                (Incluye tarjetas de crédito)
               </span>
             </div>
             <div className="card wait">
@@ -336,9 +389,20 @@ export function Home({
                 <span className="dot dot-owed" />
                 Servicios por pagar
               </span>
-              <Figure className="amt" amount={owed} />
+              <span className="amt">
+                <Figure className="one" amount={owed} />
+                {owedUsd > 0 ? (
+                  <Figure className="one" amount={owedUsd} currency="USD" />
+                ) : null}
+              </span>
+              {/* How much of it is arrears, said here rather than left
+                  to be inferred: a month that has just inherited five of
+                  the municipality's should say so and not only look
+                  expensive. */}
               <span className="foot">
-                Los que vencen este mes y todavía no pagaron.
+                {owedBefore > 0
+                  ? `Incluye ${formatCurrency(owedBefore)} que viene de meses anteriores y todavía hay que pagar. (Incluye tarjetas de crédito)`
+                  : 'Servicios que se pagan mensualmente o de forma recurrente, y todavía no se pagaron. (Incluye tarjetas de crédito)'}
               </span>
             </div>
             <Link className="card cardtot" to="/tarjetas">
@@ -370,11 +434,49 @@ export function Home({
           </div>
         </div>
       </div>
+      {/* Under the panel and to its right, where every other "and now
+          what" in this app sits -- "Ver todos los gastos", "Ver por
+          categoría". Inside one of the cards it pushed that card taller
+          than the three beside it, so a button for the panel was bending
+          the panel's own grid. */}
+      {budget > 0 ? null : (
+        <button
+          className="btn btn-secondary btn-wide"
+          type="button"
+          onClick={() => setBudgeting(true)}
+        >
+          <Target />
+          Poner un presupuesto
+        </button>
+      )}
 
       <div className="cols">
         <div className="col">
           <section className="sec">
             <h2>Últimos gastos</h2>
+            {moves.length === 0 ? (
+              <div className="card empty">
+                <span className="orb" aria-hidden="true">
+                  <ReceiptText />
+                </span>
+                <h3>Todavía no hay gastos anotados</h3>
+                <p>
+                  Acá aparecen los gastos del día a día, ordenados por fecha.
+                  Los que se repiten todos los meses van en Servicios.
+                </p>
+                {/* Named apart from the one in the header, which is on
+                    screen at the same time: two buttons with one name is
+                    one button as far as anybody reading is concerned. */}
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={() => setAdding('gasto')}
+                >
+                  <Plus />
+                  Anotar el primero
+                </button>
+              </div>
+            ) : null}
             {moves.map((move) =>
               move.expense === undefined ? (
                 <PurchaseRow
@@ -396,14 +498,42 @@ export function Home({
             )}
             {/* At the foot of the list rather than beside its heading: it
                 is what you reach for once you have read the last row, and
-                up there it was a small link competing with the title. */}
-            <Link className="btn btn-secondary btn-wide" to="/gastos">
-              <ArrowRight />
-              Ver todos los gastos
-            </Link>
+                up there it was a small link competing with the title. Not
+                offered at all while there is no list: a way through to an
+                empty screen is not a next step. */}
+            {moves.length === 0 ? null : (
+              <Link className="btn btn-secondary btn-wide" to="/gastos">
+                <ArrowRight />
+                Ver todos los gastos
+              </Link>
+            )}
           </section>
         </div>
         <div className="col">
+          {bills.length === 0 ? (
+            <section className="sec">
+              <h2>Servicios</h2>
+              <div className="card empty">
+                <span className="orb" aria-hidden="true">
+                  <CalendarClock />
+                </span>
+                <h3>Todavía no hay servicios</h3>
+                <p>
+                  Son los pagos que se repiten todos los meses: la luz, el gas,
+                  el alquiler. Se cargan una vez y vuelven solos, cada uno con
+                  su fecha de vencimiento.
+                </p>
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={() => setAdding('servicio')}
+                >
+                  <Plus />
+                  Agregar un servicio
+                </button>
+              </div>
+            </section>
+          ) : null}
           {bills.length > 0 ? (
             <section className="sec">
               <h2>Servicios</h2>
@@ -435,19 +565,55 @@ export function Home({
       </div>
 
       <div className="band">
-        <Donut
-          rows={byCategory}
-          cardBills={cardBills}
-          onPick={setOpenCategory}
-        />
-        <Link className="btn btn-secondary btn-wide" to="/categorias">
-          <ArrowRight />
-          Ver por categoría
-        </Link>
+        {byCategory.length === 0 && cardBills.length === 0 ? (
+          <div className="card empty">
+            <span className="orb" aria-hidden="true">
+              <ChartPie />
+            </span>
+            <h3>Todavía no hay nada para repartir</h3>
+            <p>
+              Cuando haya gastos anotados, acá se reparte el total del mes por
+              categoría.
+            </p>
+          </div>
+        ) : (
+          <>
+            <Donut
+              rows={byCategory}
+              cardBills={cardBills}
+              onPick={setOpenCategory}
+            />
+            <Link className="btn btn-secondary btn-wide" to="/categorias">
+              <ArrowRight />
+              Ver por categoría
+            </Link>
+          </>
+        )}
       </div>
 
       <ProjectionLink monthStart={monthStart} />
 
+      {adding === null ? null : adding === 'gasto' ? (
+        <GastoSheet
+          open
+          onClose={() => setAdding(null)}
+          session={session}
+          expense={null}
+          categories={categories}
+          methods={methods}
+          today={new Date()}
+        />
+      ) : (
+        <ServicioSheet
+          open
+          onClose={() => setAdding(null)}
+          session={session}
+          bill={null}
+          categories={categories}
+          methods={methods}
+          today={new Date()}
+        />
+      )}
       {editing === null ? null : (
         <GastoSheet
           open

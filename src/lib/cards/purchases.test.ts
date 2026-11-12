@@ -4,6 +4,7 @@ import {
   computeRemainingBudget,
   listCategories,
   listExpensesInMonth,
+  renameCategory,
   updateExpense,
 } from '@/lib/expenses'
 import {
@@ -21,6 +22,10 @@ import {
 import type { Pendiente } from '@/lib/pendientes'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { createCard } from './cards'
+import {
+  markPendientePaidWithCard,
+  RESUMEN_CATEGORY_NAME,
+} from './purchases'
 import {
   canPayResumen,
   CardPurchaseLockedError,
@@ -144,7 +149,9 @@ describe('createCardPurchase', () => {
       db: s.db,
       householdId: s.householdId,
     })
-    const tarjeta = categories.find((category) => category.name === 'Tarjeta')
+    const tarjeta = categories.find(
+      (category) => category.name === RESUMEN_CATEGORY_NAME,
+    )
     expect(tarjeta).toBeDefined()
     const pendientes = await listPendientes({
       db: s.db,
@@ -1008,7 +1015,9 @@ describe('markResumenPaid', () => {
       db: s.db,
       householdId: s.householdId,
     })
-    const tarjeta = categories.find((category) => category.name === 'Tarjeta')
+    const tarjeta = categories.find(
+      (category) => category.name === RESUMEN_CATEGORY_NAME,
+    )
     expect(
       expenses.map((e) => [e.name, e.price, e.subcategory, e.categoryId]),
     ).toEqual([
@@ -1470,5 +1479,101 @@ describe('a card that holds both currencies', () => {
     await expect(purchase(s, { currency: 'USD' })).rejects.toThrow(
       'Visa no admite consumos en esa moneda.',
     )
+  })
+})
+
+// The category a Resumen lives in is created as "Tarjeta" and the
+// household may rename it -- "le cambié Tarjetas a Tarjetas de Crédito
+// para que se entienda mejor". Looking it up by that name afterwards
+// finds nothing and makes a second one beside the first, so the old
+// Resúmenes sit in one category and every new one in the other.
+describe('the card category after it has been renamed', () => {
+  it('keeps putting Resúmenes in the one the household already has', async () => {
+    const s = await setup()
+    await purchase(s)
+    const [first] = await resumenesIn(s, 2026, 9)
+    if (first === undefined) throw new Error('expected a Resumen')
+
+    await renameCategory({
+      db: s.db,
+      householdId: s.householdId,
+      categoryId: first.categoryId,
+      name: 'Tarjetas de Crédito',
+    })
+
+    await purchase(s, { name: 'Mayorista', total: 100, cuotas: 1 })
+
+    const categories = await listCategories({
+      db: s.db,
+      householdId: s.householdId,
+    })
+    // One card category, not two.
+    expect(
+      categories.filter(
+        (category) =>
+          category.name === RESUMEN_CATEGORY_NAME ||
+          category.name === 'Tarjetas de Crédito',
+      ).length,
+    ).toBe(1)
+    // And the new Resumen is in it.
+    const after = await listPendientes({ db: s.db, householdId: s.householdId })
+    const resumenes = after.filter((one) => one.cardId !== undefined)
+    expect(resumenes.length).toBeGreaterThan(0)
+    for (const resumen of resumenes) {
+      expect(
+        categories.find((category) => category.id === resumen.categoryId)?.name,
+      ).toBe('Tarjetas de Crédito')
+    }
+  })
+})
+
+// Paying a servicio with a credit card writes a consumo and nothing
+// else, because the money does not leave today. That consumo has to say
+// where it came from, or it is indistinguishable from a café bought on
+// the same card -- and Gastos listed it, while the whole point of
+// putting a servicio on a card is that it belongs to Servicios. Per
+// direct feedback: "es un servicio, no me tiene que aparecer en gastos".
+describe('the consumo a servicio payment writes', () => {
+  it('remembers the bill it came from', async () => {
+    const s = await setup()
+    const bill = await createPendiente({
+      db: s.db,
+      householdId: s.householdId,
+      categoryId: s.comidaId,
+      name: 'Claro Flor - Teléfono',
+      dueDate: new Date(2026, 8, 6),
+      expectedAmount: 11_998.01,
+      recurring: true,
+      autoDebit: true,
+      paymentMethodId: s.visa.id,
+    })
+
+    const { purchase } = await markPendientePaidWithCard({
+      db: s.db,
+      householdId: s.householdId,
+      pendienteId: bill.id,
+      cardId: s.visa.id,
+      memberId: 'user-1',
+      authorDisplayName: 'Ada',
+      finalAmount: 11_998.01,
+      cuotas: 1,
+      paymentDate: new Date(2026, 8, 11),
+      currency: 'ARS',
+    })
+
+    expect(purchase.pendienteId).toBe(bill.id)
+    // And it survives being read back, which is what the screens do.
+    const [back] = await s.db.getCardPurchases({
+      householdId: s.householdId,
+      purchaseIds: [purchase.id],
+    })
+    expect(back?.pendienteId).toBe(bill.id)
+  })
+
+  it('leaves ordinary shopping unmarked', async () => {
+    const s = await setup()
+    const bought = await purchase(s)
+
+    expect(bought.pendienteId ?? null).toBeNull()
   })
 })

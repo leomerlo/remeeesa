@@ -106,6 +106,7 @@ export type HouseholdsDb = {
     readonly householdId: string
     readonly categoryId: string
     readonly monthlyBudget: number
+    readonly monthlyBudgetUsd?: number
   }): Promise<Category>
   // Creates a doc at the new name's id (carrying over color and createdAt),
   // repoints every referencing Expense and Pendiente, then deletes the old doc.

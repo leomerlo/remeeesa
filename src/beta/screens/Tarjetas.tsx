@@ -15,6 +15,7 @@ import { ListSkeleton, NameSkel } from '../Skeleton'
 import { Figure } from '../Figure'
 import { useMonth } from '../MonthContext'
 import { formatAmount, monthName } from '../format'
+import { cardCategoryIds, sumIn } from '../figures'
 import type { BetaSession } from '../data'
 import { LoadFailed, Title } from './Gastos'
 
@@ -35,7 +36,7 @@ export function Tarjetas({
   readonly session: BetaSession
 }): ReactElement {
   const householdId = session.householdId ?? null
-  const { monthStart } = useMonth()
+  const { monthStart, monthEnd } = useMonth()
   const next = nextMonthOf(monthStart)
 
   const data = useQuery({
@@ -57,7 +58,19 @@ export function Tarjetas({
           listResumenCuotas({ db: session.db, householdId: id, resumen }),
         ),
       )
-      return { pendientes, cards, resumenes, cuotas }
+      // What the month actually handed the cards. It is money that left,
+      // so Inicio counts it -- but it is not something the household
+      // bought today, so Gastos leaves it out, and this screen was only
+      // ever about what is coming. It had no figure anywhere.
+      const [expenses, categories] = await Promise.all([
+        session.db.listExpensesInMonth({
+          householdId: id,
+          monthStart,
+          monthEnd,
+        }),
+        session.db.listCategories(id),
+      ])
+      return { pendientes, cards, resumenes, cuotas, expenses, categories }
     },
   })
 
@@ -78,7 +91,21 @@ export function Tarjetas({
     )
   }
 
-  const { pendientes, cards, resumenes, cuotas } = data.data
+  const { pendientes, cards, resumenes, cuotas, expenses, categories } =
+    data.data
+  // Everything the month paid into a card's own category: the Resúmenes
+  // settled in it, each written as one gasto per cuota.
+  const cardCategories = cardCategoryIds({ pendientes, categories })
+  const paidToCards = expenses
+    .filter((expense) => cardCategories.has(expense.categoryId))
+    .map((expense) => ({
+      price: expense.price,
+      currency: expense.currency ?? DEFAULT_CURRENCY,
+    }))
+  const settledTotals = (['ARS', 'USD'] as const).flatMap((currency) => {
+    const total = sumIn(paidToCards, currency)
+    return total === 0 ? [] : [{ currency, total }]
+  })
   const totals = cardsDueNextMonthTotals(pendientes, monthStart)
   const credit = cards.filter((card) => card.kind === 'credito')
 
@@ -91,7 +118,8 @@ export function Tarjetas({
       />
 
       <div className="hood solo">
-        <div className="card hero">
+        <div className="duo">
+        <div className="card half">
           <div className="label">Los resúmenes de {monthName(next)}</div>
           <div className="figure">
             {totals.length === 0 ? (
@@ -112,6 +140,35 @@ export function Tarjetas({
             resumen trae impuestos e intereses que todavía no están acá. Cuando
             llegue cerrado, anótenlo como un gasto.
           </p>
+        </div>
+        {/* The other half of the card's month, and the one that had no
+            figure anywhere: what was handed over. It is inside Inicio's
+            "Gastado" -- it is money that left -- but Gastos leaves it out
+            because nobody bought anything today, so until now it could
+            only be found by opening each card. */}
+        <div className="card half">
+          <div className="label">
+            Resúmenes pagados en {monthName(monthStart)}
+          </div>
+          <div className="figure">
+            {settledTotals.length === 0 ? (
+              <Figure amount={0} />
+            ) : (
+              settledTotals.map(({ currency, total }) => (
+                <Figure
+                  className="one"
+                  key={currency}
+                  amount={total}
+                  currency={currency}
+                />
+              ))
+            )}
+          </div>
+          <p className="herosay">
+            Plata que ya salió de la cuenta este mes para pagar resúmenes.
+            Está contada en el total de Inicio, no en Gastos.
+          </p>
+        </div>
         </div>
       </div>
 

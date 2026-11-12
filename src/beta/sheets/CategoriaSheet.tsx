@@ -16,6 +16,7 @@ import { CategoryTile } from '../Tile'
 import { DangerAction, Sheet, SheetFoot } from '../Sheet'
 import { useSave } from '../useSave'
 import type { BetaSession } from '../data'
+import { formatAmount } from '../format'
 import {
   MoneyField,
   SelectField,
@@ -38,6 +39,7 @@ export function CategoriaSheet({
   category,
   existing,
   spentThisMonth,
+  spentUsdThisMonth,
 }: {
   readonly open: boolean
   readonly onClose: () => void
@@ -48,6 +50,8 @@ export function CategoriaSheet({
   // What this category has taken this month, so a cap can be set against
   // something real rather than guessed at.
   readonly spentThisMonth?: number
+  // The same, in dollars: a category can be spent in both.
+  readonly spentUsdThisMonth?: number
 }): ReactElement {
   const [name, setName] = useState(category?.name ?? '')
   const [color, setColor] = useState(
@@ -57,6 +61,15 @@ export function CategoriaSheet({
     category === null || category.monthlyBudget === 0
       ? ''
       : String(category.monthlyBudget),
+  )
+  // The same ceiling for the dollars this category takes. Its own figure
+  // because nothing in this app adds the two currencies: Meta Ads is
+  // spent only in dollars and a peso ceiling never sees it, while a
+  // subscriptions category has some of each and needs both.
+  const [capUsd, setCapUsd] = useState(
+    category?.monthlyBudgetUsd === undefined || category.monthlyBudgetUsd === 0
+      ? ''
+      : String(category.monthlyBudgetUsd),
   )
 
   const trimmed = name.trim()
@@ -108,12 +121,17 @@ export function CategoriaSheet({
           color,
         })
       }
-      if (target.monthlyBudget !== budget) {
+      const budgetUsd = capUsd.trim() === '' ? 0 : moneyValue(capUsd)
+      if (
+        target.monthlyBudget !== budget ||
+        (target.monthlyBudgetUsd ?? 0) !== budgetUsd
+      ) {
         target = await updateCategoryBudget({
           db: session.db,
           householdId,
           categoryId: target.id,
           monthlyBudget: budget,
+          monthlyBudgetUsd: budgetUsd,
         })
       }
       return target
@@ -169,13 +187,26 @@ export function CategoriaSheet({
         </div>
       </div>
       <MoneyField
-        label="Tope del mes"
+        label="Tope del mes en pesos"
         value={cap}
         onChange={setCap}
         hint={
           spentThisMonth === undefined || spentThisMonth === 0
             ? 'Opcional. Los topes no tienen que sumar el presupuesto del hogar: se le pone tope a las pocas que importan.'
             : `Opcional. Este mes llevan ${pesos(spentThisMonth)} acá.`
+        }
+      />
+      {/* Its own ceiling, counted aparte. Una categoría puede tener uno,
+          el otro, o los dos. */}
+      <MoneyField
+        label="Tope del mes en dólares"
+        prefix="US$"
+        value={capUsd}
+        onChange={setCapUsd}
+        hint={
+          spentUsdThisMonth === undefined || spentUsdThisMonth === 0
+            ? 'Opcional. Para lo que se paga en dólares: cuenta aparte del tope en pesos y nunca se suman.'
+            : `Opcional. Este mes llevan ${formatAmount(spentUsdThisMonth, 'USD')} acá.`
         }
       />
       {cap.trim() !== '' &&

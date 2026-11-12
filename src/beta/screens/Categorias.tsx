@@ -10,7 +10,7 @@ import { categoriasFigures } from '../figures'
 import { ListSkeleton, NameSkel } from '../Skeleton'
 import { useMonth } from '../MonthContext'
 import { CategoryTile } from '../Tile'
-import { formatCurrency, monthName } from '../format'
+import { formatAmount, formatCurrency, monthName } from '../format'
 import type { BetaSession } from '../data'
 import { CategoriaSheet } from '../sheets/CategoriaSheet'
 import { LoadFailed, Title } from './Gastos'
@@ -207,7 +207,15 @@ function CategoryBars({
             >
               <CategoryTile name={row.name} color={row.color} />
               <span className="name">{row.name}</span>
-              <span className="amt">{formatCurrency(row.total)}</span>
+              <span className="amt">
+                {formatCurrency(row.total)}
+                {/* Said out loud rather than folded in: a category spent
+                    in dollars read "$ 0" here while the money was
+                    plainly gone. Per direct feedback. */}
+                {row.totalUsd > 0 ? (
+                  <b className="usd">{formatAmount(row.totalUsd, 'USD')}</b>
+                ) : null}
+              </span>
               <span className="bar">
                 <i
                   style={{
@@ -216,6 +224,20 @@ function CategoryBars({
                   }}
                 />
               </span>
+              {/* Its own bar, because it is its own money: the two are
+                  never added, so they are never one bar either. */}
+              {row.capUsd > 0 ? (
+                <span className="bar usdbar">
+                  <i
+                    style={{
+                      width: `${String(Math.min(100, Math.round((row.totalUsd / row.capUsd) * 100)))}%`,
+                      background: row.overUsd
+                        ? 'var(--red-solid)'
+                        : row.color,
+                    }}
+                  />
+                </span>
+              ) : null}
               <span className={over ? 'sub over' : 'sub'}>
                 {row.isCard
                   ? 'Cada consumo se cuenta en su categoría, el mes que lo compraron.'
@@ -229,6 +251,13 @@ function CategoryBars({
                         : `${formatCurrency(cap - row.total)} por debajo del tope de ${formatCurrency(cap)}`
                       : `${String(Math.round(row.share * 100))}% de lo que gastaron`}
               </span>
+              {row.capUsd > 0 ? (
+                <span className={row.overUsd ? 'sub over' : 'sub'}>
+                  {row.overUsd
+                    ? `Se pasaron ${formatAmount(row.totalUsd - row.capUsd, 'USD')} del tope de ${formatAmount(row.capUsd, 'USD')}`
+                    : `${formatAmount(row.capUsd - row.totalUsd, 'USD')} por debajo del tope de ${formatAmount(row.capUsd, 'USD')}`}
+                </span>
+              ) : null}
             </button>
           )
         })}
@@ -245,6 +274,9 @@ function CategoryBars({
             : {
                 spentThisMonth:
                   rows.find((row) => row.categoryId === editing.id)?.total ?? 0,
+                spentUsdThisMonth:
+                  rows.find((row) => row.categoryId === editing.id)?.totalUsd ??
+                  0,
               })}
         />
       )}

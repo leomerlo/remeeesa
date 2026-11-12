@@ -540,6 +540,11 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
       const updated: Category = {
         ...existing,
         monthlyBudget: parseCategoryBudget(input.monthlyBudget),
+        // Left as it was when the caller does not mention it: the peso
+        // form can be saved without touching the dollar ceiling.
+        ...(input.monthlyBudgetUsd === undefined
+          ? {}
+          : { monthlyBudgetUsd: parseCategoryBudget(input.monthlyBudgetUsd) }),
       }
       state.categories.set(existing.id, updated)
       return updated
@@ -1421,6 +1426,8 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         purchaseDate: input.paymentDate,
         comments: '',
         currency: input.currency,
+        // Where it came from, so Gastos can leave it to Servicios.
+        pendienteId: input.pendienteId,
         createdAt,
         paidResumenIds: [],
       }
