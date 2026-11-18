@@ -1,6 +1,7 @@
 import {
   Check,
   ChevronRight,
+  CreditCard,
   Info,
   LineChart,
   TriangleAlert,
@@ -170,6 +171,7 @@ export function PurchaseRow({
               this month -- it arrives with the card's resumen -- but it
               names the card like everywhere else. */}
           <span className="tag credit">
+            <CreditCard />
             Con {paidWithName(methods, purchase.cardId)}
           </span>
           <span className="tag cat-tag" style={cssVars({ '--pc': mark.color })}>
@@ -289,10 +291,18 @@ export function BillRow({
             {/* What it was paid with, which only a paid bill has. Named
                 where the name is known, and "con tarjeta" where the card
                 behind the payment could not be read. */}
-            {state !== 'paid' ? null : paidWith != null ? (
+            {/* A bill settled with a credit card is the one "paid" on
+                this screen whose money has NOT left: it went to next
+                month's resumen. So it wears the card badge, the same one
+                a consumo wears, instead of the grey one every other
+                payment method gets. */}
+            {state !== 'paid' ? null : bill.paidPurchaseId != null ? (
+              <span className="tag credit">
+                <CreditCard />
+                Con {paidWith ?? 'tarjeta'}
+              </span>
+            ) : paidWith != null ? (
               <span className="tag soft">Con {paidWith}</span>
-            ) : bill.paidPurchaseId != null ? (
-              <span className="tag soft">Con tarjeta</span>
             ) : null}
             {/* Part of it is already in: the badge says how much of how
                 much, because the big figure above now only says what is

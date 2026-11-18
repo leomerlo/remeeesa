@@ -50,6 +50,31 @@
   --rose-50: #ffe4ec;
   --rose-700: #a02348;
 
+  /* The three states a peso can be in. They used to live only in an 8px
+     dot beside a caption, so telling "ya pagado" from "va al resumen del
+     mes que viene" meant reading the caption -- on a panel where every
+     cell had the same dark ground. These are grounds, and each one is
+     the same colour wherever that state appears: the band on Inicio, the
+     bands on Gastos and Servicios, and the badges on every row.
+
+     Measured: the -ink of each reads on its own -bg at 6.0:1 or better,
+     and --ink reads on all three above 14:1, which is what the figures
+     use. The three grounds sit within 1.06 of each other in luminance --
+     they differ in hue, not in weight, so none of them shouts over the
+     other two. Hue alone is not a signal everybody can see, which is why
+     each one also carries its own icon and its own words. */
+  --paid-bg: #d6f3e2; /* verde: la plata ya salió de la cuenta */
+  --paid-ink: #0b5c33; /* 6.9:1 sobre su fondo */
+  --paid-line: #5cb98a;
+
+  --owed-bg: #ffe9b8; /* amarillo: falta pagarlo este mes */
+  --owed-ink: #7a4900; /* 6.3:1 */
+  --owed-line: #d49a1b;
+
+  --card-bg: #ffe0c7; /* naranja: no sale hoy, va al resumen que viene */
+  --card-ink: #8c3d05; /* 6.0:1 */
+  --card-line: #e07a2c;
+
   --side: #1d1630;
   --side-ink: #f1ecf9;
   --side-ink-2: #a99fc0;
@@ -1107,9 +1132,18 @@ body {
   background: #ebe6f4;
   color: var(--ink-2);
 }
+/* "Con tal tarjeta" is the one badge that has to be findable without
+     being read: it is the only one that means the money has not left yet.
+     So it wears the orange ground of every other card-shaped thing in the
+     app, an outline nothing else here has, and the card icon. Flor:
+     "que tenga una especie de identificador que yo me dé cuenta en todos
+     lados que esto todavía no entró y que es para el mes que viene". */
 .tag.credit {
-  background: var(--red-50);
-  color: var(--red-700);
+  background: var(--card-bg);
+  color: var(--card-ink);
+  border: 1.5px solid var(--card-line);
+  /* Back out the border so it lines up with the badges beside it. */
+  padding: 2.5px 8.5px;
 }
 /* The two states that mean "pay this" are the only high-contrast badges
      on the screen: solid red at 4.6:1 with white, solid amber at 9.1:1
@@ -4291,4 +4325,101 @@ a.card {
   .hood:not(.bigfig) .trio .usdline {
     font-size: clamp(22px, 2.4vw, 28px);
   }
+}
+
+
+/* ===== the three states, as tiles inside the dark panel =====
+   Inicio, Gastos and Servicios all end in a band of figures, and until
+   now every cell of it was the same dark violet divided by hairlines:
+   the only thing saying which was which was a dot and a caption. Flor
+   read the whole band every time to find the one she wanted -- "me está
+   costando la lectura, siempre leo todo".
+
+   So each cell takes the ground of its state. The dark panel stays as
+   the tray that holds them, which is what keeps the band one thing
+   instead of three loose cards. */
+.tiles {
+  gap: 10px;
+  padding: 10px;
+}
+/* The hairlines that used to divide the cells: a tile has its own edge
+   now, and a line between two grounds is a line too many. */
+.hood .duo.tiles > * + *,
+.hood .duo.three.tiles > * + *,
+.hood .trio.four.tiles > :nth-child(2),
+.hood .trio.four.tiles > :nth-child(3),
+.hood .trio.four.tiles > :nth-child(4) {
+  border-left: 0;
+  border-top: 0;
+}
+.hood .card.st {
+  background: var(--st-bg);
+  border: 2px solid var(--st-line);
+  border-radius: 14px;
+  color: var(--ink);
+}
+.st-paid {
+  --st-bg: var(--paid-bg);
+  --st-ink: var(--paid-ink);
+  --st-line: var(--paid-line);
+}
+.st-owed {
+  --st-bg: var(--owed-bg);
+  --st-ink: var(--owed-ink);
+  --st-line: var(--owed-line);
+}
+.st-card {
+  --st-bg: var(--card-bg);
+  --st-ink: var(--card-ink);
+  --st-line: var(--card-line);
+}
+/* Everything inside a tile answers to the tile, not to the panel: the
+   caption and the small print take the state's own ink, and the figure
+   takes the page's, which is the strongest thing either ground has
+   (14:1 and up on all three). */
+.hood .card.st .label,
+.hood .card.st .cap,
+.hood .card.st .herosay,
+.hood .card.st .foot,
+.hood .card.st .go {
+  color: var(--st-ink);
+}
+.hood .card.st .figure,
+.hood .card.st .amt,
+.hood .card.st .usdline,
+.hood .card.st .usdline b {
+  color: var(--ink);
+}
+/* The small print is the one text in the tile that is not the state's
+   name or its figure, so it steps back -- without going pale, which is
+   the one thing this app does not do. */
+.hood .card.st .herosay,
+.hood .card.st .foot {
+  opacity: 0.86;
+}
+/* The icon that says the state without words, for the reader who cannot
+   tell these three hues apart and for the one who is not reading at all.
+   It sits in the caption, where the dot used to. */
+.stico {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+.stico svg {
+  width: 17px;
+  height: 17px;
+  stroke-width: 2.6;
+}
+.hood .card.st .cap,
+.hood .card.st .label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-weight: 700;
+}
+/* The badges a tile carries (Servicios puts "3 sin pagar" inside one)
+   are the page's badges, so they keep the page's ink and need the
+   outline to lift off a coloured ground rather than a white one. */
+.hood .card.st .herotags .tag {
+  border: 1px solid rgba(25, 20, 38, 0.18);
 }

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { CreditCard, Plus, ReceiptText } from 'lucide-react'
+import { Check, CreditCard, Plus, ReceiptText } from 'lucide-react'
 import { useState } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 import { computeSpentThisMonth, isServicio } from '@/lib/expenses'
@@ -204,9 +204,17 @@ export function Gastos({
   // the second figure meant losing sight of the first.
   const hero = (
     <div className="hood solo">
-      <div className="duo">
-        <div className="card half">
-          <div className="label">Pagado en {monthName(monthStart)}</div>
+      {/* Verde lo que ya salió de la cuenta, naranja lo que todavía no:
+          las dos mitades decían lo mismo en violeta y la diferencia
+          entera estaba en el texto chico de abajo. */}
+      <div className="duo tiles">
+        <div className="card half st st-paid">
+          <div className="label">
+            <span className="stico" aria-hidden="true">
+              <Check />
+            </span>
+            Pagado en {monthName(monthStart)}
+          </div>
           <div className="figure">
             <Figure amount={computeSpentThisMonth(delMes)} />
           </div>
@@ -223,8 +231,13 @@ export function Gastos({
             resumen de la tarjeta.
           </p>
         </div>
-        <div className="card half">
-          <div className="label">Con tarjeta en {monthName(monthStart)}</div>
+        <div className="card half st st-card">
+          <div className="label">
+            <span className="stico" aria-hidden="true">
+              <CreditCard />
+            </span>
+            Con tarjeta en {monthName(monthStart)}
+          </div>
           <div className="figure">
             <Figure amount={computeSpentThisMonth(conTarjeta)} />
           </div>
