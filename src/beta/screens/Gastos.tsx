@@ -213,7 +213,7 @@ export function Gastos({
             <span className="stico" aria-hidden="true">
               <Check />
             </span>
-            Pagado en {monthName(monthStart)}
+            Gastado en {monthName(monthStart)}
           </div>
           <div className="figure">
             <Figure amount={computeSpentThisMonth(delMes)} />
@@ -236,7 +236,7 @@ export function Gastos({
             <span className="stico" aria-hidden="true">
               <CreditCard />
             </span>
-            Con tarjeta en {monthName(monthStart)}
+            Pagados con tarjeta
           </div>
           <div className="figure">
             <Figure amount={computeSpentThisMonth(conTarjeta)} />
