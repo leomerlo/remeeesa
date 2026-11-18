@@ -434,7 +434,7 @@ export function Home({
                 <span className="stico" aria-hidden="true">
                   <CreditCard />
                 </span>
-                Gastos hechos con la tarjeta
+                Pagos hechos con la tarjeta, tanto de gastos como servicios
               </span>
               <span className="amt">
                 {cards.length === 0 ? (
