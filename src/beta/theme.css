@@ -75,6 +75,31 @@
   --card-ink: #8c3d05; /* 6.0:1 */
   --card-line: #e07a2c;
 
+  /* The same three states at full strength, for the cards that carry a
+     month's figures. Flor picked the register herself, from four
+     references: saturated diagonal gradients, big radius, soft coloured
+     shadow -- "esas cards son mega basicas" was the verdict on the flat
+     tints above, which stay for the badges, where a pale ground is what
+     a 12px pill needs.
+
+     The text on these is --ink, not white. White on these colours lands
+     at 2.2:1, and on the yellow at 1.4:1 -- the references do it and it
+     is the one thing this app does not do. Dark ink holds 5.1:1 on the
+     worst end of the green, 5.2:1 on the orange and 8.7:1 on the
+     yellow, so the colour stays as loud as the reference and the figure
+     is still readable in the sun. */
+  --paid-a: #34d9a0;
+  --paid-b: #0e9b6a;
+  --paid-sh: rgba(13, 140, 95, 0.45);
+
+  --owed-a: #ffd45e;
+  --owed-b: #f2a516;
+  --owed-sh: rgba(216, 146, 12, 0.45);
+
+  --card-a: #ff9456;
+  --card-b: #f0552a;
+  --card-sh: rgba(216, 73, 34, 0.42);
+
   --side: #1d1630;
   --side-ink: #f1ecf9;
   --side-ink-2: #a99fc0;
@@ -4327,99 +4352,113 @@ a.card {
   }
 }
 
-
-/* ===== the three states, as tiles inside the dark panel =====
+/* ===== the three states, as cards of their own =====
    Inicio, Gastos and Servicios all end in a band of figures, and until
    now every cell of it was the same dark violet divided by hairlines:
-   the only thing saying which was which was a dot and a caption. Flor
-   read the whole band every time to find the one she wanted -- "me está
-   costando la lectura, siempre leo todo".
+   the only thing saying which was which was an 8px dot and a caption.
+   Flor read the whole band every time to find the one she wanted -- "me
+   está costando la lectura, siempre leo todo".
 
-   So each cell takes the ground of its state. The dark panel stays as
-   the tray that holds them, which is what keeps the band one thing
-   instead of three loose cards. */
+   So each figure became its own card, in its state's colour, out on the
+   page instead of inside the dark panel. The panel stays on Inicio for
+   the budget, which is the one thing up there that is not a state. */
 .tiles {
-  gap: 10px;
-  padding: 10px;
+  display: grid;
+  gap: 12px;
 }
-/* The hairlines that used to divide the cells: a tile has its own edge
-   now, and a line between two grounds is a line too many. */
-.hood .duo.tiles > * + *,
-.hood .duo.three.tiles > * + *,
-.hood .trio.four.tiles > :nth-child(2),
-.hood .trio.four.tiles > :nth-child(3),
-.hood .trio.four.tiles > :nth-child(4) {
-  border-left: 0;
-  border-top: 0;
-}
-.hood .card.st {
-  background: var(--st-bg);
-  border: 2px solid var(--st-line);
-  border-radius: 14px;
+.card.st {
+  position: relative;
+  background: linear-gradient(135deg, var(--st-a) 0%, var(--st-b) 100%);
+  border: 0;
+  border-radius: 20px;
+  box-shadow: 0 12px 26px -14px var(--st-sh);
   color: var(--ink);
+  padding: 18px;
+  overflow: hidden;
+  isolation: isolate;
+}
+/* The light that every one of her references has coming off the top
+   corner. A wash, not a second colour: it lifts the flat fill without
+   giving the card an edge the eye has to resolve. */
+.card.st::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(
+    120% 90% at 92% 4%,
+    rgba(255, 255, 255, 0.42),
+    rgba(255, 255, 255, 0) 62%
+  );
+  pointer-events: none;
 }
 .st-paid {
-  --st-bg: var(--paid-bg);
-  --st-ink: var(--paid-ink);
-  --st-line: var(--paid-line);
+  --st-a: var(--paid-a);
+  --st-b: var(--paid-b);
+  --st-sh: var(--paid-sh);
 }
 .st-owed {
-  --st-bg: var(--owed-bg);
-  --st-ink: var(--owed-ink);
-  --st-line: var(--owed-line);
+  --st-a: var(--owed-a);
+  --st-b: var(--owed-b);
+  --st-sh: var(--owed-sh);
 }
 .st-card {
-  --st-bg: var(--card-bg);
-  --st-ink: var(--card-ink);
-  --st-line: var(--card-line);
+  --st-a: var(--card-a);
+  --st-b: var(--card-b);
+  --st-sh: var(--card-sh);
 }
-/* Everything inside a tile answers to the tile, not to the panel: the
-   caption and the small print take the state's own ink, and the figure
-   takes the page's, which is the strongest thing either ground has
-   (14:1 and up on all three). */
-.hood .card.st .label,
-.hood .card.st .cap,
-.hood .card.st .herosay,
-.hood .card.st .foot,
-.hood .card.st .go {
-  color: var(--st-ink);
-}
-.hood .card.st .figure,
-.hood .card.st .amt,
-.hood .card.st .usdline,
-.hood .card.st .usdline b {
+/* One ink for everything on the card. The small print steps back with
+   opacity rather than with a paler colour, so it goes on being the same
+   measured contrast on all three grounds. */
+.card.st .label,
+.card.st .cap,
+.card.st .figure,
+.card.st .amt,
+.card.st .usdline,
+.card.st .usdline b,
+.card.st .go {
   color: var(--ink);
 }
-/* The small print is the one text in the tile that is not the state's
-   name or its figure, so it steps back -- without going pale, which is
-   the one thing this app does not do. */
-.hood .card.st .herosay,
-.hood .card.st .foot {
-  opacity: 0.86;
+.card.st .herosay,
+.card.st .foot {
+  color: var(--ink);
+  opacity: 0.74;
+}
+.card.st .label,
+.card.st .cap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  opacity: 0.92;
 }
 /* The icon that says the state without words, for the reader who cannot
    tell these three hues apart and for the one who is not reading at all.
-   It sits in the caption, where the dot used to. */
+   In its own disc, the way every reference does it. */
 .stico {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.46);
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   flex: none;
 }
 .stico svg {
-  width: 17px;
-  height: 17px;
-  stroke-width: 2.6;
+  width: 19px;
+  height: 19px;
+  stroke-width: 2.4;
 }
-.hood .card.st .cap,
-.hood .card.st .label {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-weight: 700;
+/* The badges a card carries (Servicios puts "3 sin pagar" inside one)
+   sit on a colour now, so they take a white ground of their own rather
+   than their usual tint, which was mixed for white paper. */
+.card.st .herotags .tag {
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--ink);
+  border: 0;
 }
-/* The badges a tile carries (Servicios puts "3 sin pagar" inside one)
-   are the page's badges, so they keep the page's ink and need the
-   outline to lift off a coloured ground rather than a white one. */
-.hood .card.st .herotags .tag {
-  border: 1px solid rgba(25, 20, 38, 0.18);
+/* The one card that is a link keeps its chevron out of the text. */
+.card.st.cardtot {
+  align-content: start;
 }

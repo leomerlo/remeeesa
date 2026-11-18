@@ -343,122 +343,123 @@ export function Home({
           edges: the numbers carry the structure, and the only colour in
           it is each figure's own. The greeting and the month pager stay
           outside it -- they say who and when, not how much. */}
-      <div className="hood">
-        <div className="band">
-          {budget > 0 ? (
+      {budget > 0 ? (
+        <div className="hood">
+          <div className="band">
             <BudgetHero figures={figures} onBudget={() => setBudgeting(true)} />
-          ) : null}
-
-          {/* With a budget, three cards across the foot of the panel. With
-              none, the two that say what the month did stay side by side
-              and the card's own figure takes the full width under them --
-              the shape reads faster, and it is the whole of the panel, so
-              there is nothing above it to shrink them against. */}
-          {/* The same four, with a budget or without one. "pairplus" was
-              the no-budget shape back when this panel held three cards
-              and one of them carried the only action on the screen; the
-              action lives under the panel now and the shape is one. */}
-          {/* The four states of the month, each on its own ground: verde
-              lo que ya salió, amarillo lo que falta pagar, naranja lo
-              que va al resumen del mes que viene. They were four
-              identical dark cells told apart by an 8px dot. */}
-          <div className="trio four tiles">
-            <div className="card out st st-paid">
-              <span className="cap">
-                <span className="stico" aria-hidden="true">
-                  <Check />
-                </span>
-                Gastos realizados
-              </span>
-              <span className="amt">
-                <Figure className="one" amount={spent} />
-                {spentUsd > 0 ? (
-                  <Figure className="one" amount={spentUsd} currency="USD" />
-                ) : null}
-              </span>
-              <span className="foot">
-                Gastos que realizás una vez. Ejemplo, café o comida.
-              </span>
-            </div>
-            <div className="card out st st-paid">
-              <span className="cap">
-                <span className="stico" aria-hidden="true">
-                  <Check />
-                </span>
-                Servicios pagados
-              </span>
-              <span className="amt">
-                <Figure className="one" amount={serviciosPaid} />
-                {serviciosPaidUsd > 0 ? (
-                  <Figure
-                    className="one"
-                    amount={serviciosPaidUsd}
-                    currency="USD"
-                  />
-                ) : null}
-              </span>
-              {/* The resúmenes paid this month are in this figure: the
-                  card bill is loaded as a servicio, so it is one. Said in
-                  the subtext rather than left to be worked out from the
-                  figure. Her words, parentheses and all. */}
-              <span className="foot">
-                Servicios que se pagan mensualmente o de forma recurrente.
-                (Incluye tarjetas de crédito)
-              </span>
-            </div>
-            <div className="card wait st st-owed">
-              <span className="cap">
-                <span className="stico" aria-hidden="true">
-                  <CalendarClock />
-                </span>
-                Servicios por pagar
-              </span>
-              <span className="amt">
-                <Figure className="one" amount={owed} />
-                {owedUsd > 0 ? (
-                  <Figure className="one" amount={owedUsd} currency="USD" />
-                ) : null}
-              </span>
-              {/* How much of it is arrears, said here rather than left
-                  to be inferred: a month that has just inherited five of
-                  the municipality's should say so and not only look
-                  expensive. */}
-              <span className="foot">
-                {owedBefore > 0
-                  ? `Incluye ${formatCurrency(owedBefore)} que viene de meses anteriores y todavía hay que pagar. (Incluye tarjetas de crédito)`
-                  : 'Servicios que se pagan mensualmente o de forma recurrente, y todavía no se pagaron. (Incluye tarjetas de crédito)'}
-              </span>
-            </div>
-            <Link className="card cardtot st st-card" to="/tarjetas">
-              <span className="cap">
-                <span className="stico" aria-hidden="true">
-                  <CreditCard />
-                </span>
-                Gastos hechos con la tarjeta
-              </span>
-              <span className="amt">
-                {cards.length === 0 ? (
-                  <Figure amount={0} />
-                ) : (
-                  cards.map(({ currency, total }) => (
-                    <Figure
-                      className="one"
-                      key={currency}
-                      amount={total}
-                      currency={currency}
-                    />
-                  ))
-                )}
-              </span>
-              <span className="foot">
-                Lo que van a pedir los resúmenes el mes que viene.
-              </span>
-              <span className="go" aria-hidden="true">
-                <ChevronRight />
-              </span>
-            </Link>
           </div>
         </div>
+      ) : null}
+      {/* The four states of the month, each on its own card: verde lo que
+          ya salió, amarillo lo que falta pagar, naranja lo que va al
+          resumen del mes que viene. They used to be four identical dark
+          cells inside the panel above, told apart by an 8px dot -- so
+          they sat on the page as their own colour instead. */}
+      <div className="trio four tiles">
+        {/* With a budget, three cards across the foot of the panel. With
+          none, the two that say what the month did stay side by side
+          and the card's own figure takes the full width under them --
+          the shape reads faster, and it is the whole of the panel, so
+          there is nothing above it to shrink them against. */}
+        {/* The same four, with a budget or without one. "pairplus" was
+          the no-budget shape back when this panel held three cards
+          and one of them carried the only action on the screen; the
+          action lives under the panel now and the shape is one. */}
+
+        <div className="card out st st-paid">
+          <span className="cap">
+            <span className="stico" aria-hidden="true">
+              <Check />
+            </span>
+            Gastos realizados
+          </span>
+          <span className="amt">
+            <Figure className="one" amount={spent} />
+            {spentUsd > 0 ? (
+              <Figure className="one" amount={spentUsd} currency="USD" />
+            ) : null}
+          </span>
+          <span className="foot">
+            Gastos que realizás una vez. Ejemplo, café o comida.
+          </span>
+        </div>
+        <div className="card out st st-paid">
+          <span className="cap">
+            <span className="stico" aria-hidden="true">
+              <Check />
+            </span>
+            Servicios pagados
+          </span>
+          <span className="amt">
+            <Figure className="one" amount={serviciosPaid} />
+            {serviciosPaidUsd > 0 ? (
+              <Figure
+                className="one"
+                amount={serviciosPaidUsd}
+                currency="USD"
+              />
+            ) : null}
+          </span>
+          {/* The resúmenes paid this month are in this figure: the
+              card bill is loaded as a servicio, so it is one. Said in
+              the subtext rather than left to be worked out from the
+              figure. Her words, parentheses and all. */}
+          <span className="foot">
+            Servicios que se pagan mensualmente o de forma recurrente. (Incluye
+            tarjetas de crédito)
+          </span>
+        </div>
+        <div className="card wait st st-owed">
+          <span className="cap">
+            <span className="stico" aria-hidden="true">
+              <CalendarClock />
+            </span>
+            Servicios por pagar
+          </span>
+          <span className="amt">
+            <Figure className="one" amount={owed} />
+            {owedUsd > 0 ? (
+              <Figure className="one" amount={owedUsd} currency="USD" />
+            ) : null}
+          </span>
+          {/* How much of it is arrears, said here rather than left
+              to be inferred: a month that has just inherited five of
+              the municipality's should say so and not only look
+              expensive. */}
+          <span className="foot">
+            {owedBefore > 0
+              ? `Incluye ${formatCurrency(owedBefore)} que viene de meses anteriores y todavía hay que pagar. (Incluye tarjetas de crédito)`
+              : 'Servicios que se pagan mensualmente o de forma recurrente, y todavía no se pagaron. (Incluye tarjetas de crédito)'}
+          </span>
+        </div>
+        <Link className="card cardtot st st-card" to="/tarjetas">
+          <span className="cap">
+            <span className="stico" aria-hidden="true">
+              <CreditCard />
+            </span>
+            Gastos hechos con la tarjeta
+          </span>
+          <span className="amt">
+            {cards.length === 0 ? (
+              <Figure amount={0} />
+            ) : (
+              cards.map(({ currency, total }) => (
+                <Figure
+                  className="one"
+                  key={currency}
+                  amount={total}
+                  currency={currency}
+                />
+              ))
+            )}
+          </span>
+          <span className="foot">
+            Lo que van a pedir los resúmenes el mes que viene.
+          </span>
+          <span className="go" aria-hidden="true">
+            <ChevronRight />
+          </span>
+        </Link>
       </div>
       {/* Under the panel and to its right, where every other "and now
           what" in this app sits -- "Ver todos los gastos", "Ver por
