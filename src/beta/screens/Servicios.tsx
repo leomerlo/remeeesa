@@ -275,9 +275,18 @@ export function Servicios({
   // anybody has to do something about.
   const hero = (
     <div className="hood solo">
+      {/* Each of the three takes the ground of its state -- amarillo lo
+          que falta, verde lo que ya salió, naranja lo que va al resumen
+          que viene -- because on one dark ground the only difference
+          between them was a caption nobody reads twice. */}
       <div className="duo three">
-        <div className="card half">
+        <div
+          className={`card half st ${allUnpaid.length === 0 ? 'st-paid' : 'st-owed'}`}
+        >
           <div className="label">
+            <span className="stico" aria-hidden="true">
+              {allUnpaid.length === 0 ? <Check /> : <CalendarClock />}
+            </span>
             {allUnpaid.length === 0
               ? `Pagaron todo en ${monthName(monthStart)}`
               : 'Servicios que faltan pagar'}
@@ -315,8 +324,13 @@ export function Servicios({
             ) : null}
           </div>
         </div>
-        <div className="card half">
-          <div className="label">Servicios que ya pagaste</div>
+        <div className="card half st st-paid">
+          <div className="label">
+            <span className="stico" aria-hidden="true">
+              <Check />
+            </span>
+            Servicios que ya pagaste
+          </div>
           <div className="figure">
             <Figure amount={paidTotal} />
           </div>
@@ -328,12 +342,13 @@ export function Servicios({
           {/* Said out loud because the figure above is not only the
               settled bills: a servicio part-paid has money in here while
               the rest of it is still in the figure beside it. */}
-          <p className="herosay">
-            Esta plata ya salió de la cuenta este mes.
-          </p>
+          <p className="herosay">Esta plata ya salió de la cuenta este mes.</p>
         </div>
-        <div className="card half">
+        <div className="card half st st-card">
           <div className="label">
+            <span className="stico" aria-hidden="true">
+              <CreditCard />
+            </span>
             Servicios que pagaste con tarjeta de crédito
           </div>
           <div className="figure">

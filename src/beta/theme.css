@@ -50,6 +50,12 @@
   --rose-50: #ffe4ec;
   --rose-700: #a02348;
 
+  /* The card state, for the one badge that wears it on white paper.
+     Measured: the ink reads on the tint at 6.0:1. */
+  --card-tint: #ffe0c7;
+  --card-ink: #8c3d05;
+  --card-line: #e07a2c;
+
   --side: #1d1630;
   --side-ink: #f1ecf9;
   --side-ink-2: #a99fc0;
@@ -1107,9 +1113,18 @@ body {
   background: #ebe6f4;
   color: var(--ink-2);
 }
+/* "Con tal tarjeta" is the one badge that has to be findable without
+     being read: it is the only one that means the money has not left yet.
+     So it keeps its orange, and takes an outline nothing else here has
+     plus the card icon. Flor: "que tenga una especie de identificador
+     que yo me dé cuenta en todos lados que esto todavía no entró y que
+     es para el mes que viene". */
 .tag.credit {
-  background: var(--red-50);
-  color: var(--red-700);
+  background: var(--card-tint);
+  color: var(--card-ink);
+  border: 1.5px solid var(--card-line);
+  /* Back out the border so it lines up with the badges beside it. */
+  padding: 2.5px 8.5px;
 }
 /* The two states that mean "pay this" are the only high-contrast badges
      on the screen: solid red at 4.6:1 with white, solid amber at 9.1:1
@@ -4291,4 +4306,73 @@ a.card {
   .hood:not(.bigfig) .trio .usdline {
     font-size: clamp(22px, 2.4vw, 28px);
   }
+}
+
+/* ===== which state each figure is in =====
+   Inicio, Gastos and Servicios all end in a band of figures on the dark
+   panel, and every cell of it looked the same: the only thing saying
+   which was which was an 8px dot and a caption. Flor read the whole band
+   every time to find the one she wanted -- "me está costando la lectura,
+   siempre leo todo y es como, tengo que identificar cada cosa lo que
+   es".
+
+   The panel stays violet, which is where this ended after trying the
+   states as coloured grounds: "volvé a como estábamos con el violeta, y
+   la identificación que pase con borde de color e iconografía nomás".
+   So each cell takes a bar in its state's colour and the icon to match,
+   and nothing else changes. The three colours are the panel's own
+   lighter end of each ramp, which is what it already used for the dots.
+
+   Amarillo lo que falta pagar, verde lo que ya salió de la cuenta,
+   naranja lo que no sale este mes y va al resumen del que viene. */
+.hood .card.st {
+  border-left: 5px solid var(--st);
+}
+/* Stacked on a phone the bar reads along the left of each cell. Side by
+   side it would be a bar between two cells instead of the mark of one,
+   so there it sits on top. */
+@media (min-width: 560px) {
+  .hood .duo .card.st,
+  .hood .trio.four .card.st {
+    border-left: 0;
+    border-top: 5px solid var(--st);
+  }
+}
+@media (min-width: 860px) {
+  .hood .duo.three .card.st {
+    border-left: 0;
+    border-top: 5px solid var(--st);
+  }
+}
+.st-paid {
+  --st: var(--hood-green);
+}
+.st-owed {
+  --st: var(--hood-amber);
+}
+.st-card {
+  --st: var(--hood-red);
+}
+/* The caption and its icon in the state's own colour -- the caption was
+   already doing this on three of the four cells on Inicio, by hand. */
+.hood .card.st .cap,
+.hood .card.st .label {
+  color: var(--st);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+/* The icon that says the state without words, for the reader who cannot
+   tell these three hues apart and for the one who is not reading at all.
+   It sits where the dot used to, and is bigger than the dot was. */
+.stico {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+.stico svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.6;
 }

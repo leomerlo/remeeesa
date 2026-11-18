@@ -7,6 +7,8 @@ import {
   ReceiptText,
   CalendarDays,
   ChevronRight,
+  Check,
+  CreditCard,
   Target,
   TriangleAlert,
 } from 'lucide-react'
@@ -356,10 +358,16 @@ export function Home({
               the no-budget shape back when this panel held three cards
               and one of them carried the only action on the screen; the
               action lives under the panel now and the shape is one. */}
+          {/* The four states of the month, each on its own ground: verde
+              lo que ya salió, amarillo lo que falta pagar, naranja lo
+              que va al resumen del mes que viene. They were four
+              identical dark cells told apart by an 8px dot. */}
           <div className="trio four">
-            <div className="card out">
+            <div className="card out st st-paid">
               <span className="cap">
-                <span className="dot dot-paid" />
+                <span className="stico" aria-hidden="true">
+                  <Check />
+                </span>
                 Gastos realizados
               </span>
               <span className="amt">
@@ -372,9 +380,11 @@ export function Home({
                 Gastos que realizás una vez. Ejemplo, café o comida.
               </span>
             </div>
-            <div className="card out">
+            <div className="card out st st-paid">
               <span className="cap">
-                <span className="dot dot-paid" />
+                <span className="stico" aria-hidden="true">
+                  <Check />
+                </span>
                 Servicios pagados
               </span>
               <span className="amt">
@@ -396,9 +406,11 @@ export function Home({
                 (Incluye tarjetas de crédito)
               </span>
             </div>
-            <div className="card wait">
+            <div className="card wait st st-owed">
               <span className="cap">
-                <span className="dot dot-owed" />
+                <span className="stico" aria-hidden="true">
+                  <CalendarClock />
+                </span>
                 Servicios por pagar
               </span>
               <span className="amt">
@@ -417,10 +429,12 @@ export function Home({
                   : 'Servicios que se pagan mensualmente o de forma recurrente, y todavía no se pagaron. (Incluye tarjetas de crédito)'}
               </span>
             </div>
-            <Link className="card cardtot" to="/tarjetas">
+            <Link className="card cardtot st st-card" to="/tarjetas">
               <span className="cap">
-                <span className="dot dot-card" />
-                Gastos hechos con la tarjeta
+                <span className="stico" aria-hidden="true">
+                  <CreditCard />
+                </span>
+                Pagos hechos con la tarjeta, tanto de gastos como servicios
               </span>
               <span className="amt">
                 {cards.length === 0 ? (

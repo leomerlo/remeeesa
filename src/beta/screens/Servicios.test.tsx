@@ -1,6 +1,7 @@
 import { fireEvent, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
+import { markPendientePaidWithCard } from '@/lib/cards'
 import { createMemoryHouseholdsDb } from '@/test/memoryHouseholdsDb'
 import { renderWithProviders } from '@/test/renderWithProviders'
 import { MonthProvider } from '../MonthContext'
@@ -67,7 +68,6 @@ function render(session: BetaSession): void {
     </MemoryRouter>,
   )
 }
-
 
 // The figure on one of the three cards above the search, read off that
 // card rather than off the screen: the same amount is usually on a row
@@ -198,7 +198,9 @@ describe('a servicio paid in more than one go', () => {
   it('shows what is left, and says how much of how much is in', async () => {
     const session = await house()
     const [expensas] = (
-      await session.db.listPendientes({ householdId: session.householdId ?? '' })
+      await session.db.listPendientes({
+        householdId: session.householdId ?? '',
+      })
     ).filter((bill) => bill.name === 'Expensas')
     if (expensas === undefined) throw new Error('missing Expensas')
     await session.db.payPendientePartially({
@@ -225,7 +227,9 @@ describe('a servicio paid in more than one go', () => {
   it('shows a settled bill for what it was worth, not for zero', async () => {
     const session = await house()
     const [luz] = (
-      await session.db.listPendientes({ householdId: session.householdId ?? '' })
+      await session.db.listPendientes({
+        householdId: session.householdId ?? '',
+      })
     ).filter((bill) => bill.name === 'Luz')
     if (luz === undefined) throw new Error('missing Luz')
     await session.db.payPendientePartially({
@@ -261,7 +265,9 @@ describe('the three figures of the month', () => {
   it('counts a settled bill as paid and an open one as owed', async () => {
     const session = await house()
     const [luz] = (
-      await session.db.listPendientes({ householdId: session.householdId ?? '' })
+      await session.db.listPendientes({
+        householdId: session.householdId ?? '',
+      })
     ).filter((bill) => bill.name === 'Luz')
     if (luz === undefined) throw new Error('missing Luz')
     await session.db.markPendientePaid({
@@ -285,7 +291,9 @@ describe('the three figures of the month', () => {
   it('splits a part-paid bill across the two figures', async () => {
     const session = await house()
     const [expensas] = (
-      await session.db.listPendientes({ householdId: session.householdId ?? '' })
+      await session.db.listPendientes({
+        householdId: session.householdId ?? '',
+      })
     ).filter((bill) => bill.name === 'Expensas')
     if (expensas === undefined) throw new Error('missing Expensas')
     await session.db.payPendientePartially({
@@ -302,5 +310,98 @@ describe('the three figures of the month', () => {
     // $50.000 out, and $36.800 + $38.000 still owed.
     expect(await heroFigure('Servicios que ya pagaste')).toBe('$ 50.000')
     expect(await heroFigure('Servicios que faltan pagar')).toBe('$ 74.800')
+  })
+})
+
+// Her own words, after a week of using it: "me está costando la lectura,
+// siempre leo todo y es como, tengo que identificar cada cosa lo que es".
+// The three cards above the search said what they were in a caption on a
+// ground all three shared -- so telling "ya pagado" from "va al resumen
+// del mes que viene" meant reading. Each one carries its state's ground
+// now: amarillo lo que falta, verde lo que salió, naranja lo que no sale
+// este mes.
+describe('the three states, each on its own ground', () => {
+  // The class is the carrier of the colour, so it is what a test can
+  // hold: jsdom has no painted pixels. What matters and what this
+  // asserts is that the three are not the same.
+  function groundOf(label: string | RegExp): string {
+    const card = screen.getByText(label).closest('.card')
+    if (card === null) throw new Error(`no hero card for ${String(label)}`)
+    const ground = [...card.classList].find((c) => c.startsWith('st-'))
+    if (ground === undefined) {
+      throw new Error(`the card for ${String(label)} has no state ground`)
+    }
+    return ground
+  }
+
+  it('gives a different colour to what is owed, what is paid and what the card takes', async () => {
+    render(await house())
+    await screen.findByText('Luz')
+
+    expect(groundOf('Servicios que faltan pagar')).toBe('st-owed')
+    expect(groundOf('Servicios que ya pagaste')).toBe('st-paid')
+    expect(groundOf(/pagaste con tarjeta de crédito/)).toBe('st-card')
+  })
+
+  it('turns the first card green once the month owes nothing', async () => {
+    const session = await house()
+    const householdId = session.householdId ?? ''
+    const bills = await session.db.listPendientes({ householdId })
+    for (const bill of bills) {
+      await session.db.markPendientePaid({
+        householdId,
+        pendienteId: bill.id,
+        memberId: FLOR,
+        authorDisplayName: 'Flor',
+        finalAmount: bill.expectedAmount ?? 0,
+        paymentDate: DUE(20),
+      })
+    }
+    render(session)
+    await screen.findByText(/Pagaron todo en/)
+
+    // The slot that holds what is owed is still the first card; with
+    // nothing owed it is not a warning, so it does not wear the warning
+    // colour.
+    expect(groundOf(/Pagaron todo en/)).toBe('st-paid')
+  })
+})
+
+// A bill settled with a credit card is the one "pagado" whose money has
+// not left: it went to next month's resumen. It used to wear the same
+// grey badge as a bill paid in cash, which is the exact confusion Flor
+// asked to end -- "que yo me dé cuenta en todos lados que esto todavía
+// no entró y que es para el mes que viene".
+describe('a servicio paid with a credit card', () => {
+  it('wears the card badge, not the grey one every other method gets', async () => {
+    const session = await house()
+    const householdId = session.householdId ?? ''
+    const visa = await session.db.createCard({
+      householdId,
+      name: 'Visa Santander',
+      kind: 'credito',
+      currency: 'ARS',
+      brand: 'visa',
+    })
+    const [luz] = await session.db.listPendientes({ householdId })
+    if (luz === undefined) throw new Error('no bill to pay')
+    await markPendientePaidWithCard({
+      db: session.db,
+      householdId,
+      pendienteId: luz.id,
+      cardId: visa.id,
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      finalAmount: 36_800,
+      cuotas: 1,
+      paymentDate: DUE(20),
+    })
+    render(session)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Con tarjeta' }))
+
+    const badge = await screen.findByText('Con Visa Santander')
+    expect(badge).toHaveClass('credit')
+    expect(badge).not.toHaveClass('soft')
   })
 })
