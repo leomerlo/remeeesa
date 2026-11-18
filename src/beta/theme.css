@@ -4324,24 +4324,29 @@ a.card {
 
    Amarillo lo que falta pagar, verde lo que ya salió de la cuenta,
    naranja lo que no sale este mes y va al resumen del que viene. */
+/* The bar is its own element, not a border. As a border it was fighting
+   the hairlines that divide the panel's own grid -- those are written
+   per nth-child, which outranks any rule about the card itself, so on
+   Inicio the bar survived on the first card and the other three lost it
+   to a 1px divider. Flor: "en mobile se pierden las líneas de colores de
+   los costados de algunas cards, en la home nomás".
+
+   Left edge at every width. It was on top from 560px up, on the idea
+   that a bar between two side-by-side cells would read as a divider --
+   but the dividers are hairlines and this is 5px of colour flush to one
+   card's edge, so it reads as that card's. One rule instead of three. */
 .hood .card.st {
-  border-left: 5px solid var(--st);
+  position: relative;
 }
-/* Stacked on a phone the bar reads along the left of each cell. Side by
-   side it would be a bar between two cells instead of the mark of one,
-   so there it sits on top. */
-@media (min-width: 560px) {
-  .hood .duo .card.st,
-  .hood .trio.four .card.st {
-    border-left: 0;
-    border-top: 5px solid var(--st);
-  }
-}
-@media (min-width: 860px) {
-  .hood .duo.three .card.st {
-    border-left: 0;
-    border-top: 5px solid var(--st);
-  }
+.hood .card.st::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  background: var(--st);
+  pointer-events: none;
 }
 /* Rojo lo que hay que pagar ahora, amarillo lo que llega el mes que
    viene. Flor, mirandolo en la pantalla: "servicios por pagar tiene que
