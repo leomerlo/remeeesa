@@ -50,12 +50,6 @@
   --rose-50: #ffe4ec;
   --rose-700: #a02348;
 
-  /* The card state, for the one badge that wears it on white paper.
-     Measured: the ink reads on the tint at 6.0:1. */
-  --card-tint: #ffe0c7;
-  --card-ink: #8c3d05;
-  --card-line: #e07a2c;
-
   --side: #1d1630;
   --side-ink: #f1ecf9;
   --side-ink-2: #a99fc0;
@@ -1120,9 +1114,9 @@ body {
      que yo me dé cuenta en todos lados que esto todavía no entró y que
      es para el mes que viene". */
 .tag.credit {
-  background: var(--card-tint);
-  color: var(--card-ink);
-  border: 1.5px solid var(--card-line);
+  background: var(--amber-50);
+  color: var(--amber-700);
+  border: 1.5px solid var(--amber-bar);
   /* Back out the border so it lines up with the badges beside it. */
   padding: 2.5px 8.5px;
 }
@@ -1253,6 +1247,11 @@ body {
   --hood-green: #5fd3a0;
   --hood-amber: #f6c758;
   --hood-red: #ff8a6b;
+  /* A red that is a red. The panel's --hood-red above is a salmon --
+     fine for an over-budget figure, too close to the amber beside it
+     once the two became the difference between "pagalo ahora" and "esto
+     llega el mes que viene". 5.2:1 on the panel. */
+  --hood-urgent: #ff6b5a;
   --hood-grape: #a98cff;
   /* The rail's lighter violet rather than its darkest: a full-width
        panel at the rail's own ground read as a hole in the page. */
@@ -4344,14 +4343,19 @@ a.card {
     border-top: 5px solid var(--st);
   }
 }
+/* Rojo lo que hay que pagar ahora, amarillo lo que llega el mes que
+   viene. Flor, mirandolo en la pantalla: "servicios por pagar tiene que
+   estar en rojo, y los hechos con tarjeta en amarillo, porque no son
+   urgentes, son de atencion nomas". El naranja que llevaba la tarjeta
+   se va: entre un rojo y un amarillo no decia ni una cosa ni la otra. */
 .st-paid {
   --st: var(--hood-green);
 }
 .st-owed {
-  --st: var(--hood-amber);
+  --st: var(--hood-urgent);
 }
 .st-card {
-  --st: var(--hood-red);
+  --st: var(--hood-amber);
 }
 /* The caption and its icon in the state's own colour -- the caption was
    already doing this on three of the four cells on Inicio, by hand. */
