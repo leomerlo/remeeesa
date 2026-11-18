@@ -273,90 +273,92 @@ export function Servicios({
   //
   // What is still owed leads, because it is the only one of the three
   // anybody has to do something about.
-  // Each of the three takes its state's own colour -- amarillo lo que
-  // falta, verde lo que ya salió, naranja lo que va al resumen que
-  // viene -- because on one dark ground the only difference between
-  // them was a caption nobody reads twice.
   const hero = (
-    <div className="duo three tiles">
-      <div
-        className={`card half st ${allUnpaid.length === 0 ? 'st-paid' : 'st-owed'}`}
-      >
-        <div className="label">
-          <span className="stico" aria-hidden="true">
-            {allUnpaid.length === 0 ? <Check /> : <CalendarClock />}
-          </span>
-          {allUnpaid.length === 0
-            ? `Pagaron todo en ${monthName(monthStart)}`
-            : 'Servicios que faltan pagar'}
-        </div>
-        <div className="figure">
-          <Figure amount={owed} />
-        </div>
-        {owedUsd > 0 ? (
-          <p className="usdline">
-            <b>{formatAmount(owedUsd, 'USD')}</b>
-          </p>
-        ) : null}
-        {/* The same badges the rows wear: how many are still owed is
-            the one thing on this card you have to do something about,
-            and in grey it read like a caption. */}
-        <div className="herotags">
-          {allUnpaid.length === 0 ? (
-            <span className="tag ok">
-              <Check />
-              {`${String(allPaid.length)} ${allPaid.length === 1 ? 'servicio pagado' : 'servicios pagados'}`}
+    <div className="hood solo">
+      {/* Each of the three takes the ground of its state -- amarillo lo
+          que falta, verde lo que ya salió, naranja lo que va al resumen
+          que viene -- because on one dark ground the only difference
+          between them was a caption nobody reads twice. */}
+      <div className="duo three">
+        <div
+          className={`card half st ${allUnpaid.length === 0 ? 'st-paid' : 'st-owed'}`}
+        >
+          <div className="label">
+            <span className="stico" aria-hidden="true">
+              {allUnpaid.length === 0 ? <Check /> : <CalendarClock />}
             </span>
-          ) : (
-            <span className="tag due">
-              <TriangleAlert />
-              {`${String(allUnpaid.length)} ${allUnpaid.length === 1 ? 'servicio sin pagar' : 'servicios sin pagar'}`}
-            </span>
-          )}
-          {late.length > 0 ? (
-            <span className="tag late">
-              <TriangleAlert />
-              {late.length === 1
-                ? 'Uno viene de un mes anterior'
-                : `${String(late.length)} vienen de meses anteriores`}
-            </span>
+            {allUnpaid.length === 0
+              ? `Pagaron todo en ${monthName(monthStart)}`
+              : 'Servicios que faltan pagar'}
+          </div>
+          <div className="figure">
+            <Figure amount={owed} />
+          </div>
+          {owedUsd > 0 ? (
+            <p className="usdline">
+              <b>{formatAmount(owedUsd, 'USD')}</b>
+            </p>
           ) : null}
+          {/* The same badges the rows wear: how many are still owed is
+              the one thing on this card you have to do something about,
+              and in grey it read like a caption. */}
+          <div className="herotags">
+            {allUnpaid.length === 0 ? (
+              <span className="tag ok">
+                <Check />
+                {`${String(allPaid.length)} ${allPaid.length === 1 ? 'servicio pagado' : 'servicios pagados'}`}
+              </span>
+            ) : (
+              <span className="tag due">
+                <TriangleAlert />
+                {`${String(allUnpaid.length)} ${allUnpaid.length === 1 ? 'servicio sin pagar' : 'servicios sin pagar'}`}
+              </span>
+            )}
+            {late.length > 0 ? (
+              <span className="tag late">
+                <TriangleAlert />
+                {late.length === 1
+                  ? 'Uno viene de un mes anterior'
+                  : `${String(late.length)} vienen de meses anteriores`}
+              </span>
+            ) : null}
+          </div>
         </div>
-      </div>
-      <div className="card half st st-paid">
-        <div className="label">
-          <span className="stico" aria-hidden="true">
-            <Check />
-          </span>
-          Servicios que ya pagaste
+        <div className="card half st st-paid">
+          <div className="label">
+            <span className="stico" aria-hidden="true">
+              <Check />
+            </span>
+            Servicios que ya pagaste
+          </div>
+          <div className="figure">
+            <Figure amount={paidTotal} />
+          </div>
+          {paidTotalUsd > 0 ? (
+            <p className="usdline">
+              <b>{formatAmount(paidTotalUsd, 'USD')}</b>
+            </p>
+          ) : null}
+          {/* Said out loud because the figure above is not only the
+              settled bills: a servicio part-paid has money in here while
+              the rest of it is still in the figure beside it. */}
+          <p className="herosay">Esta plata ya salió de la cuenta este mes.</p>
         </div>
-        <div className="figure">
-          <Figure amount={paidTotal} />
-        </div>
-        {paidTotalUsd > 0 ? (
-          <p className="usdline">
-            <b>{formatAmount(paidTotalUsd, 'USD')}</b>
+        <div className="card half st st-card">
+          <div className="label">
+            <span className="stico" aria-hidden="true">
+              <CreditCard />
+            </span>
+            Servicios que pagaste con tarjeta de crédito
+          </div>
+          <div className="figure">
+            <Figure amount={onCardTotal} />
+          </div>
+          <p className="herosay">
+            No sale este mes: va al resumen de{' '}
+            {monthName(nextMonthOf(monthStart))}.
           </p>
-        ) : null}
-        {/* Said out loud because the figure above is not only the
-            settled bills: a servicio part-paid has money in here while
-            the rest of it is still in the figure beside it. */}
-        <p className="herosay">Esta plata ya salió de la cuenta este mes.</p>
-      </div>
-      <div className="card half st st-card">
-        <div className="label">
-          <span className="stico" aria-hidden="true">
-            <CreditCard />
-          </span>
-          Servicios que pagaste con tarjeta de crédito
         </div>
-        <div className="figure">
-          <Figure amount={onCardTotal} />
-        </div>
-        <p className="herosay">
-          No sale este mes: va al resumen de{' '}
-          {monthName(nextMonthOf(monthStart))}.
-        </p>
       </div>
     </div>
   )

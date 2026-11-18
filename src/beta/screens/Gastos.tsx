@@ -202,53 +202,55 @@ export function Gastos({
   // Both sides at once, above the tabs and never changing with them: the
   // month paid one of these and owes the other, and switching tabs to see
   // the second figure meant losing sight of the first.
-  // Verde lo que ya salió de la cuenta, naranja lo que todavía no: las
-  // dos mitades decían lo mismo en violeta, y la diferencia entera
-  // estaba en el texto chico de abajo.
   const hero = (
-    <div className="duo tiles">
-      <div className="card half st st-paid">
-        <div className="label">
-          <span className="stico" aria-hidden="true">
-            <Check />
-          </span>
-          Pagado en {monthName(monthStart)}
-        </div>
-        <div className="figure">
-          <Figure amount={computeSpentThisMonth(delMes)} />
-        </div>
-        {sumIn(delMes, 'USD') > 0 ? (
-          <p className="usdline">
-            <b>{formatAmount(sumIn(delMes, 'USD'), 'USD')}</b>
+    <div className="hood solo">
+      {/* Verde lo que ya salió de la cuenta, naranja lo que todavía no:
+          las dos mitades decían lo mismo en violeta y la diferencia
+          entera estaba en el texto chico de abajo. */}
+      <div className="duo">
+        <div className="card half st st-paid">
+          <div className="label">
+            <span className="stico" aria-hidden="true">
+              <Check />
+            </span>
+            Pagado en {monthName(monthStart)}
+          </div>
+          <div className="figure">
+            <Figure amount={computeSpentThisMonth(delMes)} />
+          </div>
+          {sumIn(delMes, 'USD') > 0 ? (
+            <p className="usdline">
+              <b>{formatAmount(sumIn(delMes, 'USD'), 'USD')}</b>
+            </p>
+          ) : null}
+          {/* Not the month's whole figure any more: los servicios se
+              cuentan en Servicios y el resumen en Tarjetas. Inicio es
+              donde viven los tres juntos. */}
+          <p className="herosay">
+            Plata que ya salió de la cuenta, sin contar los servicios ni el
+            resumen de la tarjeta.
           </p>
-        ) : null}
-        {/* Not the month's whole figure any more: los servicios se
-            cuentan en Servicios y el resumen en Tarjetas. Inicio es
-            donde viven los tres juntos. */}
-        <p className="herosay">
-          Plata que ya salió de la cuenta, sin contar los servicios ni el
-          resumen de la tarjeta.
-        </p>
-      </div>
-      <div className="card half st st-card">
-        <div className="label">
-          <span className="stico" aria-hidden="true">
-            <CreditCard />
-          </span>
-          Con tarjeta en {monthName(monthStart)}
         </div>
-        <div className="figure">
-          <Figure amount={computeSpentThisMonth(conTarjeta)} />
-        </div>
-        {sumIn(conTarjeta, 'USD') > 0 ? (
-          <p className="usdline">
-            <b>{formatAmount(sumIn(conTarjeta, 'USD'), 'USD')}</b>
+        <div className="card half st st-card">
+          <div className="label">
+            <span className="stico" aria-hidden="true">
+              <CreditCard />
+            </span>
+            Con tarjeta en {monthName(monthStart)}
+          </div>
+          <div className="figure">
+            <Figure amount={computeSpentThisMonth(conTarjeta)} />
+          </div>
+          {sumIn(conTarjeta, 'USD') > 0 ? (
+            <p className="usdline">
+              <b>{formatAmount(sumIn(conTarjeta, 'USD'), 'USD')}</b>
+            </p>
+          ) : null}
+          <p className="herosay">
+            Lo pagaron con tarjeta de crédito y se paga con el resumen del mes
+            que viene.
           </p>
-        ) : null}
-        <p className="herosay">
-          Lo pagaron con tarjeta de crédito y se paga con el resumen del mes que
-          viene.
-        </p>
+        </div>
       </div>
     </div>
   )

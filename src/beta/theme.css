@@ -50,55 +50,11 @@
   --rose-50: #ffe4ec;
   --rose-700: #a02348;
 
-  /* The three states a peso can be in. They used to live only in an 8px
-     dot beside a caption, so telling "ya pagado" from "va al resumen del
-     mes que viene" meant reading the caption -- on a panel where every
-     cell had the same dark ground. These are grounds, and each one is
-     the same colour wherever that state appears: the band on Inicio, the
-     bands on Gastos and Servicios, and the badges on every row.
-
-     Measured: the -ink of each reads on its own -bg at 6.0:1 or better,
-     and --ink reads on all three above 14:1, which is what the figures
-     use. The three grounds sit within 1.06 of each other in luminance --
-     they differ in hue, not in weight, so none of them shouts over the
-     other two. Hue alone is not a signal everybody can see, which is why
-     each one also carries its own icon and its own words. */
-  --paid-bg: #d6f3e2; /* verde: la plata ya salió de la cuenta */
-  --paid-ink: #0b5c33; /* 6.9:1 sobre su fondo */
-  --paid-line: #5cb98a;
-
-  --owed-bg: #ffe9b8; /* amarillo: falta pagarlo este mes */
-  --owed-ink: #7a4900; /* 6.3:1 */
-  --owed-line: #d49a1b;
-
-  --card-bg: #ffe0c7; /* naranja: no sale hoy, va al resumen que viene */
-  --card-ink: #8c3d05; /* 6.0:1 */
+  /* The card state, for the one badge that wears it on white paper.
+     Measured: the ink reads on the tint at 6.0:1. */
+  --card-tint: #ffe0c7;
+  --card-ink: #8c3d05;
   --card-line: #e07a2c;
-
-  /* The same three states at full strength, for the cards that carry a
-     month's figures. Flor picked the register herself, from four
-     references: saturated diagonal gradients, big radius, soft coloured
-     shadow -- "esas cards son mega basicas" was the verdict on the flat
-     tints above, which stay for the badges, where a pale ground is what
-     a 12px pill needs.
-
-     The text on these is --ink, not white. White on these colours lands
-     at 2.2:1, and on the yellow at 1.4:1 -- the references do it and it
-     is the one thing this app does not do. Dark ink holds 5.1:1 on the
-     worst end of the green, 5.2:1 on the orange and 8.7:1 on the
-     yellow, so the colour stays as loud as the reference and the figure
-     is still readable in the sun. */
-  --paid-a: #34d9a0;
-  --paid-b: #0e9b6a;
-  --paid-sh: rgba(13, 140, 95, 0.45);
-
-  --owed-a: #ffd45e;
-  --owed-b: #f2a516;
-  --owed-sh: rgba(216, 146, 12, 0.45);
-
-  --card-a: #ff9456;
-  --card-b: #f0552a;
-  --card-sh: rgba(216, 73, 34, 0.42);
 
   --side: #1d1630;
   --side-ink: #f1ecf9;
@@ -1159,12 +1115,12 @@ body {
 }
 /* "Con tal tarjeta" is the one badge that has to be findable without
      being read: it is the only one that means the money has not left yet.
-     So it wears the orange ground of every other card-shaped thing in the
-     app, an outline nothing else here has, and the card icon. Flor:
-     "que tenga una especie de identificador que yo me dé cuenta en todos
-     lados que esto todavía no entró y que es para el mes que viene". */
+     So it keeps its orange, and takes an outline nothing else here has
+     plus the card icon. Flor: "que tenga una especie de identificador
+     que yo me dé cuenta en todos lados que esto todavía no entró y que
+     es para el mes que viene". */
 .tag.credit {
-  background: var(--card-bg);
+  background: var(--card-tint);
   color: var(--card-ink);
   border: 1.5px solid var(--card-line);
   /* Back out the border so it lines up with the badges beside it. */
@@ -4352,142 +4308,71 @@ a.card {
   }
 }
 
-/* ===== the three states, each block its own colour =====
-   Inicio, Gastos and Servicios all end in a band of figures, and until
-   now every cell of it was the same dark violet: the only thing saying
-   which was which was an 8px dot and a caption. Flor read the whole
-   band every time to find the one she wanted -- "me está costando la
-   lectura, siempre leo todo".
+/* ===== which state each figure is in =====
+   Inicio, Gastos and Servicios all end in a band of figures on the dark
+   panel, and every cell of it looked the same: the only thing saying
+   which was which was an 8px dot and a caption. Flor read the whole band
+   every time to find the one she wanted -- "me está costando la lectura,
+   siempre leo todo y es como, tengo que identificar cada cosa lo que
+   es".
 
-   Each block takes its state's colour, and they stay one band: joined,
-   divided by the thin line, not three cards floating apart. Her call,
-   after seeing them split: "no las hagas divididas las cards, cada
-   bloque tiene su color, divididas entre sí por esa fina línea". */
-.tiles {
-  display: grid;
-  gap: 0;
-  border-radius: 20px;
-  overflow: hidden;
-  box-shadow: var(--lift);
+   The panel stays violet, which is where this ended after trying the
+   states as coloured grounds: "volvé a como estábamos con el violeta, y
+   la identificación que pase con borde de color e iconografía nomás".
+   So each cell takes a bar in its state's colour and the icon to match,
+   and nothing else changes. The three colours are the panel's own
+   lighter end of each ramp, which is what it already used for the dots.
+
+   Amarillo lo que falta pagar, verde lo que ya salió de la cuenta,
+   naranja lo que no sale este mes y va al resumen del que viene. */
+.hood .card.st {
+  border-left: 5px solid var(--st);
 }
-.tiles > * + * {
-  border-top: 1px solid rgba(255, 255, 255, 0.55);
-}
-/* Side by side -- Gastos at any width, Servicios and Inicio once there
-   is room -- the line runs the other way. */
+/* Stacked on a phone the bar reads along the left of each cell. Side by
+   side it would be a bar between two cells instead of the mark of one,
+   so there it sits on top. */
 @media (min-width: 560px) {
-  .duo.tiles > * + * {
-    border-top: 0;
-    border-left: 1px solid rgba(255, 255, 255, 0.55);
+  .hood .duo .card.st,
+  .hood .trio.four .card.st {
+    border-left: 0;
+    border-top: 5px solid var(--st);
   }
 }
 @media (min-width: 860px) {
-  .duo.three.tiles > * + * {
-    border-top: 0;
-    border-left: 1px solid rgba(255, 255, 255, 0.55);
+  .hood .duo.three .card.st {
+    border-left: 0;
+    border-top: 5px solid var(--st);
   }
 }
-.trio.four.tiles > :nth-child(2),
-.trio.four.tiles > :nth-child(4) {
-  border-left: 1px solid rgba(255, 255, 255, 0.55);
-}
-.card.st {
-  position: relative;
-  background: linear-gradient(135deg, var(--st-a) 0%, var(--st-b) 100%);
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  color: var(--st-fg);
-  padding: 18px;
-  isolation: isolate;
-}
-/* The light that every one of her references has coming off the top
-   corner. A wash, not a second colour. */
-.card.st::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: radial-gradient(
-    120% 90% at 92% 4%,
-    rgba(255, 255, 255, 0.3),
-    rgba(255, 255, 255, 0) 62%
-  );
-  pointer-events: none;
-}
-/* Green and orange carry white, by her decision, told what it costs:
-   white lands at 2.9:1 on the green and 2.6:1 on the orange, under the
-   4.5:1 everything else in this file is measured against. "Ponele texto
-   blanco, no importa que no pase." The yellow keeps the dark ink --
-   white there is 1.4:1, and she asked for the other two. */
 .st-paid {
-  --st-a: #34d9a0;
-  --st-b: #0e9b6a;
-  --st-fg: #ffffff;
-  --st-disc: rgba(255, 255, 255, 0.26);
+  --st: var(--hood-green);
 }
 .st-owed {
-  --st-a: #ffd45e;
-  --st-b: #f2a516;
-  --st-fg: var(--ink); /* 8.7:1 en el peor extremo */
-  --st-disc: rgba(255, 255, 255, 0.5);
+  --st: var(--hood-amber);
 }
 .st-card {
-  --st-a: #ff9456;
-  --st-b: #f0552a;
-  --st-fg: #ffffff;
-  --st-disc: rgba(255, 255, 255, 0.26);
+  --st: var(--hood-red);
 }
-/* One ink for everything on the block. The small print steps back with
-   opacity rather than with a paler colour, so it is the same ink on all
-   three grounds. */
-.card.st .label,
-.card.st .cap,
-.card.st .figure,
-.card.st .amt,
-.card.st .usdline,
-.card.st .usdline b,
-.card.st .go {
-  color: var(--st-fg);
-}
-.card.st .herosay,
-.card.st .foot {
-  color: var(--st-fg);
-  opacity: 0.82;
-}
-.card.st .label,
-.card.st .cap {
+/* The caption and its icon in the state's own colour -- the caption was
+   already doing this on three of the four cells on Inicio, by hand. */
+.hood .card.st .cap,
+.hood .card.st .label {
+  color: var(--st);
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   font-weight: 700;
 }
 /* The icon that says the state without words, for the reader who cannot
    tell these three hues apart and for the one who is not reading at all.
-   In its own disc, the way every reference does it. */
+   It sits where the dot used to, and is bigger than the dot was. */
 .stico {
-  width: 34px;
-  height: 34px;
-  border-radius: 11px;
-  background: var(--st-disc);
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   flex: none;
 }
 .stico svg {
-  width: 19px;
-  height: 19px;
-  stroke-width: 2.4;
-}
-/* The badges a block carries (Servicios puts "3 sin pagar" inside one)
-   sit on a colour now, so they take a white ground of their own rather
-   than their usual tint, which was mixed for white paper. */
-.card.st .herotags .tag {
-  background: rgba(255, 255, 255, 0.9);
-  color: var(--ink);
-  border: 0;
-}
-.card.st.cardtot {
-  align-content: start;
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.6;
 }
