@@ -4352,34 +4352,57 @@ a.card {
   }
 }
 
-/* ===== the three states, as cards of their own =====
+/* ===== the three states, each block its own colour =====
    Inicio, Gastos and Servicios all end in a band of figures, and until
-   now every cell of it was the same dark violet divided by hairlines:
-   the only thing saying which was which was an 8px dot and a caption.
-   Flor read the whole band every time to find the one she wanted -- "me
-   está costando la lectura, siempre leo todo".
+   now every cell of it was the same dark violet: the only thing saying
+   which was which was an 8px dot and a caption. Flor read the whole
+   band every time to find the one she wanted -- "me está costando la
+   lectura, siempre leo todo".
 
-   So each figure became its own card, in its state's colour, out on the
-   page instead of inside the dark panel. The panel stays on Inicio for
-   the budget, which is the one thing up there that is not a state. */
+   Each block takes its state's colour, and they stay one band: joined,
+   divided by the thin line, not three cards floating apart. Her call,
+   after seeing them split: "no las hagas divididas las cards, cada
+   bloque tiene su color, divididas entre sí por esa fina línea". */
 .tiles {
   display: grid;
-  gap: 12px;
+  gap: 0;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--lift);
+}
+.tiles > * + * {
+  border-top: 1px solid rgba(255, 255, 255, 0.55);
+}
+/* Side by side -- Gastos at any width, Servicios and Inicio once there
+   is room -- the line runs the other way. */
+@media (min-width: 560px) {
+  .duo.tiles > * + * {
+    border-top: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.55);
+  }
+}
+@media (min-width: 860px) {
+  .duo.three.tiles > * + * {
+    border-top: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.55);
+  }
+}
+.trio.four.tiles > :nth-child(2),
+.trio.four.tiles > :nth-child(4) {
+  border-left: 1px solid rgba(255, 255, 255, 0.55);
 }
 .card.st {
   position: relative;
   background: linear-gradient(135deg, var(--st-a) 0%, var(--st-b) 100%);
   border: 0;
-  border-radius: 20px;
-  box-shadow: 0 12px 26px -14px var(--st-sh);
-  color: var(--ink);
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--st-fg);
   padding: 18px;
-  overflow: hidden;
   isolation: isolate;
 }
 /* The light that every one of her references has coming off the top
-   corner. A wash, not a second colour: it lifts the flat fill without
-   giving the card an edge the eye has to resolve. */
+   corner. A wash, not a second colour. */
 .card.st::after {
   content: '';
   position: absolute;
@@ -4387,29 +4410,37 @@ a.card {
   z-index: -1;
   background: radial-gradient(
     120% 90% at 92% 4%,
-    rgba(255, 255, 255, 0.42),
+    rgba(255, 255, 255, 0.3),
     rgba(255, 255, 255, 0) 62%
   );
   pointer-events: none;
 }
+/* Green and orange carry white, by her decision, told what it costs:
+   white lands at 2.9:1 on the green and 2.6:1 on the orange, under the
+   4.5:1 everything else in this file is measured against. "Ponele texto
+   blanco, no importa que no pase." The yellow keeps the dark ink --
+   white there is 1.4:1, and she asked for the other two. */
 .st-paid {
-  --st-a: var(--paid-a);
-  --st-b: var(--paid-b);
-  --st-sh: var(--paid-sh);
+  --st-a: #34d9a0;
+  --st-b: #0e9b6a;
+  --st-fg: #ffffff;
+  --st-disc: rgba(255, 255, 255, 0.26);
 }
 .st-owed {
-  --st-a: var(--owed-a);
-  --st-b: var(--owed-b);
-  --st-sh: var(--owed-sh);
+  --st-a: #ffd45e;
+  --st-b: #f2a516;
+  --st-fg: var(--ink); /* 8.7:1 en el peor extremo */
+  --st-disc: rgba(255, 255, 255, 0.5);
 }
 .st-card {
-  --st-a: var(--card-a);
-  --st-b: var(--card-b);
-  --st-sh: var(--card-sh);
+  --st-a: #ff9456;
+  --st-b: #f0552a;
+  --st-fg: #ffffff;
+  --st-disc: rgba(255, 255, 255, 0.26);
 }
-/* One ink for everything on the card. The small print steps back with
-   opacity rather than with a paler colour, so it goes on being the same
-   measured contrast on all three grounds. */
+/* One ink for everything on the block. The small print steps back with
+   opacity rather than with a paler colour, so it is the same ink on all
+   three grounds. */
 .card.st .label,
 .card.st .cap,
 .card.st .figure,
@@ -4417,12 +4448,12 @@ a.card {
 .card.st .usdline,
 .card.st .usdline b,
 .card.st .go {
-  color: var(--ink);
+  color: var(--st-fg);
 }
 .card.st .herosay,
 .card.st .foot {
-  color: var(--ink);
-  opacity: 0.74;
+  color: var(--st-fg);
+  opacity: 0.82;
 }
 .card.st .label,
 .card.st .cap {
@@ -4430,7 +4461,6 @@ a.card {
   align-items: center;
   gap: 10px;
   font-weight: 700;
-  opacity: 0.92;
 }
 /* The icon that says the state without words, for the reader who cannot
    tell these three hues apart and for the one who is not reading at all.
@@ -4439,7 +4469,7 @@ a.card {
   width: 34px;
   height: 34px;
   border-radius: 11px;
-  background: rgba(255, 255, 255, 0.46);
+  background: var(--st-disc);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -4450,15 +4480,14 @@ a.card {
   height: 19px;
   stroke-width: 2.4;
 }
-/* The badges a card carries (Servicios puts "3 sin pagar" inside one)
+/* The badges a block carries (Servicios puts "3 sin pagar" inside one)
    sit on a colour now, so they take a white ground of their own rather
    than their usual tint, which was mixed for white paper. */
 .card.st .herotags .tag {
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.9);
   color: var(--ink);
   border: 0;
 }
-/* The one card that is a link keeps its chevron out of the text. */
 .card.st.cardtot {
   align-content: start;
 }
