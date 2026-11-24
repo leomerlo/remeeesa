@@ -421,6 +421,7 @@ export function PickField({
           className="picklist"
           role="listbox"
           aria-labelledby={`${id}-label`}
+          onMouseDown={(event) => event.preventDefault()}
         >
           {options.map((option) => (
             <button
@@ -536,7 +537,10 @@ export function CategoryField({
     onName(next.trim())
   }
 
-  const take = (category: { readonly id: string; readonly name: string }): void => {
+  const take = (category: {
+    readonly id: string
+    readonly name: string
+  }): void => {
     setText(category.name)
     setTyping(false)
     onPick(category.id)
@@ -593,6 +597,7 @@ export function CategoryField({
           className="aclist"
           role="listbox"
           aria-label={`Opciones de ${label}`}
+          onMouseDown={(event) => event.preventDefault()}
         >
           {shown.map((category) => (
             <button
