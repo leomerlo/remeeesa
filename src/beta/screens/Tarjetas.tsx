@@ -7,6 +7,8 @@ import {
   listResumenCuotas,
 } from '@/lib/cards'
 import type { ResumenCuota } from '@/lib/cards'
+import { fetchDolarBlue, usdToArs } from '@/lib/dolarBlue'
+import { readDolarBlueOverride } from '@/lib/dolarBlueOverride'
 
 import type { Pendiente } from '@/lib/pendientes'
 import { DEFAULT_CURRENCY } from '@/lib/money'
@@ -14,7 +16,7 @@ import { CardBrandMark } from '../CardBrandMark'
 import { ListSkeleton, NameSkel } from '../Skeleton'
 import { Figure } from '../Figure'
 import { useMonth } from '../MonthContext'
-import { formatAmount, monthName } from '../format'
+import { formatAmount, formatCurrency, formatPesos, monthName } from '../format'
 import type { BetaSession } from '../data'
 import { LoadFailed, Title } from './Gastos'
 
@@ -60,6 +62,12 @@ export function Tarjetas({
       return { pendientes, cards, resumenes, cuotas }
     },
   })
+  const dolar = useQuery({
+    queryKey: ['beta', 'dolar'],
+    queryFn: fetchDolarBlue,
+    staleTime: 900_000,
+  })
+  const rate = readDolarBlueOverride('venta') ?? dolar.data?.venta ?? null
 
   if (data.isPending) {
     return (
@@ -87,6 +95,8 @@ export function Tarjetas({
   // mes que viene, aproximados".
   const totals = cardsDueNextMonthTotals(pendientes, monthStart)
   const credit = cards.filter((card) => card.kind === 'credito')
+  const usd = totals.find(({ currency }) => currency === 'USD')?.total ?? 0
+  const ars = totals.find(({ currency }) => currency === 'ARS')?.total ?? 0
 
   return (
     <>
@@ -116,6 +126,15 @@ export function Tarjetas({
               ))
             )}
           </div>
+          {usd > 0 && rate !== null ? (
+            <p className="usdline">
+              <span>
+                En pesos,{' '}
+                <b>{formatCurrency(Math.round(ars + usdToArs(usd, rate)))}</b>{' '}
+                con el dólar blue a ${formatPesos(rate)}
+              </span>
+            </p>
+          ) : null}
           <p className="herosay">
             Es lo que las tarjetas van a pedir, y es <b>siempre estimado</b>: el
             resumen trae impuestos e intereses que todavía no están acá. Cuando
