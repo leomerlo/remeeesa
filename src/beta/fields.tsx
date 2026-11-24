@@ -421,10 +421,6 @@ export function PickField({
           className="picklist"
           role="listbox"
           aria-labelledby={`${id}-label`}
-          // Safari never focuses a button it is clicked on, so without this
-          // the press blurs the field with no relatedTarget, the onBlur
-          // above reads it as a tap outside, and the list is gone before
-          // the click that picks the option arrives.
           onMouseDown={(event) => event.preventDefault()}
         >
           {options.map((option) => (
@@ -601,11 +597,6 @@ export function CategoryField({
           className="aclist"
           role="listbox"
           aria-label={`Opciones de ${label}`}
-          // Pressing an option must not take focus from the box. Safari
-          // never focuses a button it is clicked on, so the press blurred
-          // the input with no relatedTarget, the onBlur above read it as a
-          // tap outside, and the list closed before the click that picks
-          // the category arrived -- the option did nothing.
           onMouseDown={(event) => event.preventDefault()}
         >
           {shown.map((category) => (

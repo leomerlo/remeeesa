@@ -391,12 +391,6 @@ describe('an amount written the way it is written here', () => {
 // anotando la panadería, nobody should have to leave the form, make a
 // category and come back. Per direct feedback: "habíamos dicho que era
 // un autocomplete".
-// A click the way Safari delivers it: it never focuses a button it is
-// clicked on, so the press blurs whatever had focus with nothing taking
-// it over -- unless the press itself is cancelled -- and only then does
-// the click arrive. jsdom moves focus to the button like Chrome does,
-// which is why the plain fireEvent.click in these tests never saw the
-// option do nothing.
 function clickAsSafari(option: HTMLElement): void {
   const focused = document.activeElement
   const pressKeptFocus = !fireEvent.mouseDown(option)
@@ -479,7 +473,6 @@ describe('choosing or naming a category', () => {
       expect((await movements(it_)).expenses).toHaveLength(1)
     })
     const categories = await it_.db.listCategories(it_.householdId)
-    // Not a new category named after the half-typed "Com".
     expect(categories.map((category) => category.name)).not.toContain('Com')
     const comida = categories.find((category) => category.name === 'Comida')
     const [gasto] = await it_.db.listExpensesInMonth({
