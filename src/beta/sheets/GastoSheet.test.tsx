@@ -212,6 +212,20 @@ describe('anotar un gasto', () => {
     ).toBeInTheDocument()
   })
 
+  it('picks the card clicked in Safari', async () => {
+    const it_ = await house()
+    open(it_)
+    fill('Netflix', '9000')
+    const trigger = screen.getByRole('button', {
+      name: /¿Con qué lo pagaron\?/,
+    })
+    trigger.focus()
+    fireEvent.click(trigger)
+    clickAsSafari(screen.getByRole('option', { name: /Visa/ }))
+
+    expect(trigger).toHaveAccessibleName(/Visa/)
+  })
+
   it('writes a servicio that the card pays every month', async () => {
     const it_ = await house()
     open(it_)
@@ -377,6 +391,22 @@ describe('an amount written the way it is written here', () => {
 // anotando la panadería, nobody should have to leave the form, make a
 // category and come back. Per direct feedback: "habíamos dicho que era
 // un autocomplete".
+// A click the way Safari delivers it: it never focuses a button it is
+// clicked on, so the press blurs whatever had focus with nothing taking
+// it over -- unless the press itself is cancelled -- and only then does
+// the click arrive. jsdom moves focus to the button like Chrome does,
+// which is why the plain fireEvent.click in these tests never saw the
+// option do nothing.
+function clickAsSafari(option: HTMLElement): void {
+  const focused = document.activeElement
+  const pressKeptFocus = !fireEvent.mouseDown(option)
+  if (!pressKeptFocus && focused instanceof HTMLElement) {
+    fireEvent.blur(focused, { relatedTarget: null })
+  }
+  fireEvent.mouseUp(option)
+  fireEvent.click(option)
+}
+
 describe('choosing or naming a category', () => {
   // The field is the box: clicking it puts the cursor in it and drops
   // the list under it. There is nothing to open first.
@@ -430,6 +460,33 @@ describe('choosing or naming a category', () => {
       ...currentMonthRange(TODAY),
     })
     expect(gasto?.categoryId).toBe(made?.id)
+  })
+
+  it('picks the category clicked in Safari', async () => {
+    const it_ = await house()
+    open(it_)
+    fill('Super', '12000')
+    const box = screen.getByLabelText('Categoría')
+    box.focus()
+    openList()
+    type('Com')
+    clickAsSafari(screen.getByRole('option', { name: 'Comida' }))
+
+    expect(box).toHaveValue('Comida')
+    fireEvent.click(screen.getByRole('button', { name: /Anotar/ }))
+
+    await waitFor(async () => {
+      expect((await movements(it_)).expenses).toHaveLength(1)
+    })
+    const categories = await it_.db.listCategories(it_.householdId)
+    // Not a new category named after the half-typed "Com".
+    expect(categories.map((category) => category.name)).not.toContain('Com')
+    const comida = categories.find((category) => category.name === 'Comida')
+    const [gasto] = await it_.db.listExpensesInMonth({
+      householdId: it_.householdId,
+      ...currentMonthRange(TODAY),
+    })
+    expect(gasto?.categoryId).toBe(comida?.id)
   })
 
   it('offers no new category for a name that is already one', async () => {
