@@ -5,6 +5,7 @@ import {
   House,
   LogOut,
   Plus,
+  Upload,
   UserPlus,
   UserRound,
 } from 'lucide-react'
@@ -19,6 +20,7 @@ import type { BetaSession } from '../data'
 import { HogarSheet, InvitarSheet } from '../sheets/HogarSheet'
 import { CuentaSheet } from '../sheets/CuentaSheet'
 import { ExportarSheet } from '../sheets/ExportarSheet'
+import { ImportarSheet } from '../sheets/ImportarSheet'
 import { MetodoSheet } from '../sheets/MetodoSheet'
 import { LoadFailed, Title } from './Gastos'
 
@@ -35,7 +37,7 @@ export function Perfil({
 }): ReactElement {
   const firebase = useFirebase()
   const [sheet, setSheet] = useState<
-    'hogar' | 'invitar' | 'exportar' | 'cuenta' | null
+    'hogar' | 'invitar' | 'exportar' | 'importar' | 'cuenta' | null
   >(null)
   const [method, setMethod] = useState<PaymentMethod | 'nueva' | null>(null)
   const householdId = session.householdId ?? null
@@ -143,6 +145,12 @@ export function Perfil({
               v="Una planilla con el mes que elijas"
               onOpen={() => setSheet('exportar')}
             />
+            <Item
+              Icon={Upload}
+              k="Cargar desde una planilla"
+              v="Un .csv con varios movimientos de una vez"
+              onOpen={() => setSheet('importar')}
+            />
           </div>
         </div>
       </section>
@@ -174,6 +182,12 @@ export function Perfil({
       />
       <ExportarSheet
         open={sheet === 'exportar'}
+        onClose={() => setSheet(null)}
+        session={session}
+        household={household}
+      />
+      <ImportarSheet
+        open={sheet === 'importar'}
         onClose={() => setSheet(null)}
         session={session}
         household={household}
