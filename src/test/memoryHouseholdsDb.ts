@@ -802,6 +802,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         kind: input.kind,
         currency: input.currency,
         brand: input.brand,
+        closings: {},
         createdAt: new Date(),
       }
       state.cards.set(card.id, card)
@@ -834,6 +835,19 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
           })
         }
       }
+      return next
+    },
+    async setCardClosings(input) {
+      assertMemberOf(state, userId, input.householdId)
+      const existing = state.cards.get(input.cardId)
+      if (
+        existing === undefined ||
+        existing.householdId !== input.householdId
+      ) {
+        throw new CardNotFoundError()
+      }
+      const next: Card = { ...existing, closings: { ...input.closings } }
+      state.cards.set(next.id, next)
       return next
     },
     async deleteCard(input) {
@@ -932,6 +946,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         purchaseDate: input.purchaseDate,
         comments: input.comments,
         currency: input.currency,
+        resumenShift: input.resumenShift,
         createdAt,
         paidResumenIds: [],
       }
@@ -976,6 +991,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         purchaseDate: input.purchaseDate,
         comments: input.comments,
         currency: input.currency,
+        resumenShift: input.resumenShift,
       }
       moveCuotas(state, before, after, (monthStart, cents, currency) => ({
         id: resumenIdFor(card.id, monthStart, currency),
@@ -1426,6 +1442,7 @@ function dbForUser(state: MemoryState, userId: string): HouseholdsDb {
         purchaseDate: input.paymentDate,
         comments: '',
         currency: input.currency,
+        resumenShift: input.resumenShift,
         // Where it came from, so Gastos can leave it to Servicios.
         pendienteId: input.pendienteId,
         createdAt,

@@ -1,12 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
-import { CreditCard } from 'lucide-react'
+import { CalendarClock, CreditCard, X } from 'lucide-react'
+import { useState } from 'react'
 import type { ReactElement } from 'react'
 import {
+  closingMonthKey,
   cardsDueNextMonth,
   cardsDueNextMonthTotals,
   listResumenCuotas,
 } from '@/lib/cards'
-import type { ResumenCuota } from '@/lib/cards'
+import type { Card as PaymentMethod, ResumenCuota } from '@/lib/cards'
 import { fetchDolarBlue, usdToArs } from '@/lib/dolarBlue'
 import { readDolarBlueOverride } from '@/lib/dolarBlueOverride'
 
@@ -19,6 +21,12 @@ import { useMonth } from '../MonthContext'
 import { formatAmount, formatCurrency, formatPesos, monthName } from '../format'
 import type { BetaSession } from '../data'
 import { LoadFailed, Title } from './Gastos'
+import {
+  cardsNeedingCierre,
+  cierreAsked,
+  markCierreAsked,
+} from '../cierreReminder'
+import { MetodoSheet } from '../sheets/MetodoSheet'
 
 // Everything the cards are doing, in one place.
 //
@@ -100,6 +108,7 @@ export function Tarjetas({
 
   return (
     <>
+      <CierreReminder methods={credit} session={session} />
       <Title
         text="Tarjetas"
         sub="Todo lo que pagaron con tarjetas de crédito, ya sean gastos o servicios."
@@ -265,5 +274,86 @@ function Resumen({
         </div>
       ))}
     </div>
+  )
+}
+
+// Once a month, what day did each card close?
+//
+// The cierre carries forward, so nothing here is strictly missing -- but
+// the day itself moves, and a cierre that is a month out of date puts the
+// household's consumos in the wrong Resumen without anything looking
+// wrong. So this asks, on the screen where they are already looking at
+// the statements, and goes away for the month once it is answered or
+// dismissed. "Un modal que cerrás una vez y después desaparece."
+function CierreReminder({
+  methods,
+  session,
+}: {
+  readonly methods: readonly PaymentMethod[]
+  readonly session: BetaSession
+}): ReactElement | null {
+  const month = closingMonthKey(new Date())
+  const [hidden, setHidden] = useState(() => cierreAsked(month))
+  const [editing, setEditing] = useState<PaymentMethod | null>(null)
+  const pending = cardsNeedingCierre({ methods, now: new Date() })
+
+  const dismiss = (): void => {
+    markCierreAsked(month)
+    setHidden(true)
+  }
+
+  if (hidden || pending.length === 0) return null
+  const first = pending[0]
+  if (first === undefined) return null
+
+  return (
+    <>
+      <div className="card alert alert-warn cierrenote">
+        <span className="tile" aria-hidden="true">
+          <CalendarClock />
+        </span>
+        <p>
+          ¿Qué día cierra{pending.length > 1 ? 'n' : ''}{' '}
+          <b>
+            {pending.length === 1
+              ? first.name
+              : `tus ${String(pending.length)} tarjetas`}
+          </b>{' '}
+          este mes? Lo que compren ese día o después entra en el resumen
+          siguiente.
+        </p>
+        <div className="cierreacts">
+          <button
+            className="btn btn-primary"
+            type="button"
+            onClick={() => {
+              setEditing(first)
+            }}
+          >
+            Cargarlo
+          </button>
+          <button
+            className="chip-x"
+            type="button"
+            aria-label="Después"
+            onClick={dismiss}
+          >
+            <X />
+          </button>
+        </div>
+      </div>
+      {editing === null ? null : (
+        <MetodoSheet
+          open
+          onClose={() => {
+            setEditing(null)
+            dismiss()
+          }}
+          session={session}
+          method={editing}
+          existing={methods}
+        />
+      )}
+    </>
   )
 }

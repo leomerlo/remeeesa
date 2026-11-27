@@ -90,6 +90,7 @@ export const FIRESTORE_OPERATION_ACTIONS: Record<string, string> = {
   saveProjection: 'guardar la proyección del mes',
   listCards: 'cargar las tarjetas',
   updateCard: 'guardar la tarjeta',
+  setCardClosings: 'guardar la fecha de cierre de la tarjeta',
   deleteCard: 'borrar la tarjeta',
   createCard: 'guardar la tarjeta',
   renameCard: 'renombrar la tarjeta',

@@ -20,6 +20,9 @@ describe('parseCardDocument', () => {
       // No stored currency: every card written before they existed is in
       // pesos, since there was no way to record anything else.
       currency: 'ARS',
+      // And no cierre: a card written before cierres existed places its
+      // purchases exactly the way it always did.
+      closings: {},
       // Same for the brand: a card written before brands existed carries
       // no mark, which reads as "otra".
       brand: 'otra',
@@ -106,6 +109,7 @@ describe('parseCardPurchaseDocument', () => {
       currency: 'ARS',
       createdAt,
       paidResumenIds: [],
+      resumenShift: 0,
     })
   })
 

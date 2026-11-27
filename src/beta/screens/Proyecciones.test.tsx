@@ -49,6 +49,7 @@ async function houseWithACardBill(): Promise<BetaSession> {
     purchaseDate: new Date(),
     comments: '',
     currency: 'ARS',
+    resumenShift: 0,
   })
   return {
     userId: FLOR,

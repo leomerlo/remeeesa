@@ -1,4 +1,5 @@
 import type { CardCurrency, Currency } from '@/lib/money'
+import type { Closings } from './closing'
 
 // What a payment method *does* with the money, which is the only thing the
 // app behaves differently about.
@@ -106,6 +107,12 @@ export type Card = {
   // Dollar money is recorded but never counted toward the budget; see
   // lib/money/currency.
   readonly currency: CardCurrency
+  // What day of the month the statement closed, from each month onwards --
+  // '2026-11': 26 means "from November it closes on the 26th", until
+  // another month says otherwise. Only ever set on a credit card, since
+  // nothing else has a statement. Empty on every card written before this
+  // existed. See closing.ts.
+  readonly closings: Closings
   readonly createdAt: Date
 }
 
@@ -142,4 +149,12 @@ export type CardPurchase = {
   // The paid Resúmenes holding one of its cuotas. Non-empty locks the
   // purchase: it can no longer be edited or deleted (rules enforce it too).
   readonly paidResumenIds: readonly string[]
+  // How many Resúmenes this purchase skips because the card had already
+  // closed when it was made: 1 when it was bought on or after the cierre,
+  // 0 otherwise. Worked out from the card's cierre when the purchase is
+  // written and stored here, so every screen that reads a purchase places
+  // its cuotas the same way without having to fetch the card. Absent on
+  // every purchase written before cierres existed, which reads as 0 --
+  // exactly what the app did then. See closing.ts.
+  readonly resumenShift?: number
 }
