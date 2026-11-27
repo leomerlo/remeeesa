@@ -96,7 +96,7 @@ describe('importing a spreadsheet', () => {
     ).toEqual([])
   })
 
-  it('says what each row will become before it goes in', async () => {
+  it('says what happens to the money, not what the record is called', async () => {
     open(await house())
     choose(
       '11/11/2026;Café Martinez;Café;4.600;;;;;;;',
@@ -104,11 +104,29 @@ describe('importing a spreadsheet', () => {
       '14/11/2026;Swiss Medical;Salud;;;;no;sí;;;',
     )
 
-    expect(await screen.findByText('Gasto')).toBeInTheDocument()
     expect(
-      screen.getByText('Va al resumen de Visa Crédito, en 3 cuotas'),
+      await screen.findByText(
+        'No sale este mes: va al resumen de Visa Crédito, en 3 cuotas',
+      ),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Sale de este mes, con Efectivo'),
     ).toBeInTheDocument()
     expect(screen.getByText('Queda por pagar este mes')).toBeInTheDocument()
+  })
+
+  // A card purchase is a gasto like any other. What is different about it
+  // is when the money leaves, and that is said underneath -- a third word
+  // in the tag only made the household ask what it meant.
+  it('calls a card purchase a gasto, same as one paid in cash', async () => {
+    open(await house())
+    choose(
+      '11/11/2026;Café Martinez;Café;4.600;;;;;;;',
+      '13/11/2026;Discos;Música;104.500;ARS;Visa Crédito;sí;no;no;3;',
+    )
+
+    expect(await screen.findAllByText('Gasto')).toHaveLength(2)
+    expect(screen.queryByText('Consumo')).toBeNull()
   })
 
   it('marks a category the household does not have yet', async () => {

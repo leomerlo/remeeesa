@@ -29,27 +29,44 @@ type Stage =
     }
   | { readonly at: 'done'; readonly written: number; readonly failed: number }
 
+// Two words, because a household has two kinds of movement: something it
+// pays once and something that comes back every month. A consumo is a
+// gasto -- what is different about it is when the money leaves, and that
+// belongs in the line underneath, not in a third label nobody asked for.
+// Per direct feedback: "no hace falta mostrar si es gasto o consumo. Solo
+// si es gasto o servicio".
 const KIND_SAYS: Record<PlannedRow['kind'], string> = {
   gasto: 'Gasto',
+  consumo: 'Gasto',
   servicio: 'Servicio',
-  consumo: 'Consumo',
 }
 
-// What each row will become, in the words the rest of the app uses. The
-// consequence, not the record type: this is the line that tells somebody
-// their card purchase is not going to move this month's budget.
+// The tag's colour follows the word, so the two kinds of gasto look like
+// the same thing -- which is what they are.
+const KIND_TONE: Record<PlannedRow['kind'], string> = {
+  gasto: 'gasto',
+  consumo: 'gasto',
+  servicio: 'servicio',
+}
+
+// What happens to the money, which is the whole of the difference between
+// a gasto paid with a card and one paid with anything else. The card one
+// does not come out of this month at all, and saying so here is what keeps
+// it from being counted twice -- once now and again when the resumen is
+// paid.
 function consequenceOf(row: PlannedRow): string {
   if (row.kind === 'consumo') {
     return row.cuotas > 1
-      ? `Va al resumen de ${row.methodLabel}, en ${String(row.cuotas)} cuotas`
-      : `Va al resumen de ${row.methodLabel}`
+      ? `No sale este mes: va al resumen de ${row.methodLabel}, en ${String(row.cuotas)} cuotas`
+      : `No sale este mes: va al resumen de ${row.methodLabel}`
   }
   if (row.kind === 'servicio') {
-    return row.paid
-      ? `Queda pagado con ${row.methodLabel}`
-      : 'Queda por pagar este mes'
+    if (!row.paid) return 'Queda por pagar este mes'
+    return row.methodOnCredit
+      ? `No sale este mes: queda pagado y va al resumen de ${row.methodLabel}`
+      : `Queda pagado con ${row.methodLabel}`
   }
-  return `Sale hoy, con ${row.methodLabel}`
+  return `Sale de este mes, con ${row.methodLabel}`
 }
 
 function dayMonth(date: Date): string {
@@ -310,7 +327,7 @@ export function ImportarSheet({
                     </span>
                   </div>
                   <div className="irow-tags">
-                    <span className={`itag itag-${row.kind}`}>
+                    <span className={`itag itag-${KIND_TONE[row.kind]}`}>
                       {KIND_SAYS[row.kind]}
                     </span>
                     <span className="itag">{dayMonth(row.date)}</span>

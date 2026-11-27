@@ -4446,10 +4446,6 @@ a.card {
   color: var(--grape-700);
   border-color: currentcolor;
 }
-.itag-consumo {
-  color: var(--blue-700);
-  border-color: currentcolor;
-}
 .irow-why {
   margin: 0;
   font-size: var(--t-xs);
