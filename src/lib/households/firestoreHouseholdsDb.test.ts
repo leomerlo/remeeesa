@@ -832,7 +832,7 @@ describe('firestore.rules cards', () => {
     // All three keys the card's one "Guardar" writes. Short of this, saving
     // a card after picking its brand is refused in production.
     expect(body).toContain(
-      "request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'kind', 'currency', 'brand'])",
+      "request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'kind', 'currency', 'brand', 'closings'])",
     )
     // Deleting a card is a real action in Ajustes now. The "nothing points
     // at it" check lives in the adapter, since rules cannot query.
@@ -844,7 +844,7 @@ describe('firestore.rules cards', () => {
   it('restricts card fields and requires a non-blank name', () => {
     expect(rules).toContain('function isValidCard(data)')
     expect(rules).toContain(
-      "data.keys().hasOnly(['household_id', 'name', 'kind', 'currency', 'brand', 'created_at'])",
+      "data.keys().hasOnly(['household_id', 'name', 'kind', 'currency', 'brand', 'closings', 'created_at'])",
     )
     // Optional, because every card written before currencies existed has
     // no such key, and only ever one of the two the app knows.
@@ -994,7 +994,7 @@ describe('firestore.rules Resúmenes', () => {
   it('keeps an edit off the author and the timestamps, and re-validates the whole purchase', () => {
     const fn = ruleFunction('isValidCardPurchaseEdit')
     expect(fn).toContain(
-      ".hasOnly(['card_id', 'category_id', 'name', 'total', 'cuotas', 'purchase_date', 'comments', 'currency'])",
+      ".hasOnly(['card_id', 'category_id', 'name', 'total', 'cuotas', 'purchase_date', 'comments', 'currency', 'resumen_shift'])",
     )
     expect(fn).toContain('isValidCardPurchase(request.resource.data)')
   })
@@ -1039,7 +1039,9 @@ describe('firestore.rules Resúmenes', () => {
       "data.currency in ['ARS', 'USD', 'BOTH']",
     )
     const purchase = ruleFunction('isValidCardPurchase')
-    expect(purchase).toContain("'comments', 'currency', 'created_at'")
+    expect(purchase).toContain(
+      "'comments', 'currency', 'resumen_shift', 'created_at'",
+    )
     expect(purchase).toContain(
       "(!('currency' in data) || data.currency in ['ARS', 'USD'])",
     )

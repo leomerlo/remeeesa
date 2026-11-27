@@ -4470,3 +4470,20 @@ a.card {
 .irow-bad .irow-why {
   color: var(--red-700);
 }
+
+/* the once-a-month reminder to confirm when each card closed */
+.cierrenote {
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.cierrenote p {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.cierreacts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}

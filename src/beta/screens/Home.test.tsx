@@ -263,6 +263,7 @@ describe('what the cards asked of the month', () => {
       purchaseDate: new Date(2026, 7, 10, 12),
       comments: '',
       currency: 'ARS',
+      resumenShift: 0,
     })
     // Something ordinary in the month, so there is a ring for the line
     // to sit under: the breakdown draws nothing at all otherwise.

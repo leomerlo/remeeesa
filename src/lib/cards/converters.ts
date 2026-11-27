@@ -6,6 +6,7 @@ import {
 import { parseStringList } from '@/lib/pendientes/converters'
 import { parseCardCurrency, parseCurrency } from '@/lib/money'
 import { parseCardBrand, parsePaymentMethodKind } from './types'
+import { parseClosings } from './closing'
 import type { Card, CardPurchase } from './types'
 
 export function parseCardDocument(input: {
@@ -18,7 +19,8 @@ export function parseCardDocument(input: {
   if (!isRecord(input.data)) {
     throw new Error('Card document must be an object')
   }
-  const { household_id, name, kind, currency, brand, created_at } = input.data
+  const { household_id, name, kind, currency, brand, created_at, closings } =
+    input.data
   return {
     id: input.id,
     householdId: parseRequiredString(household_id, 'household_id'),
@@ -29,6 +31,9 @@ export function parseCardDocument(input: {
     currency: parseCardCurrency(currency),
     // And every card written before brands existed is "otra".
     brand: parseCardBrand(brand),
+    // And every card written before cierres existed has none, which places
+    // its purchases exactly the way it always did.
+    closings: parseClosings(closings),
     createdAt: parseTimestamp(created_at, 'created_at'),
   }
 }
@@ -65,6 +70,13 @@ export function parseCardPurchaseDocument(input: {
     // Every purchase written before a card could hold two currencies is in
     // pesos, which is what its card held.
     currency: parseCurrency(d.currency),
+    // How many Resúmenes it skips because the card had already closed.
+    // Every purchase written before cierres existed skips none, which is
+    // exactly where the app put it then. See closing.ts.
+    resumenShift:
+      typeof d.resumen_shift === 'number' && Number.isInteger(d.resumen_shift)
+        ? d.resumen_shift
+        : 0,
     createdAt: parseTimestamp(d.created_at, 'created_at'),
     // The bill this consumo came from, on one that came from a bill.
     // Left off rather than written as null on ordinary shopping, which

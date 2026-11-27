@@ -11,9 +11,10 @@ import { currentMonthRange } from '@/lib/expenses/remainingBudget'
 import type { HouseholdsDb } from '@/lib/households/types'
 import { pendientesDueInMonth } from '@/lib/pendientes/pendingForMonth'
 import type { Pendiente } from '@/lib/pendientes/types'
+import { closingShift } from './closing'
 import { cuotasOf } from './cuotas'
 import type { Cuota } from './cuotas'
-import type { CardPurchase } from './types'
+import type { Card, CardPurchase } from './types'
 
 export const MAX_CUOTAS = 24
 
@@ -54,9 +55,7 @@ async function resumenCategoryId(input: {
   const pendientes = await input.db.listPendientes({
     householdId: input.householdId,
   })
-  const resumen = pendientes.find(
-    (pendiente) => pendiente.cardId !== undefined,
-  )
+  const resumen = pendientes.find((pendiente) => pendiente.cardId !== undefined)
   if (resumen !== undefined) {
     return resumen.categoryId
   }
@@ -191,7 +190,7 @@ export async function createCardPurchase(input: {
   const cuotas = parseCuotas(input.cuotas, total)
   const purchaseDate = parseExpenseDate(input.purchaseDate)
   const authorDisplayName = parseAuthorDisplayName(input.authorDisplayName)
-  const currency = await assertCardAccepts(input.db, input)
+  const { currency, card } = await assertCardAccepts(input.db, input)
   const resumenCategory = {
     id: await resumenCategoryId({
       db: input.db,
@@ -211,6 +210,10 @@ export async function createCardPurchase(input: {
     purchaseDate,
     comments: input.comments,
     currency,
+    // Worked out here, from the cierre the card had in the month it was
+    // bought, and stored on the purchase: every screen then places its
+    // cuotas without fetching the card again.
+    resumenShift: closingShift(card.closings, purchaseDate),
   })
 }
 
@@ -243,7 +246,7 @@ export async function markPendientePaidWithCard(input: {
   const cuotas = parseCuotas(input.cuotas, finalAmount)
   const paymentDate = parseExpenseDate(input.paymentDate)
   const authorDisplayName = parseAuthorDisplayName(input.authorDisplayName)
-  const currency = await assertCardAccepts(input.db, input)
+  const { currency, card } = await assertCardAccepts(input.db, input)
   const resumenCategory = {
     id: await resumenCategoryId({
       db: input.db,
@@ -261,12 +264,16 @@ export async function markPendientePaidWithCard(input: {
     cuotas,
     paymentDate,
     currency,
+    resumenShift: closingShift(card.closings, paymentDate),
   })
 }
 
 // The currency the purchase will be saved in, once the card is known to
 // hold it. Pesos when the caller said nothing, which is what every call
 // written before a card could hold two currencies meant.
+// The card a purchase is going on, and the currency it is in: both come
+// from the same read, because placing the purchase needs the card's cierre
+// as well as the currency it accepts.
 async function assertCardAccepts(
   db: HouseholdsDb,
   input: {
@@ -274,7 +281,7 @@ async function assertCardAccepts(
     readonly cardId: string
     readonly currency?: Currency
   },
-): Promise<Currency> {
+): Promise<{ readonly currency: Currency; readonly card: Card }> {
   const currency = input.currency ?? DEFAULT_CURRENCY
   const cards = await db.listCards({ householdId: input.householdId })
   const card = cards.find((candidate) => candidate.id === input.cardId)
@@ -284,7 +291,7 @@ async function assertCardAccepts(
   if (!cardAccepts(card.currency, currency)) {
     throw new CardCurrencyNotAcceptedError(card.name)
   }
-  return currency
+  return { currency, card }
 }
 
 // Any field may change, card and cuotas included: the old cuotas leave their
@@ -306,7 +313,7 @@ export async function updateCardPurchase(input: {
   const total = parseExpensePrice(input.total)
   const cuotas = parseCuotas(input.cuotas, total)
   const purchaseDate = parseExpenseDate(input.purchaseDate)
-  const currency = await assertCardAccepts(input.db, input)
+  const { currency, card } = await assertCardAccepts(input.db, input)
   // A new month -- or a new currency -- may need a new Resumen.
   const resumenCategory = {
     id: await resumenCategoryId({
@@ -326,6 +333,9 @@ export async function updateCardPurchase(input: {
     purchaseDate,
     comments: input.comments,
     currency,
+    // Recomputed, not carried over: moving a purchase across the cierre is
+    // exactly the case where it has to change.
+    resumenShift: closingShift(card.closings, purchaseDate),
   })
 }
 

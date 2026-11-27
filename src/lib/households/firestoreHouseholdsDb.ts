@@ -1675,6 +1675,7 @@ export function createFirestoreHouseholdsDb(
               purchase_date: toFirestoreExpenseDate(input.paymentDate),
               comments: '',
               currency: input.currency,
+              resumen_shift: input.resumenShift,
               // Where it came from. Without it this consumo is
               // indistinguishable from shopping done on the same card,
               // and Gastos listed it -- while the whole point of paying
@@ -2104,10 +2105,34 @@ export function createFirestoreHouseholdsDb(
             kind: input.kind,
             currency: input.currency,
             brand: input.brand,
+            // A new card has no cierre yet; the household sets it on the
+            // method itself once it knows what day its statement closes.
+            closings: {},
             createdAt: now.toDate(),
           }
         },
         { householdId: input.householdId },
+      )
+    },
+    async setCardClosings(input) {
+      return withHouseholdAccess(
+        'setCardClosings',
+        async () => {
+          const cardRef = doc(firestore, 'cards', input.cardId)
+          const cardSnap = await getDoc(cardRef)
+          if (
+            !cardSnap.exists() ||
+            cardSnap.data().household_id !== input.householdId
+          ) {
+            throw new CardNotFoundError()
+          }
+          await updateDoc(cardRef, { closings: input.closings })
+          return parseCardDocument({
+            id: cardRef.id,
+            data: { ...cardSnap.data(), closings: input.closings },
+          })
+        },
+        { householdId: input.householdId, cardId: input.cardId },
       )
     },
     async updateCard(input) {
@@ -2319,6 +2344,7 @@ export function createFirestoreHouseholdsDb(
               purchase_date: toFirestoreExpenseDate(input.purchaseDate),
               comments: input.comments,
               currency: input.currency,
+              resumen_shift: input.resumenShift,
               created_at: now,
             })
             cuotas.forEach((cuota, index) => {
@@ -2431,6 +2457,7 @@ export function createFirestoreHouseholdsDb(
               purchase_date: toFirestoreExpenseDate(input.purchaseDate),
               comments: input.comments,
               currency: input.currency,
+              resumen_shift: input.resumenShift,
             })
             return edited
           })

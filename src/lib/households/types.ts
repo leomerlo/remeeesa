@@ -314,6 +314,7 @@ export type HouseholdsDb = {
     readonly cuotas: number
     readonly paymentDate: Date
     readonly currency: Currency
+    readonly resumenShift: number
   }): Promise<{
     pendiente: Pendiente
     purchase: CardPurchase
@@ -386,6 +387,14 @@ export type HouseholdsDb = {
     readonly currency: CardCurrency
     readonly brand: CardBrand
   }): Promise<Card>
+  // The card's cierres, on their own. Deliberately not part of updateCard:
+  // the form that renames a method knows nothing about them, and sending
+  // the whole card back would wipe them every time somebody fixed a typo.
+  setCardClosings(input: {
+    readonly householdId: string
+    readonly cardId: string
+    readonly closings: Readonly<Record<string, number>>
+  }): Promise<Card>
   // Only a card nothing points at. Rejects with CardInUseError when it has
   // any purchase or any Resumen, since deleting it would leave those with a
   // card id that resolves to nothing.
@@ -428,6 +437,9 @@ export type HouseholdsDb = {
     // The purchase's currency, which also picks which of the card's
     // Resúmenes of each month its cuotas land in -- see resumenIdFor.
     readonly currency: Currency
+    // Resúmenes skipped because the card had already closed; see
+    // lib/cards/closing.ts.
+    readonly resumenShift: number
   }): Promise<CardPurchase>
   // One transaction: rewrites the purchase and moves its cuotas between
   // Resúmenes (see resumenChanges), creating a missing one in
@@ -449,6 +461,9 @@ export type HouseholdsDb = {
     readonly purchaseDate: Date
     readonly comments: string
     readonly currency: Currency
+    // Resúmenes skipped because the card had already closed; see
+    // lib/cards/closing.ts.
+    readonly resumenShift: number
   }): Promise<CardPurchase>
   // Same transaction and rejections as updateCardPurchase, with no cuotas
   // after.

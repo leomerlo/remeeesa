@@ -1,4 +1,14 @@
 export type { Card, CardBrand, CardPurchase, PaymentMethodKind } from './types'
+export type { ClosingMonth, Closings } from './closing'
+export {
+  closingDayFor,
+  closingMonthKey,
+  closingShift,
+  parseClosingDay,
+  parseClosings,
+} from './closing'
+export type { ClosingDayResult } from './setClosing'
+export { ClosingDayNotOnCreditError, setCardClosingDay } from './setClosing'
 export {
   CARD_BRANDS,
   PAYMENT_METHOD_KINDS,

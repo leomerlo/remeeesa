@@ -16,11 +16,15 @@ export function cuotasOf(input: {
   readonly total: number
   readonly cuotas: number
   readonly purchaseDate: Date
+  // Resúmenes skipped because the card had already closed -- see closing.ts
+  // and CardPurchase.resumenShift. Absent means none, which is how every
+  // purchase written before cierres existed behaves.
+  readonly resumenShift?: number | undefined
 }): readonly Cuota[] {
   const cents = Math.round(input.total * 100)
   const base = Math.floor(cents / input.cuotas)
   const year = input.purchaseDate.getFullYear()
-  const month = input.purchaseDate.getMonth()
+  const month = input.purchaseDate.getMonth() + (input.resumenShift ?? 0)
   return Array.from({ length: input.cuotas }, (_, index) => {
     const number = index + 1
     const amountCents =
@@ -63,6 +67,7 @@ type CuotaSource = {
   readonly cuotas: number
   readonly purchaseDate: Date
   readonly currency: Currency
+  readonly resumenShift?: number | undefined
 }
 
 // What editing or deleting a purchase does to one Resumen.
