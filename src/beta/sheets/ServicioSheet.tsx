@@ -81,12 +81,15 @@ export function ServicioSheet({
   // cash one month and on a card the next.
   readonly paidWith?: string | null
 }): ReactElement {
-  const [name, setName] = useState(bill?.name ?? '')
-  const [amount, setAmount] = useState(
+  // What the form opened with, kept so the save can tell an untouched
+  // field from an edited one -- which is the whole question on a bill
+  // that is already paid.
+  const asOpened =
     bill?.expectedAmount === null || bill?.expectedAmount === undefined
       ? ''
-      : String(bill.expectedAmount),
-  )
+      : String(bill.expectedAmount)
+  const [name, setName] = useState(bill?.name ?? '')
+  const [amount, setAmount] = useState(asOpened)
   const [currency, setCurrency] = useState<Currency>(bill?.currency ?? 'ARS')
   const [categoryId, setCategoryId] = useState(
     bill?.categoryId ?? categories[0]?.id ?? '',
@@ -108,8 +111,29 @@ export function ServicioSheet({
   const named = name.trim() !== ''
   // Blank is allowed; a number that is not a number is not.
   const priced = moneyIsValid(amount, { required: false })
+  // A paid bill is frozen: everything above the switches is the record of
+  // something that already happened, and the save would drop these edits
+  // without a word -- "no me deja guardar la actualizacion de precio".
+  // The money the month counts is the gasto that payment wrote, not this
+  // figure, so writing the figure alone would leave the row saying one
+  // thing and the presupuesto charging another. So the form says no here,
+  // and says which switch opens the bill again.
+  const frozenEdit =
+    bill !== null &&
+    bill.status === 'paid' &&
+    paid &&
+    (name.trim() !== bill.name ||
+      amount.trim() !== asOpened.trim() ||
+      currency !== (bill.currency ?? 'ARS') ||
+      categoryId !== bill.categoryId ||
+      categoryName.trim() !== '' ||
+      due !== isoDay(bill.dueDate) ||
+      methodId !== (bill.paymentMethodId ?? ''))
   const blocked =
-    !named || !priced || (categoryId === '' && categoryName.trim() === '')
+    !named ||
+    !priced ||
+    (categoryId === '' && categoryName.trim() === '') ||
+    frozenEdit
   const householdId = session.householdId ?? ''
   // The only reason a form here refuses to save: the household has not
   // finished loading, so there is nowhere to write yet.
@@ -341,6 +365,17 @@ export function ServicioSheet({
           onChange={setPaid}
         />
       )}
+      {/* Right under the switch that is the way out, rather than at the
+          foot of the form with the other problems: the sentence is about
+          this switch, and on a phone the foot of the form is a scroll
+          away from the field she just typed in. */}
+      {frozenEdit ? (
+        <p className="fproblem" role="alert">
+          Esto ya está pagado y no se puede cambiar así. Apagá «Ya lo pagué» y
+          guardá: vuelve a lo que falta pagar con el monto nuevo, y lo volvés a
+          marcar pagado.
+        </p>
+      ) : null}
       <Toggle
         k="Todos los meses"
         v="Se vuelve a crear solo cuando arranca el mes siguiente."
@@ -370,7 +405,7 @@ export function ServicioSheet({
           cuenta queda saldada y la diferencia sigue contada como gastada.
         </p>
       ) : null}
-      {blocked ? (
+      {blocked && !frozenEdit ? (
         <p className="fproblem" role="alert">
           {!named
             ? 'Falta el nombre del servicio.'
@@ -387,9 +422,8 @@ export function ServicioSheet({
           <p className="fnote">
             Pagaste {pesos(paidSoFar(bill))} de{' '}
             {pesos(bill.expectedAmount ?? 0)}, así que falta{' '}
-            {pesos(amountLeft(bill) ?? 0)}. Deshacer el último pago le
-            devuelve eso al servicio y saca el gasto que ese pago había
-            anotado.
+            {pesos(amountLeft(bill) ?? 0)}. Deshacer el último pago le devuelve
+            eso al servicio y saca el gasto que ese pago había anotado.
           </p>
           <button
             className="btn btn-secondary btn-block"

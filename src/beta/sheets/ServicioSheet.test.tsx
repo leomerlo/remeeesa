@@ -152,8 +152,12 @@ describe('paying part of a servicio', () => {
     fireEvent.change(screen.getByLabelText('Cuánto pagaron'), {
       target: { value: '20000' },
     })
-    fireEvent.click(screen.getByRole('switch', { name: /Pagué solo una parte/ }))
-    fireEvent.click(screen.getByRole('button', { name: /Guardar lo que pagué/ }))
+    fireEvent.click(
+      screen.getByRole('switch', { name: /Pagué solo una parte/ }),
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: /Guardar lo que pagué/ }),
+    )
 
     await waitFor(async () => {
       const after = await it.db.getPendiente({
@@ -386,6 +390,86 @@ describe('the servicio form asks what the gasto form asks', () => {
         limit: 10,
       }),
     ).toEqual([])
+  })
+
+  // "No me deja guardar la actualizacion de precio": the form used to
+  // take the new figure, close, and keep the old one, because a paid bill
+  // is frozen and the save dropped the edit without a word.
+  it('says why a paid bill will not take a new amount', async () => {
+    const it_ = await house()
+    const { pendiente } = await it_.db.markPendientePaid({
+      householdId: it_.householdId,
+      pendienteId: it_.bill.id,
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      finalAmount: 36_800,
+      paymentDate: TODAY,
+    })
+    edit(it_, pendiente)
+
+    fireEvent.change(screen.getByLabelText('Cuánto'), {
+      target: { value: '24357,72' },
+    })
+
+    expect(screen.getByRole('alert')).toHaveTextContent(/Ya lo pagué/)
+    expect(screen.getByRole('button', { name: /Guardar/ })).toBeDisabled()
+
+    // And nothing was written: the bill still says what it was paid for.
+    const after = await it_.db.getPendiente({
+      householdId: it_.householdId,
+      pendienteId: it_.bill.id,
+    })
+    expect(after?.expectedAmount).toBe(36_800)
+  })
+
+  // The way out the message points at, end to end.
+  it('takes the new amount once the payment is undone', async () => {
+    const it_ = await house()
+    const { pendiente } = await it_.db.markPendientePaid({
+      householdId: it_.householdId,
+      pendienteId: it_.bill.id,
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      finalAmount: 36_800,
+      paymentDate: TODAY,
+    })
+    edit(it_, pendiente)
+
+    fireEvent.change(screen.getByLabelText('Cuánto'), {
+      target: { value: '24357,72' },
+    })
+    fireEvent.click(screen.getByRole('switch', { name: /Ya lo pagué/ }))
+    expect(screen.queryByRole('alert')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/ }))
+
+    await waitFor(async () => {
+      const after = await it_.db.getPendiente({
+        householdId: it_.householdId,
+        pendienteId: it_.bill.id,
+      })
+      expect(after?.expectedAmount).toBe(24_357.72)
+      expect(after?.status).toBe('pending')
+    })
+  })
+
+  // Nothing above the switches changed, so the form has no quarrel with
+  // it: a paid servicio can still stop repeating.
+  it('still lets a paid bill change whether it repeats', async () => {
+    const it_ = await house()
+    const { pendiente } = await it_.db.markPendientePaid({
+      householdId: it_.householdId,
+      pendienteId: it_.bill.id,
+      memberId: FLOR,
+      authorDisplayName: 'Flor',
+      finalAmount: 36_800,
+      paymentDate: TODAY,
+    })
+    edit(it_, pendiente)
+
+    fireEvent.click(screen.getByRole('switch', { name: /Todos los meses/ }))
+
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.getByRole('button', { name: /Guardar/ })).not.toBeDisabled()
   })
 
   // Where a record is read is decided by the gasto's own flag, written
